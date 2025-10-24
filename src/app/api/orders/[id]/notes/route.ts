@@ -1,0 +1,40 @@
+// src/app/api/orders/[id]/notes/route.ts
+import { NextRequest, NextResponse } from "next/server";
+import { woo } from "@/lib/woo";
+
+export async function GET(
+  _req: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  const id = Number(params.id);
+  if (!id) return NextResponse.json({ error: "Invalid order id" }, { status: 400 });
+  try {
+    const { data } = await woo.get(`/orders/${id}/notes`);
+    return NextResponse.json(data);
+  } catch (e: any) {
+    return NextResponse.json({ error: e.message || "Failed to load notes" }, { status: 500 });
+  }
+}
+
+export async function POST(
+  req: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  const id = Number(params.id);
+  if (!id) return NextResponse.json({ error: "Invalid order id" }, { status: 400 });
+  const body = await req.json().catch(() => ({}));
+  // Woo expects: { note: string, customer_note: boolean }
+  const payload = {
+    note: String(body.note || ""),
+    customer_note: Boolean(body.customer_note || false),
+  };
+  if (!payload.note.trim()) {
+    return NextResponse.json({ error: "note is required" }, { status: 400 });
+  }
+  try {
+    const { data } = await woo.post(`/orders/${id}/notes`, payload);
+    return NextResponse.json(data);
+  } catch (e: any) {
+    return NextResponse.json({ error: e.message || "Failed to add note" }, { status: 500 });
+  }
+}
