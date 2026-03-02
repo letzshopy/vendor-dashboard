@@ -30,12 +30,14 @@ function pickAddress(o: WCOrder) {
   return { name, lines, phone };
 }
 
-export default async function PackSlipsPage({
-  searchParams,
-}: {
-  searchParams?: Record<string, string | string[] | undefined>;
-}) {
-  const ids = String(searchParams?.ids || "")
+type Props = {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+};
+
+export default async function PackSlipsPage({ searchParams }: Props) {
+  const sp = (await searchParams) ?? {};
+
+  const ids = String(sp?.ids || "")
     .split(",")
     .map((s) => parseInt(s.trim(), 10))
     .filter((n) => Number.isFinite(n));

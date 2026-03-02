@@ -72,12 +72,14 @@ function pill(text: string) {
   );
 }
 
-export default async function MasterTicketDetailPage({
-  params,
-}: {
-  params: { id: string };
-}) {
-  const data = await getTicket(params.id);
+type Props = {
+  params: Promise<{ id: string }>;
+};
+
+export default async function MasterTicketDetailPage({ params }: Props) {
+  const { id } = await params;
+
+  const data = await getTicket(id);
 
   const t = data.ticket;
   const adminUrl =
@@ -202,9 +204,7 @@ export default async function MasterTicketDetailPage({
               ))}
 
               {(!data.attachments || data.attachments.length === 0) && (
-                <div className="text-sm text-slate-400">
-                  No attachments found.
-                </div>
+                <div className="text-sm text-slate-400">No attachments found.</div>
               )}
             </div>
           </div>
