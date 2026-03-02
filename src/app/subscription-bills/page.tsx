@@ -1,1 +1,0 @@
-export default function SubBills(){return <main><h1 className="text-2xl font-semibold mb-2">LetzShopy Subscription Invoices</h1><p className="text-sm text-slate-600">Your SaaS plan invoices (coming soon).</p></main>;}
