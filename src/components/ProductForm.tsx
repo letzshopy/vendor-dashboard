@@ -248,27 +248,42 @@ export default function ProductForm({
     return (termsMap[attrId] || []).find((t) => t.name === termName);
   }
 
-  function generateVariations() {
+    function generateVariations() {
     const base = sku.trim();
     const attrDefs = varAttrRows
-      .map((id) => ({ id, name: attrs.find((a) => a.id === id)?.name, terms: varChosenTerms[id] || [] }))
+      .map((id) => ({
+        id,
+        name: attrs.find((a) => a.id === id)?.name,
+        terms: varChosenTerms[id] || [],
+      }))
       .filter((a) => a.terms.length > 0);
 
-    if (attrDefs.length === 0) { setRows([]); return; }
+    if (attrDefs.length === 0) {
+      setRows([]);
+      return;
+    }
 
     let combos: { id?: number; name?: string; option: string }[][] = [[]];
     for (const a of attrDefs) {
-      const next: any[] = [];
-      for (const c of combos) for (const termName of a.terms) next.push([...c, { id: a.id, name: a.name, option: termName }]);
+      const next: { id?: number; name?: string; option: string }[][] = [];
+      for (const c of combos) {
+        for (const termName of a.terms) {
+          next.push([
+            ...c,
+            { id: a.id, name: a.name, option: termName },
+          ]);
+        }
+      }
       combos = next;
     }
 
-    const newRows = combos.map((attrsCombo) => {
+    const newRows: VRow[] = combos.map((attrsCombo): VRow => {
       const parts = attrsCombo.map((a) => {
         const term = findTerm(a.id!, a.option);
         return skuPartFor(a.name, a.option, term?.slug);
       });
       const autoSku = base ? `${base}-${parts.join("-")}` : "";
+
       return {
         key: attrsCombo.map((a) => `${a.name}=${a.option}`).join("|"),
         attrs: attrsCombo,
@@ -276,12 +291,14 @@ export default function ProductForm({
         regular_price: "",
         sale_price: "",
         manage_stock: false,
-        stock_quantity: "",
-        backorders: "no" as const,
+        stock_quantity: "" as "",
+        backorders: "no",
       };
     });
+
     setRows(newRows);
   }
+
 
   // grouped search
   useEffect(() => {

@@ -1,15 +1,20 @@
-import { NextResponse } from "next/server";
+// src/app/api/products/[id]/duplicate/route.ts
+import { NextRequest, NextResponse } from "next/server";
 import { woo } from "@/lib/woo";
 
 /** Normalize Woo arrays */
 function asIdObjs(arr?: { id: number }[] | number[]) {
   if (!arr) return [];
-  if (typeof arr[0] === "number") return (arr as number[]).map((id) => ({ id }));
+  if (typeof arr[0] === "number") {
+    return (arr as number[]).map((id) => ({ id }));
+  }
   return arr as { id: number }[];
 }
 function asNameObjs(arr?: { name: string }[] | string[]) {
   if (!arr) return [];
-  if (typeof arr[0] === "string") return (arr as string[]).map((name) => ({ name }));
+  if (typeof arr[0] === "string") {
+    return (arr as string[]).map((name) => ({ name }));
+  }
   return arr as { name: string }[];
 }
 
@@ -29,13 +34,17 @@ async function getAllVariations(productId: number) {
   return all;
 }
 
-export async function POST(
-  _req: Request,
-  { params }: { params: { id: string } }
-) {
+type RouteContext = {
+  params: Promise<{ id: string }>;
+};
+
+export async function POST(_req: NextRequest, context: RouteContext) {
   try {
-    const srcId = Number(params.id);
-    if (!srcId) return NextResponse.json({ error: "Invalid id" }, { status: 400 });
+    const { id } = await context.params;
+    const srcId = Number(id);
+    if (!srcId) {
+      return NextResponse.json({ error: "Invalid id" }, { status: 400 });
+    }
 
     // 1) Load source product
     const { data: src } = await woo.get(`/products/${srcId}`);
@@ -52,7 +61,10 @@ export async function POST(
       sku: "",
 
       // keep images
-      images: (src.images || []).map((im: any, i: number) => ({ id: im.id, position: i })),
+      images: (src.images || []).map((im: any, i: number) => ({
+        id: im.id,
+        position: i,
+      })),
 
       // categories / tags
       categories: asIdObjs(src.categories),
@@ -66,7 +78,12 @@ export async function POST(
     // shipping (not for grouped)
     if (type !== "grouped") {
       base.weight = src.weight || undefined;
-      if (src.dimensions && (src.dimensions.length || src.dimensions.width || src.dimensions.height)) {
+      if (
+        src.dimensions &&
+        (src.dimensions.length ||
+          src.dimensions.width ||
+          src.dimensions.height)
+      ) {
         base.dimensions = {
           length: src.dimensions.length || "",
           width: src.dimensions.width || "",
@@ -108,7 +125,9 @@ export async function POST(
     }
 
     if (type === "grouped") {
-      base.grouped_products = Array.isArray(src.grouped_products) ? src.grouped_products : [];
+      base.grouped_products = Array.isArray(src.grouped_products)
+        ? src.grouped_products
+        : [];
     }
 
     // 3) Create the new parent
@@ -140,7 +159,8 @@ export async function POST(
 
     return NextResponse.json({ ok: true, newId: created.id });
   } catch (e: any) {
-    const msg = e?.response?.data?.message || e?.message || "Duplicate failed";
+    const msg =
+      e?.response?.data?.message || e?.message || "Duplicate failed";
     return NextResponse.json({ error: msg }, { status: 500 });
   }
 }

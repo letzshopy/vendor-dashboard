@@ -1,17 +1,35 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { woo } from "@/lib/woo";
 
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+/**
+ * GET /api/woo/categories
+ * Query:
+ *  - per_page (default 100)
+ *  - search
+ *  - simple=1  -> returns flat array [{id,name}] instead of { ok, items }
+ */
+export async function GET(req: NextRequest) {
   try {
-    const perPage = 100;
+    const url = new URL(req.url);
+    const perPage = Number(url.searchParams.get("per_page") || 100);
+    const search = url.searchParams.get("search") || undefined;
+    const simple = url.searchParams.get("simple") === "1";
+
     let page = 1;
     const items: any[] = [];
 
     while (true) {
       const { data } = await woo.get("/products/categories", {
-        params: { per_page: perPage, page },
+        params: {
+          per_page: perPage,
+          page,
+          ...(search ? { search } : {}),
+          hide_empty: false,
+          orderby: "name",
+          order: "asc",
+        },
       });
       if (!Array.isArray(data) || data.length === 0) break;
       items.push(...data);
@@ -25,6 +43,13 @@ export async function GET() {
       slug: String(c.slug || ""),
       parent: Number(c.parent || 0),
     }));
+
+    // New: flat mode for simple dropdowns
+    if (simple) {
+      return NextResponse.json(
+        cats.map((c) => ({ id: c.id, name: c.name }))
+      );
+    }
 
     return NextResponse.json({ ok: true, items: cats });
   } catch (err: any) {

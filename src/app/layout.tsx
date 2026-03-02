@@ -1,9 +1,19 @@
+// src/app/layout.tsx
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import Topbar from "@/components/Topbar";
-import Sidebar from "@/components/Sidebar";
-import WhatsappFab from "@/components/WhatsappFab";
+import { Suspense } from "react";
+
+import LookupGuard from "./_debug/lookup-guard";
+import LookupMuzzle from "./_debug/lookup-muzzle";
+
+export const metadata: Metadata = {
+  title: "LetzShopy Vendor",
+  description: "Vendor dashboard for LetzShopy",
+};
+
+// Keep dashboard dynamic
+export const dynamic = "force-dynamic";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -15,23 +25,32 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-export const metadata: Metadata = {
-  title: "LetzShopy Vendor",
-  description: "Vendor dashboard for LetzShopy",
-};
-
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return (
     <html lang="en">
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased bg-white text-slate-900`}>
-        <Topbar />
-        <div className="flex">
-          <Sidebar />
-          <main className="flex-1 min-w-0">
-            <div className="mx-auto max-w-6xl px-4 py-6">{children}</div>
-          </main>
-        </div>
-        <WhatsappFab />
+      <body
+        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-slate-50 text-slate-900`}
+      >
+        {process.env.NODE_ENV !== "production" && (
+          <>
+            <LookupGuard />
+            <LookupMuzzle />
+          </>
+        )}
+
+        <Suspense
+          fallback={
+            <div className="flex min-h-screen items-center justify-center bg-slate-50 text-sm text-slate-600">
+              Loading…
+            </div>
+          }
+        >
+          {children}
+        </Suspense>
       </body>
     </html>
   );

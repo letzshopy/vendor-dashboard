@@ -3,7 +3,9 @@ import { NextResponse } from "next/server";
 import { getSettings } from "@/lib/settingsStore";
 
 export async function POST() {
-  const cfg = getSettings().shipping;
+  // Cast to any here to avoid TS complaining about .shipping on SettingsState
+  const root = getSettings() as any;
+  const cfg = root?.shipping ?? null;
 
   // Here you’d call your Woo/WordPress plugin endpoint. Example:
   // await fetch(WP_URL+"/wp-json/letzship/v1/sync-shipping", {

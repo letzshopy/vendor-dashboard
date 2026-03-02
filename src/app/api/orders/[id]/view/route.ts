@@ -3,17 +3,25 @@ import { NextRequest, NextResponse } from "next/server";
 import { woo } from "@/lib/woo";
 import { WCOrder } from "@/lib/order-utils";
 
-export async function GET(
-  req: NextRequest,
-  { params }: { params: { id: string } }
-) {
-  const id = Number(params.id);
-  if (!id) return NextResponse.json({ error: "Invalid id" }, { status: 400 });
+type RouteContext = {
+  params: Promise<{ id: string }>;
+};
+
+export async function GET(req: NextRequest, context: RouteContext) {
+  const { id: idStr } = await context.params;
+  const id = Number(idStr);
+
+  if (!id) {
+    return NextResponse.json({ error: "Invalid id" }, { status: 400 });
+  }
 
   try {
     const { data } = await woo.get<WCOrder>(`/orders/${id}`);
     return NextResponse.json(data);
   } catch (e: any) {
-    return NextResponse.json({ error: e.message || "Failed to load order" }, { status: 500 });
+    return NextResponse.json(
+      { error: e?.message || "Failed to load order" },
+      { status: 500 }
+    );
   }
 }

@@ -1,11 +1,32 @@
+// src/components/Sidebar.tsx
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { usePathname, useSearchParams } from "next/navigation";
+import { useState, type ComponentType } from "react";
+import {
+  LayoutDashboard,
+  ShoppingBag,
+  Package,
+  ReceiptIndianRupee,
+  LifeBuoy,
+  Settings2,
+  ChevronDown,
+} from "lucide-react";
 
 type Leaf = { href: string; label: string; ready?: boolean };
-type Group = { key: string; label: string; emoji: string; items: Leaf[] };
+type Group = {
+  key: string;
+  label: string;
+  icon: ComponentType<{ className?: string }>;
+  items: Leaf[];
+};
+
+// props coming from DashboardShell
+type SidebarProps = {
+  open?: boolean; // future: use for mobile drawer
+  onClose?: () => void;
+};
 
 // Helper: normalize href to just the pathname (ignores ?query/#hash)
 function basePath(href: string): string {
@@ -20,15 +41,15 @@ const GROUPS: Group[] = [
   {
     key: "home",
     label: "Home",
-    emoji: "🏠",
+    icon: LayoutDashboard,
     items: [{ href: "/dashboard", label: "Dashboard", ready: true }],
   },
   {
     key: "catalog",
     label: "Catalog",
-    emoji: "🧺",
+    icon: ShoppingBag,
     items: [
-      { href: "/products/add", label: "Add Product", ready: true },
+      { href: "/products/new", label: "Add Product", ready: true },
       { href: "/products", label: "Products", ready: true },
       { href: "/categories", label: "Product Categories", ready: true },
       { href: "/menu", label: "Menu Layout", ready: true },
@@ -42,127 +63,221 @@ const GROUPS: Group[] = [
   {
     key: "sales",
     label: "Sales",
-    emoji: "🧾",
+    icon: Package,
     items: [
       { href: "/orders", label: "Orders", ready: true },
-      { href: "/shipments", label: "Shipment Details" },
+      {
+        href: "/sales/shipment-details",
+        label: "Shipment Details",
+        ready: true,
+      },
       { href: "/customers", label: "Customers", ready: true },
     ],
   },
   {
     key: "billing",
     label: "Reports & Billing",
-    emoji: "💰",
+    icon: ReceiptIndianRupee,
     items: [
       { href: "/order-invoices", label: "Order Invoices", ready: true },
       { href: "/reports", label: "Reports", ready: true },
-      { href: "/subscription-bills", label: "LetzShopy Subscription Invoices" },
-      { href: "/payouts", label: "Payouts" },
+      {
+        href: "/subscription-bills",
+        label: "LetzShopy Subscription Invoices",
+        ready: true,
+      },
     ],
   },
   {
     key: "support",
     label: "Support",
-    emoji: "❓",
+    icon: LifeBuoy,
     items: [
-      { href: "/support/knowledge-base", label: "Knowledge Base" },
-      { href: "/support/faq", label: "FAQ" },
+      {
+        href: "/support/knowledge-base",
+        label: "Knowledge Base",
+        ready: true,
+      },
+      { href: "/support/faq", label: "FAQ", ready: true },
       { href: "/support/tickets", label: "Tickets", ready: true },
     ],
   },
   {
     key: "settings",
     label: "Settings",
-    emoji: "⚙️",
+    icon: Settings2,
     items: [
-      // Settings tabs (deep links)
-      { href: "/settings?tab=profile",       label: "Setup Profile",      ready: true },
-      { href: "/settings?tab=pages",         label: "Store Pages",        ready: true },
-      { href: "/settings?tab=general",       label: "General Settings",   ready: true },
-      { href: "/settings?tab=shipping",      label: "Shipping",           ready: true },
-      { href: "/settings?tab=import-export", label: "Import / Export",    ready: true },
-      { href: "/settings?tab=tax",           label: "Tax",                ready: true },
-      { href: "/settings?tab=payments",      label: "Payments",           ready: true },
-      { href: "/settings?tab=account",       label: "Account",            ready: true },
-      // other standalone items (keep if you still want separate pages)
-      { href: "/coupons",   label: "Coupons" },
-      { href: "/campaigns", label: "Campaigns" },
-      { href: "/whatsapp",  label: "WhatsApp" },
+      { href: "/settings?tab=profile", label: "Setup Profile", ready: true },
+      { href: "/settings?tab=pages", label: "Store Pages", ready: true },
+      {
+        href: "/settings?tab=general",
+        label: "General Settings",
+        ready: true,
+      },
+      {
+        href: "/settings?tab=shipping",
+        label: "Shipping Charge",
+        ready: true,
+      },
+      { href: "/settings?tab=tax", label: "Tax", ready: true },
+      { href: "/settings?tab=payments", label: "Payments", ready: true },
+      { href: "/settings?tab=account", label: "Account", ready: true },
+      { href: "/settings?tab=coupons", label: "Coupons", ready: true },
+      {
+        href: "/settings?tab=shipmentFulfillment",
+        label: "Shipment Fulfillment",
+        ready: true,
+      },
     ],
   },
 ];
 
-export default function Sidebar() {
+export default function Sidebar({ open: _drawerOpen, onClose }: SidebarProps) {
   const pathname = usePathname() || "/";
+  const searchParams = useSearchParams();
+  const currentTab = searchParams.get("tab");
 
-  // Open the group that matches current route on initial render
-  const [open, setOpen] = useState<Record<string, boolean>>(() => {
+  // Open groups based on current route on first load
+  const [groupOpen, setGroupOpen] = useState<Record<string, boolean>>(() => {
     const initial: Record<string, boolean> = {};
     for (const g of GROUPS) {
-      initial[g.key] = g.items.some((i) => pathname.startsWith(basePath(i.href)));
+      initial[g.key] = g.items.some((i) =>
+        pathname.startsWith(basePath(i.href))
+      );
     }
     return initial;
   });
 
   return (
-    <aside className="hidden md:block w-64 shrink-0 border-r bg-white/80 backdrop-blur sticky top-14 h-[calc(100vh-56px)]">
-      <div className="p-3">
-        <div className="flex items-center gap-2 mb-3">
-          <div className="h-8 w-8 rounded-xl bg-black/80 text-white grid place-items-center text-xs font-bold">
-            LS
-          </div>
-          <div className="font-semibold">LetzShopy Vendor</div>
-        </div>
+    <aside className="sticky top-16 hidden h-[calc(100vh-64px)] w-64 shrink-0 bg-[#27346D] text-indigo-50 md:block">
+      <div className="flex h-full flex-col">
+        <nav className="mt-4 flex-1 space-y-1 overflow-y-auto px-3 pb-4">
+          {GROUPS.map((g) => {
+            const Icon = g.icon;
 
-        <nav className="space-y-2">
-          {GROUPS.map((g) => (
-            <div key={g.key} className="border rounded-lg overflow-hidden">
-              <button
-                className="w-full flex items-center gap-2 px-3 py-2 text-sm font-medium bg-gray-50"
-                onClick={() => setOpen({ ...open, [g.key]: !open[g.key] })}
-              >
-                <span className="w-5 text-center">{g.emoji}</span>
-                <span>{g.label}</span>
-                <span className="ml-auto text-xs">{open[g.key] ? "▾" : "▸"}</span>
-              </button>
+            const groupActive = g.items.some((it) => {
+              const itemBase = basePath(it.href);
+              if (itemBase === "/settings") {
+                const url = new URL(it.href, "http://local");
+                const tab = url.searchParams.get("tab");
+                return pathname === "/settings" && tab && tab === currentTab;
+              }
+              return (
+                pathname === itemBase ||
+                (itemBase !== "/" && pathname.startsWith(itemBase))
+              );
+            });
 
-              {open[g.key] && (
-                <div className="py-1">
-                  {g.items.map((it) => {
-                    const itemBase = basePath(it.href);
-                    const active =
-                      pathname === itemBase ||
-                      (itemBase !== "/" && pathname.startsWith(itemBase));
-                    const cls = active
-                      ? "bg-blue-50 text-blue-700 font-medium"
-                      : "hover:bg-gray-50";
+            const groupBtnCls = [
+              "flex w-full items-center justify-between rounded-xl px-3 py-2 text-sm transition",
+              groupActive
+                ? "bg-[#3C4CC4] text-white shadow-sm shadow-[#1f255a]"
+                : "text-indigo-100 hover:bg-white/10",
+            ].join(" ");
 
-                    return (
-                      <Link
-                        key={it.href}
-                        href={it.ready ? it.href : "#"}
-                        onClick={(e) => {
-                          if (!it.ready) {
-                            e.preventDefault();
-                            alert(`${it.label} coming soon`);
-                          }
-                        }}
-                        className={`block px-4 py-1.5 text-sm ${cls}`}
-                      >
-                        {it.label}
-                        {!it.ready && (
-                          <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded bg-gray-100 text-gray-600">
-                            Soon
-                          </span>
-                        )}
-                      </Link>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          ))}
+            const iconWrapperCls = [
+              "flex h-8 w-8 items-center justify-center rounded-full text-[15px]",
+              groupActive
+                ? "bg-white/15 text-white"
+                : "bg-white/10 text-indigo-100",
+            ].join(" ");
+
+            return (
+              <div key={g.key} className="mb-1">
+                <button
+                  type="button"
+                  className={groupBtnCls}
+                  onClick={() =>
+                    setGroupOpen((prev) => {
+                      // Accordion behaviour: only one group open at a time
+                      const next: Record<string, boolean> = {};
+                      for (const grp of GROUPS) {
+                        if (grp.key === g.key) {
+                          next[grp.key] = !prev[g.key];
+                        } else {
+                          next[grp.key] = false;
+                        }
+                      }
+                      return next;
+                    })
+                  }
+                >
+                  <span className="flex items-center gap-2">
+                    <span className={iconWrapperCls}>
+                      <Icon className="h-4 w-4" />
+                    </span>
+                    <span className="font-medium">{g.label}</span>
+                  </span>
+                  <ChevronDown
+                    className={`h-4 w-4 text-indigo-100/70 transition ${
+                      groupOpen[g.key] ? "rotate-180" : ""
+                    }`}
+                  />
+                </button>
+
+                {groupOpen[g.key] && (
+                  <div className="mt-1 space-y-0.5 pl-11">
+                    {g.items.map((it) => {
+                      const itemBase = basePath(it.href);
+                      let active = false;
+
+                      if (itemBase === "/settings") {
+                        const url = new URL(it.href, "http://local");
+                        const tab = url.searchParams.get("tab");
+                        if (
+                          pathname === "/settings" &&
+                          tab &&
+                          tab === currentTab
+                        ) {
+                          active = true;
+                        }
+                      } else {
+                        active =
+                          pathname === itemBase ||
+                          (itemBase !== "/" && pathname.startsWith(itemBase));
+                      }
+
+                      const itemCls = [
+                        "block rounded-lg px-3 py-1.5 text-sm transition",
+                        active
+                          ? "bg-[#3C4CC4] text-white font-medium shadow-sm shadow-[#1f255a]"
+                          : "text-indigo-100 hover:bg:white/10 hover:text-white",
+                      ].join(" ");
+
+                      return (
+                        <Link
+                          key={it.href}
+                          href={it.ready ? it.href : "#"}
+                          onClick={(e) => {
+                            if (!it.ready) {
+                              e.preventDefault();
+                              alert(`${it.label} coming soon`);
+                            }
+                            if (onClose) {
+                              onClose();
+                            }
+                          }}
+                          className={itemCls}
+                        >
+                          {it.label}
+                          {!it.ready && (
+                            <span className="ml-2 rounded bg-white/10 px-1.5 py-0.5 text-[10px] text-indigo-100">
+                              Soon
+                            </span>
+                          )}
+                        </Link>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </nav>
+
+        <div className="border-t border-[#3B4AA3] bg-[#222c5e] px-4 py-3 text-[11px] text-indigo-100/80">
+          Made with ❤️ for Online Sellers.
+        </div>
       </div>
     </aside>
   );

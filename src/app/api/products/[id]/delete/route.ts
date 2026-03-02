@@ -1,12 +1,28 @@
-import { NextResponse } from "next/server";
+// src/app/api/products/[id]/delete/route.ts
+import { NextRequest, NextResponse } from "next/server";
 import { woo } from "@/lib/woo";
 
-// Permanently delete a product (moves bypass trash): force=true
-export async function DELETE(_req: Request, { params }: { params: { id: string } }) {
+type RouteContext = {
+  params: Promise<{ id: string }>;
+};
+
+// Permanently delete a product (bypass trash): force=true
+export async function DELETE(_req: NextRequest, context: RouteContext) {
   try {
-    const { data } = await woo.delete(`/products/${params.id}`, { params: { force: true } });
+    const { id } = await context.params;
+
+    const { data } = await woo.delete(`/products/${id}`, {
+      params: { force: true },
+    });
+
     return NextResponse.json({ ok: true, product: data });
   } catch (e: any) {
-    return NextResponse.json({ error: e?.response?.data || e?.message || "Permanent delete failed" }, { status: 500 });
+    const msg =
+      e?.response?.data ||
+      e?.response?.data?.message ||
+      e?.message ||
+      "Permanent delete failed";
+
+    return NextResponse.json({ error: msg }, { status: 500 });
   }
 }

@@ -8,7 +8,11 @@ export async function GET() {
 
 export async function PATCH(req: Request) {
   const body = await req.json().catch(() => ({}));
-  const updated = deepPatchSettings("kyc", body);
+
+  // deepPatchSettings now takes a single partial settings object
+  // so we wrap the KYC payload under `kyc`
+  const updated = deepPatchSettings({ kyc: body });
+
   // TODO: persist to DB; optional webhook/notification to internal review queue
   return NextResponse.json(updated.kyc);
 }

@@ -7,7 +7,17 @@ import { WCOrder } from "@/lib/order-utils";
 const norm = (s?: string) => (s || "").trim().toLowerCase();
 
 // map many possible status spellings to one canonical key
-const STATUS_CANON: Record<string, "pending" | "processing" | "on-hold" | "completed" | "cancelled" | "refunded" | "failed" | "trash"> = {
+const STATUS_CANON: Record<
+  string,
+  | "pending"
+  | "processing"
+  | "on-hold"
+  | "completed"
+  | "cancelled"
+  | "refunded"
+  | "failed"
+  | "trash"
+> = {
   pending: "pending",
   "wc-pending": "pending",
 
@@ -38,7 +48,8 @@ const STATUS_CANON: Record<string, "pending" | "processing" | "on-hold" | "compl
   "wc-trash": "trash",
 };
 
-function canonStatus(s?: string) {
+// 🔧 Explicitly return `string` so comparison with "all" is allowed
+function canonStatus(s?: string): string {
   const n = norm(s).replace(/[^a-z-]/g, ""); // strip spaces/underscores/numbers
   return STATUS_CANON[n] || (n as any);
 }
@@ -59,13 +70,16 @@ function inDateRange(gmt?: string, fromISO?: string, toISO?: string) {
   return true;
 }
 
-async function fetchManyFromWoo(paramsBase: Record<string, string | number>): Promise<WCOrder[]> {
+async function fetchManyFromWoo(
+  paramsBase: Record<string, string | number>
+): Promise<WCOrder[]> {
   const MAX_WOO_PAGES = 5; // up to 500 latest orders
   const PER = 100;
   const out: WCOrder[] = [];
   for (let p = 1; p <= MAX_WOO_PAGES; p++) {
     const params = { ...paramsBase, per_page: PER, page: p };
-    const { data } = await woo.get<WCOrder[]>("/orders", params);
+    // 🔧 Axios expects config object; pass params inside { params }
+    const { data } = await woo.get<WCOrder[]>("/orders", { params });
     out.push(...data);
     if (data.length < PER) break;
   }
@@ -77,7 +91,10 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
 
   const page = Math.max(1, Number(searchParams.get("page") || 1));
-  const per_page = Math.max(1, Math.min(100, Number(searchParams.get("per_page") || 20)));
+  const per_page = Math.max(
+    1,
+    Math.min(100, Number(searchParams.get("per_page") || 20))
+  );
 
   // two modes (like Products)
   const s = (searchParams.get("s") || "").trim(); // search-only
@@ -89,7 +106,10 @@ export async function GET(req: NextRequest) {
   const beforeISO = date_to ? dayEndISO(date_to) : undefined;
 
   // Woo hints (we filter locally anyway)
-  const hints: Record<string, string | number> = { orderby: "date", order: "desc" };
+  const hints: Record<string, string | number> = {
+    orderby: "date",
+    order: "desc",
+  };
   if (afterISO) hints.after = afterISO;
   if (beforeISO) hints.before = beforeISO;
   if (s) hints.search = s;
@@ -105,7 +125,9 @@ export async function GET(req: NextRequest) {
       filtered = raw.filter((o) => {
         const idStr = String(o.id || "");
         const number = String(o.number || idStr);
-        const name = `${o.billing?.first_name || ""} ${o.billing?.last_name || ""}`;
+        const name = `${o.billing?.first_name || ""} ${
+          o.billing?.last_name || ""
+        }`;
         const email = o.billing?.email || "";
         const phone = o.billing?.phone || "";
 
@@ -115,7 +137,10 @@ export async function GET(req: NextRequest) {
           norm(name).includes(q) ||
           norm(email).includes(q) ||
           norm(phone).includes(q) ||
-          (o.line_items || []).some((li) => norm(li.sku).includes(q) || norm(li.name).includes(q));
+          (o.line_items || []).some(
+            (li) =>
+              norm(li.sku).includes(q) || norm(li.name).includes(q)
+          );
 
         if (!hit) return false;
         // Date range still respected in search mode if provided via hints
@@ -126,7 +151,9 @@ export async function GET(req: NextRequest) {
       // FILTER MODE: status + date range
       const want = canonStatus(statusParam);
       filtered = raw.filter((o) => {
-        if (want && want !== "all" && canonStatus(o.status) !== want) return false;
+        // "all" means don't filter by status
+        if (want && want !== "all" && canonStatus(o.status) !== want)
+          return false;
         if (!inDateRange(o.date_created_gmt, afterISO, beforeISO)) return false;
         return true;
       });
@@ -141,7 +168,10 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({ data, page, per_page, total, totalPages });
   } catch (e: any) {
-    return NextResponse.json({ error: e?.message || "Failed to fetch orders" }, { status: 500 });
+    return NextResponse.json(
+      { error: e?.message || "Failed to fetch orders" },
+      { status: 500 }
+    );
   }
 }
 
@@ -152,7 +182,10 @@ export async function PATCH(req: NextRequest) {
   const action: string = body?.action;
 
   if (!ids.length || !action) {
-    return NextResponse.json({ error: "ids[] and action are required" }, { status: 400 });
+    return NextResponse.json(
+      { error: "ids[] and action are required" },
+      { status: 400 }
+    );
   }
 
   try {
@@ -167,7 +200,11 @@ export async function PATCH(req: NextRequest) {
 
     if (action === "status") {
       const newStatus: string = body?.status;
-      if (!newStatus) return NextResponse.json({ error: "status is required" }, { status: 400 });
+      if (!newStatus)
+        return NextResponse.json(
+          { error: "status is required" },
+          { status: 400 }
+        );
       const results = [];
       for (const id of ids) {
         const { data } = await woo.put(`/orders/${id}`, { status: newStatus });
@@ -178,6 +215,9 @@ export async function PATCH(req: NextRequest) {
 
     return NextResponse.json({ error: "Unknown action" }, { status: 400 });
   } catch (e: any) {
-    return NextResponse.json({ error: e.message || "Bulk action failed" }, { status: 500 });
+    return NextResponse.json(
+      { error: e.message || "Bulk action failed" },
+      { status: 500 }
+    );
   }
 }

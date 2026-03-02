@@ -1,14 +1,41 @@
-// src/app/api/settings/profile/route.ts
 import { NextResponse } from "next/server";
-import { deepPatchSettings, getSettings } from "@/lib/settingsStore"; // <-- FIXED
+
+function authHeader() {
+  const user = process.env.WP_USER!;
+  const pass = process.env.WP_APP_PASSWORD!;
+  return "Basic " + Buffer.from(`${user}:${pass}`).toString("base64");
+}
 
 export async function GET() {
-  return NextResponse.json(getSettings().profile);
+  const WP_URL = process.env.WP_URL!;
+  const r = await fetch(`${WP_URL}/wp-json/letz/v1/profile-settings`, {
+    cache: "no-store",
+    headers: { Authorization: authHeader() },
+  });
+
+  const text = await r.text();
+  return new NextResponse(text, {
+    status: r.status,
+    headers: { "content-type": "application/json" },
+  });
 }
 
 export async function PATCH(req: Request) {
-  const body = await req.json().catch(() => ({}));
-  const updated = deepPatchSettings("profile", body);
-  // TODO: push to WP/Woo (logo, address, WhatsApp plugin)
-  return NextResponse.json(updated.profile);
+  const WP_URL = process.env.WP_URL!;
+  const body = await req.text();
+
+  const r = await fetch(`${WP_URL}/wp-json/letz/v1/profile-settings`, {
+    method: "PATCH",
+    headers: {
+      Authorization: authHeader(),
+      "content-type": "application/json",
+    },
+    body,
+  });
+
+  const text = await r.text();
+  return new NextResponse(text, {
+    status: r.status,
+    headers: { "content-type": "application/json" },
+  });
 }

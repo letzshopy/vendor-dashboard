@@ -1,7 +1,8 @@
+// src/app/api/attributes/create/route.ts
 import { NextResponse } from "next/server";
 import { woo } from "@/lib/woo";
 
-// helper
+// Helper to list existing global attributes
 async function listAttributes() {
   const { data } = await woo.get("/products/attributes", {
     params: { per_page: 100, orderby: "name", order: "asc" },
@@ -11,14 +12,19 @@ async function listAttributes() {
 
 export async function POST(req: Request) {
   try {
-    const body = await req.json();
+    const body = await req.json().catch(() => ({} as any));
 
-    // Preset to ensure Color & Size exist
+    // 1) Preset: ensure Color & Size exist
     if (body?.preset === "color-size") {
       const existing = await listAttributes();
+
       const need = ["Color", "Size"].filter(
-        (n) => !existing.some((a: any) => a.name.toLowerCase() === n.toLowerCase())
+        (n) =>
+          !existing.some(
+            (a: any) => a?.name?.toLowerCase?.() === n.toLowerCase()
+          )
       );
+
       const created: any[] = [];
       for (const name of need) {
         const payload = {
@@ -31,26 +37,41 @@ export async function POST(req: Request) {
         const { data } = await woo.post("/products/attributes", payload);
         created.push(data);
       }
+
       return NextResponse.json({ ok: true, created });
     }
 
-    // Manual create
+    // 2) Manual create
+    const name = body?.name?.toString().trim();
+    if (!name) {
+      return NextResponse.json(
+        { error: "Attribute name is required" },
+        { status: 400 }
+      );
+    }
+
+    const slugFromName = name.toLowerCase().replace(/\s+/g, "-");
+
     const payload = {
-      name: body.name,
-      slug: body.slug || body.name?.toLowerCase().replace(/\s+/g, "-"),
-      type: body.type || "select",
+      name,
+      slug: body?.slug?.toString().trim() || slugFromName,
+      type: body?.type || "select",
       order_by: "menu_order",
       has_archives: false,
     };
+
     const { data } = await woo.post("/products/attributes", payload);
     return NextResponse.json({ ok: true, attribute: data });
-  } } catch (e: any) {
-  const status = e?.response?.status || 500;
-  const msg =
-    e?.response?.data?.message ||
-    e?.response?.data?.error ||
-    e?.message ||
-    "Error";
-  return NextResponse.json({ error: String(msg) }, { status });
-}
+  } catch (e: any) {
+    console.error("Attribute create error:", e);
+
+    const status = e?.response?.status || 500;
+    const msg =
+      e?.response?.data?.message ||
+      e?.response?.data?.error ||
+      e?.message ||
+      "Error";
+
+    return NextResponse.json({ error: String(msg) }, { status });
+  }
 }

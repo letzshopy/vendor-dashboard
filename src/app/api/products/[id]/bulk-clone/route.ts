@@ -1,4 +1,5 @@
-import { NextResponse } from "next/server";
+// src/app/api/products/[id]/bulk-clone/route.ts
+import { NextRequest, NextResponse } from "next/server";
 import { woo } from "@/lib/woo";
 
 /** Helpers */
@@ -40,10 +41,17 @@ function makeSkuSequence(base: string, count: number): string[] {
   return Array.from({ length: count }, (_, i) => `${base}${base ? "-" : ""}${i + 1}`);
 }
 
-export async function POST(req: Request, { params }: { params: { id: string } }) {
+type RouteContext = {
+  params: Promise<{ id: string }>;
+};
+
+export async function POST(req: NextRequest, context: RouteContext) {
   try {
-    const srcId = Number(params.id);
-    if (!srcId) return NextResponse.json({ error: "Invalid id" }, { status: 400 });
+    const { id } = await context.params;
+    const srcId = Number(id);
+    if (!srcId) {
+      return NextResponse.json({ error: "Invalid id" }, { status: 400 });
+    }
 
     const body = await req.json().catch(() => ({}));
     const count = Math.max(1, Number(body?.count || 1));
@@ -66,8 +74,8 @@ export async function POST(req: Request, { params }: { params: { id: string } })
         catalog_visibility: src.catalog_visibility || "visible",
         short_description: src.short_description || "",
         description: src.description || "",
-        sku: skus[i],                             // parent gets auto SKU
-        images: [],                               // no images
+        sku: skus[i], // parent gets auto SKU
+        images: [], // no images
         categories: asIdObjs(src.categories),
         tags: asNameObjs(src.tags),
         tax_status: src.tax_status || "taxable",
@@ -76,7 +84,10 @@ export async function POST(req: Request, { params }: { params: { id: string } })
 
       if (type !== "grouped") {
         parentPayload.weight = src.weight || undefined;
-        if (src.dimensions && (src.dimensions.length || src.dimensions.width || src.dimensions.height)) {
+        if (
+          src.dimensions &&
+          (src.dimensions.length || src.dimensions.width || src.dimensions.height)
+        ) {
           parentPayload.dimensions = {
             length: src.dimensions.length || "",
             width: src.dimensions.width || "",
@@ -91,7 +102,9 @@ export async function POST(req: Request, { params }: { params: { id: string } })
         parentPayload.date_on_sale_from = src.date_on_sale_from || undefined;
         parentPayload.date_on_sale_to = src.date_on_sale_to || undefined;
         parentPayload.manage_stock = !!src.manage_stock;
-        parentPayload.stock_quantity = src.manage_stock ? src.stock_quantity ?? 0 : undefined;
+        parentPayload.stock_quantity = src.manage_stock
+          ? src.stock_quantity ?? 0
+          : undefined;
         parentPayload.backorders = src.backorders || "no";
       }
 
@@ -114,7 +127,9 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       }
 
       if (type === "grouped") {
-        parentPayload.grouped_products = Array.isArray(src.grouped_products) ? src.grouped_products : [];
+        parentPayload.grouped_products = Array.isArray(src.grouped_products)
+          ? src.grouped_products
+          : [];
       }
 
       // 3a) Create parent

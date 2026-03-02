@@ -1,9 +1,17 @@
-import { cookies } from "next/headers";
+// src/app/api/auth/logout/route.ts
 import { NextResponse } from "next/server";
 
-const COOKIE = process.env.AUTH_COOKIE_NAME || "ls_vendor_auth";
+const COOKIE_NAME = process.env.AUTH_COOKIE_NAME || "ls_vendor_auth";
 
 export async function POST() {
-  cookies().set(COOKIE, "", { path: "/", maxAge: 0 });
-  return NextResponse.json({ ok: true });
+  const res = NextResponse.json({ ok: true });
+
+  res.cookies.set({
+    name: COOKIE_NAME,
+    value: "",
+    path: "/",
+    maxAge: 0, // delete
+  });
+
+  return res;
 }

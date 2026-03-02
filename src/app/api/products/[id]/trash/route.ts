@@ -1,11 +1,30 @@
-import { NextResponse } from "next/server";
+// src/app/api/products/[id]/trash/route.ts
+import { NextRequest, NextResponse } from "next/server";
 import { woo } from "@/lib/woo";
 
-export async function DELETE(_req: Request, { params }: { params: { id: string } }) {
+type RouteContext = {
+  params: Promise<{ id: string }>;
+};
+
+export async function DELETE(_req: NextRequest, context: RouteContext) {
   try {
-    const { data } = await woo.delete(`/products/${params.id}`, { params: { force: false } });
+    const { id } = await context.params;
+
+    const { data } = await woo.delete(`/products/${id}`, {
+      params: { force: false }, // move to trash, not permanent
+    });
+
     return NextResponse.json({ ok: true, product: data });
   } catch (e: any) {
-    return NextResponse.json({ error: e?.response?.data || e?.message || "Trash failed" }, { status: 500 });
+    return NextResponse.json(
+      {
+        error:
+          e?.response?.data ||
+          e?.response?.data?.message ||
+          e?.message ||
+          "Trash failed",
+      },
+      { status: 500 }
+    );
   }
 }

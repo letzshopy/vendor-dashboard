@@ -1,0 +1,33 @@
+// Shared CSV column order for Products (used by UI + API)
+export const PRODUCT_CSV_COLUMNS = [
+  "id",
+  "sku",
+  "name",
+  "type",
+  "category",
+  "status",
+  "visibility",
+  "short description",
+  "Description",
+  "regular price",
+  "sale price",
+  "sale from",
+  "sale to",
+  "manage stock",
+  "quantity",
+  "backorder",
+  "weight",
+  "length",
+  "width",
+  "height",
+  "image url",
+  "Grouped products",
+  "Attribute 1 name", "Attribute 1 value(s)", "Attribute 1 visible", "Attribute 1 global",
+  "Attribute 2 name", "Attribute 2 value(s)", "Attribute 2 visible", "Attribute 2 global",
+  "Attribute 3 name", "Attribute 3 value(s)", "Attribute 3 visible", "Attribute 3 global",
+  "Attribute 4 name", "Attribute 4 value(s)", "Attribute 4 visible", "Attribute 4 global",
+  "Attribute 5 name", "Attribute 5 value(s)", "Attribute 5 visible", "Attribute 5 global",
+  "external_id",
+] as const;
+
+export type ProductCsvColumn = typeof PRODUCT_CSV_COLUMNS[number];

@@ -1,16 +1,19 @@
-import { NextResponse } from "next/server";
+// src/app/api/products/variations/bulk/[id]/route.ts
+import { NextRequest, NextResponse } from "next/server";
 import { woo } from "@/lib/woo";
 
-export async function POST(
-  req: Request,
-  { params }: { params: { id: string } }
-) {
+type RouteContext = {
+  params: Promise<{ id: string }>;
+};
+
+export async function POST(req: NextRequest, context: RouteContext) {
   try {
+    const { id: productId } = await context.params;
     const body = await req.json();
-    const productId = params.id;
     const variations: any[] = Array.isArray(body.variations) ? body.variations : [];
 
     const created: any[] = [];
+
     for (const v of variations) {
       const payload: any = {
         sku: v.sku || undefined,
@@ -28,7 +31,11 @@ export async function POST(
           option: String(a.option),
         })),
       };
-      const { data } = await woo.post(`/products/${productId}/variations`, payload);
+
+      const { data } = await woo.post(
+        `/products/${productId}/variations`,
+        payload
+      );
       created.push(data);
     }
 
