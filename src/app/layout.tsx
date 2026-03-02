@@ -7,13 +7,9 @@ import { Suspense } from "react";
 import LookupGuard from "./_debug/lookup-guard";
 import LookupMuzzle from "./_debug/lookup-muzzle";
 
-export const metadata: Metadata = {
+export const metadata = {
   title: "LetzShopy Vendor Dashboard",
-  description: "Vendor dashboard for managing products, orders and store settings.",
-  icons: {
-    icon: "/favicon.png",
-    apple: "/favicon.png",
-},
+  description: "LetzShopy vendor admin dashboard",
 };
 
 // Keep dashboard dynamic
