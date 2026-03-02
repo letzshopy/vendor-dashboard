@@ -8,8 +8,11 @@ import LookupGuard from "./_debug/lookup-guard";
 import LookupMuzzle from "./_debug/lookup-muzzle";
 
 export const metadata: Metadata = {
-  title: "LetzShopy Vendor",
-  description: "Vendor dashboard for LetzShopy",
+  title: "LetzShopy Vendor Dashboard",
+  description: "Vendor dashboard for managing products, orders and store settings.",
+  icons: {
+    icon: "/favicon.png",
+    apple: "/favicon.png",
 };
 
 // Keep dashboard dynamic
