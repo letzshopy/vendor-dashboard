@@ -802,7 +802,7 @@ export default function AddProductPage() {
                 thumbnail.
               </p>
             <p className="text-[11px] font-medium text-amber-600">
-        Image must be under 4 MB for dashboard upload.
+        
       </p>
             </div>
 

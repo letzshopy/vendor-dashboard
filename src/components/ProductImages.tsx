@@ -336,7 +336,7 @@ export default function ProductImages({
           Large images are automatically optimized before upload.
         </div>
         <div className="text-xs font-medium text-amber-600">
-          Image must be under 4 MB for dashboard upload.
+          
         </div>
       </div>
 
