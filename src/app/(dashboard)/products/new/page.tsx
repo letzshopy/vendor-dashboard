@@ -354,7 +354,7 @@ export default function AddProductPage() {
 
             if (ptype === "variable" && rows.length > 0) {
         const vRes = await fetch(
-          `/api/products/variations/bulk/${parent.product.id}`,
+          `/api/products/${parent.id}/variations`,
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -419,7 +419,7 @@ export default function AddProductPage() {
             Add product
           </h1>
           <p className="mt-1 text-xs text-slate-500">
-            Create a new product for your LetzShopy store.
+            Create a new product for your store.
           </p>
         </div>
         <Link
