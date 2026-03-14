@@ -16,7 +16,9 @@ function indentCats(cats: Cat[]) {
     byParent[c.parent] ??= [];
     byParent[c.parent].push(c);
   });
+
   const out: (Cat & { depth: number })[] = [];
+
   function walk(parent: number, depth: number) {
     (byParent[parent] || [])
       .sort((a, b) => a.name.localeCompare(b.name))
@@ -25,6 +27,7 @@ function indentCats(cats: Cat[]) {
         walk(c.id, depth + 1);
       });
   }
+
   walk(0, 0);
   return out;
 }
@@ -62,8 +65,18 @@ function ReqLabel({ children }: { children: React.ReactNode }) {
   );
 }
 
+type VRow = {
+  key: string;
+  attrs: { id?: number; name?: string; option: string }[];
+  sku: string;
+  regular_price: string;
+  sale_price: string;
+  manage_stock: boolean;
+  stock_quantity: number | "";
+  backorders: "no" | "notify" | "yes";
+};
+
 export default function AddProductPage() {
-  // basics
   const [title, setTitle] = useState("");
   const [sku, setSku] = useState("");
   const [skuErr, setSkuErr] = useState<string | null>(null);
@@ -75,48 +88,41 @@ export default function AddProductPage() {
   const [shortDesc, setShortDesc] = useState("");
   const [desc, setDesc] = useState("");
 
-  // images
   const [images, setImages] = useState<ImgItem[]>([]);
 
-  // pricing
   const [regular, setRegular] = useState("");
   const [sale, setSale] = useState("");
   const [saleFrom, setSaleFrom] = useState("");
   const [saleTo, setSaleTo] = useState("");
 
-  // inventory
   const [manageStock, setManageStock] = useState(false);
   const [stockQty, setStockQty] = useState<number | "">("");
   const [backorders, setBackorders] = useState<"no" | "notify" | "yes">("no");
 
-  // tax
   const [taxStatus, setTaxStatus] = useState<
     "taxable" | "shipping" | "none"
   >("taxable");
   const [taxClass, setTaxClass] = useState("");
 
-  // shipping
   const [weight, setWeight] = useState("");
   const [length, setLength] = useState("");
   const [width, setWidth] = useState("");
   const [height, setHeight] = useState("");
 
-  // categories
   const [cats, setCats] = useState<Cat[]>([]);
   const flatCats = useMemo(() => indentCats(cats), [cats]);
   const [selectedCats, setSelectedCats] = useState<number[]>([]);
   const [catOpen, setCatOpen] = useState(false);
   const [catQuery, setCatQuery] = useState("");
+
   const filteredCats = useMemo(() => {
     const q = catQuery.trim().toLowerCase();
     if (!q) return flatCats;
     return flatCats.filter((c) => c.name.toLowerCase().includes(q));
   }, [flatCats, catQuery]);
 
-  // tags
   const [tags, setTags] = useState<string[]>([]);
 
-  // attributes / variations
   const [attrs, setAttrs] = useState<Attr[]>([]);
   const [termsMap, setTermsMap] = useState<Record<number, Term[]>>({});
   const [varAttrRows, setVarAttrRows] = useState<number[]>([]);
@@ -124,20 +130,8 @@ export default function AddProductPage() {
   const [varChosenTerms, setVarChosenTerms] = useState<
     Record<number, string[]>
   >({});
-
-  type VRow = {
-    key: string;
-    attrs: { id?: number; name?: string; option: string }[];
-    sku: string;
-    regular_price: string;
-    sale_price: string;
-    manage_stock: boolean;
-    stock_quantity: number | "";
-    backorders: "no" | "notify" | "yes";
-  };
   const [rows, setRows] = useState<VRow[]>([]);
 
-  // grouped
   const [groupQuery, setGroupQuery] = useState("");
   const [groupResults, setGroupResults] = useState<
     { id: number; name: string; sku: string }[]
@@ -149,7 +143,6 @@ export default function AddProductPage() {
   const [msg, setMsg] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
 
-  // load categories + attributes
   useEffect(() => {
     (async () => {
       try {
@@ -157,8 +150,10 @@ export default function AddProductPage() {
           fetch("/api/categories/list"),
           fetch("/api/attributes/terms"),
         ]);
+
         const catsJson = await catsRes.json();
         const attrsJson = await attrsRes.json();
+
         if (catsRes.ok) setCats(catsJson.categories || []);
         if (attrsRes.ok) setAttrs(attrsJson.attributes || []);
       } catch {
@@ -167,11 +162,11 @@ export default function AddProductPage() {
     })();
   }, []);
 
-  // sku uniqueness
   useEffect(() => {
     setSkuErr(null);
     const skuTrim = sku.trim();
     if (!skuTrim) return;
+
     const t = setTimeout(async () => {
       const r = await fetch(
         `/api/products/sku-check?sku=${encodeURIComponent(skuTrim)}`
@@ -179,6 +174,7 @@ export default function AddProductPage() {
       const j = await r.json();
       if (r.ok && j.exists) setSkuErr("SKU already exists");
     }, 350);
+
     return () => clearTimeout(t);
   }, [sku]);
 
@@ -190,7 +186,9 @@ export default function AddProductPage() {
     if (termsMap[attrId]) return;
     const r = await fetch(`/api/attributes/terms?id=${attrId}`);
     const j = await r.json();
-    if (r.ok) setTermsMap((m) => ({ ...m, [attrId]: j.terms || [] }));
+    if (r.ok) {
+      setTermsMap((m) => ({ ...m, [attrId]: j.terms || [] }));
+    }
   }
 
   function addVarAttrRow() {
@@ -216,56 +214,56 @@ export default function AddProductPage() {
   }
 
   function generateVariations() {
-  const base = sku.trim();
-  const attrDefs = varAttrRows
-    .map((id) => ({
-      id,
-      name: attrs.find((a) => a.id === id)?.name,
-      terms: varChosenTerms[id] || [],
-    }))
-    .filter((a) => a.terms.length > 0);
+    const base = sku.trim();
 
-  if (attrDefs.length === 0) {
-    setRows([]);
-    return;
-  }
+    const attrDefs = varAttrRows
+      .map((id) => ({
+        id,
+        name: attrs.find((a) => a.id === id)?.name,
+        terms: varChosenTerms[id] || [],
+      }))
+      .filter((a) => a.terms.length > 0);
 
-  // cartesian product
-  let combos: { id?: number; name?: string; option: string }[][] = [[]];
-  for (const a of attrDefs) {
-    const next: { id?: number; name?: string; option: string }[][] = [];
-    for (const combo of combos) {
-      for (const termName of a.terms) {
-        next.push([...combo, { id: a.id, name: a.name, option: termName }]);
-      }
+    if (attrDefs.length === 0) {
+      setRows([]);
+      return;
     }
-    combos = next;
+
+    let combos: { id?: number; name?: string; option: string }[][] = [[]];
+
+    for (const a of attrDefs) {
+      const next: { id?: number; name?: string; option: string }[][] = [];
+      for (const combo of combos) {
+        for (const termName of a.terms) {
+          next.push([...combo, { id: a.id, name: a.name, option: termName }]);
+        }
+      }
+      combos = next;
+    }
+
+    const newRows: VRow[] = combos.map((attrsCombo): VRow => {
+      const parts = attrsCombo.map((a) => {
+        const term = a.id ? findTerm(a.id, a.option) : undefined;
+        return skuPartFor(a.name, a.option, term?.slug);
+      });
+
+      const autoSku = base ? `${base}-${parts.join("-")}` : "";
+
+      return {
+        key: attrsCombo.map((a) => `${a.name}=${a.option}`).join("|"),
+        attrs: attrsCombo,
+        sku: autoSku,
+        regular_price: "",
+        sale_price: "",
+        manage_stock: false,
+        stock_quantity: "",
+        backorders: "no",
+      };
+    });
+
+    setRows(newRows);
   }
 
-  // 🔧 Explicitly type as VRow[]
-  const newRows: VRow[] = combos.map((attrsCombo): VRow => {
-    const parts = attrsCombo.map((a) => {
-      const term = findTerm(a.id!, a.option);
-      return skuPartFor(a.name, a.option, term?.slug);
-    });
-    const autoSku = base ? `${base}-${parts.join("-")}` : "";
-
-    return {
-      key: attrsCombo.map((a) => `${a.name}=${a.option}`).join("|"),
-      attrs: attrsCombo,
-      sku: autoSku,
-      regular_price: "",
-      sale_price: "",
-      manage_stock: false,
-      stock_quantity: "" as VRow["stock_quantity"], // <= matches number | ""
-      backorders: "no",
-    };
-  });
-
-  setRows(newRows);
-}
-
-  // grouped search
   useEffect(() => {
     if (searchDebounce.current) clearTimeout(searchDebounce.current);
     searchDebounce.current = setTimeout(doGroupSearch, 300);
@@ -278,6 +276,7 @@ export default function AddProductPage() {
       setGroupResults([]);
       return;
     }
+
     const r = await fetch(`/api/products/search?q=${encodeURIComponent(q)}`);
     const j = await r.json();
     if (r.ok) setGroupResults(j.results || []);
@@ -349,42 +348,61 @@ export default function AddProductPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(basePayload),
       });
-      const parent = await res.json();
-      if (!res.ok) throw new Error(parent?.error || "Create failed");
 
-            if (ptype === "variable" && rows.length > 0) {
-        const vRes = await fetch(
-          `/api/products/${parent.id}/variations`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              variations: rows.map((r) => ({
-                sku: r.sku || undefined,
-                regular_price: r.regular_price || undefined,
-                sale_price: r.sale_price || undefined,
-                manage_stock: r.manage_stock,
-                stock_quantity: r.manage_stock
-                  ? Number(r.stock_quantity || 0)
-                  : undefined,
-                backorders: r.backorders,
-                attributes: r.attrs,
-              })),
-            }),
-          }
-        );
-        const vJson = await vRes.json();
-        if (!vRes.ok) throw new Error(vJson?.error || "Variations failed");
+      const parentRaw = await res.text();
+      let parent: any = {};
+      try {
+        parent = parentRaw ? JSON.parse(parentRaw) : {};
+      } catch {
+        parent = {};
       }
 
-      // 🔼 scroll to top so success banner is visible
+      if (!res.ok) {
+        throw new Error(parent?.error || "Create failed");
+      }
+
+      if (!parent?.id) {
+        throw new Error("Product created but ID missing");
+      }
+
+      if (ptype === "variable" && rows.length > 0) {
+        const vRes = await fetch(`/api/products/${parent.id}/variations`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            variations: rows.map((r) => ({
+              sku: r.sku || undefined,
+              regular_price: r.regular_price || undefined,
+              sale_price: r.sale_price || undefined,
+              manage_stock: r.manage_stock,
+              stock_quantity: r.manage_stock
+                ? Number(r.stock_quantity || 0)
+                : undefined,
+              backorders: r.backorders,
+              attributes: r.attrs,
+            })),
+          }),
+        });
+
+        const vRaw = await vRes.text();
+        let vJson: any = {};
+        try {
+          vJson = vRaw ? JSON.parse(vRaw) : {};
+        } catch {
+          vJson = {};
+        }
+
+        if (!vRes.ok) {
+          throw new Error(vJson?.error || "Variations failed");
+        }
+      }
+
       if (typeof window !== "undefined") {
         window.scrollTo({ top: 0, behavior: "smooth" });
       }
 
       setMsg("Product created");
 
-      // lite reset
       setTitle("");
       setSku("");
       setShortDesc("");
@@ -410,9 +428,14 @@ export default function AddProductPage() {
     }
   }
 
+  function editRow(i: number, patch: Partial<VRow>) {
+    setRows((prev) =>
+      prev.map((r, idx) => (idx === i ? { ...r, ...patch } : r))
+    );
+  }
+
   return (
     <main className="mx-auto max-w-6xl px-4 py-6">
-      {/* Header */}
       <div className="mb-4 flex items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold text-slate-900">
@@ -422,6 +445,7 @@ export default function AddProductPage() {
             Create a new product for your store.
           </p>
         </div>
+
         <Link
           href="/products"
           className="inline-flex items-center rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 shadow-sm hover:border-violet-300 hover:text-violet-700"
@@ -430,7 +454,6 @@ export default function AddProductPage() {
         </Link>
       </div>
 
-      {/* Success banner */}
       {msg && (
         <div className="mb-4 flex items-center justify-between gap-3 rounded-2xl border border-emerald-100 bg-emerald-50/90 px-4 py-3 text-xs text-emerald-800 shadow-sm md:text-sm">
           <div className="flex items-start gap-3">
@@ -455,14 +478,13 @@ export default function AddProductPage() {
         </div>
       )}
 
-      {/* Card wrapper */}
       <div className="rounded-3xl border border-slate-100 bg-white/80 shadow-sm shadow-indigo-100">
-        {/* Top stripe with product type pills */}
         <div className="border-b border-violet-50 bg-gradient-to-r from-[#f7f2ff] via-[#fef6ff] to-[#f5fbff] px-4 py-3">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="text-xs font-medium text-slate-600">
               Product type <span className="text-rose-500">*</span>
             </div>
+
             <div
               className="flex flex-wrap gap-2 text-xs"
               role="radiogroup"
@@ -471,6 +493,7 @@ export default function AddProductPage() {
               {(["simple", "variable", "grouped"] as ProductType[]).map((t) => {
                 const label = t[0].toUpperCase() + t.slice(1);
                 const active = ptype === t;
+
                 return (
                   <button
                     key={t}
@@ -491,18 +514,17 @@ export default function AddProductPage() {
           </div>
         </div>
 
-        {/* Form body */}
         <form
           onSubmit={submit}
           onKeyDown={swallowEnter}
           className="space-y-8 p-4 md:p-6"
         >
-          {/* Essentials */}
           <section className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,1.5fr)]">
             <div className="space-y-4 rounded-2xl border border-slate-100 bg-slate-50/70 p-4">
               <h2 className="text-sm font-semibold text-slate-900">
                 Essentials
               </h2>
+
               <div className="grid gap-3 md:grid-cols-2">
                 <div className="md:col-span-2">
                   <ReqLabel>Title</ReqLabel>
@@ -513,6 +535,7 @@ export default function AddProductPage() {
                     required
                   />
                 </div>
+
                 <div>
                   <ReqLabel>SKU</ReqLabel>
                   <input
@@ -525,6 +548,7 @@ export default function AddProductPage() {
                     <p className="mt-1 text-[11px] text-rose-600">{skuErr}</p>
                   )}
                 </div>
+
                 <div>
                   <ReqLabel>Status</ReqLabel>
                   <select
@@ -538,6 +562,7 @@ export default function AddProductPage() {
                     <option value="publish">Published</option>
                   </select>
                 </div>
+
                 <div>
                   <ReqLabel>Visibility</ReqLabel>
                   <select
@@ -566,6 +591,7 @@ export default function AddProductPage() {
               <h2 className="text-sm font-semibold text-slate-900">
                 Descriptions
               </h2>
+
               <div className="space-y-3">
                 <div>
                   <label className="mb-1 block text-xs font-medium text-slate-700">
@@ -578,6 +604,7 @@ export default function AddProductPage() {
                     onChange={(e) => setShortDesc(e.target.value)}
                   />
                 </div>
+
                 <div>
                   <label className="mb-1 block text-xs font-medium text-slate-700">
                     Description
@@ -593,13 +620,13 @@ export default function AddProductPage() {
             </div>
           </section>
 
-          {/* Pricing & Inventory */}
           {ptype === "simple" && (
             <section className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,1.3fr)]">
               <div className="space-y-4 rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
                 <h2 className="text-sm font-semibold text-slate-900">
                   Pricing
                 </h2>
+
                 <div className="grid gap-3 md:grid-cols-4">
                   <div>
                     <label className="mb-1 block text-xs text-slate-600">
@@ -612,6 +639,7 @@ export default function AddProductPage() {
                       placeholder="e.g. 999"
                     />
                   </div>
+
                   <div>
                     <label className="mb-1 block text-xs text-slate-600">
                       Sale price
@@ -623,6 +651,7 @@ export default function AddProductPage() {
                       placeholder="e.g. 799"
                     />
                   </div>
+
                   <div>
                     <label className="mb-1 block text-xs text-slate-600">
                       Sale from
@@ -634,6 +663,7 @@ export default function AddProductPage() {
                       onChange={(e) => setSaleFrom(e.target.value)}
                     />
                   </div>
+
                   <div>
                     <label className="mb-1 block text-xs text-slate-600">
                       Sale to
@@ -652,6 +682,7 @@ export default function AddProductPage() {
                 <h2 className="text-sm font-semibold text-slate-900">
                   Inventory
                 </h2>
+
                 <label className="mb-2 inline-flex items-center gap-2 text-xs text-slate-700">
                   <input
                     type="checkbox"
@@ -660,6 +691,7 @@ export default function AddProductPage() {
                   />
                   Manage stock at product level
                 </label>
+
                 {manageStock && (
                   <div className="grid gap-3 md:grid-cols-2">
                     <div>
@@ -678,6 +710,7 @@ export default function AddProductPage() {
                         }
                       />
                     </div>
+
                     <div>
                       <label className="mb-1 block text-xs text-slate-600">
                         Backorders
@@ -702,13 +735,13 @@ export default function AddProductPage() {
             </section>
           )}
 
-          {/* Shipping & Tax */}
           {ptype !== "grouped" && (
             <section className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,1.3fr)]">
               <div className="space-y-4 rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
                 <h2 className="text-sm font-semibold text-slate-900">
                   Shipping
                 </h2>
+
                 <div className="grid gap-3 md:grid-cols-4">
                   <div>
                     <label className="mb-1 block text-xs text-slate-600">
@@ -720,6 +753,7 @@ export default function AddProductPage() {
                       onChange={(e) => setWeight(e.target.value)}
                     />
                   </div>
+
                   <div>
                     <label className="mb-1 block text-xs text-slate-600">
                       Length (cm)
@@ -730,6 +764,7 @@ export default function AddProductPage() {
                       onChange={(e) => setLength(e.target.value)}
                     />
                   </div>
+
                   <div>
                     <label className="mb-1 block text-xs text-slate-600">
                       Width (cm)
@@ -740,6 +775,7 @@ export default function AddProductPage() {
                       onChange={(e) => setWidth(e.target.value)}
                     />
                   </div>
+
                   <div>
                     <label className="mb-1 block text-xs text-slate-600">
                       Height (cm)
@@ -755,6 +791,7 @@ export default function AddProductPage() {
 
               <div className="space-y-4 rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
                 <h2 className="text-sm font-semibold text-slate-900">Tax</h2>
+
                 <div className="grid gap-3 md:grid-cols-2">
                   <div>
                     <label className="mb-1 block text-xs text-slate-600">
@@ -774,6 +811,7 @@ export default function AddProductPage() {
                       <option value="none">None</option>
                     </select>
                   </div>
+
                   <div>
                     <label className="mb-1 block text-xs text-slate-600">
                       Tax class
@@ -790,7 +828,6 @@ export default function AddProductPage() {
             </section>
           )}
 
-          {/* Media & categories */}
           <section className="grid gap-6 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,2fr)]">
             <div className="space-y-4 rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
               <h2 className="text-sm font-semibold text-slate-900">
@@ -801,15 +838,13 @@ export default function AddProductPage() {
                 Upload up to 5 images. The first image will be used as the main
                 thumbnail.
               </p>
-            <p className="text-[11px] font-medium text-amber-600">
-        
-      </p>
             </div>
 
             <div className="space-y-4 rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
               <h2 className="text-sm font-semibold text-slate-900">
                 Categorisation
               </h2>
+
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="relative">
                   <ReqLabel>Categories</ReqLabel>
@@ -832,6 +867,7 @@ export default function AddProductPage() {
                     )}
                     <span className="text-[10px] text-slate-400">▾</span>
                   </button>
+
                   {catOpen && (
                     <div className="absolute z-20 mt-1 w-full rounded-2xl border border-slate-200 bg-white text-xs shadow-lg">
                       <div className="border-b px-2 py-1.5">
@@ -843,6 +879,7 @@ export default function AddProductPage() {
                           onChange={(e) => setCatQuery(e.target.value)}
                         />
                       </div>
+
                       <div className="max-h-64 overflow-auto py-1">
                         {filteredCats.map((c) => {
                           const checked = selectedCats.includes(c.id);
@@ -867,12 +904,14 @@ export default function AddProductPage() {
                             </label>
                           );
                         })}
+
                         {filteredCats.length === 0 && (
                           <div className="px-3 py-2 text-xs text-slate-500">
                             No matches.
                           </div>
                         )}
                       </div>
+
                       <div className="flex justify-between gap-2 border-t px-2 py-2">
                         <button
                           type="button"
@@ -904,6 +943,7 @@ export default function AddProductPage() {
                   </p>
                 </div>
               </div>
+
               <p className="mt-1 text-[11px] text-slate-500">
                 <span className="font-semibold text-rose-500">*</span> Required
                 fields
@@ -911,13 +951,13 @@ export default function AddProductPage() {
             </div>
           </section>
 
-          {/* Variable products */}
           {ptype === "variable" && (
             <>
               <section className="space-y-4 rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
                 <h2 className="text-sm font-semibold text-slate-900">
                   Attributes for variations
                 </h2>
+
                 <div className="flex flex-wrap gap-2">
                   <select
                     className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs focus:border-violet-400 focus:outline-none"
@@ -933,6 +973,7 @@ export default function AddProductPage() {
                       </option>
                     ))}
                   </select>
+
                   <button
                     type="button"
                     className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium hover:border-violet-300 hover:text-violet-700"
@@ -940,6 +981,7 @@ export default function AddProductPage() {
                   >
                     Add
                   </button>
+
                   <button
                     type="button"
                     className="rounded-full bg-violet-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-violet-600"
@@ -960,10 +1002,12 @@ export default function AddProductPage() {
                           {attrs.find((a) => a.id === id)?.name}
                         </div>
                       </div>
+
                       <div className="flex flex-wrap gap-1.5">
                         {(termsMap[id] || []).map((t) => {
                           const selected =
                             (varChosenTerms[id] || []).includes(t.name);
+
                           return (
                             <button
                               key={t.id}
@@ -980,6 +1024,7 @@ export default function AddProductPage() {
                             </button>
                           );
                         })}
+
                         {!termsMap[id] && (
                           <span className="text-[11px] text-slate-500">
                             Loading…
@@ -995,15 +1040,14 @@ export default function AddProductPage() {
                 <h2 className="text-sm font-semibold text-slate-900">
                   Variations
                 </h2>
+
                 {rows.length === 0 && (
                   <p className="text-xs text-slate-600">
                     No variations yet. Choose terms and click{" "}
-                    <span className="font-semibold">
-                      Generate variations
-                    </span>
-                    .
+                    <span className="font-semibold">Generate variations</span>.
                   </p>
                 )}
+
                 {rows.length > 0 && (
                   <div className="overflow-x-auto rounded-xl border border-slate-100">
                     <table className="min-w-full text-xs">
@@ -1018,6 +1062,7 @@ export default function AddProductPage() {
                           <th className="px-3 py-2">Backorders</th>
                         </tr>
                       </thead>
+
                       <tbody>
                         {rows.map((r, i) => (
                           <tr
@@ -1027,6 +1072,7 @@ export default function AddProductPage() {
                             <td className="px-3 py-2 align-top text-[11px] text-slate-700">
                               {r.key}
                             </td>
+
                             <td className="px-3 py-2">
                               <input
                                 className="w-40 rounded-lg border border-slate-200 bg-slate-50 px-2 py-1 text-[11px] focus:border-violet-400 focus:outline-none"
@@ -1036,6 +1082,7 @@ export default function AddProductPage() {
                                 }
                               />
                             </td>
+
                             <td className="px-3 py-2">
                               <input
                                 className="w-20 rounded-lg border border-slate-200 bg-slate-50 px-2 py-1 text-[11px] focus:border-violet-400 focus:outline-none"
@@ -1047,6 +1094,7 @@ export default function AddProductPage() {
                                 }
                               />
                             </td>
+
                             <td className="px-3 py-2">
                               <input
                                 className="w-20 rounded-lg border border-slate-200 bg-slate-50 px-2 py-1 text-[11px] focus:border-violet-400 focus:outline-none"
@@ -1056,6 +1104,7 @@ export default function AddProductPage() {
                                 }
                               />
                             </td>
+
                             <td className="px-3 py-2 text-center">
                               <input
                                 type="checkbox"
@@ -1067,6 +1116,7 @@ export default function AddProductPage() {
                                 }
                               />
                             </td>
+
                             <td className="px-3 py-2">
                               <input
                                 type="number"
@@ -1078,12 +1128,13 @@ export default function AddProductPage() {
                                   editRow(i, {
                                     stock_quantity:
                                       e.target.value === ""
-                                          ? ""
-                                          : Number(e.target.value),
+                                        ? ""
+                                        : Number(e.target.value),
                                   })
                                 }
                               />
                             </td>
+
                             <td className="px-3 py-2">
                               <select
                                 className="w-24 rounded-lg border border-slate-200 bg-slate-50 px-2 py-1 text-[11px] focus:border-violet-400 focus:outline-none"
@@ -1110,12 +1161,12 @@ export default function AddProductPage() {
             </>
           )}
 
-          {/* Grouped products */}
           {ptype === "grouped" && (
             <section className="space-y-4 rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
               <h2 className="text-sm font-semibold text-slate-900">
                 Group products
               </h2>
+
               <div className="mb-3 flex flex-wrap gap-2">
                 <input
                   className="w-64 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs focus:border-violet-400 focus:outline-none"
@@ -1129,6 +1180,7 @@ export default function AddProductPage() {
                     }
                   }}
                 />
+
                 <button
                   type="button"
                   className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium hover:border-violet-300 hover:text-violet-700"
@@ -1137,11 +1189,13 @@ export default function AddProductPage() {
                   Search
                 </button>
               </div>
+
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2 rounded-xl border border-slate-100 bg-slate-50/70 p-3">
                   <div className="text-[11px] font-medium text-slate-600">
                     Results
                   </div>
+
                   {groupResults.map((r) => (
                     <button
                       type="button"
@@ -1159,16 +1213,19 @@ export default function AddProductPage() {
                       </span>
                     </button>
                   ))}
+
                   {groupResults.length === 0 && (
                     <div className="text-[11px] text-slate-500">
                       No results yet.
                     </div>
                   )}
                 </div>
+
                 <div className="space-y-2 rounded-xl border border-slate-100 bg-slate-50/70 p-3">
                   <div className="text-[11px] font-medium text-slate-600">
                     Selected
                   </div>
+
                   {groupSelected.map((id) => {
                     const r = groupResults.find((x) => x.id === id);
                     return (
@@ -1176,9 +1233,7 @@ export default function AddProductPage() {
                         key={id}
                         className="flex items-center justify-between rounded-lg bg-white px-2 py-1.5 text-[11px]"
                       >
-                        <span className="truncate">
-                          {r?.name || `#${id}`}
-                        </span>
+                        <span className="truncate">{r?.name || `#${id}`}</span>
                         <button
                           type="button"
                           className="ml-2 text-[10px] font-medium text-rose-500 hover:text-rose-600"
@@ -1191,6 +1246,7 @@ export default function AddProductPage() {
                       </div>
                     );
                   })}
+
                   {groupSelected.length === 0 && (
                     <div className="text-[11px] text-slate-500">
                       None selected yet.
@@ -1201,7 +1257,6 @@ export default function AddProductPage() {
             </section>
           )}
 
-          {/* Submit row */}
           <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-4">
             <div className="flex items-center gap-3">
               {err && (
@@ -1210,6 +1265,7 @@ export default function AddProductPage() {
                 </span>
               )}
             </div>
+
             <button
               type="submit"
               disabled={busy || !!skuErr}
@@ -1222,10 +1278,4 @@ export default function AddProductPage() {
       </div>
     </main>
   );
-
-  function editRow(i: number, patch: Partial<VRow>) {
-    setRows((prev) =>
-      prev.map((r, idx) => (idx === i ? { ...r, ...patch } : r))
-    );
-  }
 }
