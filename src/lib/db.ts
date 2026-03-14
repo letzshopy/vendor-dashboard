@@ -2,24 +2,36 @@
 import path from "path";
 import fs from "fs";
 
-// Use require + any to avoid TS needing type defs for better-sqlite3
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const BetterSqlite3 = require("better-sqlite3") as any;
 
 let db: any = null;
 
-function dbFile() {
+function isServerlessReadOnlyEnv() {
+  return !!process.env.VERCEL;
+}
+
+function dbTarget() {
+  // On Vercel/serverless, do NOT write to filesystem.
+  // Use in-memory SQLite so runtime won't try to mkdir /var/task/.data.
+  if (isServerlessReadOnlyEnv()) {
+    return ":memory:";
+  }
+
+  // Local dev / self-hosted fallback
   const root = process.cwd();
   const dir = path.join(root, ".data");
-  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
+  }
+
   return path.join(dir, "vendor.db");
 }
 
-export async function ensureDb() {
-  if (db) return db;
-  db = new BetterSqlite3(dbFile());
-  db.pragma("journal_mode = WAL");
-  db.exec(`
+function initSchema(database: any) {
+  database.pragma("journal_mode = WAL");
+  database.exec(`
     CREATE TABLE IF NOT EXISTS product_lookup (
       woo_id     INTEGER NOT NULL,
       sku        TEXT    NOT NULL UNIQUE,
@@ -29,6 +41,16 @@ export async function ensureDb() {
     );
     CREATE INDEX IF NOT EXISTS idx_product_lookup_sku ON product_lookup(sku);
   `);
+}
+
+export async function ensureDb() {
+  if (db) return db;
+
+  const target = dbTarget();
+  db = new BetterSqlite3(target);
+
+  initSchema(db);
+
   return db;
 }
 
