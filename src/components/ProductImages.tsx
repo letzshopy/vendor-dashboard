@@ -4,6 +4,8 @@ import { useRef, useState } from "react";
 
 export type ImgItem = { id: number; url: string };
 
+const MAX_FILE_SIZE_BYTES = 4 * 1024 * 1024; // 4 MB
+
 export default function ProductImages({
   value,
   onChange,
@@ -71,7 +73,10 @@ export default function ProductImages({
 
     const id = idCandidates[0] as number | undefined;
     const url = urlCandidates[0] as string | undefined;
-    return typeof id === "number" && typeof url === "string" ? { id, url } : null;
+
+    return typeof id === "number" && typeof url === "string"
+      ? { id, url }
+      : null;
   };
 
   async function pickFiles(e: React.ChangeEvent<HTMLInputElement>) {
@@ -79,36 +84,63 @@ export default function ProductImages({
     if (!files || files.length === 0) return;
 
     setErr(null);
+
     const remaining = Math.max(0, max - value.length);
-    const toUpload = Array.from(files).slice(0, remaining);
-    if (toUpload.length === 0) {
+    const selected = Array.from(files).slice(0, remaining);
+
+    if (selected.length === 0) {
+      resetInput();
+      return;
+    }
+
+    const oversized = selected.find((f) => f.size > MAX_FILE_SIZE_BYTES);
+    if (oversized) {
+      setErr("Image must be under 4 MB for dashboard upload.");
       resetInput();
       return;
     }
 
     setBusy(true);
+
     try {
       const uploaded: ImgItem[] = [];
-      for (const f of toUpload) {
+
+      for (const f of selected) {
         const fd = new FormData();
         fd.append("file", f);
 
-        const r = await fetch("/api/media/upload", { method: "POST", body: fd });
+        const r = await fetch("/api/media/upload", {
+          method: "POST",
+          body: fd,
+        });
+
         const raw = await r.text();
 
+        if (r.status === 413 || raw.includes("FUNCTION_PAYLOAD_TOO_LARGE")) {
+          throw new Error("Image must be under 4 MB for dashboard upload.");
+        }
+
         if (raw.trim().startsWith("<")) {
-          throw new Error("Upload failed (HTML response). Check WP auth.");
+          throw new Error("Upload failed. Please try a smaller image.");
         }
 
         let j: any = {};
         try {
           j = JSON.parse(raw);
         } catch {
-          throw new Error("Upload failed (non-JSON response).");
+          throw new Error("Upload failed. Please try a smaller image.");
         }
 
         if (!r.ok) {
-          throw new Error(j?.error || j?.message || "Upload failed");
+          const msg = String(j?.error || j?.message || "Upload failed");
+          if (
+            r.status === 413 ||
+            msg.includes("FUNCTION_PAYLOAD_TOO_LARGE") ||
+            msg.toLowerCase().includes("request entity too large")
+          ) {
+            throw new Error("Image must be under 4 MB for dashboard upload.");
+          }
+          throw new Error(msg);
         }
 
         const normalized = normalizeUploadPayload(j);
@@ -116,16 +148,25 @@ export default function ProductImages({
           console.warn("Unexpected upload payload:", j);
           throw new Error("Upload response malformed");
         }
+
         uploaded.push(normalized);
       }
 
-      // de-dup by id; cap to max
       const next = [...value, ...uploaded].filter(
         (img, idx, arr) => arr.findIndex((x) => x.id === img.id) === idx
       );
+
       onChange(next.slice(0, max));
     } catch (e: any) {
-      setErr(e?.message || "Upload failed");
+      const message = String(e?.message || "Upload failed");
+      if (
+        message.includes("FUNCTION_PAYLOAD_TOO_LARGE") ||
+        message.toLowerCase().includes("request entity too large")
+      ) {
+        setErr("Image must be under 4 MB for dashboard upload.");
+      } else {
+        setErr(message);
+      }
     } finally {
       setBusy(false);
       resetInput();
@@ -134,8 +175,9 @@ export default function ProductImages({
 
   return (
     <div>
-      <div className="font-medium mb-2">
-        Images <span className="text-xs text-slate-500">(first = featured)</span>
+      <div className="mb-2 font-medium">
+        Images{" "}
+        <span className="text-xs text-slate-500">(first = featured)</span>
       </div>
 
       <div className="flex flex-wrap gap-3">
@@ -144,12 +186,12 @@ export default function ProductImages({
             <img
               src={img.url}
               alt=""
-              className={`h-24 w-24 object-cover rounded border ${
+              className={`h-24 w-24 rounded border object-cover ${
                 i === 0 ? "ring-2 ring-blue-500" : ""
               }`}
             />
             {i === 0 && (
-              <span className="absolute top-1 left-1 text-[10px] bg-blue-600 text-white px-1.5 py-0.5 rounded">
+              <span className="absolute left-1 top-1 rounded bg-blue-600 px-1.5 py-0.5 text-[10px] text-white">
                 Featured
               </span>
             )}
@@ -157,7 +199,7 @@ export default function ProductImages({
               <button
                 type="button"
                 aria-label="Move up"
-                className="text-[10px] px-1.5 py-0.5 rounded bg-white/90 border"
+                className="rounded border bg-white/90 px-1.5 py-0.5 text-[10px]"
                 onClick={() => move(i, -1)}
                 disabled={i === 0}
               >
@@ -166,7 +208,7 @@ export default function ProductImages({
               <button
                 type="button"
                 aria-label="Move down"
-                className="text-[10px] px-1.5 py-0.5 rounded bg-white/90 border"
+                className="rounded border bg-white/90 px-1.5 py-0.5 text-[10px]"
                 onClick={() => move(i, 1)}
                 disabled={i === value.length - 1}
               >
@@ -175,7 +217,7 @@ export default function ProductImages({
               <button
                 type="button"
                 aria-label="Remove"
-                className="text-[10px] px-1.5 py-0.5 rounded bg-white/90 border text-red-600"
+                className="rounded border bg-white/90 px-1.5 py-0.5 text-[10px] text-red-600"
                 onClick={() => removeAt(i)}
               >
                 ✕
@@ -185,7 +227,7 @@ export default function ProductImages({
         ))}
 
         {value.length < max && (
-          <label className="h-24 w-24 border rounded grid place-items-center cursor-pointer hover:bg-gray-50">
+          <label className="grid h-24 w-24 cursor-pointer place-items-center rounded border hover:bg-gray-50">
             <span className="text-sm">+ Add</span>
             <input
               ref={inputRef}
@@ -199,8 +241,8 @@ export default function ProductImages({
         )}
       </div>
 
-      {busy && <div className="text-xs text-slate-600 mt-2">Uploading…</div>}
-      {err && <div className="text-xs text-red-700 mt-2">{err}</div>}
+      {busy && <div className="mt-2 text-xs text-slate-600">Uploading…</div>}
+      {err && <div className="mt-2 text-xs text-red-700">{err}</div>}
     </div>
   );
 }

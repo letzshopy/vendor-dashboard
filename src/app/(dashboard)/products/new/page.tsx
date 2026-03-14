@@ -801,6 +801,9 @@ export default function AddProductPage() {
                 Upload up to 5 images. The first image will be used as the main
                 thumbnail.
               </p>
+            <p className="text-[11px] font-medium text-amber-600">
+        Image must be under 4 MB for dashboard upload.
+      </p>
             </div>
 
             <div className="space-y-4 rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
