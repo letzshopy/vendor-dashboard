@@ -14,7 +14,7 @@ export default function LockedDashboardRedirect({ locked }: Props) {
   useEffect(() => {
     if (!locked) return;
 
-    // ✅ When locked, allow any Settings tab/page
+    // When locked, allow any Settings tab/page
     const isAllowed = pathname.startsWith("/settings");
 
     if (!isAllowed) {

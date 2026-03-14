@@ -64,7 +64,10 @@ export default function OnboardingPage() {
 
       setStatus(j || {});
 
-      if (j?.kyc_status === "approved" && j?.subscription_status === "active") {
+      // Only force stay on this page when subscription is expired.
+      // For new vendors (inactive) and all other non-expired states,
+      // dashboard access is allowed if master hasn't locked them.
+      if (j?.subscription_status && j.subscription_status !== "expired") {
         router.replace(nextPath);
         router.refresh();
       }
@@ -81,18 +84,21 @@ export default function OnboardingPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const subExpired = status?.subscription_status === "expired";
   const kycOk = status?.kyc_status === "approved";
-  const subOk = status?.subscription_status === "active";
+  const subActive = status?.subscription_status === "active";
 
   return (
     <div className="min-h-screen bg-slate-50 px-4 py-10">
       <div className="mx-auto max-w-xl">
         <h1 className="text-xl font-semibold text-slate-900">
-          Complete onboarding
+          {subExpired ? "Subscription renewal required" : "Onboarding status"}
         </h1>
+
         <p className="mt-1 text-sm text-slate-500">
-          Finish the steps below to unlock Products, Orders, and full dashboard
-          access.
+          {subExpired
+            ? "Your subscription has expired. Renew it to restore full dashboard access."
+            : "KYC and subscription details are shown below. Dashboard access is controlled by your account status and master approval."}
         </p>
 
         <div className="mt-6 space-y-4 rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
@@ -109,16 +115,14 @@ export default function OnboardingPage() {
               />
 
               <Step
-                title="Subscription activation"
-                statusText={prettySubscriptionStatus(
-                  status?.subscription_status
-                )}
-                ok={subOk}
+                title="Subscription"
+                statusText={prettySubscriptionStatus(status?.subscription_status)}
+                ok={subActive}
                 actionLabel="Go to Subscription"
                 onAction={() => router.push("/settings?tab=subscription")}
               />
 
-              <div className="flex gap-3 pt-2">
+              <div className="flex flex-wrap gap-3 pt-2">
                 <button
                   onClick={load}
                   className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm hover:bg-slate-50"
@@ -128,18 +132,26 @@ export default function OnboardingPage() {
 
                 <button
                   onClick={() => router.push("/settings?tab=profile")}
-                  className="rounded-lg bg-[#7c3aed] px-4 py-2 text-sm text-white hover:bg-[#6d28d9]"
+                  className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm hover:bg-slate-50"
                 >
                   Open Settings
                 </button>
+
+                {!subExpired && (
+                  <button
+                    onClick={() => router.push(nextPath)}
+                    className="rounded-lg bg-[#7c3aed] px-4 py-2 text-sm text-white hover:bg-[#6d28d9]"
+                  >
+                    Continue to Dashboard
+                  </button>
+                )}
               </div>
             </>
           )}
         </div>
 
         <p className="mt-4 text-xs text-slate-400">
-          Note: If you’ve completed payment or KYC just now, click “Refresh
-          status”.
+          If you have just completed KYC or payment updates, click “Refresh status”.
         </p>
       </div>
     </div>

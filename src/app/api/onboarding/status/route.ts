@@ -13,7 +13,9 @@ export async function GET() {
     }
 
     const base = (await getWpBaseUrl()).replace(/\/$/, "");
-    const r = await fetch(`${base}/wp-json/letz/v1/onboarding/status?_ts=${Date.now()}`, {
+    const url = `${base}/wp-json/letz/v1/onboarding/status?_ts=${Date.now()}`;
+
+    const r = await fetch(url, {
       headers: {
         "x-letz-auth": TOKEN,
       },
@@ -21,16 +23,22 @@ export async function GET() {
     });
 
     const text = await r.text();
+
     let json: any = null;
     try {
       json = JSON.parse(text);
-    } catch {}
+    } catch {
+      json = null;
+    }
 
     if (!r.ok) {
       return NextResponse.json(
         {
           ok: false,
-          error: json?.message || json?.error || "Failed to fetch onboarding status",
+          error:
+            json?.message ||
+            json?.error ||
+            "Failed to fetch onboarding status",
           details: json || text,
         },
         { status: r.status || 500 }

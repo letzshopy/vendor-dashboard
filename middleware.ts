@@ -69,6 +69,43 @@ async function getLockedFromMaster(req: NextRequest): Promise<boolean> {
   }
 }
 
+type OnboardingStatusResponse = {
+  ok?: boolean;
+  kyc_status?: "not_started" | "in_review" | "approved" | "rejected";
+  subscription_status?:
+    | "inactive"
+    | "payment_submitted"
+    | "active"
+    | "suspended"
+    | "expired";
+};
+
+async function getOnboardingStatus(
+  req: NextRequest
+): Promise<OnboardingStatusResponse | null> {
+  try {
+    const statusUrl = req.nextUrl.clone();
+    statusUrl.pathname = "/api/onboarding/status";
+    statusUrl.search = "";
+
+    const r = await fetch(statusUrl.toString(), {
+      headers: {
+        cookie: req.headers.get("cookie") || "",
+      },
+      cache: "no-store",
+    });
+
+    if (!r.ok) {
+      return null;
+    }
+
+    const data = (await r.json().catch(() => ({}))) as OnboardingStatusResponse;
+    return data || null;
+  } catch {
+    return null;
+  }
+}
+
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
@@ -106,7 +143,7 @@ export async function middleware(req: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  // Vendor lock gate - source of truth = MASTER vendor detail API
+  // 1) Manual master lock is the primary gate for new vendors
   const locked = await getLockedFromMaster(req);
 
   if (locked) {
@@ -116,36 +153,22 @@ export async function middleware(req: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  // Existing onboarding/subscription gate
-  try {
-    const statusUrl = req.nextUrl.clone();
-    statusUrl.pathname = "/api/onboarding/status";
-    statusUrl.search = "";
+  // 2) Automatic onboarding/subscription gate:
+  // Allow dashboard for inactive / payment_submitted / active / suspended.
+  // Block only when subscription is EXPIRED.
+  const status = await getOnboardingStatus(req);
 
-    const r = await fetch(statusUrl.toString(), {
-      headers: { cookie: req.headers.get("cookie") || "" },
-      cache: "no-store",
-    });
-
-    const data = await r.json().catch(() => ({}));
-
-    const kycOk = data?.kyc_status === "approved";
-    const subOk = data?.subscription_status === "active";
-
-    if (!kycOk || !subOk) {
-      const url = req.nextUrl.clone();
-      url.pathname = "/onboarding";
-      url.searchParams.set("next", pathname);
-      return NextResponse.redirect(url);
-    }
-
-    return NextResponse.next();
-  } catch {
+  if (status?.subscription_status === "expired") {
     const url = req.nextUrl.clone();
     url.pathname = "/onboarding";
     url.searchParams.set("next", pathname);
     return NextResponse.redirect(url);
   }
+
+  // 3) Fail open:
+  // If onboarding API fails or status is unavailable, do NOT block dashboard.
+  // Manual lock remains the source of truth for first-stage access.
+  return NextResponse.next();
 }
 
 export const config = {
