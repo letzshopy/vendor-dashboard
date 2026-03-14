@@ -1,20 +1,18 @@
 // src/app/api/payments/settings/route.ts
 import { NextResponse } from "next/server";
-import { woo } from "@/lib/woo";
+import { getWooClient } from "@/lib/woo";
+import { getWpBaseUrl } from "@/lib/wpClient";
 
 const OPTION_KEY = "letz_payments_settings";
-
-// Base WP URL (same one you use in woo.ts)
-const WP_BASE =
-  (process.env.WP_URL || process.env.NEXT_PUBLIC_WP_URL || "").replace(/\/$/, "");
 
 // --- helpers to store UI state as a single JSON option via custom WP REST ---
 // We ignore `name` and always use the `letz_payments_settings` option.
 async function getOption(_name: string): Promise<any> {
-  if (!WP_BASE) return {};
   try {
-    const res = await fetch(`${WP_BASE}/wp-json/letz/v2/payments/settings`, {
+    const wpBase = (await getWpBaseUrl()).replace(/\/$/, "");
+    const res = await fetch(`${wpBase}/wp-json/letz/v2/payments/settings`, {
       method: "GET",
+      cache: "no-store",
       // permission_callback in MU plugin is __return_true, so no auth needed
     });
     if (!res.ok) return {};
@@ -25,15 +23,13 @@ async function getOption(_name: string): Promise<any> {
 }
 
 async function setOption(_name: string, value: any) {
-  if (!WP_BASE) {
-    console.error("WP_BASE not set – cannot persist payments settings");
-    return;
-  }
+  const wpBase = (await getWpBaseUrl()).replace(/\/$/, "");
 
-  const res = await fetch(`${WP_BASE}/wp-json/letz/v2/payments/settings`, {
+  const res = await fetch(`${wpBase}/wp-json/letz/v2/payments/settings`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(value),
+    cache: "no-store",
   });
 
   if (!res.ok) {
@@ -83,9 +79,7 @@ function findEasebuzzGateway(gateways: any[], hint: string): any | undefined {
   if (!h) return undefined;
 
   // 1) id contains hint
-  let gw = gateways.find((g) =>
-    String(g.id || "").toLowerCase().includes(h)
-  );
+  let gw = gateways.find((g) => String(g.id || "").toLowerCase().includes(h));
   if (gw) return gw;
 
   // 2) title/description contains hint
@@ -124,6 +118,7 @@ export async function GET() {
 // Shared save handler for both POST and PUT
 async function handleSave(req: Request) {
   try {
+    const woo = await getWooClient(); // ✅ tenant-aware
     const body = (await req.json()) as SaveBody;
 
     // 1) Persist dashboard JSON (for UPI / notes / bank / COD / easebuzz, etc.)

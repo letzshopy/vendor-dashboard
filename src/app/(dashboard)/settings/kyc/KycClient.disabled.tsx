@@ -1,10 +1,11 @@
+// src/app/(dashboard)/settings/kyc/KycClient.tsx
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
 import Upload from "../ui/Upload";
 
 type KycState = {
-  submittedAt?: string | null;  // used for the blue stripe
+  submittedAt?: string | null;
   notes?: string;
 
   businessType: "individual" | "proprietorship" | "partnership" | "private_ltd";
@@ -21,24 +22,25 @@ type KycState = {
   };
 
   docs: {
-    aadhaar?: string;  // uploaded URL (existing file)
-    pan?: string;
-    gstCert?: string;
-    cancelCheque?: string;
-    vendorAgreement?: string;
+    aadhaarKey?: string;
+    panKey?: string;
+    gstCertKey?: string;
+    cancelledChequeKey?: string;
   };
 };
 
-function ExistingBadge({ label, url }: { label: string; url?: string }) {
-  if (!url) return null;
-  const name = url.split("/").pop() || "file";
+function ExistingBadge({ label, fileKey }: { label: string; fileKey?: string }) {
+  if (!fileKey) return null;
+  const href = `/api/settings/kyc/download?fileKey=${encodeURIComponent(fileKey)}`;
   return (
     <div className="flex items-center gap-2 text-xs text-gray-700 mt-1">
       <svg viewBox="0 0 24 24" className="w-4 h-4 text-green-600">
-        <path fill="currentColor" d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"/>
+        <path fill="currentColor" d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z" />
       </svg>
       <span className="font-medium">{label}:</span>
-      <a href={url} target="_blank" className="underline">{name}</a>
+      <a href={href} target="_blank" rel="noreferrer" className="underline">
+        {fileKey}
+      </a>
     </div>
   );
 }
@@ -46,67 +48,88 @@ function ExistingBadge({ label, url }: { label: string; url?: string }) {
 export default function KycClient() {
   const [data, setData] = useState<KycState | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [agree, setAgree] = useState(false);
 
-  // local picked files
   const [aadhaarFile, setAadhaarFile] = useState<File | null>(null);
   const [panFile, setPanFile] = useState<File | null>(null);
   const [gstFile, setGstFile] = useState<File | null>(null);
   const [chequeFile, setChequeFile] = useState<File | null>(null);
-  const [agreementFile, setAgreementFile] = useState<File | null>(null);
 
   const isIndividual = useMemo(() => data?.businessType === "individual", [data?.businessType]);
 
   useEffect(() => {
     (async () => {
-      const res = await fetch("/api/settings/kyc");
+      const res = await fetch("/api/settings/kyc", { cache: "no-store" });
       const json = await res.json();
       setData(json);
     })();
   }, []);
 
-  async function fileToUrl(file: File | null) {
+  async function fileToKey(file: File | null, doc_type: string) {
     if (!file) return undefined;
+
     const fd = new FormData();
-    fd.append("file", file);
-    const res = await fetch("/api/media/upload", { method: "POST", body: fd });
-    if (!res.ok) throw new Error("Upload failed");
-    const { url } = await res.json();
-    return url as string;
+    fd.append("file", file, file.name);
+    fd.append("doc_type", doc_type);
+
+    const res = await fetch("/api/settings/kyc/upload", { method: "POST", body: fd });
+    const js = await res.json().catch(() => ({}));
+
+    if (!res.ok) {
+      throw new Error(js?.error || `KYC upload failed (${res.status})`);
+    }
+
+    const fileKey = js?.fileKey || js?.key;
+    if (!fileKey) throw new Error("Upload ok but fileKey missing");
+
+    return String(fileKey);
   }
 
   async function submit() {
     if (!data) return;
+
+    // ✅ enforce terms checkbox (since we are not using <form>)
+    if (!agree) {
+      alert("Please accept Terms & Conditions to continue.");
+      return;
+    }
+
     setUploading(true);
+
     try {
       const merged: KycState = {
         ...data,
         docs: {
-          aadhaar: (await fileToUrl(aadhaarFile)) ?? data.docs.aadhaar,
-          pan: (await fileToUrl(panFile)) ?? data.docs.pan,
-          gstCert: (await fileToUrl(gstFile)) ?? data.docs.gstCert,
-          cancelCheque: (await fileToUrl(chequeFile)) ?? data.docs.cancelCheque,
-          vendorAgreement: (await fileToUrl(agreementFile)) ?? data.docs.vendorAgreement,
+          aadhaarKey: (await fileToKey(aadhaarFile, "aadhaar")) ?? data.docs.aadhaarKey,
+          panKey: (await fileToKey(panFile, "pan")) ?? data.docs.panKey,
+          gstCertKey: (await fileToKey(gstFile, "gst")) ?? data.docs.gstCertKey,
+          cancelledChequeKey: (await fileToKey(chequeFile, "cheque")) ?? data.docs.cancelledChequeKey,
         },
-        submittedAt: new Date().toISOString(),  // IN REVIEW
+        submittedAt: new Date().toISOString(),
       };
 
+      // save KYC data
       await fetch("/api/settings/kyc", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(merged),
       });
 
-      await fetch("/api/notify/kyc-submitted", { method: "POST" });
+      // ✅ mark KYC in_review + onboarding flag (server-side)
+      await fetch("/api/settings/kyc/submit", { method: "POST" });
+
+      // notify (optional)
+      await fetch("/api/notify/kyc-submitted", { method: "POST" }).catch(() => {});
 
       setData(merged);
       setAadhaarFile(null);
       setPanFile(null);
       setGstFile(null);
       setChequeFile(null);
-      setAgreementFile(null);
+
       alert("KYC submitted. We’ll review and approve shortly.");
     } catch (e: any) {
-      alert(e.message ?? "Failed to submit");
+      alert(e?.message ?? "Failed to submit");
     } finally {
       setUploading(false);
     }
@@ -116,22 +139,16 @@ export default function KycClient() {
     if (!data?.gstin) return;
     const res = await fetch(`/api/lookup/gstin?gstin=${encodeURIComponent(data.gstin)}`);
     const js = await res.json();
-    if (js?.ok) {
-      setData({ ...data, legalName: js.legalName, tradeName: js.tradeName, state: js.state });
-    } else {
-      alert(js?.error ?? "GSTIN lookup failed");
-    }
+    if (js?.ok) setData({ ...data, legalName: js.legalName, tradeName: js.tradeName, state: js.state });
+    else alert(js?.error ?? "GSTIN lookup failed");
   }
 
   async function lookupIFSC() {
     if (!data?.bank.ifsc) return;
     const res = await fetch(`/api/lookup/ifsc?code=${encodeURIComponent(data.bank.ifsc)}`);
     const js = await res.json();
-    if (js?.ok) {
-      setData({ ...data, bank: { ...data.bank, bankName: js.bank, branch: js.branch } });
-    } else {
-      alert(js?.error ?? "IFSC lookup failed");
-    }
+    if (js?.ok) setData({ ...data, bank: { ...data.bank, bankName: js.bank, branch: js.branch } });
+    else alert(js?.error ?? "IFSC lookup failed");
   }
 
   if (!data) return <div className="text-sm text-gray-600">Loading…</div>;
@@ -153,7 +170,7 @@ export default function KycClient() {
             <select
               className="mt-1 w-full border rounded px-3 py-2"
               value={data.businessType}
-              onChange={e => setData({ ...data, businessType: e.target.value as KycState["businessType"] })}
+              onChange={(e) => setData({ ...data, businessType: e.target.value as KycState["businessType"] })}
             >
               <option value="individual">Individual</option>
               <option value="proprietorship">Sole Proprietorship</option>
@@ -169,7 +186,7 @@ export default function KycClient() {
                 className="w-full border rounded px-3 py-2 uppercase"
                 placeholder="27ABCDE1234F1Z5"
                 value={data.gstin ?? ""}
-                onChange={e => setData({ ...data, gstin: e.target.value.toUpperCase() })}
+                onChange={(e) => setData({ ...data, gstin: e.target.value.toUpperCase() })}
               />
               <button type="button" onClick={lookupGSTIN} className="px-3 py-2 border rounded bg-white hover:bg-gray-50 text-sm">
                 Lookup
@@ -186,7 +203,7 @@ export default function KycClient() {
             <input
               className="mt-1 w-full border rounded px-3 py-2"
               value={data.legalName ?? ""}
-              onChange={e => setData({ ...data, legalName: e.target.value })}
+              onChange={(e) => setData({ ...data, legalName: e.target.value })}
               disabled={isIndividual}
             />
           </div>
@@ -195,7 +212,7 @@ export default function KycClient() {
             <input
               className="mt-1 w-full border rounded px-3 py-2"
               value={data.tradeName ?? ""}
-              onChange={e => setData({ ...data, tradeName: e.target.value })}
+              onChange={(e) => setData({ ...data, tradeName: e.target.value })}
               disabled={isIndividual}
             />
           </div>
@@ -204,7 +221,7 @@ export default function KycClient() {
             <input
               className="mt-1 w-full border rounded px-3 py-2"
               value={data.state ?? ""}
-              onChange={e => setData({ ...data, state: e.target.value })}
+              onChange={(e) => setData({ ...data, state: e.target.value })}
               disabled={isIndividual}
             />
           </div>
@@ -220,7 +237,7 @@ export default function KycClient() {
             <input
               className="mt-1 w-full border rounded px-3 py-2"
               value={data.bank.accountNumber ?? ""}
-              onChange={e => setData({ ...data, bank: { ...data.bank, accountNumber: e.target.value } })}
+              onChange={(e) => setData({ ...data, bank: { ...data.bank, accountNumber: e.target.value } })}
             />
           </div>
           <div>
@@ -230,7 +247,7 @@ export default function KycClient() {
                 className="w-full border rounded px-3 py-2 uppercase"
                 placeholder="HDFC0000123"
                 value={data.bank.ifsc ?? ""}
-                onChange={e => setData({ ...data, bank: { ...data.bank, ifsc: e.target.value.toUpperCase() } })}
+                onChange={(e) => setData({ ...data, bank: { ...data.bank, ifsc: e.target.value.toUpperCase() } })}
               />
               <button type="button" onClick={lookupIFSC} className="px-3 py-2 border rounded bg-white hover:bg-gray-50 text-sm">
                 Lookup
@@ -246,7 +263,7 @@ export default function KycClient() {
             <input
               className="mt-1 w-full border rounded px-3 py-2"
               value={data.bank.bankName ?? ""}
-              onChange={e => setData({ ...data, bank: { ...data.bank, bankName: e.target.value } })}
+              onChange={(e) => setData({ ...data, bank: { ...data.bank, bankName: e.target.value } })}
             />
           </div>
           <div>
@@ -254,11 +271,10 @@ export default function KycClient() {
             <input
               className="mt-1 w-full border rounded px-3 py-2"
               value={data.bank.branch ?? ""}
-              onChange={e => setData({ ...data, bank: { ...data.bank, branch: e.target.value } })}
+              onChange={(e) => setData({ ...data, bank: { ...data.bank, branch: e.target.value } })}
             />
           </div>
         </div>
-        <p className="text-xs text-gray-500">IFSC lookup fills Bank name and Branch. Account holder name can’t be auto-fetched — please enter it exactly as per bank records.</p>
       </section>
 
       {/* Documents */}
@@ -276,7 +292,7 @@ export default function KycClient() {
               value={aadhaarFile as any}
               onChange={setAadhaarFile}
             />
-            <ExistingBadge label="Existing" url={data.docs.aadhaar} />
+            <ExistingBadge label="Existing" fileKey={data.docs.aadhaarKey} />
           </div>
 
           <div>
@@ -289,7 +305,7 @@ export default function KycClient() {
               value={panFile as any}
               onChange={setPanFile}
             />
-            <ExistingBadge label="Existing" url={data.docs.pan} />
+            <ExistingBadge label="Existing" fileKey={data.docs.panKey} />
           </div>
 
           <div>
@@ -302,12 +318,12 @@ export default function KycClient() {
               value={gstFile as any}
               onChange={setGstFile}
             />
-            <ExistingBadge label="Existing" url={data.docs.gstCert} />
+            <ExistingBadge label="Existing" fileKey={data.docs.gstCertKey} />
           </div>
 
           <div>
             <Upload
-              label="Cancelled cheque"
+              label="Cancelled cheque *"
               buttonText="Upload file"
               accept="image/*,application/pdf"
               maxSizeMB={4}
@@ -315,27 +331,17 @@ export default function KycClient() {
               value={chequeFile as any}
               onChange={setChequeFile}
             />
-            <ExistingBadge label="Existing" url={data.docs.cancelCheque} />
-          </div>
-
-          <div className="md:col-span-2">
-            <Upload
-              label={<span>Signed vendor agreement <a className="underline text-blue-600" href="/vendor-blank-agreement.pdf" target="_blank">(download blank)</a></span> as any as unknown as string}
-              buttonText="Upload file"
-              accept="application/pdf,image/*"
-              maxSizeMB={6}
-              helper="PDF preferred; up to 6MB."
-              value={agreementFile as any}
-              onChange={setAgreementFile}
-            />
-            <ExistingBadge label="Existing" url={data.docs.vendorAgreement} />
+            <ExistingBadge label="Existing" fileKey={data.docs.cancelledChequeKey} />
           </div>
         </div>
 
         <label className="flex items-start gap-2 text-sm">
-          <input type="checkbox" required />
+          <input type="checkbox" checked={agree} onChange={(e) => setAgree(e.target.checked)} />
           <span>
-            I agree to the <a className="underline" href="/terms" target="_blank">Terms & Conditions</a>
+            I agree to the{" "}
+            <a className="underline" href="/terms" target="_blank" rel="noreferrer">
+              Terms & Conditions
+            </a>
           </span>
         </label>
       </section>

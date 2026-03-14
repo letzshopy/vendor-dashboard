@@ -1,6 +1,6 @@
 // src/app/api/metrics/orders/route.ts
 import { NextResponse } from "next/server";
-import { woo } from "@/lib/woo";
+import { getWooClient } from "@/lib/woo";
 
 type WooOrder = {
   id: number;
@@ -119,6 +119,7 @@ function computeBaseStats(orders: WooOrder[]) {
 
 export async function GET() {
   try {
+    const woo = await getWooClient();
     const res = await woo.get("/orders", {
       params: {
         per_page: 100,

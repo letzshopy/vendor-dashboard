@@ -1,4 +1,4 @@
-import { woo } from "@/lib/woo";
+import { getWooClient } from "@/lib/woo";
 import TagsClient from "./ui/TagsClient";
 
 type Tag = {
@@ -12,15 +12,38 @@ type Tag = {
 export const dynamic = "force-dynamic";
 
 async function fetchTags(): Promise<Tag[]> {
-  const { data } = await woo.get<Tag[]>("/products/tags", {
-    params: {
-      per_page: 100,
-      orderby: "name",
-      order: "asc",
-      hide_empty: false,
-    },
-  });
-  return data || [];
+  try {
+    const woo = await getWooClient();
+
+    const PER_PAGE = 100;
+    const MAX_PAGES = 20; // safety cap (2000 tags)
+    const all: Tag[] = [];
+
+    let page = 1;
+    while (page <= MAX_PAGES) {
+      const { data } = await woo.get<Tag[]>("/products/tags", {
+        params: {
+          per_page: PER_PAGE,
+          page,
+          orderby: "name",
+          order: "asc",
+          hide_empty: false,
+        },
+      });
+
+      const rows = Array.isArray(data) ? data : [];
+      if (rows.length === 0) break;
+
+      all.push(...rows);
+
+      if (rows.length < PER_PAGE) break;
+      page++;
+    }
+
+    return all;
+  } catch {
+    return [];
+  }
 }
 
 export default async function TagsPage() {

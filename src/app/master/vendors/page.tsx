@@ -1,5 +1,6 @@
 // src/app/master/vendors/page.tsx
 import Link from "next/link";
+import { getMasterWpBaseUrl } from "@/lib/wpClient";
 
 type MasterVendor = {
   blog_id: number;
@@ -12,9 +13,11 @@ type MasterVendor = {
   billing_state: string;
 };
 
+export const dynamic = "force-dynamic";
+
 function getAuthHeader(): Record<string, string> {
   const key = process.env.MASTER_API_KEY;
-  if (!key) return {};
+  if (!key) return { Accept: "application/json" };
   return {
     Authorization: `Bearer ${key}`,
     "X-Letz-Master-Key": key,
@@ -23,22 +26,27 @@ function getAuthHeader(): Record<string, string> {
 }
 
 async function fetchMasterVendors(): Promise<MasterVendor[]> {
-  const baseUrl = process.env.WP_URL;
-  if (!baseUrl) return [];
+  try {
+    // ✅ master-only base URL (never tenant)
+    const baseUrl = getMasterWpBaseUrl();
 
-  const url = `${baseUrl.replace(/\/$/, "")}/wp-json/letz/v1/master-vendors`;
-  const res = await fetch(url, {
-    headers: getAuthHeader(),
-    cache: "no-store",
-  });
+    const url = `${baseUrl.replace(/\/$/, "")}/wp-json/letz/v1/master-vendors`;
+    const res = await fetch(url, {
+      headers: getAuthHeader(),
+      cache: "no-store",
+    });
 
-  if (!res.ok) {
-    console.error("Failed to load master vendors", res.status, await res.text());
+    if (!res.ok) {
+      console.error("Failed to load master vendors", res.status, await res.text());
+      return [];
+    }
+
+    const data = await res.json();
+    return Array.isArray(data?.vendors) ? (data.vendors as MasterVendor[]) : [];
+  } catch (e) {
+    console.error("fetchMasterVendors error", e);
     return [];
   }
-
-  const data = await res.json();
-  return Array.isArray(data?.vendors) ? (data.vendors as MasterVendor[]) : [];
 }
 
 export default async function VendorsPage() {

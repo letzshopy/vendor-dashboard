@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { woo } from "@/lib/woo";
+import { getWooClient } from "@/lib/woo";
+
 import { PRODUCT_CSV_COLUMNS } from "@/types/import";
 
 export const dynamic = "force-dynamic";
@@ -60,6 +61,7 @@ function attrCell(p: P, idx: number, key: "name" | "value" | "visible" | "global
 }
 
 export async function GET(req: Request) {
+  const woo = await getWooClient();
   const url = new URL(req.url);
   const category = url.searchParams.get("category") || "";
   const stock = url.searchParams.get("stock") || "";

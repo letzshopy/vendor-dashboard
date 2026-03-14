@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
-import { woo } from "@/lib/woo";
+import { getWooClient } from "@/lib/woo";
+
 import { stringifyCsvRows } from "@/lib/csv";
 
 export const dynamic = "force-dynamic";
@@ -21,8 +22,9 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
   }
 
   const url = new URL(req.url);
-
+  const woo = await getWooClient();
   if (entity === "products") {
+    
     const category = url.searchParams.get("category") || "";
     const stock_status = url.searchParams.get("stock_status") || "";
     const product_type = url.searchParams.get("product_type") || "";
@@ -338,6 +340,7 @@ function buildVariationRow(v: WooVariation, parent: WooProduct) {
 async function fetchAllVariationsForParent(
   parent: WooProduct
 ): Promise<{ parent: WooProduct; variations: WooVariation[] }> {
+  const woo = await getWooClient();
   const pid = parent?.id;
   const out: WooVariation[] = [];
   if (!pid) return { parent, variations: out };

@@ -5,7 +5,7 @@ import ImageUploader from "@/components/ImageUploader";
 import DocumentUploader from "@/components/DocumentUploader";
 
 type KycFile = {
-  type: "AADHAAR" | "PAN" | "BANK" | "CANCELLED_CHEQUE" | "AGREEMENT";
+  type: "AADHAAR" | "PAN" | "BANK" | "CANCELLED_CHEQUE" ;
   url: string;
   name?: string;
 };
@@ -268,12 +268,7 @@ export default function ProfileSetupPage() {
               kyc={kyc}
               setKyc={setKyc}
             />
-            <KycRow
-              title="Signed vendor agreement (PDF)"
-              type="AGREEMENT"
-              kyc={kyc}
-              setKyc={setKyc}
-            />
+            
 
             {/* Vendor Agreement text + confirm */}
             <div className="mt-4">

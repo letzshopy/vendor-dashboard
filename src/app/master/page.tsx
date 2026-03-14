@@ -1,5 +1,8 @@
 // src/app/master/page.tsx
 import Link from "next/link";
+import { getMasterWpBaseUrl } from "@/lib/wpClient";
+
+export const dynamic = "force-dynamic";
 
 type MasterVendor = {
   blog_id: number;
@@ -7,39 +10,41 @@ type MasterVendor = {
   store_url: string;
   owner_email: string;
   owner_name?: string;
-  plan: string;          // e.g. "Trial", "Monthly", "Yearly"
-  status: string;        // e.g. "Active", "Trial", "Overdue"
-  billing_state: string; // GST state code
+  plan: string;
+  status: string;
+  billing_state: string;
 };
 
 async function fetchMasterVendors(): Promise<MasterVendor[]> {
-  const baseUrl = process.env.WP_URL;
-  const user = process.env.WP_USER;
-  const appPass = process.env.WP_APP_PASSWORD;
+  try {
+    const baseUrl = getMasterWpBaseUrl();
 
-  if (!baseUrl || !user || !appPass) {
-    console.error("Missing WP_URL / WP_USER / WP_APP_PASSWORD env vars");
+    const url = `${baseUrl.replace(/\/$/, "")}/wp-json/letz/v1/master-vendors`;
+
+    const res = await fetch(url, {
+      headers: {
+        Authorization: `Bearer ${process.env.MASTER_API_KEY}`,
+        "X-Letz-Master-Key": process.env.MASTER_API_KEY || "",
+        Accept: "application/json",
+      },
+      cache: "no-store",
+    });
+
+    if (!res.ok) {
+      console.error(
+        "Failed to load master vendors",
+        res.status,
+        await res.text()
+      );
+      return [];
+    }
+
+    const data = await res.json();
+    return Array.isArray(data?.vendors) ? (data.vendors as MasterVendor[]) : [];
+  } catch (e) {
+    console.error("fetchMasterVendors error", e);
     return [];
   }
-
-  const url = `${baseUrl.replace(/\/$/, "")}/wp-json/letz/v1/master-vendors`;
-
-  const res = await fetch(url, {
-    headers: {
-      Authorization:
-        "Basic " +
-        Buffer.from(`${user}:${appPass}`, "utf8").toString("base64"),
-    },
-    cache: "no-store",
-  });
-
-  if (!res.ok) {
-    console.error("Failed to load master vendors", res.status, await res.text());
-    return [];
-  }
-
-  const data = await res.json();
-  return Array.isArray(data?.vendors) ? (data.vendors as MasterVendor[]) : [];
 }
 
 function computeMetrics(vendors: MasterVendor[]) {
@@ -50,9 +55,8 @@ function computeMetrics(vendors: MasterVendor[]) {
     return status === "active";
   }).length;
 
-  // Pricing (GST inclusive) – from your message
-  const MONTHLY_GROSS = 625;  // ₹625 per month
-  const YEARLY_GROSS = 7500;  // ₹7,500 per year
+  const MONTHLY_GROSS = 625;
+  const YEARLY_GROSS = 7500;
 
   let mrr = 0;
 
@@ -63,10 +67,8 @@ function computeMetrics(vendors: MasterVendor[]) {
     if (plan.includes("month")) {
       mrr += MONTHLY_GROSS;
     } else if (plan.includes("year") || plan.includes("annual")) {
-      // Annual plan converted to monthly MRR
       mrr += Math.round(YEARLY_GROSS / 12);
     } else {
-      // Any future paid plan – treat as monthly for now
       mrr += MONTHLY_GROSS;
     }
   }
@@ -96,7 +98,6 @@ export default async function MasterDashboardPage() {
 
       {/* KPI cards */}
       <div className="grid gap-4 md:grid-cols-3 xl:grid-cols-4">
-        {/* Total vendors */}
         <div className="rounded-2xl border border-slate-800 bg-slate-950/70 p-4 shadow-inner">
           <p className="text-xs font-medium text-slate-400">Total vendors</p>
           <p className="mt-3 text-3xl font-semibold text-slate-50">
@@ -107,7 +108,6 @@ export default async function MasterDashboardPage() {
           </p>
         </div>
 
-        {/* Active subscriptions */}
         <div className="rounded-2xl border border-emerald-700/40 bg-emerald-950/20 p-4 shadow-inner">
           <p className="text-xs font-medium text-slate-400">
             Active subscriptions
@@ -120,7 +120,6 @@ export default async function MasterDashboardPage() {
           </p>
         </div>
 
-        {/* MRR */}
         <div className="rounded-2xl border border-slate-800 bg-slate-950/70 p-4 shadow-inner">
           <p className="text-xs font-medium text-slate-400">MRR (approx)</p>
           <p className="mt-3 text-3xl font-semibold text-slate-50">
@@ -131,7 +130,6 @@ export default async function MasterDashboardPage() {
           </p>
         </div>
 
-        {/* Open tickets – placeholder for now */}
         <div className="rounded-2xl border border-slate-800 bg-slate-950/40 p-4 shadow-inner">
           <p className="text-xs font-medium text-slate-400">Open tickets</p>
           <p className="mt-3 text-3xl font-semibold text-amber-300">0</p>
@@ -141,7 +139,7 @@ export default async function MasterDashboardPage() {
         </div>
       </div>
 
-      {/* Vendor overview mini-table */}
+      {/* Vendor overview */}
       <div className="rounded-2xl border border-slate-800 bg-slate-950/70 p-4">
         <div className="mb-3 flex items-center justify-between gap-2">
           <div>
@@ -170,19 +168,24 @@ export default async function MasterDashboardPage() {
             <table className="min-w-full text-left text-xs">
               <thead>
                 <tr className="border-b border-slate-800">
-                  <th className="py-2 pr-4 font-medium text-slate-400">Store</th>
+                  <th className="py-2 pr-4 font-medium text-slate-400">
+                    Store
+                  </th>
                   <th className="py-2 pr-4 font-medium text-slate-400">
                     Domain
                   </th>
                   <th className="py-2 pr-4 font-medium text-slate-400">
                     Owner
                   </th>
-                  <th className="py-2 pr-4 font-medium text-slate-400">Plan</th>
+                  <th className="py-2 pr-4 font-medium text-slate-400">
+                    Plan
+                  </th>
                   <th className="py-2 pr-4 font-medium text-slate-400">
                     Status
                   </th>
                 </tr>
               </thead>
+
               <tbody>
                 {vendors.slice(0, 5).map((v) => {
                   const status = (v.status || "").toLowerCase();
@@ -196,6 +199,7 @@ export default async function MasterDashboardPage() {
                       <td className="py-2 pr-4 text-slate-100">
                         {v.store_name || "Untitled store"}
                       </td>
+
                       <td className="py-2 pr-4">
                         <a
                           href={v.store_url}
@@ -206,14 +210,17 @@ export default async function MasterDashboardPage() {
                           {v.store_url.replace(/^https?:\/\//, "")}
                         </a>
                       </td>
+
                       <td className="py-2 pr-4 text-slate-300">
                         {v.owner_name || v.owner_email}
                       </td>
+
                       <td className="py-2 pr-4">
                         <span className="inline-flex items-center rounded-full bg-slate-900 px-2 py-1 text-[11px] capitalize text-slate-200">
                           {v.plan || "Trial"}
                         </span>
                       </td>
+
                       <td className="py-2 pr-4">
                         <span
                           className={`inline-flex items-center rounded-full px-2 py-1 text-[11px] capitalize ${

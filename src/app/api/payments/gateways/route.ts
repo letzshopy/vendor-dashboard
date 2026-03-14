@@ -1,6 +1,7 @@
 // src/app/api/payments/gateways/route.ts
 import { NextResponse } from "next/server";
-import { woo } from "@/lib/woo";
+import { getWooClient } from "@/lib/woo";
+
 
 type EnableMap = Record<string, boolean>;
 
@@ -14,6 +15,7 @@ type Body = {
 };
 
 async function fetchGateways() {
+  const woo = await getWooClient();
   const { data } = await woo.get("/payment_gateways");
   return Array.isArray(data) ? data : [];
 }
@@ -55,6 +57,7 @@ export async function GET() {
  */
 export async function PUT(req: Request) {
   try {
+    const woo = await getWooClient();
     const body = (await req.json()) as Body;
     const enable = body.enable || {};
     const easebuzzHint = (body.easebuzzHint || "easebuzz").toLowerCase();

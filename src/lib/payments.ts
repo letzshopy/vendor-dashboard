@@ -1,13 +1,11 @@
 // src/lib/payments.ts
-import { woo } from "@/lib/woo";
 
 // Local success status type for our helper
 export type SuccessStatus = "processing" | "completed";
 
 /**
  * Load payments config for Settings → Payments tab.
- * This talks to our Next.js API route:
- *   src/app/api/payments/settings/route.ts
+ * Uses Next.js API route: /api/payments/settings
  */
 export async function fetchPaymentsSettings(): Promise<any> {
   const res = await fetch("/api/payments/settings", {
@@ -20,9 +18,7 @@ export async function fetchPaymentsSettings(): Promise<any> {
     try {
       const j = await res.json();
       if (j?.error) msg = j.error;
-    } catch {
-      // ignore JSON parse errors
-    }
+    } catch {}
     throw new Error(msg);
   }
 
@@ -31,7 +27,7 @@ export async function fetchPaymentsSettings(): Promise<any> {
 
 /**
  * Save payments config from the Payments tab.
- * We use POST /api/payments/settings so our route.ts (POST handler) catches it.
+ * Uses POST /api/payments/settings
  */
 export async function savePaymentsSettings(values: any): Promise<void> {
   const res = await fetch("/api/payments/settings", {
@@ -45,48 +41,53 @@ export async function savePaymentsSettings(values: any): Promise<void> {
     try {
       const j = await res.json();
       if (j?.error) msg = j.error;
-    } catch {
-      // ignore JSON parse errors
-    }
+    } catch {}
     throw new Error(msg);
   }
 }
 
-// Infer a boolean from Woo gateways (any enabled => payments enabled)
+/**
+ * Infer a boolean from Woo gateways (any enabled => payments enabled)
+ * NOTE: Client-safe: calls our server API which talks to Woo.
+ *
+ * Requires an API route:
+ *   GET /api/payments/gateways/infer  -> { enabled: boolean }
+ */
 export async function inferEnabledFromGateways(): Promise<boolean> {
   try {
-    const { data } = await woo.get("/payment_gateways");
-    const arr = Array.isArray(data) ? data : [];
-    return arr.some((g: any) => !!g.enabled);
+    const res = await fetch("/api/payments/gateways/infer", {
+      method: "GET",
+      cache: "no-store",
+    });
+    if (!res.ok) return true;
+    const j = await res.json().catch(() => ({}));
+    return typeof j?.enabled === "boolean" ? j.enabled : true;
   } catch {
     return true;
   }
 }
 
-export async function setAllGatewaysEnabled(enabled: boolean) {
-  // Batch if possible, fallback per-gateway
+/**
+ * Enable/disable all gateways.
+ * NOTE: Client-safe: calls our server API which talks to Woo.
+ *
+ * Requires an API route:
+ *   POST /api/payments/gateways/set-all  body: { enabled: boolean }
+ */
+export async function setAllGatewaysEnabled(enabled: boolean): Promise<void> {
   try {
-    const { data } = await woo.get("/payment_gateways");
-    const arr = Array.isArray(data) ? data : [];
-    const update = arr.map((g: any) => ({ id: g.id, enabled }));
-    try {
-      await woo.put("/payment_gateways/batch", { update });
-    } catch {
-      for (const g of arr) {
-        try {
-          await woo.put(`/payment_gateways/${g.id}`, { enabled });
-        } catch {}
-      }
-    }
-  } catch {}
+    await fetch("/api/payments/gateways/set-all", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ enabled: !!enabled }),
+    });
+  } catch {
+    // no-op (UI can still proceed; gateway sync is best-effort)
+  }
 }
 
-// Basic UPI URI generator
-export function buildUpiUri(
-  upi_id: string,
-  payeeName?: string,
-  amount?: string
-) {
+/** Basic UPI URI generator */
+export function buildUpiUri(upi_id: string, payeeName?: string, amount?: string) {
   const params = new URLSearchParams();
   params.set("pa", upi_id);
   if (payeeName) params.set("pn", payeeName);
@@ -95,16 +96,21 @@ export function buildUpiUri(
   return `upi://pay?${params.toString()}`;
 }
 
-// WhatsApp notify (stub). Provide env:
-//   WHATSAPP_PHONE_ID, WHATSAPP_TOKEN, WHATSAPP_FROM_NUMBER
-export async function notifyVendorOnWhatsapp(
-  toNumber: string,
-  text: string
-) {
+/**
+ * WhatsApp notify (SERVER-ONLY helper).
+ * If called in browser, it becomes a safe no-op.
+ *
+ * Prefer: expose a Next API route and call it from client instead.
+ */
+export async function notifyVendorOnWhatsapp(toNumber: string, text: string) {
+  if (typeof window !== "undefined") {
+    return { ok: false, reason: "Client-side call blocked" };
+  }
+
   const token = process.env.WHATSAPP_TOKEN;
   const phoneId = process.env.WHATSAPP_PHONE_ID;
+
   if (!token || !phoneId) {
-    // Not configured—no-op
     return { ok: false, reason: "WhatsApp env not set" };
   }
 
@@ -118,24 +124,24 @@ export async function notifyVendorOnWhatsapp(
       },
       body: JSON.stringify({
         messaging_product: "whatsapp",
-        to: toNumber, // e.g. vendor mobile with country code
+        to: toNumber,
         type: "text",
         text: { body: text },
       }),
     });
+
     if (!res.ok) {
-      const t = await res.text();
-      return { ok: false, reason: t };
+      const t = await res.text().catch(() => "");
+      return { ok: false, reason: t || "WA send failed" };
     }
+
     return { ok: true };
   } catch (e: any) {
     return { ok: false, reason: e?.message || "WA send failed" };
   }
 }
 
-// Use on webhook/manual mark paid to compute final status
-export function resolveSuccessStatus(
-  pref: SuccessStatus | undefined
-): SuccessStatus {
+/** Use on webhook/manual mark paid to compute final status */
+export function resolveSuccessStatus(pref: SuccessStatus | undefined): SuccessStatus {
   return pref === "completed" ? "completed" : "processing";
 }

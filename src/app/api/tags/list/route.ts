@@ -1,15 +1,58 @@
 import { NextResponse } from "next/server";
-import { woo } from "@/lib/woo";
+import { getWooClient } from "@/lib/woo";
+
+function extractWooError(e: any, fallback: string) {
+  return (
+    e?.response?.data?.message ||
+    e?.response?.data?.error ||
+    e?.message ||
+    fallback
+  );
+}
 
 export async function GET() {
   try {
-    // Pull a generous page; adjust if you expect thousands of tags.
-    const { data } = await woo.get("/products/tags", {
-      params: { per_page: 100, orderby: "name", order: "asc", hide_empty: false },
-    });
-    return NextResponse.json({ tags: data || [] });
+    const woo = await getWooClient();
+
+    const PER_PAGE = 100;
+    const MAX_PAGES = 20; // safety cap (max 2000 tags)
+
+    const all: any[] = [];
+    let page = 1;
+
+    while (page <= MAX_PAGES) {
+      const { data } = await woo.get("/products/tags", {
+        params: {
+          per_page: PER_PAGE,
+          page,
+          orderby: "name",
+          order: "asc",
+          hide_empty: false,
+        },
+      });
+
+      const rows = Array.isArray(data) ? data : [];
+      if (!rows.length) break;
+
+      all.push(...rows);
+
+      if (rows.length < PER_PAGE) break;
+      page++;
+    }
+
+    const tags = all.map((t: any) => ({
+      id: Number(t?.id || 0),
+      name: String(t?.name || ""),
+      slug: String(t?.slug || ""),
+      count: Number(t?.count || 0),
+    }));
+
+    return NextResponse.json({ tags });
   } catch (e: any) {
-    const msg = e?.response?.data?.message || e?.message || "Fetch failed";
-    return NextResponse.json({ error: msg, tags: [] }, { status: 500 });
+    const msg = extractWooError(e, "Fetch failed");
+    return NextResponse.json(
+      { error: msg, tags: [] },
+      { status: e?.response?.status || 500 }
+    );
   }
 }

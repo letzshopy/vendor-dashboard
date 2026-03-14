@@ -1,23 +1,53 @@
 import { NextResponse } from "next/server";
-import { woo } from "@/lib/woo";
+import { getWooClient } from "@/lib/woo";
+
+function extractWooError(e: any, fallback: string) {
+  return (
+    e?.response?.data?.message ||
+    e?.response?.data?.error ||
+    e?.message ||
+    fallback
+  );
+}
 
 export async function GET() {
   try {
-    // Woo endpoint returns terms of product shipping classes
-    const { data } = await woo.get("/products/shipping_classes", {
-      params: { per_page: 100, page: 1 },
-    });
+    const woo = await getWooClient();
 
-    // normalize to id/slug/label
-    const classes = (data || []).map((c: any) => ({
-      id: c.id as number,
-      slug: c.slug as string,
-      name: c.name as string,
-    }));
+    const PER_PAGE = 100;
+    const MAX_PAGES = 10; // safety cap (1000 classes max)
+
+    const all: any[] = [];
+    let page = 1;
+
+    while (page <= MAX_PAGES) {
+      const { data } = await woo.get("/products/shipping_classes", {
+        params: { per_page: PER_PAGE, page },
+      });
+
+      const rows = Array.isArray(data) ? data : [];
+      if (!rows.length) break;
+
+      all.push(...rows);
+
+      if (rows.length < PER_PAGE) break;
+      page++;
+    }
+
+    const classes = all
+      .map((c: any) => ({
+        id: Number(c?.id || 0),
+        slug: String(c?.slug || ""),
+        name: String(c?.name || ""),
+      }))
+      .filter((c) => c.id > 0);
 
     return NextResponse.json({ classes });
   } catch (e: any) {
-    const msg = e?.response?.data?.message || e?.message || "Load failed";
-    return NextResponse.json({ error: msg, classes: [] }, { status: 500 });
+    const msg = extractWooError(e, "Load failed");
+    return NextResponse.json(
+      { error: msg, classes: [] },
+      { status: e?.response?.status || 500 }
+    );
   }
 }

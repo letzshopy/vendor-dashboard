@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
-import { woo } from "@/lib/woo";
+import { getWooClient } from "@/lib/woo";
+
 
 export async function GET() {
   try {
+    const woo = await getWooClient();
     const { data } = await woo.get("/products/categories", {
       params: { per_page: 100, hide_empty: false, orderby: "name", order: "asc" },
     });

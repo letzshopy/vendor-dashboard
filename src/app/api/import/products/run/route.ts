@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { woo } from "@/lib/woo";
+import { getWooClient } from "@/lib/woo";
+
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -226,7 +227,7 @@ async function upsertProduct(row: Row, updateExisting: boolean): Promise<UpsertR
   if (!idRaw && !sku && !name) {
     return { action: "skip", reason: "Missing id/sku/name" };
   }
-
+  const woo = await getWooClient();
   const payload = buildPayloadFromRow(row);
 
   // If ID provided, try update; if not found → create

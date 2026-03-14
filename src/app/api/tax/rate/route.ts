@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { woo } from "@/lib/woo";
+import { getWooClient } from "@/lib/woo";
 
 /**
  * Upsert a Standard tax rate for India.
@@ -7,15 +7,33 @@ import { woo } from "@/lib/woo";
  */
 export async function POST(req: Request) {
   try {
-    const body = await req.json().catch(() => ({}));
-    const ratePercent = Number(body.ratePercent ?? 5);
-    const label = String(body.label ?? `GST ${ratePercent}%`);
-    const scope = (body.scope === "state" ? "state" : "all") as "all" | "state";
-    const state = scope === "state" ? String(body.state || "").toUpperCase() : "";
+    const woo = await getWooClient();
 
-    const payload = {
+    const body = await req.json().catch(() => ({}));
+
+    let ratePercent = Number(body?.ratePercent ?? 5);
+    if (!Number.isFinite(ratePercent) || ratePercent < 0) ratePercent = 0;
+    if (ratePercent > 100) ratePercent = 100;
+
+    const label = String(body?.label ?? `GST ${ratePercent}%`);
+
+    const scope = body?.scope === "state" ? "state" : "all";
+    let state = scope === "state" ? String(body?.state || "").toUpperCase().trim() : "";
+
+    // Woo expects state codes; for India typically 2-letter (KA, TN, etc.)
+    if (state) {
+      state = state.replace(/[^A-Z]/g, "");
+      if (state.length !== 2) {
+        return NextResponse.json(
+          { ok: false, error: "Invalid state code (use 2-letter like KA, TN)" },
+          { status: 400 }
+        );
+      }
+    }
+
+    const payload: any = {
       country: "IN",
-      state,                 // "" = all states (nationwide)
+      state, // "" = all states (nationwide)
       postcode: "",
       city: "",
       rate: ratePercent.toFixed(4), // "5.0000"
@@ -24,33 +42,48 @@ export async function POST(req: Request) {
       compound: false,
       shipping: true,
       order: 0,
-      class: "standard",     // ← REST API expects "standard"
+      class: "standard", // REST API expects "standard"
     };
 
-    // Fetch existing *Standard* rates and see if one matches (country/state)
-    const { data: existing } = await woo.get("/taxes", {
-      params: { per_page: 100, class: "standard" },
-    });
+    // Fetch existing Standard rates and find match (country/state/class)
+    const PER_PAGE = 100;
+    const MAX_PAGES = 10; // safety cap
 
-    const match = Array.isArray(existing)
-      ? existing.find((r: any) =>
-          String(r.country) === "IN" &&
-          String(r.state || "") === state &&
-          String(r.class || "") === "standard"
-        )
-      : null;
+    let match: any = null;
+    for (let page = 1; page <= MAX_PAGES; page++) {
+      const { data } = await woo.get("/taxes", {
+        params: { per_page: PER_PAGE, page, class: "standard" },
+      });
 
-    if (match) {
+      const existing = Array.isArray(data) ? data : [];
+      match = existing.find(
+        (r: any) =>
+          String(r?.country || "") === "IN" &&
+          String(r?.state || "") === state &&
+          String(r?.class || "") === "standard"
+      );
+
+      if (match) break;
+      if (existing.length < PER_PAGE) break;
+    }
+
+    if (match?.id) {
       const { data: updated } = await woo.put(`/taxes/${match.id}`, payload);
       return NextResponse.json({ ok: true, mode: "updated", rate: updated });
-    } else {
-      const { data: created } = await woo.post("/taxes", payload);
-      return NextResponse.json({ ok: true, mode: "created", rate: created });
     }
+
+    const { data: created } = await woo.post("/taxes", payload);
+    return NextResponse.json({ ok: true, mode: "created", rate: created });
   } catch (err: any) {
+    const msg =
+      err?.response?.data?.message ||
+      err?.response?.data?.error ||
+      err?.message ||
+      "Failed to upsert tax rate";
+
     return NextResponse.json(
-      { ok: false, error: err?.message || "Failed to upsert tax rate" },
-      { status: 500 }
+      { ok: false, error: msg },
+      { status: err?.response?.status || 500 }
     );
   }
 }

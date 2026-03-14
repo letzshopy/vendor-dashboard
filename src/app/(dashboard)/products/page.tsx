@@ -1,5 +1,6 @@
+// src/app/(dashboard)/products/page.tsx
 import Link from "next/link";
-import { woo } from "@/lib/woo";
+import { getWooClient } from "@/lib/woo";
 import ProductsClientTable from "@/components/ProductsClientTable";
 import ProductsFilters from "@/components/ProductsFilters";
 import ProductsImportExportBar from "./ui/ProductsImportExportBar";
@@ -25,30 +26,36 @@ type Category = { id: number; name: string; parent: number };
 
 export const dynamic = "force-dynamic";
 
-async function getProducts(params: {
-  category?: string;
-  stock?: "instock" | "outofstock" | "onbackorder";
-  ptype?: "simple" | "variable" | "grouped" | "";
-}): Promise<Product[]> {
+async function getProducts(
+  woo: Awaited<ReturnType<typeof getWooClient>>,
+  params: {
+    category?: string;
+    stock?: "instock" | "outofstock" | "onbackorder";
+    ptype?: "simple" | "variable" | "grouped" | "";
+  }
+): Promise<Product[]> {
   const query: Record<string, any> = {
     per_page: 100,
     orderby: "date",
     order: "desc",
     status: "any",
   };
+
   if (params.category) query.category = params.category;
   if (params.stock) query.stock_status = params.stock;
   if (params.ptype) query.type = params.ptype;
 
   const res = await woo.get<Product[]>("/products", { params: query });
-  return res.data || [];
+  return Array.isArray(res.data) ? res.data : [];
 }
 
-async function getCategories(): Promise<Category[]> {
+async function getCategories(
+  woo: Awaited<ReturnType<typeof getWooClient>>
+): Promise<Category[]> {
   const res = await woo.get<Category[]>("/products/categories", {
     params: { per_page: 100, hide_empty: false, orderby: "name", order: "asc" },
   });
-  return res.data || [];
+  return Array.isArray(res.data) ? res.data : [];
 }
 
 export default async function ProductsPage({
@@ -60,16 +67,19 @@ export default async function ProductsPage({
     ptype?: "simple" | "variable" | "grouped";
   }>;
 }) {
-  // ✅ Next 15 style: await searchParams
+  // ✅ Next style: await searchParams (as in your project)
   const sp = await searchParams;
 
   const category = sp.category || "";
   const stock = sp.stock || undefined;
   const ptype = (sp.ptype as any) || "";
 
+  // ✅ Create woo client ONCE
+  const woo = await getWooClient();
+
   const [products, categories] = await Promise.all([
-    getProducts({ category, stock, ptype }),
-    getCategories(),
+    getProducts(woo, { category, stock, ptype }),
+    getCategories(woo),
   ]);
 
   return (
@@ -80,7 +90,6 @@ export default async function ProductsPage({
           <p className="mt-1 text-sm text-slate-500"></p>
         </div>
 
-        {/* ✅ Go directly to /products/new so it uses the working page */}
         <Link
           href="/products/new"
           className="rounded-full bg-violet-600 text-white px-4 py-2 text-sm font-medium shadow-sm hover:bg-violet-700"
@@ -89,7 +98,6 @@ export default async function ProductsPage({
         </Link>
       </div>
 
-      {/* Filters + table with comfortable gap */}
       <section className="mt-4 space-y-8">
         <ProductsFilters
           categories={categories}

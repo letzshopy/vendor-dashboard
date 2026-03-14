@@ -1,5 +1,6 @@
 // src/app/master/support-tickets/[id]/page.tsx
 import Link from "next/link";
+import { getMasterWpBaseUrl } from "@/lib/wpClient";
 
 type TicketDetail = {
   ticket: {
@@ -33,6 +34,8 @@ type TicketDetail = {
   }>;
 };
 
+export const dynamic = "force-dynamic";
+
 function masterHeaders() {
   const key = process.env.MASTER_API_KEY;
   // NOTE: Next.js server component can set headers directly
@@ -44,12 +47,12 @@ function masterHeaders() {
 }
 
 async function getTicket(id: string): Promise<TicketDetail> {
-  const MASTER_WP_URL = process.env.MASTER_WP_URL || process.env.WP_URL;
-  if (!MASTER_WP_URL) throw new Error("Missing MASTER_WP_URL in .env.local");
+  const MASTER_WP_URL = getMasterWpBaseUrl();
 
-  const url = `${MASTER_WP_URL.replace(/\/$/, "")}/wp-json/letz/v1/master-tickets/${encodeURIComponent(
-    id
-  )}`;
+  const url = `${MASTER_WP_URL.replace(
+    /\/$/,
+    ""
+  )}/wp-json/letz/v1/master-tickets/${encodeURIComponent(id)}`;
 
   const res = await fetch(url, {
     headers: masterHeaders(),
@@ -82,8 +85,9 @@ export default async function MasterTicketDetailPage({ params }: Props) {
   const data = await getTicket(id);
 
   const t = data.ticket;
-  const adminUrl =
-    "https://letzshopy.in/wp-admin/admin.php?page=fluent-support#/tickets";
+
+  // ✅ Make admin URL master-aware (no hardcoded domain)
+  const adminUrl = `${getMasterWpBaseUrl()}/wp-admin/admin.php?page=fluent-support#/tickets`;
 
   return (
     <div className="space-y-4">

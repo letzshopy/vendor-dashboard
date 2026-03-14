@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
-import { woo } from "@/lib/woo";
+import { getWooClient } from "@/lib/woo";
+
 
 export async function GET(req: Request) {
   try {
+    const woo = await getWooClient();
     const { searchParams } = new URL(req.url);
     const id = searchParams.get("id");
 
@@ -37,6 +39,7 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   try {
+    const woo = await getWooClient(); 
     const body = await req.json();
     const id = body.id;
     if (!id) return NextResponse.json({ error: "Missing attribute id" }, { status: 400 });

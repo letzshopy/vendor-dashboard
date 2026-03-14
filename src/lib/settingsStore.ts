@@ -1,33 +1,27 @@
 // src/lib/settingsStore.ts
 
-/* ============== Shared & Existing Types ============== */
 export type KycStatus = "not_started" | "in_review" | "approved" | "rejected";
 
-/** Simple pages settings */
 export interface PagesSettings {
-  homeBannerUrl: string; // URL to banner image
-  aboutText: string;     // plain paragraph(s)
+  homeBannerUrl: string;
+  aboutText: string;
 }
 
-/* ============== Main SettingsState ============== */
 export interface SettingsState {
   profile: {
-    // Personal
     personal: {
       name: string;
       mobile: string;
       email: string;
       address: string;
     };
-    // Business
     business: {
       name: string;
       phone: string;
       email: string;
       address: string;
-      logoUrl?: string; // logo we show on invoices/site
+      logoUrl?: string;
     };
-    // Social / WhatsApp
     social: {
       instagram?: string;
       facebook?: string;
@@ -40,41 +34,42 @@ export interface SettingsState {
 
   kyc: {
     businessType: "individual" | "proprietorship" | "partnership" | "private_ltd" | "llp";
-
-    // GST block (readonly fields after lookup)
+    pan?: string;
     gstin?: string;
     gst_legal_name?: string;
     gst_trade_name?: string;
     gst_state?: string;
 
-    // Bank block
     accountNumber?: string;
+    accountHolderName?: string;
     ifsc?: string;
     bankName?: string;
     branch?: string;
 
-    // Documents (store URLs or filenames)
     docs: {
-      aadhaarUrl?: string;
-      panUrl?: string;
-      gstCertUrl?: string;
-      cancelledChequeUrl?: string;
-      vendorAgreementUrl?: string;
+      aadhaarKey?: string;
+      aadhaarName?: string;
+      panKey?: string;
+      panName?: string;
+      gstCertKey?: string;
+      gstCertName?: string;
+      cancelledChequeKey?: string;
+      cancelledChequeName?: string;
+      vendorAgreementKey?: string;
+      vendorAgreementName?: string;
     };
 
     notes?: string;
-    kycStatus: KycStatus; // controlled by system
+    kycStatus: KycStatus;
     submittedAt?: string;
   };
 
-  /** CMS-like page bits we edit from “Pages” tab */
   pages: PagesSettings;
 
-  /** general → product options */
   general: {
     products: {
-      currency: string;                 // e.g., 'INR'
-      priceDecimals: number;            // 0..4
+      currency: string;
+      priceDecimals: number;
       weightUnit: "kg" | "g" | "lb" | "oz";
       dimensionUnit: "cm" | "mm" | "m" | "in" | "yd";
       reviewsEnabled: boolean;
@@ -89,9 +84,6 @@ export interface SettingsState {
   };
 }
 
-/* ============== In-memory defaults ============== */
-
-/** Initial state */
 let _settings: SettingsState = {
   profile: {
     personal: { name: "", mobile: "", email: "", address: "" },
@@ -125,18 +117,10 @@ let _settings: SettingsState = {
   },
 };
 
-/* ============== Accessors & Deep Patch ============== */
 export function getSettings() {
   return _settings;
 }
 
-/**
- * Deep(ish) merge that safely handles optional blocks.
- * - profile.personal / profile.business / profile.social merged
- * - kyc.docs merged
- * - pages shallow-merged
- * - general.products shallow-merged
- */
 export function deepPatchSettings(patch: Partial<SettingsState>) {
   _settings = structuredClone({
     ..._settings,
@@ -147,7 +131,7 @@ export function deepPatchSettings(patch: Partial<SettingsState>) {
       ...patch.profile,
       personal: { ..._settings.profile.personal, ...(patch.profile?.personal ?? {}) },
       business: { ..._settings.profile.business, ...(patch.profile?.business ?? {}) },
-      social:   { ..._settings.profile.social,   ...(patch.profile?.social   ?? {}) },
+      social: { ..._settings.profile.social, ...(patch.profile?.social ?? {}) },
     },
 
     kyc: {
@@ -159,10 +143,11 @@ export function deepPatchSettings(patch: Partial<SettingsState>) {
     pages: { ..._settings.pages, ...(patch.pages ?? {}) },
 
     general: {
-      ..._settings.general, ...(patch.general ?? {}),
+      ..._settings.general,
+      ...(patch.general ?? {}),
       products: { ..._settings.general.products, ...(patch.general?.products ?? {}) },
     },
+  });
 
-      });
   return _settings;
 }

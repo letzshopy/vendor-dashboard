@@ -1,54 +1,22 @@
 "use client";
 
 import Link from "next/link";
-import type { SubscriptionInvoice } from "@/lib/subscription-invoices";
+import {
+  formatInvoiceDate,
+  formatMoney,
+  type SubscriptionInvoice,
+} from "@/lib/subscription-invoices";
 
-function formatDate(d: string) {
-  if (!d) return "-";
-  const date = new Date(d);
-  if (Number.isNaN(date.getTime())) return d;
-  return date.toLocaleDateString("en-IN", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  });
-}
+function statusBadge(status: SubscriptionInvoice["status"]) {
+  const classes =
+    "inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-[11px] font-medium bg-emerald-50 border-emerald-200 text-emerald-700";
 
-// Allow extra UI statuses beyond what the backend currently returns
-type InvoiceStatus =
-  | SubscriptionInvoice["status"]
-  | "pending"
-  | "overdue"
-  | "failed";
-
-function statusBadge(status: InvoiceStatus) {
-  let classes =
-    "inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-[11px] font-medium";
-
-  switch (status) {
-    case "paid":
-      classes += " bg-emerald-50 border-emerald-200 text-emerald-700";
-      return (
-        <span className={classes}>
-          <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-          Paid (AutoPay – Easebuzz)
-        </span>
-      );
-
-    case "pending":
-      classes += " bg-amber-50 border-amber-200 text-amber-700";
-      break;
-
-    case "failed":
-    case "overdue":
-      classes += " bg-rose-50 border-rose-200 text-rose-700";
-      break;
-
-    default:
-      classes += " bg-slate-50 border-slate-200 text-slate-700";
-  }
-
-  return <span className={classes}>{status}</span>;
+  return (
+    <span className={classes}>
+      <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+      Paid
+    </span>
+  );
 }
 
 export default function SubscriptionInvoicesClient({
@@ -60,40 +28,44 @@ export default function SubscriptionInvoicesClient({
 
   return (
     <div className="overflow-x-auto">
-      <table className="min-w-full text-sm border-collapse">
+      <table className="min-w-full border-collapse text-sm">
         <thead>
           <tr className="bg-slate-50/80 text-slate-600">
-            <th className="text-left px-3 py-2.5 text-xs font-semibold border-b border-slate-100">
+            <th className="border-b border-slate-100 px-3 py-2.5 text-left text-xs font-semibold">
               Invoice #
             </th>
-            <th className="text-left px-3 py-2.5 text-xs font-semibold border-b border-slate-100">
+            <th className="border-b border-slate-100 px-3 py-2.5 text-left text-xs font-semibold">
               Date
             </th>
-            <th className="text-left px-3 py-2.5 text-xs font-semibold border-b border-slate-100">
+            <th className="border-b border-slate-100 px-3 py-2.5 text-left text-xs font-semibold">
               Plan
             </th>
-            <th className="text-right px-3 py-2.5 text-xs font-semibold border-b border-slate-100">
+            <th className="border-b border-slate-100 px-3 py-2.5 text-left text-xs font-semibold">
+              Billing Cycle
+            </th>
+            <th className="border-b border-slate-100 px-3 py-2.5 text-right text-xs font-semibold">
               Amount
             </th>
-            <th className="text-left px-3 py-2.5 text-xs font-semibold border-b border-slate-100">
+            <th className="border-b border-slate-100 px-3 py-2.5 text-left text-xs font-semibold">
               GST
             </th>
-            <th className="text-left px-3 py-2.5 text-xs font-semibold border-b border-slate-100">
+            <th className="border-b border-slate-100 px-3 py-2.5 text-left text-xs font-semibold">
               Status
             </th>
-            <th className="text-left px-3 py-2.5 text-xs font-semibold border-b border-slate-100">
+            <th className="border-b border-slate-100 px-3 py-2.5 text-left text-xs font-semibold">
               Actions
             </th>
           </tr>
         </thead>
+
         <tbody>
           {!hasInvoices && (
             <tr>
               <td
-                colSpan={7}
-                className="px-3 py-6 text-center text-sm text-slate-500"
+                colSpan={8}
+                className="px-3 py-10 text-center text-sm text-slate-500"
               >
-                No subscription invoices found yet.
+                No paid subscription invoices found yet.
               </td>
             </tr>
           )}
@@ -105,43 +77,46 @@ export default function SubscriptionInvoicesClient({
                 idx % 2 === 0 ? "bg-white" : "bg-slate-50/40"
               }`}
             >
-              <td className="px-3 py-3 whitespace-nowrap">
+              <td className="whitespace-nowrap px-3 py-3">
                 <Link
                   href={`/subscription-bills/${inv.id}`}
                   className="text-[13px] font-medium text-blue-600 hover:underline"
                 >
-                  {inv.number}
+                  {inv.invoiceNumber}
                 </Link>
               </td>
 
-              <td className="px-3 py-3 whitespace-nowrap text-slate-700">
-                {formatDate(inv.date)}
+              <td className="whitespace-nowrap px-3 py-3 text-slate-700">
+                {formatInvoiceDate(inv.invoiceDate)}
               </td>
 
               <td className="px-3 py-3">
                 <div className="text-[13px] font-medium text-slate-900">
-                  {inv.planName}
+                  {inv.planLabel}
                 </div>
                 <div className="mt-0.5 text-[11px] text-slate-500">
-                  {formatDate(inv.periodFrom)} – {formatDate(inv.periodTo)}
+                  {formatInvoiceDate(inv.periodFrom)} –{" "}
+                  {formatInvoiceDate(inv.periodTo)}
                 </div>
               </td>
 
-              <td className="px-3 py-3 text-right whitespace-nowrap font-semibold text-slate-900">
-                ₹{inv.totalAmount.toLocaleString("en-IN")}
+              <td className="whitespace-nowrap px-3 py-3 text-[12px] capitalize text-slate-700">
+                {inv.billingCycle}
               </td>
 
-              <td className="px-3 py-3 whitespace-nowrap text-[12px] text-slate-700">
-                {inv.gstType === "gst"
-                  ? `${inv.taxRate}% GST`
-                  : "Non-GST invoice"}
+              <td className="whitespace-nowrap px-3 py-3 text-right font-semibold text-slate-900">
+                {formatMoney(inv.totalAmount, inv.currency)}
               </td>
 
-              <td className="px-3 py-3 whitespace-nowrap">
+              <td className="whitespace-nowrap px-3 py-3 text-[12px] text-slate-700">
+                {inv.gstRate > 0 ? `${inv.gstRate}% GST` : "No GST"}
+              </td>
+
+              <td className="whitespace-nowrap px-3 py-3">
                 {statusBadge(inv.status)}
               </td>
 
-              <td className="px-3 py-3 whitespace-nowrap text-[13px]">
+              <td className="whitespace-nowrap px-3 py-3 text-[13px]">
                 <Link
                   href={`/subscription-bills/${inv.id}`}
                   className="inline-flex items-center rounded-full border border-slate-200 px-3 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50"

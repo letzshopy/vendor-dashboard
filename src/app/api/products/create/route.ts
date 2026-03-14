@@ -1,6 +1,6 @@
 // src/app/api/products/create/route.ts
 import { NextResponse } from "next/server";
-import { woo } from "@/lib/woo";
+import { getWooClient } from "@/lib/woo";
 import {
   ensureDb,
   deleteExistingSkuFromLookup,
@@ -11,68 +11,70 @@ function toStr(v: any) {
   return v === undefined || v === null || v === "" ? "" : String(v);
 }
 
+function toNumOrUndef(v: any) {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : undefined;
+}
+
 function buildPayload(body: any, sku?: string) {
-  const categories =
-    Array.isArray(body.categories)
-      ? body.categories
-          .map((id: any) => Number(id))
-          .filter(Number.isFinite)
-          .map((id: number) => ({ id }))       // 🔹 typed here
-      : [];
+  const categories = Array.isArray(body?.categories)
+    ? body.categories
+        .map((id: any) => Number(id))
+        .filter((n: number) => Number.isFinite(n) && n > 0)
+        .map((id: number) => ({ id }))
+    : [];
 
-  const tags =
-    Array.isArray(body.tags)
-      ? body.tags
-          .map((t: any) => (typeof t === "string" ? t.trim() : ""))
-          .filter(Boolean)
-          .map((name: string) => ({ name }))
-      : [];
+  const tags = Array.isArray(body?.tags)
+    ? body.tags
+        .map((t: any) => (typeof t === "string" ? t.trim() : ""))
+        .filter(Boolean)
+        .map((name: string) => ({ name }))
+    : [];
 
-  const attributes = Array.isArray(body.attributes)
+  const attributes = Array.isArray(body?.attributes)
     ? body.attributes.map((a: any) => ({
-        id: a.id ?? undefined,
-        name: a.name ?? undefined,
-        visible: !!a.visible,
-        variation: !!a.variation,
-        options: Array.isArray(a.options) ? a.options.map(String) : [],
+        ...(a?.id ? { id: Number(a.id) } : {}),
+        ...(a?.name ? { name: String(a.name) } : {}),
+        visible: !!a?.visible,
+        variation: !!a?.variation,
+        options: Array.isArray(a?.options) ? a.options.map(String) : [],
       }))
     : [];
 
   const payload: any = {
-    name: body.name,
-    type: body.type || "simple",
-    status: body.status || "draft",
-    catalog_visibility: body.catalog_visibility || "visible",
-    description: body.description || "",
-    short_description: body.short_description || "",
-    regular_price: toStr(body.regular_price),
-    sale_price: toStr(body.sale_price),
-    date_on_sale_from: body.date_on_sale_from || undefined,
-    date_on_sale_to: body.date_on_sale_to || undefined,
-    manage_stock: !!body.manage_stock,
-    stock_quantity:
-      body.manage_stock && Number.isFinite(Number(body.stock_quantity))
-        ? Number(body.stock_quantity)
-        : undefined,
-    backorders: body.backorders || "no",
-    tax_status: body.tax_status || "taxable",
-    tax_class: body.tax_class || "",
-    weight: toStr(body.weight),
-    dimensions: body.dimensions
+    name: body?.name,
+    type: body?.type || "simple",
+    status: body?.status || "draft",
+    catalog_visibility: body?.catalog_visibility || "visible",
+    description: body?.description || "",
+    short_description: body?.short_description || "",
+    regular_price: toStr(body?.regular_price),
+    sale_price: toStr(body?.sale_price),
+    ...(body?.date_on_sale_from ? { date_on_sale_from: body.date_on_sale_from } : {}),
+    ...(body?.date_on_sale_to ? { date_on_sale_to: body.date_on_sale_to } : {}),
+    manage_stock: !!body?.manage_stock,
+    ...(body?.manage_stock
+      ? { stock_quantity: toNumOrUndef(body?.stock_quantity) ?? 0 }
+      : {}),
+    backorders: body?.backorders || "no",
+    tax_status: body?.tax_status || "taxable",
+    ...(body?.tax_class ? { tax_class: String(body.tax_class) } : {}),
+    ...(body?.weight ? { weight: toStr(body.weight) } : {}),
+    dimensions: body?.dimensions
       ? {
           length: toStr(body.dimensions.length),
           width: toStr(body.dimensions.width),
           height: toStr(body.dimensions.height),
         }
       : undefined,
-    images: Array.isArray(body.images) ? body.images : [],
+    images: Array.isArray(body?.images) ? body.images : [],
     categories,
     tags,
     attributes,
-    grouped_products: Array.isArray(body.grouped_products)
+    grouped_products: Array.isArray(body?.grouped_products)
       ? body.grouped_products
           .map((n: any) => Number(n))
-          .filter(Number.isFinite)
+          .filter((x: number) => Number.isFinite(x) && x > 0)
       : undefined,
   };
 
@@ -84,9 +86,16 @@ function buildPayload(body: any, sku?: string) {
 
 export async function POST(req: Request) {
   try {
+    const woo = await getWooClient();
+
     await ensureDb();
-    const body = await req.json();
-    const sku = String(body.sku || "").trim();
+
+    const body = await req.json().catch(() => null);
+    if (!body || typeof body !== "object") {
+      return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
+    }
+
+    const sku = String((body as any).sku || "").trim();
 
     // clean any stale local row so our local UNIQUE(sku) never trips
     if (sku) {

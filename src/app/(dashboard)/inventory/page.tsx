@@ -1,4 +1,4 @@
-import { woo } from "@/lib/woo";
+import { getWooClient } from "@/lib/woo";
 import InventoryClient from "@/components/InventoryClient";
 
 type P = {
@@ -13,17 +13,51 @@ type P = {
 export const dynamic = "force-dynamic";
 
 async function getProducts(): Promise<P[]> {
-  const { data } = await woo.get<P[]>("/products", {
-    params: {
-      per_page: 100, // Woo max is 100 – 200 was causing 400 error
-      status: "any",
-      orderby: "date",
-      order: "desc",
-      _fields: "id,name,sku,manage_stock,stock_quantity,stock_status",
-    },
-  });
+  try {
+    const woo = await getWooClient();
 
-  return data || [];
+    const PER_PAGE = 100; // Woo max is 100
+    const MAX_PAGES = 10; // safety cap (1000 products)
+    const all: P[] = [];
+
+    let page = 1;
+    while (page <= MAX_PAGES) {
+      const { data } = await woo.get<P[]>("/products", {
+        params: {
+          per_page: PER_PAGE,
+          page,
+          status: "any",
+          orderby: "date",
+          order: "desc",
+          _fields: "id,name,sku,manage_stock,stock_quantity,stock_status",
+        },
+      });
+
+      const rows = Array.isArray(data) ? data : [];
+      if (rows.length === 0) break;
+
+      all.push(...rows);
+
+      if (rows.length < PER_PAGE) break;
+      page++;
+    }
+
+    return all
+      .map((p: any) => ({
+        id: Number(p?.id || 0),
+        name: String(p?.name || ""),
+        sku: p?.sku ? String(p.sku) : undefined,
+        manage_stock: !!p?.manage_stock,
+        stock_quantity:
+          p?.stock_quantity === null || p?.stock_quantity === undefined
+            ? null
+            : Number(p.stock_quantity),
+        stock_status: (p?.stock_status as any) || "instock",
+      }))
+      .filter((p) => p.id > 0 && p.name);
+  } catch {
+    return [];
+  }
 }
 
 export default async function InventoryPage() {

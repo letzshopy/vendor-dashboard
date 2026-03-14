@@ -1,6 +1,7 @@
 // src/app/api/payments/webhook/easebuzz/route.ts
 import { NextResponse } from "next/server";
-import { woo } from "@/lib/woo";
+import { getWooClient } from "@/lib/woo";
+
 import fs from "node:fs/promises";
 import path from "node:path";
 import crypto from "node:crypto";
@@ -39,6 +40,7 @@ function verifySignature(
 
 export async function POST(req: Request) {
   try {
+    const woo = await getWooClient();
     const raw = await req.text(); // keep raw for signature
     const payload = JSON.parse(raw || "{}");
 

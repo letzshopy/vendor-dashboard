@@ -1,5 +1,6 @@
 // src/app/api/master/vendors/route.ts
 import { NextResponse } from "next/server";
+import { getMasterWpBaseUrl } from "@/lib/wpClient";
 
 type RawVendor = {
   blog_id: number;
@@ -17,19 +18,21 @@ type VendorsResponse = {
 
 export async function GET() {
   try {
-    const siteUrl = process.env.SITE_URL;
-    const wpUser = process.env.WP_USER;
-    const wpPass = process.env.WP_APP_PASSWORD;
+    // MASTER-only base URL (never tenant cookie)
+    const base = (await getMasterWpBaseUrl()).replace(/\/$/, "");
 
-    if (!siteUrl || !wpUser || !wpPass) {
+    const wpUser = process.env.WP_USER;
+    // WP shows app passwords with spaces – safe to remove them for Basic auth
+    const wpPass = (process.env.WP_APP_PASSWORD || "").replace(/\s+/g, "");
+
+    if (!base || !wpUser || !wpPass) {
       return NextResponse.json(
-        { error: "Missing SITE_URL / WP_USER / WP_APP_PASSWORD env vars" },
+        { error: "Missing MASTER_WP_URL / WP_USER / WP_APP_PASSWORD env vars" },
         { status: 500 }
       );
     }
 
-    const apiUrl = `${siteUrl.replace(/\/$/, "")}/wp-json/letz/v1/master-vendors`;
-
+    const apiUrl = `${base}/wp-json/letz/v1/master-vendors`;
     const auth = Buffer.from(`${wpUser}:${wpPass}`).toString("base64");
 
     const res = await fetch(apiUrl, {
@@ -37,20 +40,29 @@ export async function GET() {
         Authorization: `Basic ${auth}`,
         "Content-Type": "application/json",
       },
-      // Always live data
       cache: "no-store",
     });
 
+    const text = await res.text();
+    let json: any = null;
+    try {
+      json = JSON.parse(text);
+    } catch {
+      // ignore non-JSON
+    }
+
     if (!res.ok) {
-      const text = await res.text();
       return NextResponse.json(
-        { error: "WP API error", status: res.status, body: text },
-        { status: 500 }
+        {
+          error: json?.message || "WP API error",
+          status: res.status,
+          body: json || text,
+        },
+        { status: res.status || 500 }
       );
     }
 
-    const data = (await res.json()) as VendorsResponse;
-
+    const data = (json as VendorsResponse) || ({} as VendorsResponse);
     return NextResponse.json(data, { status: 200 });
   } catch (err: any) {
     return NextResponse.json(

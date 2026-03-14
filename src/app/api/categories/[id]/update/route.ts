@@ -1,12 +1,14 @@
 // src/app/api/categories/[id]/delete/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import { woo } from "@/lib/woo";
+import { getWooClient } from "@/lib/woo";
+
 
 export async function DELETE(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const woo = await getWooClient();
     const { id } = await params;
 
     // Validate ID

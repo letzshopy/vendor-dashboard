@@ -1,9 +1,9 @@
 // src/app/api/attributes/create/route.ts
 import { NextResponse } from "next/server";
-import { woo } from "@/lib/woo";
+import { getWooClient } from "@/lib/woo";
 
 // Helper to list existing global attributes
-async function listAttributes() {
+async function listAttributes(woo: any) {
   const { data } = await woo.get("/products/attributes", {
     params: { per_page: 100, orderby: "name", order: "asc" },
   });
@@ -12,11 +12,12 @@ async function listAttributes() {
 
 export async function POST(req: Request) {
   try {
+    const woo = await getWooClient();
     const body = await req.json().catch(() => ({} as any));
 
     // 1) Preset: ensure Color & Size exist
     if (body?.preset === "color-size") {
-      const existing = await listAttributes();
+      const existing = await listAttributes(woo);
 
       const need = ["Color", "Size"].filter(
         (n) =>
@@ -56,7 +57,7 @@ export async function POST(req: Request) {
       name,
       slug: body?.slug?.toString().trim() || slugFromName,
       type: body?.type || "select",
-      order_by: "menu_order",
+      order_by: body?.order_by || "menu_order",
       has_archives: false,
     };
 

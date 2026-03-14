@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
-import { woo } from "@/lib/woo";
+import { getWooClient } from "@/lib/woo";
+
 
 export async function POST(req: Request) {
   try {
+    const woo = await getWooClient();
     const { orderId } = await req.json();
     if (!orderId) {
       return NextResponse.json(

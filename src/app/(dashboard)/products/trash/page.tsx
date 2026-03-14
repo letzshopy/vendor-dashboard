@@ -1,6 +1,6 @@
 // src/app/products/trash/page.tsx
 import Link from "next/link";
-import { woo } from "@/lib/woo";
+import { getWooClient } from "@/lib/woo";
 import TrashClient from "./TrashClient";
 
 // ---- Types ----
@@ -20,15 +20,38 @@ export const dynamic = "force-dynamic";
 
 // Fetch trashed products from WooCommerce
 async function getTrashed(): Promise<P[]> {
-  const { data } = await woo.get<P[]>("/products", {
-    params: {
-      status: "trash",
-      per_page: 100,
-      orderby: "date",
-      order: "desc",
-    },
-  });
-  return data || [];
+  try {
+    const woo = await getWooClient();
+
+    const PER_PAGE = 100;
+    const MAX_PAGES = 10; // safety cap (1000 trashed products)
+    const all: P[] = [];
+
+    let page = 1;
+    while (page <= MAX_PAGES) {
+      const { data } = await woo.get<P[]>("/products", {
+        params: {
+          status: "trash",
+          per_page: PER_PAGE,
+          page,
+          orderby: "date",
+          order: "desc",
+        },
+      });
+
+      const rows = Array.isArray(data) ? data : [];
+      if (rows.length === 0) break;
+
+      all.push(...rows);
+
+      if (rows.length < PER_PAGE) break;
+      page++;
+    }
+
+    return all;
+  } catch {
+    return [];
+  }
 }
 
 export default async function TrashPage() {

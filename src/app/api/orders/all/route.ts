@@ -1,6 +1,7 @@
 // src/app/api/orders/all/route.ts
 import { NextResponse } from "next/server";
-import { woo } from "@/lib/woo";
+import { getWooClient } from "@/lib/woo";
+
 import { WCOrder } from "@/lib/order-utils";
 
 export const dynamic = "force-dynamic";
@@ -10,6 +11,7 @@ export const dynamic = "force-dynamic";
  * Bounded by MAX_PAGES as a safety cap.
  */
 async function fetchMany(): Promise<WCOrder[]> {
+  const woo = await getWooClient();
   const PER_PAGE = 100;      // Woo max per request
   const MAX_PAGES = 50;      // safety cap (up to 5,000 orders)
   const out: WCOrder[] = [];

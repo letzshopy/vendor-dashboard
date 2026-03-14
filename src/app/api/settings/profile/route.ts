@@ -1,14 +1,18 @@
+// src/app/api/settings/profile/route.ts
 import { NextResponse } from "next/server";
+import { getWpBaseUrl } from "@/lib/wpClient";
 
 function authHeader() {
   const user = process.env.WP_USER!;
-  const pass = process.env.WP_APP_PASSWORD!;
+  // WP app passwords may contain spaces in UI — strip them
+  const pass = (process.env.WP_APP_PASSWORD || "").replace(/\s+/g, "");
   return "Basic " + Buffer.from(`${user}:${pass}`).toString("base64");
 }
 
 export async function GET() {
-  const WP_URL = process.env.WP_URL!;
-  const r = await fetch(`${WP_URL}/wp-json/letz/v1/profile-settings`, {
+  const base = (await getWpBaseUrl()).replace(/\/$/, "");
+
+  const r = await fetch(`${base}/wp-json/letz/v1/profile-settings`, {
     cache: "no-store",
     headers: { Authorization: authHeader() },
   });
@@ -21,10 +25,10 @@ export async function GET() {
 }
 
 export async function PATCH(req: Request) {
-  const WP_URL = process.env.WP_URL!;
+  const base = (await getWpBaseUrl()).replace(/\/$/, "");
   const body = await req.text();
 
-  const r = await fetch(`${WP_URL}/wp-json/letz/v1/profile-settings`, {
+  const r = await fetch(`${base}/wp-json/letz/v1/profile-settings`, {
     method: "PATCH",
     headers: {
       Authorization: authHeader(),

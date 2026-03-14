@@ -1,6 +1,7 @@
 // src/app/api/payments/manual/mark-paid/route.ts
 import { NextResponse } from "next/server";
-import { woo } from "@/lib/woo";
+import { getWooClient } from "@/lib/woo";
+
 import fs from "node:fs/promises";
 import path from "node:path";
 import { notifyVendorOnWhatsapp, resolveSuccessStatus } from "@/lib/payments";
@@ -14,6 +15,7 @@ const STORE = path.join(process.cwd(), "tmp_payments_settings.json");
 
 async function readSettings(): Promise<Partial<LocalPaymentsSettings>> {
   try {
+
     const raw = await fs.readFile(STORE, "utf8");
     return JSON.parse(raw);
   } catch {
@@ -35,7 +37,7 @@ export async function POST(req: Request) {
         { status: 400 }
       );
     }
-
+    const woo = await getWooClient();
     const settings = await readSettings();
     const status = resolveSuccessStatus(settings?.success_status as any);
 

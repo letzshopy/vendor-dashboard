@@ -1,6 +1,6 @@
 // src/app/api/orders/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import { woo } from "@/lib/woo";
+import { getWooClient } from "@/lib/woo";
 import { WCOrder } from "@/lib/order-utils";
 
 /* ---------------- helpers ---------------- */
@@ -73,6 +73,7 @@ function inDateRange(gmt?: string, fromISO?: string, toISO?: string) {
 async function fetchManyFromWoo(
   paramsBase: Record<string, string | number>
 ): Promise<WCOrder[]> {
+  const woo = await getWooClient();
   const MAX_WOO_PAGES = 5; // up to 500 latest orders
   const PER = 100;
   const out: WCOrder[] = [];
@@ -88,6 +89,7 @@ async function fetchManyFromWoo(
 
 /* ---------------- route ---------------- */
 export async function GET(req: NextRequest) {
+  const woo = await getWooClient();
   const { searchParams } = new URL(req.url);
 
   const page = Math.max(1, Number(searchParams.get("page") || 1));
@@ -177,6 +179,7 @@ export async function GET(req: NextRequest) {
 
 /* ------------- bulk actions unchanged ------------- */
 export async function PATCH(req: NextRequest) {
+  const woo = await getWooClient();
   const body = await req.json().catch(() => ({}));
   const ids: number[] = body?.ids || [];
   const action: string = body?.action;

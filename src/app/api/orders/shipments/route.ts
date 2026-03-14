@@ -1,6 +1,7 @@
 // src/app/api/orders/shipments/route.ts
 import { NextResponse } from "next/server";
-import { woo } from "@/lib/woo";
+import { getWooClient } from "@/lib/woo";
+
 import { mergeShipmentMeta } from "@/lib/shipment-meta";
 
 type ShipmentRow = {
@@ -37,6 +38,7 @@ const OPEN_STATUSES = new Set<string>([
  */
 export async function GET() {
   try {
+    const woo = await getWooClient();
     const res = await woo.get("orders", {
       params: {
         status: "any",
@@ -87,6 +89,7 @@ export async function GET() {
  */
 export async function POST(req: Request) {
   try {
+    const woo = await getWooClient();
     const body = (await req.json()) as BulkUpdatePayload;
     const updates = Array.isArray(body.updates) ? body.updates : [];
 

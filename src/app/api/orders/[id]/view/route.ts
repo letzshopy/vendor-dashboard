@@ -1,6 +1,7 @@
 // src/app/api/orders/[id]/view/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import { woo } from "@/lib/woo";
+import { getWooClient } from "@/lib/woo";
+
 import { WCOrder } from "@/lib/order-utils";
 
 type RouteContext = {
@@ -16,6 +17,7 @@ export async function GET(req: NextRequest, context: RouteContext) {
   }
 
   try {
+    const woo = await getWooClient();
     const { data } = await woo.get<WCOrder>(`/orders/${id}`);
     return NextResponse.json(data);
   } catch (e: any) {

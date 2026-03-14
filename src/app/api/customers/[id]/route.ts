@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { woo } from "@/lib/woo";
+import { getWooClient } from "@/lib/woo";
 
 // base64url decode
 function b64urlDecode(s: string) {
@@ -23,7 +23,7 @@ export async function GET(_req: NextRequest, { params }: RouteParams) {
   const decoded = b64urlDecode(id || "");
   const isGuestKey = decoded.startsWith("guest:");
   const email = isGuestKey ? "" : decoded;
-
+  const woo = await getWooClient();
   // Pull a reasonable set of orders for searching
   const ORDERS_PER_PULL = 100;
   const first = await woo.get("/orders", {

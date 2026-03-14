@@ -1,5 +1,5 @@
 // src/app/coupons/page.tsx
-import { woo } from "@/lib/woo";
+import { getWooClient } from "@/lib/woo";
 import CouponsClient from "./CouponsClient";
 
 export interface WCCoupon {
@@ -15,12 +15,39 @@ export interface WCCoupon {
   status?: string;
 }
 
-export default async function CouponsPage() {
-  const { data } = await woo.get("/coupons", {
-    params: { per_page: 100, orderby: "date", order: "desc" },
-  });
+export const dynamic = "force-dynamic";
 
-  const coupons: WCCoupon[] = Array.isArray(data) ? data : [];
+async function fetchCoupons(): Promise<WCCoupon[]> {
+  try {
+    const woo = await getWooClient();
+
+    const PER_PAGE = 100;
+    const MAX_PAGES = 10; // safety cap (1000 coupons)
+    const all: WCCoupon[] = [];
+
+    let page = 1;
+    while (page <= MAX_PAGES) {
+      const { data } = await woo.get<WCCoupon[]>("/coupons", {
+        params: { per_page: PER_PAGE, page, orderby: "date", order: "desc" },
+      });
+
+      const rows = Array.isArray(data) ? data : [];
+      if (rows.length === 0) break;
+
+      all.push(...rows);
+
+      if (rows.length < PER_PAGE) break;
+      page++;
+    }
+
+    return all;
+  } catch {
+    return [];
+  }
+}
+
+export default async function CouponsPage() {
+  const coupons = await fetchCoupons();
 
   return (
     <div className="p-6 space-y-4">

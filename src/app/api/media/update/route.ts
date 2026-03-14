@@ -1,5 +1,6 @@
 // src/app/api/media/update/route.ts
 import { NextResponse } from "next/server";
+import { getWpBaseUrl } from "@/lib/wpClient";
 
 export async function PATCH(req: Request) {
   try {
@@ -7,15 +8,22 @@ export async function PATCH(req: Request) {
 
     if (!id) return NextResponse.json({ error: "id required" }, { status: 400 });
 
-    const wpUrl = process.env.WP_URL;
+    // ✅ tenant-aware base URL
+    const wpUrl = await getWpBaseUrl();
+
+    // ✅ shared auth from env (tenant sites share same WP user/app password)
     const user = process.env.WP_USER;
     const appPass = process.env.WP_APP_PASSWORD;
 
-    if (!wpUrl || !user || !appPass) {
-      return NextResponse.json({ error: "Missing WP env" }, { status: 500 });
+    if (!user || !appPass) {
+      return NextResponse.json(
+        { error: "Missing env var(s): WP_USER, WP_APP_PASSWORD" },
+        { status: 500 }
+      );
     }
 
     const auth = Buffer.from(`${user}:${appPass}`).toString("base64");
+
     const body: any = {};
     if (title !== undefined) body.title = title;
     if (slug) body.slug = slug; // physical rename requires a renamer plugin
@@ -23,7 +31,7 @@ export async function PATCH(req: Request) {
     const res = await fetch(`${wpUrl}/wp-json/wp/v2/media/${id}`, {
       method: "POST", // WP REST uses POST for updates
       headers: {
-        "Authorization": `Basic ${auth}`,
+        Authorization: `Basic ${auth}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify(body),

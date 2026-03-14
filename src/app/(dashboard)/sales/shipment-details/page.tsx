@@ -1,10 +1,11 @@
 // src/app/sales/shipment-details/page.tsx
 
 import ShipmentDetailsBulkTable from "./ShipmentDetailsBulkTable";
-import { woo } from "@/lib/woo";
+import { getWooClient } from "@/lib/woo";
 import type { WCOrder } from "@/lib/order-utils";
 
 async function loadAllOrders(): Promise<WCOrder[]> {
+  const woo = await getWooClient();
   const perPage = 100;
   const all: WCOrder[] = [];
   let page = 1;

@@ -1,12 +1,10 @@
 // src/app/api/import/[entity]/run/route.ts
 import { NextRequest } from "next/server";
-import { woo } from "@/lib/woo";
+import { getWooClient } from "@/lib/woo";
+
 import { parseCsvFull, toBool } from "@/lib/csv";
 
 export const dynamic = "force-dynamic";
-
-type WooProduct = any;
-type WooVariation = any;
 
 // Local entity type (no external import)
 type ImportEntity = "products" | "orders" | "customers";
@@ -38,25 +36,58 @@ type RouteParams = {
  * - Grouped parents: "Grouped products" = comma-separated SKUs
  */
 export async function POST(req: NextRequest, { params }: RouteParams) {
+  const woo = await getWooClient();
+
   const { entity: rawEntity } = await params;
   const entity = String(rawEntity || "").toLowerCase() as ImportEntity;
+
+  // ✅ early entity validation
+  if (!["products", "orders", "customers"].includes(entity)) {
+    return new Response(JSON.stringify({ error: "Unsupported entity" }), {
+      status: 400,
+      headers: { "content-type": "application/json" },
+    });
+  }
 
   const form = await req.formData();
   const file = form.get("file") as File | null;
   const encoding = String(form.get("encoding") || "utf-8");
   const delimiter = String(form.get("delimiter") || ",");
   const updateExisting = toBool(form.get("updateExisting"));
-  const mapping = JSON.parse(String(form.get("mapping") || "{}")) as ImportMap;
 
-  if (!file)
-    return new Response(JSON.stringify({ error: "No file" }), { status: 400 });
+  // ✅ safe mapping parse
+  let mapping: ImportMap = {};
+  try {
+    mapping = JSON.parse(String(form.get("mapping") || "{}")) as ImportMap;
+  } catch {
+    return new Response(JSON.stringify({ error: "Invalid mapping JSON" }), {
+      status: 400,
+      headers: { "content-type": "application/json" },
+    });
+  }
+
+  if (!file) {
+    return new Response(JSON.stringify({ error: "No file" }), {
+      status: 400,
+      headers: { "content-type": "application/json" },
+    });
+  }
 
   const buf = Buffer.from(await file.arrayBuffer());
-  const text = new TextDecoder(encoding as any).decode(buf);
+
+  // ✅ safe decoder fallback
+  let text = "";
+  try {
+    text = new TextDecoder(encoding as any).decode(buf);
+  } catch {
+    text = new TextDecoder("utf-8").decode(buf);
+  }
+
   const parsed = parseCsvFull(text, delimiter);
   if (parsed.headers.length === 0) {
     return new Response(JSON.stringify({ error: "No headers found" }), {
       status: 400,
+      headers: { "content-type": "application/json" },
     });
   }
 
@@ -80,13 +111,13 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
   };
 
   const splitPipe = (s: string) =>
-    s
+    (s || "")
       .split("|")
       .map((x) => x.trim())
       .filter(Boolean);
 
   const splitComma = (s: string) =>
-    s
+    (s || "")
       .split(",")
       .map((x) => x.trim())
       .filter(Boolean);
@@ -110,10 +141,10 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
   /** Find parent product for a variation.
    *  Priority:
    *   1) "Parent" column (SKU preferred; if numeric, treat as ID)
-   *   2) Try parse "name" prefix before " – " or "-" and search products by name (type=variable)
+   *   2) Search products by name (type=variable) as fallback
    */
   const resolveParentForVariation = async (row: string[]) => {
-    const parentRef = readVal(row, "Parent"); // optional column; map it if present
+    const parentRef = readVal(row, "Parent");
     if (parentRef) {
       if (/^\d+$/.test(parentRef)) {
         const hit = await findProductById(Number(parentRef));
@@ -121,14 +152,13 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
       }
       const bySku = await findProductBySku(parentRef);
       if (bySku) return bySku;
-      // also try search by name as fallback
+
       const { data } = await woo.get("/products", {
         params: { per_page: 1, search: parentRef, type: "variable" },
       });
       if (Array.isArray(data) && data[0]) return data[0];
     }
 
-    // fallback via name heuristic
     const vname = readVal(row, "name");
     if (vname) {
       const guess = vname.split(" – ")[0].split(" - ")[0].trim();
@@ -145,37 +175,45 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
   const ensureCategories = async (namesPipe: string) => {
     const names = splitPipe(namesPipe);
     if (!names.length) return undefined;
+
     const ids: number[] = [];
     for (const nm of names) {
-      // try search exact-ish
+      // search
       const { data: found } = await woo.get("/products/categories", {
-        params: { per_page: 1, search: nm },
+        params: { per_page: 50, search: nm },
       });
-      let cid = found?.[0]?.id;
-      if (!cid) {
-        const { data: created } = await woo.post("/products/categories", {
-          name: nm,
-        });
-        cid = created?.id;
+
+      // exact match preferred
+      let cid: number | undefined = undefined;
+      if (Array.isArray(found) && found.length) {
+        const exact = found.find(
+          (c: any) =>
+            String(c?.name || "").trim().toLowerCase() === nm.trim().toLowerCase()
+        );
+        cid = exact?.id ? Number(exact.id) : found?.[0]?.id ? Number(found[0].id) : undefined;
       }
-      if (cid) ids.push(Number(cid));
+
+      if (!cid) {
+        const { data: created } = await woo.post("/products/categories", { name: nm });
+        cid = created?.id ? Number(created.id) : undefined;
+      }
+
+      if (cid) ids.push(cid);
     }
+
     return ids.length ? ids.map((id) => ({ id })) : undefined;
   };
 
   const buildParentAttributes = (row: string[]) => {
-    // Attribute n name/value(s)/visible/global → Woo product attribute objects
     const attrs: any[] = [];
     for (let i = 1; i <= 5; i++) {
       const name = readVal(row, `Attribute ${i} name`);
       const values = readVal(row, `Attribute ${i} value(s)`);
       const visible = readVal(row, `Attribute ${i} visible`);
-      const global = readVal(row, `Attribute ${i} global`);
       if (!name && !values) continue;
+
       attrs.push({
         name,
-        // NOTE: we intentionally keep taxonomy (global) false to avoid pa_ taxonomy complexity.
-        // If you truly want to attach global attributes, we can add a resolver from display → taxonomy later.
         taxonomy: false,
         visible: toBool1(visible),
         variation: true,
@@ -186,16 +224,12 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
   };
 
   const buildVariationAttributes = (row: string[]) => {
-    // Same columns but each variation has a single value per attribute ("option")
     const attrs: any[] = [];
     for (let i = 1; i <= 5; i++) {
       const name = readVal(row, `Attribute ${i} name`);
       const value = readVal(row, `Attribute ${i} value(s)`);
       if (!name && !value) continue;
-      attrs.push({
-        name,
-        option: value, // single
-      });
+      attrs.push({ name, option: value });
     }
     return attrs.length ? attrs : undefined;
   };
@@ -203,6 +237,7 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
   // ------------- main loop ------------- //
   for (let i = 0; i < parsed.rows.length; i++) {
     const row = parsed.rows[i];
+
     try {
       if (!anyMapped(row)) {
         summary.skipped++;
@@ -210,6 +245,14 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
       }
 
       if (entity === "products") {
+        // extra safety: skip junk rows with no identity at all
+        const hasKey =
+          !!readVal(row, "id") || !!readVal(row, "sku") || !!readVal(row, "name");
+        if (!hasKey) {
+          summary.skipped++;
+          continue;
+        }
+
         const idRaw = readVal(row, "id");
         const id = Number(idRaw) || 0;
         const type = (readVal(row, "type") || "simple").toLowerCase();
@@ -230,9 +273,9 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
 
         // --------- VARIATION ROWS ---------
         if (type === "variation") {
-          // Need parent
           const parent = await resolveParentForVariation(row);
           const parentId = parent?.id ? Number(parent.id) : 0;
+
           if (!parentId) {
             summary.skipped++;
             errors.push({
@@ -249,6 +292,7 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
           if (stock_status) varPayload.stock_status = stock_status;
           if (manage_stock) varPayload.manage_stock = toBool1(manage_stock);
           if (stock_quantity) varPayload.stock_quantity = Number(stock_quantity);
+
           const vattrs = buildVariationAttributes(row);
           if (vattrs) varPayload.attributes = vattrs;
 
@@ -264,17 +308,23 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
             );
             if (updated?.id) summary.updated++;
             else summary.skipped++;
-          } else if (updateExisting && sku) {
-            // Try find existing variation by SKU under this parent
+            continue;
+          }
+
+          // updateExisting by variation SKU (scan with cap)
+          if (updateExisting && sku) {
             let existingId = 0;
             let pageV = 1;
             const perV = 100;
-            while (!existingId) {
+            const MAX_PAGES = 10;
+
+            while (!existingId && pageV <= MAX_PAGES) {
               const { data: vars } = await woo.get(
                 `/products/${parentId}/variations`,
                 { params: { per_page: perV, page: pageV } }
               );
               if (!Array.isArray(vars) || vars.length === 0) break;
+
               for (const v of vars) {
                 if ((v?.sku || "") === sku) {
                   existingId = Number(v.id);
@@ -284,6 +334,7 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
               if (vars.length < perV) break;
               pageV++;
             }
+
             if (existingId) {
               const { data: updated } = await woo.put(
                 `/products/${parentId}/variations/${existingId}`,
@@ -299,16 +350,18 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
               if (created?.id) summary.created++;
               else summary.skipped++;
             }
-          } else {
-            const { data: created } = await woo.post(
-              `/products/${parentId}/variations`,
-              varPayload
-            );
-            if (created?.id) summary.created++;
-            else summary.skipped++;
+            continue;
           }
 
-          continue; // done with variation row
+          // create variation
+          const { data: created } = await woo.post(
+            `/products/${parentId}/variations`,
+            varPayload
+          );
+          if (created?.id) summary.created++;
+          else summary.skipped++;
+
+          continue;
         }
 
         // --------- PARENT / NON-VARIATION PRODUCTS ---------
@@ -323,17 +376,14 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
         if (description) payload.description = description;
         if (sku) payload.sku = sku;
 
-        // categories (names)
         const cats = await ensureCategories(categoriesPipe);
         if (cats) payload.categories = cats;
 
-        // images (gallery URLs)
         if (imagesCsv) {
           const imgs = splitPipe(imagesCsv);
           if (imgs.length) payload.images = imgs.map((src) => ({ src }));
         }
 
-        // attributes on parent (variable or even simple if provided)
         const pattrs = buildParentAttributes(row);
         if (pattrs) payload.attributes = pattrs;
 
@@ -372,14 +422,16 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
           } else summary.skipped++;
         }
 
-        // grouped attachments (if this is grouped parent)
+        // grouped attachments
         if (type === "grouped" && parentIdAfter && groupedSkusCsv) {
           const childSkus = splitComma(groupedSkusCsv);
           const childIds: number[] = [];
+
           for (const cs of childSkus) {
             const child = await findProductBySku(cs);
             if (child?.id) childIds.push(Number(child.id));
           }
+
           try {
             await woo.put(`/products/${parentIdAfter}`, {
               grouped_products: childIds,
@@ -392,15 +444,17 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
           }
         }
       } else if (entity === "orders") {
-        // --- orders: same as before (update by id) --- //
         const idRaw = readVal(row, "id");
         const id = Number(idRaw);
+
         if (!id) {
           summary.skipped++;
           continue;
         }
+
         const status = readVal(row, "status");
         const customer_note = readVal(row, "customer_note");
+
         const payload: any = {};
         if (status) payload.status = status;
         if (customer_note) payload.customer_note = customer_note;
@@ -427,18 +481,19 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
         if (updated?.id) summary.updated++;
         else summary.skipped++;
       } else if (entity === "customers") {
-        // --- customers: same as before (id/email upsert) --- //
         const idRaw = readVal(row, "id");
         const email = readVal(row, "email");
         const first_name = readVal(row, "first_name");
         const last_name = readVal(row, "last_name");
         const username = readVal(row, "username");
+
         const billing = {
           phone: readVal(row, "billing_phone"),
           address_1: readVal(row, "billing_address_1"),
           city: readVal(row, "billing_city"),
           postcode: readVal(row, "billing_postcode"),
         };
+
         const payload: any = {
           ...(email ? { email } : {}),
           ...(first_name ? { first_name } : {}),
@@ -448,18 +503,15 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
         };
 
         const id = Number(idRaw);
+
         if (id && updateExisting) {
-          const { data: updated } = await woo.put(
-            `/customers/${id}`,
-            payload
-          );
+          const { data: updated } = await woo.put(`/customers/${id}`, payload);
           if (updated?.id) summary.updated++;
           else summary.skipped++;
         } else if (email && updateExisting) {
-          const { data: found } = await woo.get("/customers", {
-            params: { email },
-          });
+          const { data: found } = await woo.get("/customers", { params: { email } });
           const hit = Array.isArray(found) && found[0];
+
           if (hit?.id) {
             const { data: updated } = await woo.put(
               `/customers/${hit.id}`,
@@ -468,10 +520,7 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
             if (updated?.id) summary.updated++;
             else summary.skipped++;
           } else {
-            const { data: created } = await woo.post(
-              "/customers",
-              payload
-            );
+            const { data: created } = await woo.post("/customers", payload);
             if (created?.id) summary.created++;
             else summary.skipped++;
           }
@@ -480,8 +529,6 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
           if (created?.id) summary.created++;
           else summary.skipped++;
         }
-      } else {
-        throw new Error("Unsupported entity");
       }
     } catch (err: any) {
       summary.skipped++;

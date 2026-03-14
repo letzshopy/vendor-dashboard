@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { woo } from "@/lib/woo";
+import { getWooClient } from "@/lib/woo";
 
 /**
  * Build customers from ORDERS so guests are included.
@@ -19,6 +19,7 @@ export async function GET(req: NextRequest) {
   let orders: any[] = [];
 
   // First call to know total pages
+  const woo = await getWooClient();
   const first = await woo.get("/orders", { params: { per_page: ORDERS_PER_PULL, page: 1, order: "desc" } });
   orders = first.data || [];
   const totalPages = Math.min(

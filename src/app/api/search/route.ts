@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { woo } from "@/lib/woo";
+import { getWooClient } from "@/lib/woo";
 
 type SearchScope = "products" | "orders" | "customers";
 
@@ -10,11 +10,18 @@ type SearchResult = {
   url: string;
 };
 
+function asScope(v: any): SearchScope {
+  return v === "orders" || v === "customers" || v === "products"
+    ? v
+    : "products";
+}
+
 export async function GET(req: Request) {
+  const woo = await getWooClient();
+
   const { searchParams } = new URL(req.url);
-  const q = (searchParams.get("q") || "").trim();
-  const scope = (searchParams.get("scope") ||
-    "products") as SearchScope;
+  const q = String(searchParams.get("q") || "").trim();
+  const scope = asScope(searchParams.get("scope"));
 
   if (!q || q.length < 2) {
     return NextResponse.json({ items: [] });
@@ -33,38 +40,61 @@ export async function GET(req: Request) {
           order: "desc",
         },
       });
-      items = (data as any[]).map((p) => ({
-        id: p.id,
-        label: p.name || "(no title)",
-        subLabel: p.sku ? `SKU: ${p.sku}` : undefined,
-        url: `/products/${p.id}`,
+
+      const arr = Array.isArray(data) ? data : [];
+      items = arr.map((p: any) => ({
+        id: Number(p?.id || 0),
+        label: String(p?.name || "(no title)"),
+        subLabel: p?.sku ? `SKU: ${String(p.sku)}` : undefined,
+        url: `/products/${p?.id}`,
       }));
-    } else if (scope === "orders") {
-      const { data } = await woo.get("/orders", {
-        params: {
-          search: q,
-          per_page: 5,
-          orderby: "date",
-          order: "desc",
-        },
-      });
-      items = (data as any[]).map((o) => {
+    }
+
+    if (scope === "orders") {
+      // Woo orders search can be inconsistent across stores.
+      // We'll try "search" first, and if q is numeric, try include as fallback.
+      const isNum = /^\d+$/.test(q);
+
+      const primary = await woo
+        .get("/orders", {
+          params: {
+            search: q,
+            per_page: 5,
+            orderby: "date",
+            order: "desc",
+          },
+        })
+        .catch(() => ({ data: [] }));
+
+      let arr = Array.isArray((primary as any)?.data) ? (primary as any).data : [];
+
+      if (arr.length === 0 && isNum) {
+        const fallback = await woo
+          .get("/orders", { params: { include: [Number(q)], per_page: 5 } })
+          .catch(() => ({ data: [] }));
+        const farr = Array.isArray((fallback as any)?.data) ? (fallback as any).data : [];
+        arr = farr.length ? farr : arr;
+      }
+
+      items = arr.map((o: any) => {
         const name =
-          ((o.billing?.first_name as string) || "") +
-          " " +
-          ((o.billing?.last_name as string) || "");
-        const label = `Order #${o.number || o.id}`;
-        const subParts = [];
-        if (name.trim()) subParts.push(name.trim());
-        if (o.total) subParts.push(`₹${o.total}`);
+          `${String(o?.billing?.first_name || "")} ${String(o?.billing?.last_name || "")}`.trim();
+
+        const label = `Order #${o?.number || o?.id}`;
+        const subParts: string[] = [];
+        if (name) subParts.push(name);
+        if (o?.total) subParts.push(`₹${String(o.total)}`);
+
         return {
-          id: o.id,
+          id: Number(o?.id || 0),
           label,
-          subLabel: subParts.join(" • "),
-          url: `/orders/${o.id}`,
+          subLabel: subParts.length ? subParts.join(" • ") : undefined,
+          url: `/orders/${o?.id}`,
         };
       });
-    } else if (scope === "customers") {
+    }
+
+    if (scope === "customers") {
       const { data } = await woo.get("/customers", {
         params: {
           search: q,
@@ -73,27 +103,28 @@ export async function GET(req: Request) {
           order: "asc",
         },
       });
-      items = (data as any[]).map((c) => {
-        const name =
-          ((c.first_name as string) || "") +
-          " " +
-          ((c.last_name as string) || "");
-        const email = c.email as string | undefined;
+
+      const arr = Array.isArray(data) ? data : [];
+      items = arr.map((c: any) => {
+        const name = `${String(c?.first_name || "")} ${String(c?.last_name || "")}`.trim();
+        const email = (c?.email ? String(c.email) : "") || undefined;
+
         return {
-          id: c.id,
-          label: name.trim() || email || "Customer",
-          subLabel: email || undefined,
-          // You can adjust this to your actual Customers page URL
-          url: `/customers?search=${encodeURIComponent(
-            email || name || ""
-          )}`,
+          id: Number(c?.id || 0),
+          label: name || email || "Customer",
+          subLabel: email,
+          // Adjust if you later add /customers/[id]
+          url: `/customers?search=${encodeURIComponent(email || name || "")}`,
         };
       });
     }
 
+    // remove any accidental id=0 rows
+    items = items.filter((it) => it.id !== 0);
+
     return NextResponse.json({ items });
-  } catch (e: any) {
-    console.error("Quick search API error:", e?.message || e);
+  } catch {
+    // keep UI smooth
     return NextResponse.json({ items: [] });
   }
 }

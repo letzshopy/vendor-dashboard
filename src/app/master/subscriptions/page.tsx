@@ -1,5 +1,6 @@
 // src/app/master/subscriptions/page.tsx
 import Link from "next/link";
+import { getMasterWpBaseUrl } from "@/lib/wpClient";
 
 type SubItem = {
   blogId: number;
@@ -30,6 +31,8 @@ type SubsResponse = {
   items: SubItem[];
 };
 
+export const dynamic = "force-dynamic";
+
 function masterHeaders() {
   const key = process.env.MASTER_API_KEY;
   return {
@@ -40,8 +43,7 @@ function masterHeaders() {
 }
 
 async function getSubs(): Promise<SubsResponse> {
-  const MASTER_WP_URL = process.env.MASTER_WP_URL || process.env.WP_URL;
-  if (!MASTER_WP_URL) throw new Error("Missing MASTER_WP_URL in .env.local");
+  const MASTER_WP_URL = getMasterWpBaseUrl();
 
   const url = `${MASTER_WP_URL.replace(/\/$/, "")}/wp-json/letz/v1/master-subscriptions`;
 
@@ -162,7 +164,10 @@ export default async function MasterSubscriptionsPage() {
 
             <tbody className="text-slate-200">
               {data.items.map((v) => (
-                <tr key={v.blogId} className="border-b border-slate-900/60 hover:bg-slate-900/30">
+                <tr
+                  key={v.blogId}
+                  className="border-b border-slate-900/60 hover:bg-slate-900/30"
+                >
                   <td className="px-4 py-3">
                     <div className="font-medium">{v.siteName}</div>
                     <div className="text-xs text-slate-500">{v.siteUrl}</div>
@@ -174,7 +179,9 @@ export default async function MasterSubscriptionsPage() {
                   <td className="px-4 py-3">
                     <div className="flex flex-col gap-1">
                       <span className={badge(v.tag)}>{tagLabel(v.tag)}</span>
-                      <span className="text-xs text-slate-500">{v.billingStatus || "-"}</span>
+                      <span className="text-xs text-slate-500">
+                        {v.billingStatus || "-"}
+                      </span>
                     </div>
                   </td>
 

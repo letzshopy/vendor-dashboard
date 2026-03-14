@@ -1,6 +1,6 @@
 // src/app/api/notifications/route.ts
 import { NextResponse } from "next/server";
-import { woo } from "@/lib/woo";
+import { getWooClient } from "@/lib/woo";
 
 type NotificationItem = {
   id: string;
@@ -22,6 +22,7 @@ const OPEN_STATUSES = [
 
 export async function GET() {
   try {
+    const woo = await getWooClient();
     // Don’t pass status filter to Woo – some setups 400 on that.
     const { data } = await woo.get("/orders", {
       params: {

@@ -1,4 +1,3 @@
-// src/components/Topbar.tsx
 "use client";
 
 import Image from "next/image";
@@ -6,7 +5,6 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import {
   Bell,
-  Mail,
   Search as SearchIcon,
   ChevronDown,
   Sparkles,
@@ -16,25 +14,27 @@ import {
   CreditCard,
   CheckCircle2,
 } from "lucide-react";
+import { useDashboardSubscription } from "@/components/subscription/SubscriptionContext";
 
 const FALLBACK_STORE_URL = process.env.NEXT_PUBLIC_SITE_URL || "#";
 const BRAND_LOGO_URL = process.env.NEXT_PUBLIC_BRAND_LOGO_URL || "";
-
-// unified “card” surface colour for logo pill, search, icons, etc.
 const SURFACE_CLASS = "bg-[#f5f3ff]";
 
 type TopbarProps = {
   onToggleSidebar?: () => void;
 };
 
-type SubscriptionStatus = "trial" | "active" | "cancelled" | "expired";
+type SubscriptionStatus =
+  | "inactive"
+  | "pending_payment"
+  | "payment_submitted"
+  | "active"
+  | "suspended"
+  | "expired";
 
 type AccountSettingsResponse = {
   overview?: {
     store_url?: string;
-  };
-  subscription?: {
-    billing_status?: string;
   };
 };
 
@@ -60,29 +60,66 @@ type SearchResult = {
 
 function deriveStatus(raw: string | undefined): SubscriptionStatus {
   const v = (raw || "").toLowerCase().trim();
-  if (v === "trial") return "trial";
-  if (v === "cancelled") return "cancelled";
-  if (v === "expired") return "expired";
+
+  if (v === "inactive") return "inactive";
+  if (v === "pending_payment") return "pending_payment";
+  if (v === "payment_submitted") return "payment_submitted";
   if (v === "active") return "active";
-  return "active";
+  if (v === "suspended") return "suspended";
+  if (v === "expired") return "expired";
+
+  return "inactive";
 }
 
 function statusLabel(status: SubscriptionStatus): string {
   switch (status) {
-    case "trial":
-      return "Trial";
+    case "inactive":
+      return "Inactive";
+    case "pending_payment":
+      return "Pending Payment";
+    case "payment_submitted":
+      return "Payment Submitted";
     case "active":
       return "Active";
-    case "cancelled":
-      return "Cancelled";
+    case "suspended":
+      return "Suspended";
     case "expired":
       return "Expired";
     default:
-      return "Active";
+      return "Inactive";
   }
 }
 
-// Make initials from store slug, e.g. "templatedemo.letzshopy.in" -> "TD"
+function statusDotClass(status: SubscriptionStatus): string {
+  switch (status) {
+    case "active":
+      return "bg-emerald-400";
+    case "pending_payment":
+    case "payment_submitted":
+      return "bg-amber-400";
+    case "suspended":
+    case "expired":
+    case "inactive":
+    default:
+      return "bg-rose-400";
+  }
+}
+
+function statusChipClass(status: SubscriptionStatus): string {
+  switch (status) {
+    case "active":
+      return "bg-[#3b4a8d] text-indigo-100";
+    case "pending_payment":
+    case "payment_submitted":
+      return "bg-amber-500/15 text-amber-100";
+    case "suspended":
+    case "expired":
+    case "inactive":
+    default:
+      return "bg-rose-500/15 text-rose-100";
+  }
+}
+
 function storeInitials(normalizedStore: string): string {
   if (!normalizedStore) return "VS";
   const firstPart = normalizedStore.split(".")[0] || "";
@@ -93,6 +130,8 @@ function storeInitials(normalizedStore: string): string {
 }
 
 export default function Topbar({ onToggleSidebar }: TopbarProps) {
+  const { subscription } = useDashboardSubscription();
+
   const [accountOpen, setAccountOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [searchScope, setSearchScope] = useState<SearchScope>("products");
@@ -112,10 +151,8 @@ export default function Topbar({ onToggleSidebar }: TopbarProps) {
   const searchTimeoutRef = useRef<number | null>(null);
 
   const [storeUrl, setStoreUrl] = useState(FALLBACK_STORE_URL);
-  const [subStatus, setSubStatus] = useState<SubscriptionStatus>("active");
   const [statusLoading, setStatusLoading] = useState(true);
 
-  // Close dropdowns on outside click
   useEffect(() => {
     function onDocClick(e: MouseEvent) {
       const target = e.target as Node;
@@ -137,42 +174,44 @@ export default function Topbar({ onToggleSidebar }: TopbarProps) {
     return () => document.removeEventListener("click", onDocClick);
   }, []);
 
-  // Load account / subscription info
   useEffect(() => {
     let cancelled = false;
 
-    async function load() {
+    async function loadStore() {
       try {
         setStatusLoading(true);
-        const res = await fetch("/api/account/settings", { cache: "no-store" });
-        if (!res.ok) throw new Error("Failed to load account settings");
-        const data = (await res.json()) as AccountSettingsResponse;
 
-        if (cancelled) return;
+        const accountRes = await fetch("/api/account/settings", {
+          cache: "no-store",
+        });
 
-        const url = data?.overview?.store_url || FALLBACK_STORE_URL;
-        setStoreUrl(url);
+        let storeUrlValue = FALLBACK_STORE_URL;
 
-        const rawStatus = data?.subscription?.billing_status;
-        setSubStatus(deriveStatus(rawStatus));
+        if (accountRes.ok) {
+          const accountData =
+            (await accountRes.json()) as AccountSettingsResponse;
+          storeUrlValue = accountData?.overview?.store_url || FALLBACK_STORE_URL;
+        }
+
+        if (!cancelled) {
+          setStoreUrl(storeUrlValue);
+        }
       } catch (e) {
-        console.warn("Account settings load failed (non-blocking):", e);
+        console.warn("Topbar account load failed:", e);
         if (!cancelled) {
           setStoreUrl(FALLBACK_STORE_URL);
-          setSubStatus("active");
         }
       } finally {
         if (!cancelled) setStatusLoading(false);
       }
     }
 
-    load();
+    loadStore();
     return () => {
       cancelled = true;
     };
   }, []);
 
-  // Load notifications periodically
   useEffect(() => {
     let cancelled = false;
 
@@ -219,7 +258,6 @@ export default function Topbar({ onToggleSidebar }: TopbarProps) {
   }, []);
 
   function markAllNotificationsRead() {
-    // For MVP we just clear the badge, but keep the list visible
     setUnreadCount(0);
   }
 
@@ -227,14 +265,12 @@ export default function Topbar({ onToggleSidebar }: TopbarProps) {
     setNotificationsOpen((prev) => {
       const next = !prev;
       if (next) {
-        // opening → consider everything as read for badge
         setUnreadCount(0);
       }
       return next;
     });
   }
 
-  // Search suggestions with debounce
   useEffect(() => {
     if (!search || search.trim().length < 2) {
       if (searchAbortRef.current) searchAbortRef.current.abort();
@@ -298,10 +334,20 @@ export default function Topbar({ onToggleSidebar }: TopbarProps) {
   const normalizedStore = storeUrl.replace(/^https?:\/\//, "");
   const initials = storeInitials(normalizedStore);
 
+  const subStatus = deriveStatus(subscription?.status);
+
   const subscriptionChip =
     !statusLoading && (
-      <span className="hidden items-center gap-1 rounded-full bg-[#3b4a8d] px-3 py-1 text-[11px] font-medium text-indigo-100 md:inline-flex">
-        <span className="inline-block h-1.5 w-1.5 rounded-full bg-[#7B3EF3]" />
+      <span
+        className={`hidden items-center gap-1 rounded-full px-3 py-1 text-[11px] font-medium md:inline-flex ${statusChipClass(
+          subStatus
+        )}`}
+      >
+        <span
+          className={`inline-block h-1.5 w-1.5 rounded-full ${statusDotClass(
+            subStatus
+          )}`}
+        />
         Subscription: {statusLabel(subStatus)}
       </span>
     );
@@ -309,9 +355,7 @@ export default function Topbar({ onToggleSidebar }: TopbarProps) {
   return (
     <header className="sticky top-0 z-40 w-full bg-[#27346D] shadow-sm shadow-black/20">
       <div className="flex h-16 items-center justify-between gap-4 px-2 md:h-20 md:px-4">
-        {/* LEFT: big LetzShopy logo + Admin Dashboard */}
         <div className="flex min-w-0 items-center gap-3 md:gap-4">
-          {/* Mobile menu icon only on small screens */}
           <button
             type="button"
             onClick={onToggleSidebar}
@@ -320,10 +364,8 @@ export default function Topbar({ onToggleSidebar }: TopbarProps) {
             <Menu className="h-4 w-4" />
           </button>
 
-          {/* LOGO in white pill – sized for 940x246 image */}
           <div className="flex items-center">
             <div className="flex items-center justify-center rounded-full bg-white/95 px-3 py-1.5 shadow-md shadow-black/30">
-              {/* Aspect ratio ~ 3.8:1 (940x246) */}
               <div className="relative h-8 w-[10.5rem] md:h-10 md:w-[10.5rem] lg:h-12 lg:w-[12.5rem]">
                 {BRAND_LOGO_URL ? (
                   <Image
@@ -342,7 +384,6 @@ export default function Topbar({ onToggleSidebar }: TopbarProps) {
             </div>
           </div>
 
-          {/* Admin Dashboard caption */}
           <div className="hidden min-w-0 flex-col leading-tight lg:flex">
             <div className="flex items-center gap-2">
               <span className="truncate text-sm font-semibold text-white">
@@ -364,7 +405,6 @@ export default function Topbar({ onToggleSidebar }: TopbarProps) {
           </div>
         </div>
 
-        {/* CENTER: search bar with scope filter */}
         <div
           className="relative hidden max-w-xl flex-1 items-center md:flex"
           ref={searchWrapperRef}
@@ -395,7 +435,6 @@ export default function Topbar({ onToggleSidebar }: TopbarProps) {
             )}
           </form>
 
-          {/* Search suggestions dropdown */}
           {showSearchDropdown && searchResults.length > 0 && (
             <div className="absolute left-1/2 top-full z-30 mt-2 w-full max-w-xl -translate-x-1/2 rounded-2xl border border-slate-100 bg-white/95 shadow-lg shadow-slate-200">
               <div className="border-b border-slate-100 px-3 py-2 text-[11px] font-medium uppercase tracking-wide text-slate-500">
@@ -433,11 +472,9 @@ export default function Topbar({ onToggleSidebar }: TopbarProps) {
           )}
         </div>
 
-        {/* RIGHT: subscription chip, Visit Store, icons, avatar */}
         <div className="flex items-center gap-2 md:gap-3">
           {subscriptionChip}
 
-          {/* Visit Store pill */}
           <a
             href={storeUrl}
             target="_blank"
@@ -448,9 +485,7 @@ export default function Topbar({ onToggleSidebar }: TopbarProps) {
             Visit Store
           </a>
 
-          {/* Mail + notification icons */}
           <div className="flex items-center gap-1 md:gap-2">
-            {/* Notifications */}
             <div className="relative" ref={notifRef}>
               <button
                 type="button"
@@ -555,7 +590,6 @@ export default function Topbar({ onToggleSidebar }: TopbarProps) {
             </div>
           </div>
 
-          {/* Avatar-only account dropdown */}
           <div className="relative" ref={accountRef}>
             <button
               onClick={() => setAccountOpen((v) => !v)}
@@ -573,7 +607,6 @@ export default function Topbar({ onToggleSidebar }: TopbarProps) {
 
             {accountOpen && (
               <div className="absolute right-0 mt-2 w-72 overflow-hidden rounded-xl border border-slate-200 bg-white text-sm text-slate-900 shadow-xl shadow-slate-200">
-                {/* Header inside dropdown shows vendor name + full URL */}
                 <div className="flex items-center gap-2 border-b border-slate-100 bg-[#f9f7ff] px-3 py-2.5">
                   <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-[#A05AFF] to-[#4BCBEB] text-xs font-bold text-white shadow-md shadow-[#e5d4ff]">
                     {initials}
@@ -604,15 +637,12 @@ export default function Topbar({ onToggleSidebar }: TopbarProps) {
                     type="button"
                     onClick={() => {
                       setAccountOpen(false);
-                      window.location.href =
-                        "/settings?tab=account#subscription";
+                      window.location.href = "/settings?tab=subscription";
                     }}
                     className="block w-full px-3 py-2 text-left hover:bg-[#f6f1ff]"
                   >
                     <div className="flex items-center justify-between">
-                      <span className="text-sm">
-                        Subscription &amp; AutoPay (Easebuzz)
-                      </span>
+                      <span className="text-sm">Subscription</span>
                     </div>
                   </button>
 
@@ -644,7 +674,7 @@ export default function Topbar({ onToggleSidebar }: TopbarProps) {
                     type="button"
                     onClick={() => {
                       setAccountOpen(false);
-                      window.location.href = "/settings?tab=account#security";
+                      window.location.href = "/settings?tab=account";
                     }}
                     className="block w-full px-3 py-2 text-left hover:bg-[#f6f1ff]"
                   >

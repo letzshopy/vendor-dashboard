@@ -1,6 +1,7 @@
 // src/app/api/coupons/[id]/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import { woo } from "@/lib/woo";
+import { getWooClient } from "@/lib/woo";
+
 
 type RouteParams = {
   params: Promise<{ id: string }>;
@@ -8,6 +9,7 @@ type RouteParams = {
 
 export async function PUT(req: NextRequest, { params }: RouteParams) {
   try {
+    const woo = await getWooClient();
     const { id } = await params;
     const body = await req.json();
 
@@ -52,6 +54,7 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
 
 export async function DELETE(_req: NextRequest, { params }: RouteParams) {
   try {
+    const woo = await getWooClient();
     const { id } = await params;
     await woo.delete(`/coupons/${id}`, { params: { force: true } });
     return NextResponse.json({ ok: true });

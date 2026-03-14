@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
-import { woo } from "@/lib/woo";
+import { getWooClient } from "@/lib/woo";
 
 export async function POST(req: Request) {
   try {
+    const woo = await getWooClient();
     const { ids, action, qty } = await req.json();
     if (!Array.isArray(ids) || ids.length === 0) {
       return NextResponse.json({ error: "No ids" }, { status: 400 });

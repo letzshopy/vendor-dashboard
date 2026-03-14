@@ -1,22 +1,23 @@
 // src/app/api/media/list/route.ts
 import { NextResponse } from "next/server";
+import { getWpBaseUrl } from "@/lib/wpClient";
 
 export const dynamic = "force-dynamic";
 
-function requireEnv() {
-  const wpUrl = process.env.WP_URL;
+function requireAuthEnv() {
   const user = process.env.WP_USER;
   const pass = process.env.WP_APP_PASSWORD;
-  const missing = [];
-  if (!wpUrl) missing.push("WP_URL");
+
+  const missing: string[] = [];
   if (!user) missing.push("WP_USER");
   if (!pass) missing.push("WP_APP_PASSWORD");
+
   if (missing.length) {
-    const m = `Missing env var(s): ${missing.join(", ")}. Set them in .env.local`;
-    throw new Error(m);
+    throw new Error(`Missing env var(s): ${missing.join(", ")}. Set them in .env.local`);
   }
+
   const auth = Buffer.from(`${user}:${pass}`).toString("base64");
-  return { wpUrl: wpUrl!, auth };
+  return { auth };
 }
 
 const normalize = (m: any) => ({
@@ -37,7 +38,9 @@ const normalize = (m: any) => ({
 
 export async function GET(req: Request) {
   try {
-    const { wpUrl, auth } = requireEnv();
+    const wpUrl = await getWpBaseUrl(); // ✅ tenant-aware
+    const { auth } = requireAuthEnv();
+
     const url = new URL(req.url);
     const id = url.searchParams.get("id");
     const q = url.searchParams.get("q") || "";
@@ -49,10 +52,12 @@ export async function GET(req: Request) {
         headers: { Authorization: `Basic ${auth}` },
         cache: "no-store",
       });
+
       if (!r.ok) {
         const t = await r.text();
         return NextResponse.json({ error: `WP error (${r.status}): ${t}` }, { status: 500 });
       }
+
       const m = await r.json();
       return NextResponse.json({ items: [normalize(m)] });
     }

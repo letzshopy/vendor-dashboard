@@ -1,5 +1,5 @@
 // src/lib/wooSync.ts
-import { woo } from "@/lib/woo";
+import { getWooClient } from "@/lib/woo";
 
 /**
  * Map our general > products settings to Woo options via /settings API.
@@ -19,6 +19,8 @@ export async function syncWooGeneralProducts(products: {
   hideOutOfStock?: boolean;
   stockDisplayFormat?: "no_amount" | "always" | "low_amount";
 }) {
+  const woo = await getWooClient();
+
   // Build payloads (skip undefined)
   const generalUpdates: Array<{ id: string; value: any }> = [];
   const productsUpdates: Array<{ id: string; value: any }> = [];
@@ -28,41 +30,103 @@ export async function syncWooGeneralProducts(products: {
   // GENERAL group
   if (products.currency != null)
     generalUpdates.push({ id: "woocommerce_currency", value: products.currency });
+
   if (products.weightUnit != null)
     generalUpdates.push({ id: "woocommerce_weight_unit", value: products.weightUnit });
+
   if (products.dimensionUnit != null)
-    generalUpdates.push({ id: "woocommerce_dimension_unit", value: products.dimensionUnit });
+    generalUpdates.push({
+      id: "woocommerce_dimension_unit",
+      value: products.dimensionUnit,
+    });
+
   if (products.priceDecimals != null)
-    generalUpdates.push({ id: "woocommerce_price_num_decimals", value: String(products.priceDecimals) });
+    generalUpdates.push({
+      id: "woocommerce_price_num_decimals",
+      value: String(products.priceDecimals),
+    });
 
   // PRODUCTS group
   if (products.reviewsEnabled != null)
-    productsUpdates.push({ id: "woocommerce_enable_reviews", value: yn(products.reviewsEnabled) });
+    productsUpdates.push({
+      id: "woocommerce_enable_reviews",
+      value: yn(products.reviewsEnabled),
+    });
+
   if (products.manageStock != null)
-    productsUpdates.push({ id: "woocommerce_manage_stock", value: yn(products.manageStock) });
+    productsUpdates.push({
+      id: "woocommerce_manage_stock",
+      value: yn(products.manageStock),
+    });
+
   if (products.notifyLowStock != null)
-    productsUpdates.push({ id: "woocommerce_notify_low_stock", value: yn(products.notifyLowStock) });
+    productsUpdates.push({
+      id: "woocommerce_notify_low_stock",
+      value: yn(products.notifyLowStock),
+    });
+
   if (products.notifyNoStock != null)
-    productsUpdates.push({ id: "woocommerce_notify_no_stock", value: yn(products.notifyNoStock) });
+    productsUpdates.push({
+      id: "woocommerce_notify_no_stock",
+      value: yn(products.notifyNoStock),
+    });
+
   if (products.stockEmailRecipient != null)
-    productsUpdates.push({ id: "woocommerce_stock_email_recipient", value: products.stockEmailRecipient });
+    productsUpdates.push({
+      id: "woocommerce_stock_email_recipient",
+      value: products.stockEmailRecipient,
+    });
+
   if (products.lowStockThreshold != null)
-    productsUpdates.push({ id: "woocommerce_notify_low_stock_amount", value: String(products.lowStockThreshold) });
+    productsUpdates.push({
+      id: "woocommerce_notify_low_stock_amount",
+      value: String(products.lowStockThreshold),
+    });
+
   if (products.hideOutOfStock != null)
-    productsUpdates.push({ id: "woocommerce_hide_out_of_stock_items", value: yn(products.hideOutOfStock) });
+    productsUpdates.push({
+      id: "woocommerce_hide_out_of_stock_items",
+      value: yn(products.hideOutOfStock),
+    });
+
   if (products.stockDisplayFormat != null) {
-    // Woo expects: 'no_amount' | 'always' | 'low_amount' → map directly
-    productsUpdates.push({ id: "woocommerce_stock_format", value: products.stockDisplayFormat });
+    productsUpdates.push({
+      id: "woocommerce_stock_format",
+      value: products.stockDisplayFormat,
+    });
   }
 
-  // Batch PUTs (do nothing if empty)
-  const calls: Promise<any>[] = [];
-  if (generalUpdates.length)
-    calls.push(woo.put("/settings/general/batch", { update: generalUpdates }));
-  if (productsUpdates.length)
-    calls.push(woo.put("/settings/products/batch", { update: productsUpdates }));
+  // nothing to do
+  if (!generalUpdates.length && !productsUpdates.length) {
+    return { ok: true as const };
+  }
 
-  if (calls.length === 0) return { ok: true as const };
-  await Promise.all(calls);
+  const calls: Promise<any>[] = [];
+  if (generalUpdates.length) {
+    calls.push(woo.put("/settings/general/batch", { update: generalUpdates }));
+  }
+  if (productsUpdates.length) {
+    calls.push(woo.put("/settings/products/batch", { update: productsUpdates }));
+  }
+
+  const results = await Promise.allSettled(calls);
+
+  const errors: string[] = [];
+  for (const r of results) {
+    if (r.status === "rejected") {
+      const e: any = r.reason;
+      errors.push(
+        e?.response?.data?.message ||
+          e?.response?.data?.error ||
+          e?.message ||
+          "Woo settings batch failed"
+      );
+    }
+  }
+
+  if (errors.length) {
+    return { ok: false as const, errors };
+  }
+
   return { ok: true as const };
 }

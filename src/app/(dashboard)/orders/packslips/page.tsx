@@ -1,17 +1,31 @@
-import { woo } from "@/lib/woo";
+import { getWooClient } from "@/lib/woo";
 import { WCOrder } from "@/lib/order-utils";
 import PrintClient from "./PrintClient";
-import { getBaseUrl } from "@/lib/absolute-url"; // NEW
+import { getBaseUrl } from "@/lib/absolute-url";
 
 const LOGO_URL = process.env.NEXT_PUBLIC_PACKSLIP_LOGO || "";
 
-/** Fetch orders 1-by-1 */
+function chunk<T>(arr: T[], size: number) {
+  const out: T[][] = [];
+  for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
+  return out;
+}
+
+/** Fetch orders with a concurrency limit (faster + safer than sequential) */
 async function getOrders(ids: number[]): Promise<WCOrder[]> {
+  const woo = await getWooClient();
   const out: WCOrder[] = [];
-  for (const id of ids) {
-    const { data } = await woo.get<WCOrder>(`/orders/${id}`);
-    out.push(data);
+
+  const CONCURRENCY = 8; // tune if needed
+  for (const group of chunk(ids, CONCURRENCY)) {
+    const rs = await Promise.allSettled(
+      group.map((id) => woo.get<WCOrder>(`/orders/${id}`))
+    );
+    for (const r of rs) {
+      if (r.status === "fulfilled" && r.value?.data) out.push(r.value.data);
+    }
   }
+
   return out;
 }
 
@@ -39,13 +53,13 @@ export default async function PackSlipsPage({ searchParams }: Props) {
 
   const ids = String(sp?.ids || "")
     .split(",")
-    .map((s) => parseInt(s.trim(), 10))
-    .filter((n) => Number.isFinite(n));
+    .map((s) => parseInt(String(s).trim(), 10))
+    .filter((n) => Number.isFinite(n) && n > 0);
 
   let orders: WCOrder[] = [];
   let error: string | null = null;
 
-  // NEW: return-address settings
+  // return-address settings
   let returnAddress = "";
   let showReturn = false;
 
@@ -72,7 +86,7 @@ export default async function PackSlipsPage({ searchParams }: Props) {
         if (text) {
           const j = JSON.parse(text);
           const prod = j?.products || j?.general?.products || {};
-          const addr = (prod.packslipReturnAddress || "").trim();
+          const addr = String(prod.packslipReturnAddress || "").trim();
           const flag = !!prod.packslipShowReturn;
           if (addr && flag) {
             returnAddress = addr;
@@ -89,26 +103,15 @@ export default async function PackSlipsPage({ searchParams }: Props) {
     <div className="min-h-screen bg-slate-50">
       <PrintClient />
 
-      {/* PORTRAIT, 2-per-sheet stacked, safer right padding, bigger buffer to keep footer on same page */}
       <style>{`
         :root{
-          /* A4 portrait */
           --page-w: 210mm;
           --page-h: 297mm;
-
-          /* Outer printer margin (wider to avoid right-edge clipping) */
           --outer-margin: 12mm;
-
-          /* Sheet padding & vertical gap between the 2 slips */
           --pad: 8mm;
           --gap: 8mm;
-
-          /* Inside each slip */
           --slip-pad: 8mm;
-
-          /* Generous buffer to avoid any rounding overflow */
           --big-buffer: 22mm;
-
           --border: 1px dashed #CBD5E1;
           --text: #0f172a;
           --muted: #64748B;
@@ -129,7 +132,6 @@ export default async function PackSlipsPage({ searchParams }: Props) {
           box-sizing: border-box;
         }
 
-        /* Two rows, fixed row-height with buffer so nothing spills */
         .grid {
           display: grid;
           grid-template-columns: 1fr;
@@ -149,10 +151,9 @@ export default async function PackSlipsPage({ searchParams }: Props) {
           justify-content: space-between;
           height: 100%;
           box-sizing: border-box;
-          overflow: hidden; /* absolutely never spill to the next page */
+          overflow: hidden;
         }
 
-        /* Header */
         .hdr {
           display: flex;
           align-items: center;
@@ -161,7 +162,7 @@ export default async function PackSlipsPage({ searchParams }: Props) {
           border-bottom: 1px solid #E5E7EB;
           padding-bottom: 6px;
           margin-bottom: 6px;
-          padding-right: 8mm; /* SAFE RIGHT PADDING for order # */
+          padding-right: 8mm;
         }
         .logo { height: 38px; object-fit: contain; }
         .title { font-size: 18px; font-weight: 800; color: var(--text); }
@@ -176,7 +177,6 @@ export default async function PackSlipsPage({ searchParams }: Props) {
         .items th.qty, .items td.qty { width: 52px; text-align: right; }
         .sku { color: var(--muted); }
 
-        /* NEW: return / from address block */
         .return-addr {
           margin-top: 6px;
           font-size: 11px;
@@ -184,10 +184,7 @@ export default async function PackSlipsPage({ searchParams }: Props) {
           white-space: pre-line;
         }
 
-        /* No extra vertical gap before footer; tiny separator only */
-        .footer-wrap {
-          margin-top: 0;
-        }
+        .footer-wrap { margin-top: 0; }
 
         .footer {
           margin-top: 5px;
@@ -225,20 +222,10 @@ export default async function PackSlipsPage({ searchParams }: Props) {
                         <div className="slip" key={o.id}>
                           <div>
                             <div className="hdr">
-                              <div
-                                style={{
-                                  display: "flex",
-                                  alignItems: "center",
-                                  gap: "10px",
-                                }}
-                              >
+                              <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
                                 {LOGO_URL ? (
                                   // eslint-disable-next-line @next/next/no-img-element
-                                  <img
-                                    className="logo"
-                                    src={LOGO_URL}
-                                    alt="Logo"
-                                  />
+                                  <img className="logo" src={LOGO_URL} alt="Logo" />
                                 ) : (
                                   <div className="title">Pack Slip</div>
                                 )}
@@ -277,10 +264,7 @@ export default async function PackSlipsPage({ searchParams }: Props) {
                                         <div style={{ wordBreak: "break-word" }}>
                                           {li.name}
                                           {li.sku ? (
-                                            <span className="sku">
-                                              {" "}
-                                              ({li.sku})
-                                            </span>
+                                            <span className="sku"> ({li.sku})</span>
                                           ) : null}
                                         </div>
                                       </td>
@@ -292,7 +276,6 @@ export default async function PackSlipsPage({ searchParams }: Props) {
                             </div>
                           </div>
 
-                          {/* Bottom block: optional return address + footer */}
                           <div className="footer-wrap">
                             {showReturn && returnAddress && (
                               <div className="return-addr">
@@ -303,9 +286,7 @@ export default async function PackSlipsPage({ searchParams }: Props) {
                               </div>
                             )}
                             <div className="footer">
-                              <div>
-                                Payment: {o.payment_method_title || "-"}
-                              </div>
+                              <div>Payment: {o.payment_method_title || "-"}</div>
                               <div>Total: ₹{o.total}</div>
                             </div>
                           </div>

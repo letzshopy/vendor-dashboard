@@ -1,6 +1,7 @@
 // src/app/api/coupons/route.ts
 import { NextResponse } from "next/server";
-import { woo } from "@/lib/woo";
+import { getWooClient } from "@/lib/woo";
+
 
 type CouponPayload = {
   code: string;
@@ -14,6 +15,7 @@ type CouponPayload = {
 
 export async function GET() {
   try {
+    const woo = await getWooClient();
     const { data } = await woo.get("/coupons", {
       params: {
         per_page: 100,
@@ -33,6 +35,7 @@ export async function GET() {
 
 export async function POST(req: Request) {
   try {
+    const woo = await getWooClient();
     const body = (await req.json()) as CouponPayload;
 
     const payload: any = {

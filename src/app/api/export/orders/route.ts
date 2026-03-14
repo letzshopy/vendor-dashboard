@@ -1,6 +1,7 @@
 // src/app/api/export/orders/route.ts
 import { NextResponse } from "next/server";
-import { woo } from "@/lib/woo";
+import { getWooClient } from "@/lib/woo";
+
 
 // ---------- small helpers ----------
 const q = (s: string) => `"${(s ?? "").replace(/"/g, '""')}"`;
@@ -77,6 +78,7 @@ function chunk<T>(arr: T[], size: number): T[][] {
 
 // product_id -> set(category_id)
 async function fetchProductCategoryMap(productIds: number[]): Promise<Map<number, Set<number>>> {
+  const woo = await getWooClient();
   const map = new Map<number, Set<number>>();
   const dedup = Array.from(new Set(productIds.filter((n) => Number.isFinite(n))));
   if (dedup.length === 0) return map;
@@ -107,6 +109,7 @@ export const dynamic = "force-dynamic";
 
 export async function GET(req: Request) {
   try {
+    const woo = await getWooClient();
     const url = new URL(req.url);
     const statusRaw = url.searchParams.get("status") || undefined;
     const preset = url.searchParams.get("preset") || undefined;

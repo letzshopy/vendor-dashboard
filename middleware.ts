@@ -1,6 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server";
 
-const COOKIE = process.env.AUTH_COOKIE_NAME || "ls_vendor_auth";
+const AUTH_COOKIE = process.env.AUTH_COOKIE_NAME || "ls_vendor_auth";
+const ROLE_COOKIE = "ls_role";
+const TENANT_COOKIE = process.env.TENANT_COOKIE_NAME || "ls_tenant";
 
 function isPublic(pathname: string) {
   return (
@@ -13,24 +15,141 @@ function isPublic(pathname: string) {
   );
 }
 
-export function middleware(req: NextRequest) {
+function isMasterPath(pathname: string) {
+  return pathname === "/master" || pathname.startsWith("/master/");
+}
+
+function isAlwaysAllowedAfterLogin(pathname: string) {
+  return (
+    pathname.startsWith("/settings") ||
+    pathname.startsWith("/onboarding") ||
+    pathname.startsWith("/select-store")
+  );
+}
+
+function parseTenantCookie(raw: string | undefined) {
+  if (!raw) return null;
+  try {
+    return JSON.parse(decodeURIComponent(raw));
+  } catch {
+    return null;
+  }
+}
+
+async function getLockedFromMaster(req: NextRequest): Promise<boolean> {
+  try {
+    const tenantRaw = req.cookies.get(TENANT_COOKIE)?.value;
+    const tenant = parseTenantCookie(tenantRaw);
+    const blogId = Number(tenant?.blog_id || 0);
+
+    if (!blogId) return false;
+
+    const base = (process.env.MASTER_WP_URL || "").replace(/\/$/, "");
+    const key = process.env.MASTER_API_KEY || "";
+
+    if (!base || !key) return false;
+
+    const res = await fetch(`${base}/wp-json/letz/v1/master-vendors/${blogId}`, {
+      headers: {
+        Authorization: `Bearer ${key}`,
+        "X-Letz-Master-Key": key,
+      },
+      cache: "no-store",
+    });
+
+    const text = await res.text();
+    let json: any = {};
+    try {
+      json = JSON.parse(text);
+    } catch {}
+
+    return !!json?.dashboard_access?.locked;
+  } catch {
+    return false;
+  }
+}
+
+export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
-  // Allow public paths
-  if (isPublic(pathname)) {
+  if (isPublic(pathname)) return NextResponse.next();
+
+  const authToken = req.cookies.get(AUTH_COOKIE)?.value;
+  const role = req.cookies.get(ROLE_COOKIE)?.value || "";
+
+  if (!authToken || authToken.length < 10) {
+    const url = req.nextUrl.clone();
+    url.pathname = "/signin";
+    url.searchParams.set("next", pathname);
+    return NextResponse.redirect(url);
+  }
+
+  if (isMasterPath(pathname)) {
+    if (role === "master_admin") {
+      return NextResponse.next();
+    }
+
+    const url = req.nextUrl.clone();
+    url.pathname = "/orders";
+    url.search = "";
+    return NextResponse.redirect(url);
+  }
+
+  if (isAlwaysAllowedAfterLogin(pathname)) {
     return NextResponse.next();
   }
 
-  const token = req.cookies.get(COOKIE)?.value;
-
-  // Only allow if authenticated
-  if (token === "ok") {
-    return NextResponse.next();
+  if (role === "master_admin") {
+    const url = req.nextUrl.clone();
+    url.pathname = "/master";
+    url.search = "";
+    return NextResponse.redirect(url);
   }
 
-  // Redirect to signin
-  const url = req.nextUrl.clone();
-  url.pathname = "/signin";
-  url.searchParams.set("next", pathname);
-  return NextResponse.redirect(url);
+  // Vendor lock gate - source of truth = MASTER vendor detail API
+  const locked = await getLockedFromMaster(req);
+
+  if (locked) {
+    const url = req.nextUrl.clone();
+    url.pathname = "/settings";
+    url.search = "?tab=account";
+    return NextResponse.redirect(url);
+  }
+
+  // Existing onboarding/subscription gate
+  try {
+    const statusUrl = req.nextUrl.clone();
+    statusUrl.pathname = "/api/onboarding/status";
+    statusUrl.search = "";
+
+    const r = await fetch(statusUrl.toString(), {
+      headers: { cookie: req.headers.get("cookie") || "" },
+      cache: "no-store",
+    });
+
+    const data = await r.json().catch(() => ({}));
+
+    const kycOk = data?.kyc_status === "approved";
+    const subOk = data?.subscription_status === "active";
+
+    if (!kycOk || !subOk) {
+      const url = req.nextUrl.clone();
+      url.pathname = "/onboarding";
+      url.searchParams.set("next", pathname);
+      return NextResponse.redirect(url);
+    }
+
+    return NextResponse.next();
+  } catch {
+    const url = req.nextUrl.clone();
+    url.pathname = "/onboarding";
+    url.searchParams.set("next", pathname);
+    return NextResponse.redirect(url);
+  }
 }
+
+export const config = {
+  matcher: [
+    "/((?!api|_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml).*)",
+  ],
+};

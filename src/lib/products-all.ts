@@ -1,5 +1,5 @@
 // src/lib/products-all.ts
-import { woo } from "@/lib/woo";
+import { getWooClient } from "@/lib/woo";
 
 export type DashboardProduct = {
   id: number;
@@ -9,27 +9,41 @@ export type DashboardProduct = {
   [key: string]: any;
 };
 
+function getHeaderInt(headers: any, key: string, fallback = 1) {
+  const v =
+    headers?.[key] ??
+    headers?.[key.toLowerCase()] ??
+    headers?.[key.toUpperCase()];
+  const n = parseInt(String(v ?? ""), 10);
+  return Number.isFinite(n) && n > 0 ? n : fallback;
+}
+
 /**
  * Fetch **all unique published products** for this store.
  *
  * - Uses status="publish" (matches "Published" view in admin)
- * - Loops all pages based on x-wp-totalpages
- * - De-duplicates by product ID so weird pagination / plugins
- *   don't inflate counts
+ * - Loops pages based on x-wp-totalpages
+ * - De-duplicates by product ID
  */
 export async function fetchAllPublishedProducts(): Promise<DashboardProduct[]> {
-  const perPage = 100; // Woo or plugins may clamp this lower; that's fine.
+  const woo = await getWooClient();
+
+  const perPage = 100; // Woo max
+  const MAX_PAGES = 50; // safety cap (5000 products)
+
   let page = 1;
 
   // Map ensures each product ID appears only once.
   const byId = new Map<number, DashboardProduct>();
 
-  while (true) {
-    const res = await woo.get("products", {
+  while (page <= MAX_PAGES) {
+    const res = await woo.get("/products", {
       params: {
         status: "publish",
         per_page: perPage,
         page,
+        // Reduce payload (keep what dashboard typically needs; add more if required)
+        _fields: "id,name,status,stock_status,sku,price,regular_price,images",
       },
     });
 
@@ -38,26 +52,17 @@ export async function fetchAllPublishedProducts(): Promise<DashboardProduct[]> {
       : [];
 
     for (const p of batch) {
-      if (p.status !== "publish") continue;
+      if ((p?.status || "") !== "publish") continue;
 
-      const idNum = Number(p.id);
-      if (!Number.isFinite(idNum)) continue;
+      const idNum = Number((p as any)?.id);
+      if (!Number.isFinite(idNum) || idNum <= 0) continue;
 
-      if (!byId.has(idNum)) {
-        byId.set(idNum, p);
-      }
+      if (!byId.has(idNum)) byId.set(idNum, p);
     }
 
-    const totalPagesHeader =
-      (res.headers["x-wp-totalpages"] as string | undefined) ??
-      (res.headers["X-WP-TotalPages"] as string | undefined);
+    const totalPages = getHeaderInt(res.headers, "x-wp-totalpages", 1);
 
-    const totalPages = totalPagesHeader ? Number(totalPagesHeader) : 1;
-
-    if (!batch.length || !Number.isFinite(totalPages) || page >= totalPages) {
-      break;
-    }
-
+    if (!batch.length || page >= totalPages) break;
     page++;
   }
 

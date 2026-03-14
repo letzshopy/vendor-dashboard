@@ -1,6 +1,6 @@
 // src/app/api/metrics/products/route.ts
 import { NextResponse } from "next/server";
-import { woo } from "@/lib/woo";
+import { getWooClient } from "@/lib/woo";
 
 type WooProduct = {
   stock_status?: "instock" | "outofstock" | "onbackorder" | string;
@@ -8,6 +8,7 @@ type WooProduct = {
 
 export async function GET() {
   try {
+    const woo = await getWooClient();
     // Fetch a batch. If you have >100 products, we can paginate later.
     const res = await woo.get("/products", {
       params: {

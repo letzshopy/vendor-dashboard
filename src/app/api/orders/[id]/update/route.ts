@@ -1,6 +1,7 @@
 // src/app/api/orders/[id]/update/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import { woo } from "@/lib/woo";
+import { getWooClient } from "@/lib/woo";
+
 
 type RouteContext = {
   params: Promise<{ id: string }>;
@@ -18,6 +19,7 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
   const body = await req.json().catch(() => ({}));
 
   try {
+    const woo = await getWooClient();
     const { data } = await woo.put(`/orders/${id}`, body);
     return NextResponse.json(data);
   } catch (e: any) {

@@ -1,11 +1,12 @@
 import { notFound } from "next/navigation";
-import { woo } from "@/lib/woo";
+import { getWooClient } from "@/lib/woo";
 import type { WCOrder } from "@/lib/order-utils";
 import OrderDetailClient from "./OrderDetailClient";
 
 export const dynamic = "force-dynamic";
 
 async function fetchOrder(id: number): Promise<WCOrder> {
+  const woo = await getWooClient();
   const { data } = await woo.get<WCOrder>(`/orders/${id}`);
   if (!data) {
     throw new Error("Order not found");

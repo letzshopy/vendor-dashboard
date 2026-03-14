@@ -1,7 +1,8 @@
-// src/app/dashboard/page.tsx
 "use client";
 
 import { useEffect, useState } from "react";
+import RenewalNotice from "@/components/subscription/RenewalNotice";
+import { useDashboardSubscription } from "@/components/subscription/SubscriptionContext";
 
 type ProductMetrics = {
   total: number;
@@ -34,8 +35,6 @@ type OrdersSummary = {
   }[];
 };
 
-/* -------- helpers shared by cards -------- */
-
 function formatMoney(num: number): string {
   const n = Number.isFinite(num) ? num : 0;
   return new Intl.NumberFormat("en-IN", {
@@ -61,9 +60,9 @@ function formatShortMoney(num: number): string {
   return "₹" + n.toFixed(0);
 }
 
-/* ------------------------------------------------------------------ */
-
 export default function DashboardPage() {
+  const { subscription } = useDashboardSubscription();
+
   const [productMetrics, setProductMetrics] = useState<ProductMetrics | null>(
     null
   );
@@ -74,7 +73,6 @@ export default function DashboardPage() {
   const [orderLoading, setOrderLoading] = useState(true);
   const [orderErr, setOrderErr] = useState<string | null>(null);
 
-  // Load product metrics
   useEffect(() => {
     let cancelled = false;
 
@@ -85,24 +83,31 @@ export default function DashboardPage() {
 
         const res = await fetch("/api/metrics/products", { cache: "no-store" });
         if (!res.ok) throw new Error("Failed to load product metrics");
+
         const data = (await res.json()) as ProductMetrics;
 
-        if (!cancelled) setProductMetrics(data);
+        if (!cancelled) {
+          setProductMetrics(data);
+        }
       } catch (e) {
         console.error(e);
-        if (!cancelled) setProductErr("Failed to load product metrics");
+        if (!cancelled) {
+          setProductErr("Failed to load product metrics");
+        }
       } finally {
-        if (!cancelled) setProductLoading(false);
+        if (!cancelled) {
+          setProductLoading(false);
+        }
       }
     }
 
     loadProducts();
+
     return () => {
       cancelled = true;
     };
   }, []);
 
-  // Load order metrics
   useEffect(() => {
     let cancelled = false;
 
@@ -113,18 +118,26 @@ export default function DashboardPage() {
 
         const res = await fetch("/api/metrics/orders", { cache: "no-store" });
         if (!res.ok) throw new Error("Failed to load order metrics");
+
         const data = (await res.json()) as OrdersSummary;
 
-        if (!cancelled) setOrderStats(data);
+        if (!cancelled) {
+          setOrderStats(data);
+        }
       } catch (e) {
         console.error(e);
-        if (!cancelled) setOrderErr("Failed to load order metrics");
+        if (!cancelled) {
+          setOrderErr("Failed to load order metrics");
+        }
       } finally {
-        if (!cancelled) setOrderLoading(false);
+        if (!cancelled) {
+          setOrderLoading(false);
+        }
       }
     }
 
     loadOrders();
+
     return () => {
       cancelled = true;
     };
@@ -137,7 +150,6 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      {/* Page header */}
       <div>
         <h1 className="text-2xl font-semibold text-slate-900">Dashboard</h1>
         <p className="mt-1 text-sm text-slate-500">
@@ -145,7 +157,13 @@ export default function DashboardPage() {
         </p>
       </div>
 
-      {/* Top summary cards */}
+      {subscription && (
+        <RenewalNotice
+          status={subscription.status}
+          nextPaymentDate={subscription.nextPaymentDate}
+        />
+      )}
+
       <div className="grid gap-4 md:grid-cols-4">
         <SummaryCard
           title="Today's sales"
@@ -181,9 +199,7 @@ export default function DashboardPage() {
         />
       </div>
 
-      {/* Coloured lower section */}
       <div className="space-y-4 rounded-3xl bg-gradient-to-b from-white via-[#f9f3ff] to-[#f1f6ff] p-4 md:p-5">
-        {/* Second row */}
         <div className="grid gap-4 lg:grid-cols-3">
           <ProductsOverviewCard
             metrics={productMetrics}
@@ -194,17 +210,18 @@ export default function DashboardPage() {
           <OrdersStatusCard
             loading={orderLoading}
             error={orderErr}
-            statusLast30={orderStats?.statusLast30 || {
-              completed: 0,
-              processing: 0,
-              onHold: 0,
-            }}
+            statusLast30={
+              orderStats?.statusLast30 || {
+                completed: 0,
+                processing: 0,
+                onHold: 0,
+              }
+            }
           />
 
           <ChecklistCard />
         </div>
 
-        {/* Third row */}
         <div className="grid gap-4 lg:grid-cols-3">
           <RevenueCard
             loading={orderLoading}
@@ -222,10 +239,6 @@ export default function DashboardPage() {
     </div>
   );
 }
-
-/* ------------------------------------------------------------------ */
-/* Re-usable components                                               */
-/* ------------------------------------------------------------------ */
 
 function SummaryCard(props: {
   title: string;
@@ -257,8 +270,6 @@ function SummaryCard(props: {
     </div>
   );
 }
-
-/* ----------------------- Products Overview ------------------------ */
 
 function ProductsOverviewCard(props: {
   metrics: ProductMetrics | null;
@@ -302,7 +313,6 @@ function ProductsOverviewCard(props: {
 
       {!loading && !error && (
         <div className="flex flex-1 flex-col gap-4 md:flex-row md:items-center">
-          {/* Donut */}
           <div className="flex flex-1 items-center justify-center">
             <DonutChart
               inStockPct={inStockPct}
@@ -311,7 +321,6 @@ function ProductsOverviewCard(props: {
             />
           </div>
 
-          {/* Numbers */}
           <div className="flex-1 space-y-2 text-sm">
             <div className="flex items-baseline justify-between">
               <span className="text-slate-500">Total products</span>
@@ -386,8 +395,6 @@ function DonutChart(props: {
   );
 }
 
-/* ---------------------- Orders Status card ------------------------ */
-
 function OrdersStatusCard(props: {
   loading: boolean;
   error: string | null;
@@ -429,9 +436,7 @@ function OrdersStatusCard(props: {
         </a>
       </div>
 
-      {loading && (
-        <div className="py-6 text-xs text-slate-400">Loading…</div>
-      )}
+      {loading && <div className="py-6 text-xs text-slate-400">Loading…</div>}
       {!loading && error && (
         <div className="py-6 text-xs text-rose-500">{error}</div>
       )}
@@ -469,8 +474,6 @@ function OrdersStatusCard(props: {
     </div>
   );
 }
-
-/* ---------------------- Checklist / onboarding -------------------- */
 
 const checklistItems = [
   {
@@ -539,8 +542,6 @@ function ChecklistCard() {
   );
 }
 
-/* ---------------------- Revenue card (REAL data) ------------------ */
-
 function RevenueCard(props: {
   loading: boolean;
   error: string | null;
@@ -557,9 +558,7 @@ function RevenueCard(props: {
         Based on completed & processing orders in the last 30 days.
       </p>
 
-      {loading && (
-        <div className="mt-6 text-xs text-slate-400">Loading…</div>
-      )}
+      {loading && <div className="mt-6 text-xs text-slate-400">Loading…</div>}
       {!loading && error && (
         <div className="mt-6 text-xs text-rose-500">{error}</div>
       )}
@@ -574,10 +573,7 @@ function RevenueCard(props: {
             <div className="mt-4 flex flex-1 items-end gap-4">
               {(() => {
                 const max =
-                  revenue.reduce(
-                    (m, w) => (w.total > m ? w.total : m),
-                    0
-                  ) || 1;
+                  revenue.reduce((m, w) => (w.total > m ? w.total : m), 0) || 1;
 
                 return revenue.map((w) => {
                   const height = (w.total / max) * 100;
@@ -609,8 +605,6 @@ function RevenueCard(props: {
     </div>
   );
 }
-
-/* ---------------------- Recent orders card (REAL) ----------------- */
 
 function RecentOrdersCard(props: {
   loading: boolean;
@@ -708,15 +702,13 @@ function RecentOrdersCard(props: {
   );
 }
 
-/* ---------------------- Support card ------------------------------ */
-
 function SupportCard() {
   return (
     <div className="flex flex-col rounded-2xl border border-slate-100 bg-gradient-to-br from-[#f5ecff] via-white to-[#e8f4ff] p-4 shadow-sm">
       <h2 className="text-sm font-semibold text-slate-800">Support</h2>
       <p className="mt-1 text-xs text-slate-500">
-        Run into an issue with your store setup, billing or technical
-        settings? We’re here for you.
+        Run into an issue with your store setup, billing or technical settings?
+        We’re here for you.
       </p>
 
       <div className="mt-4 space-y-2 text-xs">

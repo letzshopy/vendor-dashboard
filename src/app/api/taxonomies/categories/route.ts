@@ -1,17 +1,57 @@
 import { NextResponse } from "next/server";
-import { woo } from "@/lib/woo";
+import { getWooClient } from "@/lib/woo";
+
+function extractWooError(e: any, fallback: string) {
+  return (
+    e?.response?.data?.message ||
+    e?.response?.data?.error ||
+    e?.message ||
+    fallback
+  );
+}
 
 export async function GET() {
   try {
-    const { data } = await woo.get("/products/categories", {
-      params: { per_page: 100, hide_empty: false, orderby: "name", order: "asc" },
-    });
-    // Return only essentials
-    const items = data.map((c: any) => ({ id: c.id, name: c.name, parent: c.parent }));
+    const woo = await getWooClient();
+
+    const PER_PAGE = 100;
+    const MAX_PAGES = 20; // safety cap (max 2000 categories)
+
+    const all: any[] = [];
+    let page = 1;
+
+    while (page <= MAX_PAGES) {
+      const { data } = await woo.get("/products/categories", {
+        params: {
+          per_page: PER_PAGE,
+          page,
+          hide_empty: false,
+          orderby: "name",
+          order: "asc",
+        },
+      });
+
+      const rows = Array.isArray(data) ? data : [];
+      if (!rows.length) break;
+
+      all.push(...rows);
+
+      if (rows.length < PER_PAGE) break;
+      page++;
+    }
+
+    const items = all.map((c: any) => ({
+      id: Number(c?.id || 0),
+      name: String(c?.name || ""),
+      parent: Number(c?.parent || 0),
+    }));
+
     return NextResponse.json({ items });
   } catch (e: any) {
-    const status = e?.response?.status || 500;
-    const msg = e?.response?.data?.message || "Failed to load categories";
-    return NextResponse.json({ error: msg }, { status });
+    const msg = extractWooError(e, "Failed to load categories");
+    return NextResponse.json(
+      { error: msg },
+      { status: e?.response?.status || 500 }
+    );
   }
 }

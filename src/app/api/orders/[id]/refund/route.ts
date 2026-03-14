@@ -1,6 +1,6 @@
 // src/app/api/orders/[id]/notes/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import { woo } from "@/lib/woo";
+import { getWooClient } from "@/lib/woo";
 
 type RouteContext = {
   params: Promise<{ id: string }>;
@@ -14,6 +14,7 @@ export async function GET(_req: NextRequest, context: RouteContext) {
   }
 
   try {
+    const woo = await getWooClient();
     const { data } = await woo.get(`/orders/${orderId}/notes`);
     return NextResponse.json(data);
   } catch (e: any) {
@@ -25,6 +26,7 @@ export async function GET(_req: NextRequest, context: RouteContext) {
 }
 
 export async function POST(req: NextRequest, context: RouteContext) {
+  const woo = await getWooClient();
   const { id } = await context.params;
   const orderId = Number(id);
   if (!orderId) {

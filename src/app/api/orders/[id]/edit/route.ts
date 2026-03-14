@@ -1,6 +1,7 @@
 // src/app/api/orders/[id]/edit/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import { woo } from "@/lib/woo";
+import { getWooClient } from "@/lib/woo";
+
 
 type Address = {
   first_name?: string;
@@ -76,6 +77,7 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
   }
 
   try {
+    const woo = await getWooClient();
     const body = await req.json().catch(() => ({}));
     const billing = body.billing || null;
     const shipping = body.shipping || null;

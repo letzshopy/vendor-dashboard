@@ -1,5 +1,6 @@
 // src/app/master/subscriptions/export/route.ts
 import { NextResponse } from "next/server";
+import { getMasterWpBaseUrl } from "@/lib/wpClient";
 
 type SubItem = {
   blogId: number;
@@ -14,6 +15,8 @@ type SubItem = {
   daysToRenewal: number | null;
   tag: string;
 };
+
+export const dynamic = "force-dynamic";
 
 function masterHeaders() {
   const key = process.env.MASTER_API_KEY;
@@ -31,63 +34,76 @@ function csvEscape(v: unknown) {
 }
 
 export async function GET() {
-  const MASTER_WP_URL = process.env.MASTER_WP_URL || process.env.WP_URL;
-  if (!MASTER_WP_URL) {
-    return new NextResponse("Missing MASTER_WP_URL", { status: 500 });
+  try {
+    // ✅ master-only base URL (never tenant)
+    const MASTER_WP_URL = getMasterWpBaseUrl();
+
+    const url = `${MASTER_WP_URL.replace(/\/$/, "")}/wp-json/letz/v1/master-subscriptions`;
+
+    const res = await fetch(url, {
+      headers: masterHeaders(),
+      cache: "no-store",
+    });
+
+    const text = await res.text();
+
+    if (!res.ok) {
+      return new NextResponse(
+        `Export failed: ${res.status}\n${text.slice(0, 2000)}`,
+        { status: 500 }
+      );
+    }
+
+    const json = JSON.parse(text) as { items: SubItem[] };
+
+    const headers = [
+      "blogId",
+      "siteName",
+      "siteUrl",
+      "plan",
+      "billingCycle",
+      "billingStatus",
+      "createdOn",
+      "nextRenewalDate",
+      "daysToRenewal",
+      "tag",
+      "autopayEnabled",
+    ];
+
+    const rows = [headers.join(",")];
+
+    for (const it of json.items || []) {
+      rows.push(
+        [
+          it.blogId,
+          it.siteName,
+          it.siteUrl,
+          it.plan,
+          it.billingCycle,
+          it.billingStatus,
+          it.createdOn,
+          it.nextRenewalDate,
+          it.daysToRenewal ?? "",
+          it.tag,
+          it.autopayEnabled ? "YES" : "NO",
+        ]
+          .map(csvEscape)
+          .join(",")
+      );
+    }
+
+    const csv = rows.join("\n");
+    const filename = `letzshopy-subscriptions-${new Date()
+      .toISOString()
+      .slice(0, 10)}.csv`;
+
+    return new NextResponse(csv, {
+      headers: {
+        "Content-Type": "text/csv; charset=utf-8",
+        "Content-Disposition": `attachment; filename="${filename}"`,
+      },
+    });
+  } catch (e: any) {
+    return new NextResponse(e?.message || "Export failed", { status: 500 });
   }
-
-  const url = `${MASTER_WP_URL.replace(/\/$/, "")}/wp-json/letz/v1/master-subscriptions`;
-
-  const res = await fetch(url, { headers: masterHeaders(), cache: "no-store" });
-  const text = await res.text();
-
-  if (!res.ok) {
-    return new NextResponse(`Export failed: ${res.status}\n${text.slice(0, 2000)}`, { status: 500 });
-  }
-
-  const json = JSON.parse(text) as { items: SubItem[] };
-
-  const headers = [
-    "blogId",
-    "siteName",
-    "siteUrl",
-    "plan",
-    "billingCycle",
-    "billingStatus",
-    "createdOn",
-    "nextRenewalDate",
-    "daysToRenewal",
-    "tag",
-    "autopayEnabled",
-  ];
-
-  const rows = [headers.join(",")];
-
-  for (const it of json.items || []) {
-    rows.push(
-      [
-        it.blogId,
-        it.siteName,
-        it.siteUrl,
-        it.plan,
-        it.billingCycle,
-        it.billingStatus,
-        it.createdOn,
-        it.nextRenewalDate,
-        it.daysToRenewal ?? "",
-        it.tag,
-        it.autopayEnabled ? "YES" : "NO",
-      ].map(csvEscape).join(",")
-    );
-  }
-
-  const csv = rows.join("\n");
-  const filename = `letzshopy-subscriptions-${new Date().toISOString().slice(0, 10)}.csv`;
-
-  return new NextResponse(csv, {
-    headers: {
-      "Content-Type": "text/csv; charset=utf-8",
-      "Content-Disposition": `attachment; filename="${filename}"`,
-    },
-  });
 }

@@ -1,24 +1,74 @@
 import { NextResponse } from "next/server";
-import { woo } from "@/lib/woo";
+import { getWooClient } from "@/lib/woo";
 
-// Permanently delete many products: loop DELETE with force=true
 export async function POST(req: Request) {
   try {
-    const { ids } = await req.json();
-    if (!Array.isArray(ids) || ids.length === 0) {
-      return NextResponse.json({ error: "No product ids" }, { status: 400 });
+    const woo = await getWooClient();
+
+    const body = await req.json().catch(() => ({}));
+    const ids: number[] = Array.isArray(body?.ids) ? body.ids : [];
+
+    if (ids.length === 0) {
+      return NextResponse.json(
+        { error: "No product ids provided" },
+        { status: 400 }
+      );
     }
-    const results: Array<{ id: number; ok: boolean; error?: any }> = [];
-    for (const id of ids) {
+
+    // sanitize numeric IDs only
+    const cleanIds = ids.map((id) => Number(id)).filter((id) => !!id);
+
+    if (cleanIds.length === 0) {
+      return NextResponse.json(
+        { error: "No valid product ids" },
+        { status: 400 }
+      );
+    }
+
+    const chunkSize = 50;
+    const deleted: any[] = [];
+    const errors: any[] = [];
+
+    for (let i = 0; i < cleanIds.length; i += chunkSize) {
+      const chunk = cleanIds.slice(i, i + chunkSize);
+
       try {
-        await woo.delete(`/products/${id}`, { params: { force: true } });
-        results.push({ id, ok: true });
+        const { data } = await woo.post("/products/batch", {
+          delete: chunk,
+          force: true, // permanent delete
+        });
+
+        if (Array.isArray(data?.delete)) {
+          deleted.push(...data.delete);
+        }
       } catch (e: any) {
-        results.push({ id, ok: false, error: e?.response?.data || e?.message });
+        errors.push({
+          chunk,
+          error:
+            e?.response?.data?.message ||
+            e?.response?.data?.error ||
+            e?.message ||
+            "Batch delete failed",
+        });
       }
     }
-    return NextResponse.json({ ok: true, results });
+
+    return NextResponse.json({
+      ok: true,
+      deletedCount: deleted.length,
+      deleted,
+      errors,
+    });
   } catch (e: any) {
-    return NextResponse.json({ error: e?.message || "Bulk permanent delete failed" }, { status: 500 });
+    const msg =
+      e?.response?.data?.message ||
+      e?.response?.data?.error ||
+      e?.message ||
+      "Bulk permanent delete failed";
+
+    return NextResponse.json(
+      { error: msg },
+      { status: e?.response?.status || 500 }
+    );
   }
 }
