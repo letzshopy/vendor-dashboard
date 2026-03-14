@@ -5,6 +5,97 @@ import { useRef, useState } from "react";
 export type ImgItem = { id: number; url: string };
 
 const MAX_FILE_SIZE_BYTES = 4 * 1024 * 1024; // 4 MB
+const MAX_DIMENSION = 1800;
+
+function loadImage(src: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error("Failed to load image"));
+    img.src = src;
+  });
+}
+
+function canvasToBlob(
+  canvas: HTMLCanvasElement,
+  type: string,
+  quality?: number
+): Promise<Blob> {
+  return new Promise((resolve, reject) => {
+    canvas.toBlob(
+      (blob) => {
+        if (!blob) {
+          reject(new Error("Failed to create compressed image"));
+          return;
+        }
+        resolve(blob);
+      },
+      type,
+      quality
+    );
+  });
+}
+
+async function compressImageIfNeeded(file: File): Promise<File> {
+  if (file.size <= MAX_FILE_SIZE_BYTES) {
+    return file;
+  }
+
+  const objectUrl = URL.createObjectURL(file);
+
+  try {
+    const img = await loadImage(objectUrl);
+
+    const originalWidth = img.naturalWidth || img.width;
+    const originalHeight = img.naturalHeight || img.height;
+
+    const largestSide = Math.max(originalWidth, originalHeight);
+    const initialScale =
+      largestSide > MAX_DIMENSION ? MAX_DIMENSION / largestSide : 1;
+
+    const canvas = document.createElement("canvas");
+    const ctx = canvas.getContext("2d");
+
+    if (!ctx) {
+      throw new Error("Canvas is not supported in this browser");
+    }
+
+    const qualitySteps = [0.85, 0.8, 0.75, 0.7, 0.65, 0.6];
+    const dimensionSteps = [1, 0.9, 0.8, 0.7];
+
+    for (const dimFactor of dimensionSteps) {
+      const scale = initialScale * dimFactor;
+      const width = Math.max(1, Math.round(originalWidth * scale));
+      const height = Math.max(1, Math.round(originalHeight * scale));
+
+      canvas.width = width;
+      canvas.height = height;
+
+      ctx.clearRect(0, 0, width, height);
+      ctx.drawImage(img, 0, 0, width, height);
+
+      for (const quality of qualitySteps) {
+        const blob = await canvasToBlob(canvas, "image/jpeg", quality);
+
+        if (blob.size <= MAX_FILE_SIZE_BYTES) {
+          const baseName =
+            file.name.replace(/\.[^.]+$/, "") || `image-${Date.now()}`;
+
+          return new File([blob], `${baseName}.jpg`, {
+            type: "image/jpeg",
+            lastModified: Date.now(),
+          });
+        }
+      }
+    }
+
+    throw new Error(
+      "Image is too large even after compression. Please choose a smaller image."
+    );
+  } finally {
+    URL.revokeObjectURL(objectUrl);
+  }
+}
 
 export default function ProductImages({
   value,
@@ -16,6 +107,7 @@ export default function ProductImages({
   max?: number;
 }) {
   const [busy, setBusy] = useState(false);
+  const [busyText, setBusyText] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
 
@@ -38,6 +130,7 @@ export default function ProductImages({
 
   const normalizeUploadPayload = (j: any): ImgItem | null => {
     if (!j || typeof j !== "object") return null;
+
     const c =
       j.attachment ??
       j.media ??
@@ -93,21 +186,23 @@ export default function ProductImages({
       return;
     }
 
-    const oversized = selected.find((f) => f.size > MAX_FILE_SIZE_BYTES);
-    if (oversized) {
-      setErr("Image must be under 4 MB for dashboard upload.");
-      resetInput();
-      return;
-    }
-
     setBusy(true);
 
     try {
       const uploaded: ImgItem[] = [];
 
-      for (const f of selected) {
+      for (const originalFile of selected) {
+        let fileToUpload = originalFile;
+
+        if (originalFile.size > MAX_FILE_SIZE_BYTES) {
+          setBusyText(`Optimizing ${originalFile.name}...`);
+          fileToUpload = await compressImageIfNeeded(originalFile);
+        }
+
+        setBusyText(`Uploading ${fileToUpload.name}...`);
+
         const fd = new FormData();
-        fd.append("file", f);
+        fd.append("file", fileToUpload);
 
         const r = await fetch("/api/media/upload", {
           method: "POST",
@@ -133,6 +228,7 @@ export default function ProductImages({
 
         if (!r.ok) {
           const msg = String(j?.error || j?.message || "Upload failed");
+
           if (
             r.status === 413 ||
             msg.includes("FUNCTION_PAYLOAD_TOO_LARGE") ||
@@ -140,6 +236,7 @@ export default function ProductImages({
           ) {
             throw new Error("Image must be under 4 MB for dashboard upload.");
           }
+
           throw new Error(msg);
         }
 
@@ -158,17 +255,10 @@ export default function ProductImages({
 
       onChange(next.slice(0, max));
     } catch (e: any) {
-      const message = String(e?.message || "Upload failed");
-      if (
-        message.includes("FUNCTION_PAYLOAD_TOO_LARGE") ||
-        message.toLowerCase().includes("request entity too large")
-      ) {
-        setErr("Image must be under 4 MB for dashboard upload.");
-      } else {
-        setErr(message);
-      }
+      setErr(e?.message || "Upload failed");
     } finally {
       setBusy(false);
+      setBusyText(null);
       resetInput();
     }
   }
@@ -241,7 +331,21 @@ export default function ProductImages({
         )}
       </div>
 
-      {busy && <div className="mt-2 text-xs text-slate-600">Uploading…</div>}
+      <div className="mt-2 space-y-1">
+        <div className="text-xs text-slate-500">
+          Large images are automatically optimized before upload.
+        </div>
+        <div className="text-xs font-medium text-amber-600">
+          Image must be under 4 MB for dashboard upload.
+        </div>
+      </div>
+
+      {busy && (
+        <div className="mt-2 text-xs text-slate-600">
+          {busyText || "Uploading..."}
+        </div>
+      )}
+
       {err && <div className="mt-2 text-xs text-red-700">{err}</div>}
     </div>
   );
