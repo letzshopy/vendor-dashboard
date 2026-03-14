@@ -1,4 +1,3 @@
-// src/app/products/[id]/page.tsx
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -22,6 +21,21 @@ type ProductTag = {
   name: string;
 };
 
+type ProductDimension = {
+  length?: string | number | null;
+  width?: string | number | null;
+  height?: string | number | null;
+};
+
+type ProductAttribute = {
+  id?: number;
+  name?: string;
+  option?: string;
+  options?: string[];
+  visible?: boolean;
+  variation?: boolean;
+};
+
 type Product = {
   id: number;
   name: string;
@@ -40,9 +54,7 @@ type Product = {
   categories?: ProductCategory[];
   tags?: ProductTag[];
 
-  // Can be string[] (edit) or object[]
   images?: (ProductImage | string)[];
-  // Our new rich field from the API
   image_objects?: ProductImage[];
 
   date_created?: string;
@@ -52,13 +64,33 @@ type Product = {
   shortDescription?: string;
 
   weight?: string | number | null;
-  dimensions?: {
-    length?: string | number | null;
-    width?: string | number | null;
-    height?: string | number | null;
-  };
+  dimensions?: ProductDimension;
   shipping_class?: string;
   shipping_class_id?: number;
+
+  grouped_products?: number[];
+  attributes?: ProductAttribute[];
+};
+
+type Variation = {
+  id: number;
+  sku?: string;
+  price?: string | number;
+  regular_price?: string | number;
+  sale_price?: string | number;
+  stock_status?: string;
+  stock_quantity?: number | null;
+  manage_stock?: boolean;
+  attributes?: ProductAttribute[];
+};
+
+type GroupedChild = {
+  id: number;
+  name: string;
+  sku?: string;
+  price?: string | number;
+  stock_status?: string;
+  permalink?: string;
 };
 
 function pillClass(color: "green" | "amber" | "slate" | "red" = "slate") {
@@ -73,7 +105,6 @@ function pillClass(color: "green" | "amber" | "slate" | "red" = "slate") {
   return `${base} ${map[color]}`;
 }
 
-// Return URL or null (no empty-string src)
 function getImageSrcSafe(img?: ProductImage | null): string | null {
   if (!img) return null;
   const src = img.src || img.url || "";
@@ -88,15 +119,58 @@ function fmt(
   return String(value);
 }
 
+function formatPrice(value: string | number | null | undefined) {
+  if (value === null || value === undefined || value === "") return "—";
+  return `₹${value}`;
+}
+
+function stockBadge(stock?: string) {
+  if (stock === "instock") {
+    return (
+      <span className={pillClass("green")}>
+        <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+        In stock
+      </span>
+    );
+  }
+  if (stock === "onbackorder") {
+    return (
+      <span className={pillClass("amber")}>
+        <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
+        Backorder
+      </span>
+    );
+  }
+  if (stock === "outofstock") {
+    return (
+      <span className={pillClass("red")}>
+        <span className="h-1.5 w-1.5 rounded-full bg-rose-500" />
+        Out of stock
+      </span>
+    );
+  }
+  return <span className={pillClass("slate")}>Unknown</span>;
+}
+
+function variationLabel(attrs?: ProductAttribute[]) {
+  if (!attrs || attrs.length === 0) return "Variation";
+  return attrs
+    .map((a) => `${a.name || "Option"}: ${a.option || "—"}`)
+    .join(" • ");
+}
+
 export default function ProductViewPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
   const id = params?.id;
 
   const [product, setProduct] = useState<Product | null>(null);
+  const [variations, setVariations] = useState<Variation[]>([]);
+  const [groupedChildren, setGroupedChildren] = useState<GroupedChild[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadErr, setLoadErr] = useState<string | null>(null);
   const [activeImgId, setActiveImgId] = useState<number | null>(null);
+  const [extraLoading, setExtraLoading] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -107,12 +181,18 @@ export default function ProductViewPage() {
         setLoadErr(null);
 
         const res = await fetch(`/api/products/${id}`, { cache: "no-store" });
-        const j = await res.json();
+        const raw = await res.text();
+
+        let j: any = {};
+        try {
+          j = raw ? JSON.parse(raw) : {};
+        } catch {
+          j = {};
+        }
+
         if (!res.ok) throw new Error(j?.error || "Failed to load product");
 
-        const p = j as Product;
-        console.log("Product view payload", p);
-        setProduct(p);
+        setProduct(j as Product);
       } catch (e: any) {
         console.error(e);
         setLoadErr(e?.message || "Failed to load product");
@@ -122,16 +202,90 @@ export default function ProductViewPage() {
     })();
   }, [id]);
 
-  // Normalise images into a clean object[] for the gallery
+  useEffect(() => {
+    if (!product?.id) return;
+
+    (async () => {
+      try {
+        setExtraLoading(true);
+
+        if (product.type === "variable") {
+          const res = await fetch(`/api/products/${product.id}/variations`, {
+            cache: "no-store",
+          });
+          const raw = await res.text();
+
+          let j: any = {};
+          try {
+            j = raw ? JSON.parse(raw) : {};
+          } catch {
+            j = {};
+          }
+
+          if (res.ok) {
+            setVariations(Array.isArray(j?.variations) ? j.variations : []);
+          } else {
+            setVariations([]);
+          }
+        } else {
+          setVariations([]);
+        }
+
+        if (
+          product.type === "grouped" &&
+          Array.isArray(product.grouped_products) &&
+          product.grouped_products.length > 0
+        ) {
+          const children = await Promise.all(
+            product.grouped_products.map(async (childId) => {
+              try {
+                const res = await fetch(`/api/products/${childId}`, {
+                  cache: "no-store",
+                });
+                const raw = await res.text();
+
+                let j: any = {};
+                try {
+                  j = raw ? JSON.parse(raw) : {};
+                } catch {
+                  j = {};
+                }
+
+                if (!res.ok) return null;
+
+                return {
+                  id: j.id,
+                  name: j.name,
+                  sku: j.sku,
+                  price: j.price || j.regular_price,
+                  stock_status: j.stock_status,
+                  permalink: j.permalink,
+                } as GroupedChild;
+              } catch {
+                return null;
+              }
+            })
+          );
+
+          setGroupedChildren(
+            children.filter(Boolean) as GroupedChild[]
+          );
+        } else {
+          setGroupedChildren([]);
+        }
+      } finally {
+        setExtraLoading(false);
+      }
+    })();
+  }, [product]);
+
   const galleryImages: ProductImage[] = useMemo(() => {
     if (!product) return [];
 
-    // 1) Prefer rich image_objects from the API
     if (product.image_objects && product.image_objects.length > 0) {
       return product.image_objects;
     }
 
-    // 2) If images is an array of strings, convert → {id, src}
     if (
       Array.isArray(product.images) &&
       product.images.length > 0 &&
@@ -143,7 +297,6 @@ export default function ProductViewPage() {
       }));
     }
 
-    // 3) If images is already object[]
     if (
       Array.isArray(product.images) &&
       product.images.length > 0 &&
@@ -155,7 +308,6 @@ export default function ProductViewPage() {
     return [];
   }, [product]);
 
-  // set default active image when gallery changes
   useEffect(() => {
     if (galleryImages.length > 0 && activeImgId === null) {
       setActiveImgId(galleryImages[0].id ?? 0);
@@ -165,47 +317,13 @@ export default function ProductViewPage() {
   const mainImage: ProductImage | undefined =
     galleryImages.find((img) => img.id === activeImgId) ?? galleryImages[0];
 
-  const stockPill = () => {
-    if (!product) return null;
-    if (product.stock_status === "instock") {
-      return (
-        <span className={pillClass("green")}>
-          <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-          In stock
-          {product.manage_stock && typeof product.stock_quantity === "number"
-            ? ` (${product.stock_quantity})`
-            : ""}
-        </span>
-      );
-    }
-    if (product.stock_status === "onbackorder") {
-      return (
-        <span className={pillClass("amber")}>
-          <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
-          Backorder
-        </span>
-      );
-    }
-    if (product.stock_status === "outofstock") {
-      return (
-        <span className={pillClass("red")}>
-          <span className="h-1.5 w-1.5 rounded-full bg-rose-500" />
-          Out of stock
-        </span>
-      );
-    }
-    return null;
-  };
-
   if (loading) {
-    return (
-      <div className="p-6 text-sm text-slate-500">Loading product…</div>
-    );
+    return <div className="p-6 text-sm text-slate-500">Loading product…</div>;
   }
 
   if (loadErr || !product) {
     return (
-      <div className="p-6 space-y-4">
+      <div className="space-y-4 p-6">
         <button
           onClick={() => router.back()}
           className="text-xs text-indigo-600 hover:underline"
@@ -219,12 +337,12 @@ export default function ProductViewPage() {
     );
   }
 
-  const shortDesc =
-    product.short_description || product.shortDescription || "";
+  const shortDesc = product.short_description || product.shortDescription || "";
+  const isVariable = product.type === "variable";
+  const isGrouped = product.type === "grouped";
 
   return (
-    <div className="p-6 space-y-6">
-      {/* Top bar */}
+    <div className="space-y-6 p-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="space-y-1">
           <button
@@ -238,6 +356,7 @@ export default function ProductViewPage() {
             <h1 className="text-2xl font-semibold text-slate-900">
               {product.name || "Untitled product"}
             </h1>
+
             {product.status && (
               <span className={pillClass("slate")}>
                 {product.status === "publish"
@@ -246,13 +365,15 @@ export default function ProductViewPage() {
                     product.status.slice(1)}
               </span>
             )}
+
             {product.type && (
               <span className={pillClass("amber")}>
                 {product.type.charAt(0).toUpperCase() + product.type.slice(1)}{" "}
                 product
               </span>
             )}
-            {stockPill()}
+
+            {stockBadge(product.stock_status)}
           </div>
 
           {product.permalink && (
@@ -267,26 +388,20 @@ export default function ProductViewPage() {
           )}
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          <Link
-            href={`/products/${product.id}/edit`}
-            className="inline-flex items-center rounded-lg bg-indigo-600 px-4 py-2 text-xs font-medium text-white shadow-sm hover:bg-indigo-700"
-          >
-            Edit
-          </Link>
-        </div>
+        <Link
+          href={`/products/${product.id}/edit`}
+          className="inline-flex items-center rounded-lg bg-indigo-600 px-4 py-2 text-xs font-medium text-white shadow-sm hover:bg-indigo-700"
+        >
+          Edit
+        </Link>
       </div>
 
-      {/* Main layout */}
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
-        {/* Image gallery */}
         <section className="rounded-2xl border border-slate-200 bg-white/80 p-4 shadow-sm">
           {galleryImages.length > 0 ? (
             <div className="space-y-4">
-              {/* Big image */}
               <div className="flex min-h-[320px] items-center justify-center rounded-xl bg-slate-50">
                 {getImageSrcSafe(mainImage) ? (
-                  // eslint-disable-next-line @next/next/no-img-element
                   <img
                     src={getImageSrcSafe(mainImage)!}
                     alt={mainImage?.name || product.name}
@@ -299,13 +414,11 @@ export default function ProductViewPage() {
                 )}
               </div>
 
-              {/* Thumbnails */}
               {galleryImages.length > 1 && (
                 <div className="flex flex-wrap gap-3">
                   {galleryImages.map((img, idx) => {
                     const thumbSrc = getImageSrcSafe(img);
-                    const activeId =
-                      activeImgId ?? galleryImages[0].id ?? 0;
+                    const activeId = activeImgId ?? galleryImages[0].id ?? 0;
                     const thisId = img.id ?? idx;
 
                     return (
@@ -320,7 +433,6 @@ export default function ProductViewPage() {
                         }`}
                       >
                         {thumbSrc ? (
-                          // eslint-disable-next-line @next/next/no-img-element
                           <img
                             src={thumbSrc}
                             alt={img.name || product.name}
@@ -344,13 +456,12 @@ export default function ProductViewPage() {
           )}
         </section>
 
-        {/* Right-side cards (pricing, categories, logistics) */}
         <section className="space-y-4">
-          {/* Pricing & stock */}
           <div className="space-y-4 rounded-2xl border border-slate-200 bg-white/80 p-4 shadow-sm">
             <h2 className="text-sm font-semibold text-slate-900">
               Pricing &amp; stock
             </h2>
+
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
                 <div className="text-[11px] font-medium uppercase tracking-wide text-slate-500">
@@ -360,33 +471,39 @@ export default function ProductViewPage() {
                   {fmt(product.sku, "—")}
                 </div>
               </div>
+
               <div>
                 <div className="text-[11px] font-medium uppercase tracking-wide text-slate-500">
                   Price
                 </div>
                 <div className="mt-1 text-sm text-slate-900">
-                  {product.price || product.regular_price
-                    ? `₹${product.price || product.regular_price}`
-                    : "—"}
-                  {product.sale_price &&
+                  {isVariable
+                    ? "See variations"
+                    : formatPrice(product.price || product.regular_price)}
+                  {!isVariable &&
+                    product.sale_price &&
                     String(product.sale_price) !== String(product.price) && (
                       <span className="ml-2 text-xs text-emerald-600">
-                        On sale: ₹{product.sale_price}
+                        On sale: {formatPrice(product.sale_price)}
                       </span>
                     )}
                 </div>
               </div>
+
               <div>
                 <div className="text-[11px] font-medium uppercase tracking-wide text-slate-500">
                   Stock
                 </div>
                 <div className="mt-1 text-sm text-slate-900">
-                  {product.manage_stock &&
-                  typeof product.stock_quantity === "number"
+                  {isVariable
+                    ? "Managed by variations"
+                    : product.manage_stock &&
+                      typeof product.stock_quantity === "number"
                     ? `${product.stock_quantity} units`
                     : "Not managed"}
                 </div>
               </div>
+
               <div>
                 <div className="text-[11px] font-medium uppercase tracking-wide text-slate-500">
                   Visibility
@@ -398,11 +515,11 @@ export default function ProductViewPage() {
             </div>
           </div>
 
-          {/* Categories & tags */}
           <div className="space-y-4 rounded-2xl border border-slate-200 bg-white/80 p-4 shadow-sm">
             <h2 className="text-sm font-semibold text-slate-900">
               Categories &amp; tags
             </h2>
+
             <div className="space-y-3 text-sm">
               <div>
                 <div className="text-[11px] font-medium uppercase tracking-wide text-slate-500">
@@ -423,6 +540,7 @@ export default function ProductViewPage() {
                   )}
                 </div>
               </div>
+
               <div>
                 <div className="text-[11px] font-medium uppercase tracking-wide text-slate-500">
                   Tags
@@ -445,11 +563,11 @@ export default function ProductViewPage() {
             </div>
           </div>
 
-          {/* Shipping & logistics */}
           <div className="space-y-3 rounded-2xl border border-slate-200 bg-white/80 p-4 shadow-sm">
             <h2 className="text-sm font-semibold text-slate-900">
               Shipping &amp; logistics
             </h2>
+
             <div className="grid gap-3 sm:grid-cols-2">
               <div>
                 <div className="text-[11px] font-medium uppercase tracking-wide text-slate-500">
@@ -459,6 +577,7 @@ export default function ProductViewPage() {
                   {fmt(product.weight)}
                 </div>
               </div>
+
               <div>
                 <div className="text-[11px] font-medium uppercase tracking-wide text-slate-500">
                   Dimensions (L × W × H)
@@ -475,6 +594,7 @@ export default function ProductViewPage() {
                   )}
                 </div>
               </div>
+
               <div>
                 <div className="text-[11px] font-medium uppercase tracking-wide text-slate-500">
                   Shipping class
@@ -488,7 +608,126 @@ export default function ProductViewPage() {
         </section>
       </div>
 
-      {/* Descriptions */}
+      {isVariable && (
+        <section className="rounded-2xl border border-slate-200 bg-white/80 p-4 shadow-sm">
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <h2 className="text-sm font-semibold text-slate-900">
+              Variations
+            </h2>
+            {extraLoading && (
+              <span className="text-xs text-slate-500">Loading variations…</span>
+            )}
+          </div>
+
+          {variations.length > 0 ? (
+            <div className="overflow-x-auto rounded-xl border border-slate-100">
+              <table className="min-w-full text-xs">
+                <thead className="bg-slate-50 text-left text-[11px] uppercase tracking-wide text-slate-500">
+                  <tr>
+                    <th className="px-3 py-2">Variation</th>
+                    <th className="px-3 py-2">SKU</th>
+                    <th className="px-3 py-2">Price</th>
+                    <th className="px-3 py-2">Stock</th>
+                    <th className="px-3 py-2">Qty</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {variations.map((v) => (
+                    <tr key={v.id} className="border-t border-slate-100 bg-white">
+                      <td className="px-3 py-2 text-slate-700">
+                        {variationLabel(v.attributes)}
+                      </td>
+                      <td className="px-3 py-2 text-slate-700">
+                        {fmt(v.sku, "—")}
+                      </td>
+                      <td className="px-3 py-2 text-slate-700">
+                        {formatPrice(v.price || v.regular_price)}
+                        {v.sale_price &&
+                          String(v.sale_price) !== String(v.price) && (
+                            <span className="ml-2 text-[11px] text-emerald-600">
+                              Sale: {formatPrice(v.sale_price)}
+                            </span>
+                          )}
+                      </td>
+                      <td className="px-3 py-2">{stockBadge(v.stock_status)}</td>
+                      <td className="px-3 py-2 text-slate-700">
+                        {v.manage_stock && typeof v.stock_quantity === "number"
+                          ? v.stock_quantity
+                          : "—"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="rounded-xl bg-slate-50 px-4 py-6 text-sm text-slate-500">
+              No variations found for this product.
+            </div>
+          )}
+        </section>
+      )}
+
+      {isGrouped && (
+        <section className="rounded-2xl border border-slate-200 bg-white/80 p-4 shadow-sm">
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <h2 className="text-sm font-semibold text-slate-900">
+              Grouped products
+            </h2>
+            {extraLoading && (
+              <span className="text-xs text-slate-500">Loading grouped items…</span>
+            )}
+          </div>
+
+          {groupedChildren.length > 0 ? (
+            <div className="overflow-x-auto rounded-xl border border-slate-100">
+              <table className="min-w-full text-xs">
+                <thead className="bg-slate-50 text-left text-[11px] uppercase tracking-wide text-slate-500">
+                  <tr>
+                    <th className="px-3 py-2">Product</th>
+                    <th className="px-3 py-2">SKU</th>
+                    <th className="px-3 py-2">Price</th>
+                    <th className="px-3 py-2">Stock</th>
+                    <th className="px-3 py-2">View</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {groupedChildren.map((child) => (
+                    <tr
+                      key={child.id}
+                      className="border-t border-slate-100 bg-white"
+                    >
+                      <td className="px-3 py-2 text-slate-700">{child.name}</td>
+                      <td className="px-3 py-2 text-slate-700">
+                        {fmt(child.sku, "—")}
+                      </td>
+                      <td className="px-3 py-2 text-slate-700">
+                        {formatPrice(child.price)}
+                      </td>
+                      <td className="px-3 py-2">
+                        {stockBadge(child.stock_status)}
+                      </td>
+                      <td className="px-3 py-2">
+                        <Link
+                          href={`/products/${child.id}`}
+                          className="text-indigo-600 hover:underline"
+                        >
+                          Open
+                        </Link>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="rounded-xl bg-slate-50 px-4 py-6 text-sm text-slate-500">
+              No grouped child products found.
+            </div>
+          )}
+        </section>
+      )}
+
       <div className="grid gap-6 lg:grid-cols-2">
         <section className="rounded-2xl border border-slate-200 bg-white/80 p-4 shadow-sm">
           <h2 className="text-sm font-semibold text-slate-900">
@@ -498,9 +737,7 @@ export default function ProductViewPage() {
             {shortDesc ? (
               <div dangerouslySetInnerHTML={{ __html: shortDesc }} />
             ) : (
-              <span className="text-slate-400">
-                No short description added.
-              </span>
+              <span className="text-slate-400">No short description added.</span>
             )}
           </div>
         </section>
@@ -521,7 +758,6 @@ export default function ProductViewPage() {
         </section>
       </div>
 
-      {/* Meta */}
       <section className="rounded-2xl border border-slate-200 bg-white/80 p-4 text-xs text-slate-500 shadow-sm">
         <div className="flex flex-wrap gap-4">
           <div>
