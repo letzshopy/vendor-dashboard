@@ -14,23 +14,35 @@ export async function GET(_req: NextRequest, context: RouteContext) {
     const { data } = await woo.get(`/products/${id}`);
 
     return NextResponse.json({
-      // --- Core fields (used in edit + view) ---
+      // Core
       id: data.id,
       name: data.name,
-      regular_price: data.regular_price,
       sku: data.sku,
-      stock_quantity: data.stock_quantity,
-      description: data.description,
+      type: data.type,
       status: data.status,
+      permalink: data.permalink,
 
-      // shipping class for prefilling the select
+      // Pricing / stock
+      price: data.price,
+      regular_price: data.regular_price,
+      sale_price: data.sale_price,
+      stock_status: data.stock_status,
+      stock_quantity: data.stock_quantity,
+      manage_stock: data.manage_stock,
+      catalog_visibility: data.catalog_visibility,
+
+      // Descriptions
+      description: data.description,
+      short_description: data.short_description,
+
+      // Shipping
+      weight: data.weight,
+      dimensions: data.dimensions || null,
       shipping_class_id: data.shipping_class_id ?? null,
-      shipping_class: data.shipping_class ?? null, // slug
+      shipping_class: data.shipping_class ?? null,
 
-      // EDIT FORM: keep this as string[] (so your ProductImages component still works)
+      // Images
       images: (data.images || []).map((img: any) => img.src),
-
-      // VIEW PAGE: full image objects (id + src + name)
       image_objects: (data.images || []).map((img: any) => ({
         id: img.id,
         src: img.src,
@@ -43,24 +55,30 @@ export async function GET(_req: NextRequest, context: RouteContext) {
         name: c.name,
         parent: c.parent,
       })),
-      tags: (data.tags || []).map((t: any) => ({ id: t.id, name: t.name })),
-
+      tags: (data.tags || []).map((t: any) => ({
+        id: t.id,
+        name: t.name,
+      })),
       category_ids: (data.categories || []).map((c: any) => c.id),
       tag_ids: (data.tags || []).map((t: any) => t.id),
 
-      // --- Extra fields for the nice view page ---
-      type: data.type,
-      permalink: data.permalink,
-      price: data.price,
-      sale_price: data.sale_price,
-      stock_status: data.stock_status,
-      manage_stock: data.manage_stock,
-      catalog_visibility: data.catalog_visibility,
+      // Attributes
+      attributes: (data.attributes || []).map((a: any) => ({
+        id: a.id,
+        name: a.name,
+        slug: a.slug,
+        position: a.position,
+        visible: a.visible,
+        variation: a.variation,
+        options: a.options || [],
+      })),
 
-      short_description: data.short_description,
-      weight: data.weight,
-      dimensions: data.dimensions, // { length, width, height }
+      // Grouped products
+      grouped_products: Array.isArray(data.grouped_products)
+        ? data.grouped_products
+        : [],
 
+      // Dates
       date_created: data.date_created,
       date_modified: data.date_modified,
     });
@@ -70,6 +88,7 @@ export async function GET(_req: NextRequest, context: RouteContext) {
       e?.response?.data?.message ||
       e?.message ||
       "Failed to load product";
+
     return NextResponse.json({ error: msg }, { status });
   }
 }
