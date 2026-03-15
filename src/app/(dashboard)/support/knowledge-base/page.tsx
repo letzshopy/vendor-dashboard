@@ -21,7 +21,7 @@ const SECTIONS: KBSection[] = [
         title: "1. What is the LetzShopy Vendor Dashboard?",
         points: [
           "A single place to manage your products, orders, shipping, payments and basic store settings.",
-          "Data is synced with your LetzShopy WordPress store via WooCommerce REST API.",
+          
           "Use the dashboard for day-to-day work; login to WordPress only when the LetzShopy team asks you to.",
         ],
       },

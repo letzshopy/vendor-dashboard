@@ -36,6 +36,7 @@ const DEFAULT_VALUES: PaymentsFormValues = {
     time_min: "",
     notes: "",
     qr_src: "",
+    mobile_button_enabled: true,
   },
   bank: {
     enabled: false,
@@ -69,8 +70,9 @@ export default function PaymentsTab() {
   const [success, setSuccess] = useState<string | null>(null);
 
   const paymentsEnabled = watch("general.enabled");
+  const upiEnabled = watch("upi.enabled");
+  const mobileButtonEnabled = watch("upi.mobile_button_enabled");
 
-  // Load initial settings
   useEffect(() => {
     let cancelled = false;
 
@@ -117,6 +119,10 @@ export default function PaymentsTab() {
             time_min: data.upi?.time_min || "",
             notes: data.upi?.notes || "",
             qr_src: data.upi?.qr_src || "",
+            mobile_button_enabled:
+              data.upi?.mobile_button_enabled !== undefined
+                ? !!data.upi.mobile_button_enabled
+                : true,
           },
           bank: {
             enabled: !!data.bank?.enabled,
@@ -177,7 +183,6 @@ export default function PaymentsTab() {
       }
 
       setSuccess("Payment settings saved successfully.");
-      // scroll to top to show alert clearly
       window.scrollTo({ top: 0, behavior: "smooth" });
     } catch (err: any) {
       setError(err?.message || "Failed to save payments settings");
@@ -190,8 +195,7 @@ export default function PaymentsTab() {
   return (
     <FormProvider {...methods}>
       <form onSubmit={handleSubmit(onSubmit)}>
-        <div className="space-y-6 max-w-4xl">
-          {/* Header */}
+        <div className="max-w-4xl space-y-6">
           <header className="space-y-2">
             <div className="flex items-center justify-between gap-3">
               <div>
@@ -212,7 +216,6 @@ export default function PaymentsTab() {
               </button>
             </div>
 
-            {/* Alerts */}
             {error && (
               <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-800">
                 {error}
@@ -229,8 +232,7 @@ export default function PaymentsTab() {
             <p className="text-sm text-slate-500">Loading payment settings…</p>
           ) : (
             <>
-              {/* General toggle card */}
-              <section className="rounded-2xl border border-slate-200 bg-white/80 p-4 shadow-sm space-y-4">
+              <section className="space-y-4 rounded-2xl border border-slate-200 bg-white/80 p-4 shadow-sm">
                 <div className="flex items-center justify-between gap-3">
                   <div className="space-y-1">
                     <div className="flex items-center gap-2">
@@ -247,7 +249,6 @@ export default function PaymentsTab() {
                     </p>
                   </div>
 
-                  {/* toggle */}
                   <button
                     type="button"
                     onClick={() =>
@@ -258,6 +259,7 @@ export default function PaymentsTab() {
                         ? "border-emerald-500 bg-emerald-500/90"
                         : "border-slate-300 bg-slate-200"
                     }`}
+                    aria-pressed={paymentsEnabled}
                   >
                     <span
                       className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${
@@ -269,11 +271,11 @@ export default function PaymentsTab() {
                   </button>
                 </div>
 
-                <div className="grid gap-4 md:grid-cols-2 pt-1">
+                <div className="grid gap-4 pt-1 md:grid-cols-2">
                   <div className="max-w-xs">
                     <label
                       htmlFor="default_status"
-                      className="block text-xs font-medium text-slate-700 mb-1"
+                      className="mb-1 block text-xs font-medium text-slate-700"
                     >
                       Default order status on successful payment
                     </label>
@@ -305,14 +307,12 @@ export default function PaymentsTab() {
                 )}
               </section>
 
-              {/* Gateways */}
               <section
                 className={`space-y-4 transition-opacity ${
                   paymentsEnabled ? "" : "opacity-95"
                 }`}
               >
-                {/* Easebuzz */}
-                <div className="rounded-2xl border border-slate-200 bg-white/80 p-4 shadow-sm space-y-3">
+                <div className="space-y-3 rounded-2xl border border-slate-200 bg-white/80 p-4 shadow-sm">
                   <div className="flex items-center justify-between gap-2">
                     <label
                       htmlFor="easebuzz_enabled"
@@ -341,8 +341,7 @@ export default function PaymentsTab() {
                   <EasebuzzPanel />
                 </div>
 
-                {/* UPI manual */}
-                <div className="rounded-2xl border border-slate-200 bg-white/80 p-4 shadow-sm space-y-3">
+                <div className="space-y-3 rounded-2xl border border-slate-200 bg-white/80 p-4 shadow-sm">
                   <div className="flex items-center justify-between gap-2">
                     <label
                       htmlFor="upi_enabled"
@@ -359,8 +358,9 @@ export default function PaymentsTab() {
                           UPI (Manual confirmation)
                         </div>
                         <p className="text-[11px] text-slate-500">
-                          Show your UPI ID / QR at checkout. You mark orders as
-                          paid after checking your UPI app.
+                          On mobile, customers can open a UPI app directly. On
+                          desktop, QR can be shown for scan and pay. You verify
+                          the payment manually.
                         </p>
                       </div>
                     </label>
@@ -368,11 +368,64 @@ export default function PaymentsTab() {
                       No gateway charges
                     </span>
                   </div>
+
+                  {upiEnabled && (
+                    <div className="rounded-xl border border-indigo-100 bg-indigo-50/70 p-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="pr-3">
+                          <div className="text-xs font-semibold text-slate-900">
+                            Mobile UPI button
+                          </div>
+                          <p className="mt-1 text-[11px] leading-5 text-slate-600">
+                            When enabled, mobile customers will see a{" "}
+                            <span className="font-medium">Pay via UPI App</span>{" "}
+                            button on the thank-you page. Desktop customers can
+                            continue to scan the QR code.
+                          </p>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() =>
+                            methods.setValue(
+                              "upi.mobile_button_enabled",
+                              !mobileButtonEnabled,
+                              { shouldDirty: true }
+                            )
+                          }
+                          className={`relative flex h-6 w-11 shrink-0 items-center rounded-full border transition-colors ${
+                            mobileButtonEnabled
+                              ? "border-emerald-500 bg-emerald-500/90"
+                              : "border-slate-300 bg-slate-200"
+                          }`}
+                          aria-pressed={mobileButtonEnabled}
+                        >
+                          <span
+                            className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${
+                              mobileButtonEnabled
+                                ? "translate-x-[18px]"
+                                : "translate-x-[2px]"
+                            }`}
+                          />
+                        </button>
+                      </div>
+
+                      <input
+                        type="hidden"
+                        {...register("upi.mobile_button_enabled")}
+                      />
+
+                      <div className="mt-3 rounded-lg border border-slate-200 bg-white px-3 py-2 text-[11px] text-slate-600">
+                        Mobile checkout: UPI button first, with optional QR
+                        fallback. Desktop checkout: show QR directly.
+                      </div>
+                    </div>
+                  )}
+
                   <UPIPanel />
                 </div>
 
-                {/* Bank transfer */}
-                <div className="rounded-2xl border border-slate-200 bg-white/80 p-4 shadow-sm space-y-3">
+                <div className="space-y-3 rounded-2xl border border-slate-200 bg-white/80 p-4 shadow-sm">
                   <div className="flex items-center justify-between gap-2">
                     <label
                       htmlFor="bank_enabled"
@@ -398,8 +451,7 @@ export default function PaymentsTab() {
                   <BankTransferPanel />
                 </div>
 
-                {/* COD */}
-                <div className="rounded-2xl border border-slate-200 bg-white/80 p-4 shadow-sm space-y-3">
+                <div className="space-y-3 rounded-2xl border border-slate-200 bg-white/80 p-4 shadow-sm">
                   <div className="flex items-center justify-between gap-2">
                     <label
                       htmlFor="cod_enabled"
@@ -426,7 +478,6 @@ export default function PaymentsTab() {
                 </div>
               </section>
 
-              {/* Bottom CTA */}
               <div className="flex justify-end pt-2">
                 <button
                   type="submit"

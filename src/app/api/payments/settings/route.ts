@@ -1,4 +1,3 @@
-// src/app/api/payments/settings/route.ts
 import { NextResponse } from "next/server";
 import { getWooClient } from "@/lib/woo";
 import { getWpBaseUrl } from "@/lib/wpClient";
@@ -13,7 +12,6 @@ async function getOption(_name: string): Promise<any> {
     const res = await fetch(`${wpBase}/wp-json/letz/v2/payments/settings`, {
       method: "GET",
       cache: "no-store",
-      // permission_callback in MU plugin is __return_true, so no auth needed
     });
     if (!res.ok) return {};
     return res.json();
@@ -50,6 +48,7 @@ type SaveBody = {
     time_min?: string;
     notes?: string;
     qr_src?: string;
+    mobile_button_enabled?: boolean;
   };
   bank?: {
     enabled?: boolean;
@@ -61,7 +60,7 @@ type SaveBody = {
     notes?: string;
   };
   cod?: { enabled?: boolean; notes?: string };
-  cheque?: { enabled?: boolean };
+  cheque?: { enabled?: boolean; notes?: string };
   easebuzz?: {
     enabled?: boolean;
     mode?: string;
@@ -78,11 +77,9 @@ function findEasebuzzGateway(gateways: any[], hint: string): any | undefined {
   const h = (hint || "").toLowerCase();
   if (!h) return undefined;
 
-  // 1) id contains hint
   let gw = gateways.find((g) => String(g.id || "").toLowerCase().includes(h));
   if (gw) return gw;
 
-  // 2) title/description contains hint
   gw = gateways.find((g) => {
     const title = String(g.title || "").toLowerCase();
     const desc = String(g.description || "").toLowerCase();
@@ -90,7 +87,6 @@ function findEasebuzzGateway(gateways: any[], hint: string): any | undefined {
   });
   if (gw) return gw;
 
-  // 3) fallback: anything with "easebuzz"
   return gateways.find((g) => {
     const id = String(g.id || "").toLowerCase();
     const title = String(g.title || "").toLowerCase();
@@ -103,10 +99,61 @@ function findEasebuzzGateway(gateways: any[], hint: string): any | undefined {
   });
 }
 
+function normalizeBody(body: SaveBody): SaveBody {
+  return {
+    general: {
+      enabled: !!body?.general?.enabled,
+      default_status: body?.general?.default_status || "processing",
+    },
+    easebuzz: {
+      enabled: !!body?.easebuzz?.enabled,
+      mode: body?.easebuzz?.mode || "test",
+      merchant_key: body?.easebuzz?.merchant_key || "",
+      salt: body?.easebuzz?.salt || "",
+      merchant_id: body?.easebuzz?.merchant_id || "",
+      webhook_secret: body?.easebuzz?.webhook_secret || "",
+      hint: body?.easebuzz?.hint || "easebuzz",
+    },
+    upi: {
+      enabled: !!body?.upi?.enabled,
+      upi_id: body?.upi?.upi_id || "",
+      upi_number: body?.upi?.upi_number || "",
+      payee: body?.upi?.payee || "",
+      qr: body?.upi?.qr === "yes" ? "yes" : "no",
+      time_min: body?.upi?.time_min || "",
+      notes: body?.upi?.notes || "",
+      qr_src: body?.upi?.qr_src || "",
+      mobile_button_enabled:
+        body?.upi?.mobile_button_enabled !== undefined
+          ? !!body.upi.mobile_button_enabled
+          : true,
+    },
+    bank: {
+      enabled: !!body?.bank?.enabled,
+      account_name: body?.bank?.account_name || "",
+      account_number: body?.bank?.account_number || "",
+      ifsc: body?.bank?.ifsc || "",
+      bank: body?.bank?.bank || "",
+      branch: body?.bank?.branch || "",
+      notes: body?.bank?.notes || "",
+    },
+    cod: {
+      enabled: !!body?.cod?.enabled,
+      notes: body?.cod?.notes || "",
+    },
+    cheque: {
+      enabled: !!body?.cheque?.enabled,
+      notes: body?.cheque?.notes || "",
+    },
+  };
+}
+
 export async function GET() {
   try {
     const state = await getOption(OPTION_KEY);
-    return NextResponse.json(state || {});
+
+    const safe = normalizeBody((state || {}) as SaveBody);
+    return NextResponse.json(safe);
   } catch (e: any) {
     return NextResponse.json(
       { error: e?.message || "Failed to load" },
@@ -118,10 +165,11 @@ export async function GET() {
 // Shared save handler for both POST and PUT
 async function handleSave(req: Request) {
   try {
-    const woo = await getWooClient(); // ✅ tenant-aware
-    const body = (await req.json()) as SaveBody;
+    const woo = await getWooClient();
+    const rawBody = (await req.json()) as SaveBody;
+    const body = normalizeBody(rawBody);
 
-    // 1) Persist dashboard JSON (for UPI / notes / bank / COD / easebuzz, etc.)
+    // 1) Persist dashboard JSON
     await setOption(OPTION_KEY, body);
 
     // 2) Reflect enables to Woo payment gateways directly
@@ -133,7 +181,6 @@ async function handleSave(req: Request) {
       easebuzz: !!body?.easebuzz?.enabled,
     };
 
-    // Fetch all gateways from Woo
     const { data: gateways } = await woo.get("/payment_gateways");
     const list = Array.isArray(gateways) ? gateways : [];
 
@@ -148,8 +195,14 @@ async function handleSave(req: Request) {
       if (typeof want !== "boolean") return;
       const gw = byId[id];
       if (!gw) return;
-      const current = !!gw.enabled;
-      if (current === want) return; // already correct
+
+      const current =
+        gw.enabled === true ||
+        gw.enabled === "yes" ||
+        gw.enabled === "true" ||
+        gw.enabled === 1;
+
+      if (current === want) return;
 
       updates.push(
         woo.put(`/payment_gateways/${encodeURIComponent(id)}`, {
@@ -158,13 +211,11 @@ async function handleSave(req: Request) {
       );
     };
 
-    // Core gateways
     maybeToggle("letz_upi", enableMap.letz_upi);
     maybeToggle("bacs", enableMap.bacs);
     maybeToggle("cod", enableMap.cod);
     maybeToggle("cheque", enableMap.cheque);
 
-    // Easebuzz auto-detect
     if (typeof enableMap.easebuzz === "boolean") {
       const easebuzzHint = body?.easebuzz?.hint || "easebuzz";
       const easebuzzGw = findEasebuzzGateway(list, easebuzzHint);
@@ -177,7 +228,7 @@ async function handleSave(req: Request) {
       await Promise.all(updates);
     }
 
-    return NextResponse.json({ ok: true });
+    return NextResponse.json({ ok: true, settings: body });
   } catch (e: any) {
     console.error("payments/settings SAVE error", e);
     return NextResponse.json(
@@ -187,7 +238,6 @@ async function handleSave(req: Request) {
   }
 }
 
-// Support both POST and PUT, so whichever the frontend uses will work
 export async function POST(req: Request) {
   return handleSave(req);
 }

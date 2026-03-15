@@ -1,10 +1,9 @@
-// src/types/payments.ts
-
 export interface PaymentsFormValues {
   general: {
     enabled: boolean;
     default_status: string;
   };
+
   easebuzz: {
     enabled: boolean;
     mode?: string;
@@ -14,18 +13,35 @@ export interface PaymentsFormValues {
     webhook_secret?: string;
     hint?: string;
   };
+
   upi: {
     enabled: boolean;
+
+    /** UPI ID like name@bank */
     upi_id: string;
-    /** mobile UPI payment number */
+
+    /** Mobile number linked to UPI (optional) */
     upi_number?: string;
+
+    /** Payee / account holder name */
     payee?: string;
+
+    /** Show QR code option */
     qr: "yes" | "no";
+
+    /** Payment time limit in minutes */
     time_min?: string;
+
+    /** Notes shown on thank-you page */
     notes?: string;
-    /** URL of QR image */
+
+    /** URL of uploaded QR image */
     qr_src?: string;
+
+    /** Enable mobile deep-link button (Pay via UPI App) */
+    mobile_button_enabled?: boolean;
   };
+
   bank: {
     enabled: boolean;
     account_name?: string;
@@ -35,10 +51,12 @@ export interface PaymentsFormValues {
     branch?: string;
     notes?: string;
   };
+
   cod: {
     enabled: boolean;
     notes?: string;
   };
+
   cheque: {
     enabled: boolean;
     notes?: string;
