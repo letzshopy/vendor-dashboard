@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { WCOrder } from "@/lib/order-utils";
 import { statusPillClass } from "@/lib/order-utils";
 import {
@@ -43,6 +43,7 @@ type ShipmentStatus =
   | "returned";
 
 type ShipmentMode = "" | "shift" | "self";
+
 type ShipmentDraft = {
   courier: string;
   awb: string;
@@ -51,9 +52,18 @@ type ShipmentDraft = {
   shippedDate: string;
 };
 
+type ProductSuggestion = {
+  id: number;
+  name: string;
+  sku?: string;
+  price?: string | number;
+  regular_price?: string | number;
+  image?: { src?: string };
+  images?: { src?: string }[];
+};
+
 type Props = {
-  initialOrder: (WCOrder &
- { meta_data?: any[] }) | any;
+  initialOrder: (WCOrder & { meta_data?: any[] }) | any;
 };
 
 function formatNiceDate(dateGmt?: string | null) {
@@ -86,6 +96,11 @@ function formatShipmentDate(value?: string | null) {
   });
 }
 
+function toNumberPrice(v: string | number | null | undefined) {
+  const n = Number(v || 0);
+  return Number.isFinite(n) ? n : 0;
+}
+
 export default function OrderDetailClient({ initialOrder }: Props) {
   const [order, setOrder] = useState(initialOrder);
   const [status, setStatus] = useState(order.status || "pending");
@@ -98,6 +113,7 @@ export default function OrderDetailClient({ initialOrder }: Props) {
   const [shippingDraft, setShippingDraft] = useState<Address>(
     order.shipping || order.billing || {}
   );
+
   const [itemsDraft, setItemsDraft] = useState<EditableLineItem[]>(() =>
     (order.line_items || []).map((li: any) => ({
       id: li.id,
@@ -118,8 +134,8 @@ export default function OrderDetailClient({ initialOrder }: Props) {
   const [shipmentDraft, setShipmentDraft] = useState<ShipmentDraft>({
     courier: initialShipment.courier || "",
     awb: initialShipment.awb || "",
-    status: (initialShipment.status || "") as ShipmentStatus,
-    mode: (initialShipment.mode || "") as ShipmentMode,
+    status: initialShipment.status || "",
+    mode: (initialShipment.mode as ShipmentMode) || "",
     shippedDate: toDateInputValue(initialShipment.shippedDate || ""),
   });
 
@@ -135,6 +151,55 @@ export default function OrderDetailClient({ initialOrder }: Props) {
     shipment.shippedDate ||
     (order.status === "completed" ? order.date_completed_gmt : "") ||
     "";
+
+  const [productSearchIndex, setProductSearchIndex] = useState<number | null>(
+    null
+  );
+  const [productSearchQuery, setProductSearchQuery] = useState("");
+  const [productSearchResults, setProductSearchResults] = useState<
+    ProductSuggestion[]
+  >([]);
+  const [productSearchLoading, setProductSearchLoading] = useState(false);
+
+  useEffect(() => {
+    if (!editMode || productSearchIndex === null) {
+      setProductSearchResults([]);
+      setProductSearchLoading(false);
+      return;
+    }
+
+    const q = productSearchQuery.trim();
+    if (q.length < 2) {
+      setProductSearchResults([]);
+      setProductSearchLoading(false);
+      return;
+    }
+
+    const t = setTimeout(async () => {
+      try {
+        setProductSearchLoading(true);
+
+        const r = await fetch(
+          `/api/products/search?q=${encodeURIComponent(q)}`,
+          { cache: "no-store" }
+        );
+        const j = await r.json().catch(() => ({}));
+
+        if (!r.ok) {
+          setProductSearchResults([]);
+          return;
+        }
+
+        setProductSearchResults(Array.isArray(j?.results) ? j.results : []);
+      } catch {
+        setProductSearchResults([]);
+      } finally {
+        setProductSearchLoading(false);
+      }
+    }, 250);
+
+    return () => clearTimeout(t);
+  }, [editMode, productSearchIndex, productSearchQuery]);
 
   const itemCount = useMemo(
     () =>
@@ -201,18 +266,24 @@ export default function OrderDetailClient({ initialOrder }: Props) {
     setShipmentDraft({
       courier: freshShipment.courier || "",
       awb: freshShipment.awb || "",
-      status: (freshShipment.status || "") as ShipmentStatus,
-      mode: (freshShipment.mode || "") as ShipmentMode,
+      status: freshShipment.status || "",
+      mode: (freshShipment.mode as ShipmentMode) || "",
       shippedDate: toDateInputValue(
         freshShipment.shippedDate ||
           (order.status === "completed" ? order.date_completed_gmt : "")
       ),
     });
+    setProductSearchIndex(null);
+    setProductSearchQuery("");
+    setProductSearchResults([]);
     setEditMode(true);
   }
 
   function cancelEdit() {
     setEditMode(false);
+    setProductSearchIndex(null);
+    setProductSearchQuery("");
+    setProductSearchResults([]);
   }
 
   function updateAddress(
@@ -250,6 +321,33 @@ export default function OrderDetailClient({ initialOrder }: Props) {
         isNew: true,
       },
     ]);
+  }
+
+  function startProductSearch(idx: number, value: string) {
+    setProductSearchIndex(idx);
+    setProductSearchQuery(value);
+  }
+
+  function selectProductForRow(idx: number, product: ProductSuggestion) {
+    const pickedPrice =
+      toNumberPrice(product.price) || toNumberPrice(product.regular_price);
+
+    const pickedImg =
+      product.image?.src ||
+      product.images?.[0]?.src ||
+      "";
+
+    updateItem(idx, {
+      product_id: product.id,
+      name: product.name || "",
+      sku: product.sku || "",
+      price: pickedPrice,
+      image: pickedImg ? { src: pickedImg } : undefined,
+    });
+
+    setProductSearchIndex(null);
+    setProductSearchQuery("");
+    setProductSearchResults([]);
   }
 
   async function handleSaveOrder() {
@@ -318,8 +416,8 @@ export default function OrderDetailClient({ initialOrder }: Props) {
       setShipmentDraft({
         courier: savedShipment.courier || "",
         awb: savedShipment.awb || "",
-        status: (savedShipment.status || "") as ShipmentStatus,
-        mode: (savedShipment.mode || "") as ShipmentMode,
+        status: savedShipment.status || "",
+        mode: (savedShipment.mode as ShipmentMode) || "",
         shippedDate: toDateInputValue(
           savedShipment.shippedDate ||
             (updatedOrder.status === "completed"
@@ -327,6 +425,10 @@ export default function OrderDetailClient({ initialOrder }: Props) {
               : "")
         ),
       });
+
+      setProductSearchIndex(null);
+      setProductSearchQuery("");
+      setProductSearchResults([]);
 
       alert("Order updated successfully.");
     } catch (e) {
@@ -684,7 +786,7 @@ export default function OrderDetailClient({ initialOrder }: Props) {
 
         <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-4 flex flex-col gap-3">
           <div className="flex items-center justify-between gap-2">
-            <div className="w-full">
+            <div>
               <div className="text-xs uppercase tracking-wide text-slate-400">
                 Shipment Details
               </div>
@@ -749,7 +851,6 @@ export default function OrderDetailClient({ initialOrder }: Props) {
                 <option value="shift">Shift</option>
                 <option value="self">Self</option>
               </select>
-
               <input
                 className="border rounded px-2 py-1 w-full"
                 placeholder="Tracking number"
@@ -761,7 +862,6 @@ export default function OrderDetailClient({ initialOrder }: Props) {
                   }))
                 }
               />
-
               <select
                 className="border rounded px-2 py-1 w-full"
                 value={shipmentDraft.status}
@@ -779,7 +879,6 @@ export default function OrderDetailClient({ initialOrder }: Props) {
                 <option value="delivered">Delivered</option>
                 <option value="returned">Returned</option>
               </select>
-
               <input
                 type="date"
                 className="border rounded px-2 py-1 w-full"
@@ -811,13 +910,11 @@ export default function OrderDetailClient({ initialOrder }: Props) {
             <div className="font-semibold text-slate-900">
               {(editMode
                 ? itemsDraft.filter((i) => !i.removed)
-                : order.line_items || []
-              ).length}{" "}
+                : order.line_items || []).length}{" "}
               line item
               {((editMode
                 ? itemsDraft.filter((i) => !i.removed)
-                : order.line_items || []
-              ).length === 1
+                : order.line_items || []).length === 1
                 ? ""
                 : "s")}{" "}
               · {itemCount} pcs
@@ -898,6 +995,9 @@ export default function OrderDetailClient({ initialOrder }: Props) {
               const imgSrc = li.image?.src;
               const lineTotal =
                 (Number(li.price) || 0) * (Number(li.quantity) || 0);
+              const dropdownOpen =
+                productSearchIndex === idx &&
+                (productSearchLoading || productSearchResults.length > 0);
 
               return (
                 <div
@@ -925,14 +1025,90 @@ export default function OrderDetailClient({ initialOrder }: Props) {
                   </button>
 
                   <div className="min-w-0 space-y-1">
-                    <input
-                      className="border rounded px-2 py-1 w-full text-xs"
-                      placeholder="Item name"
-                      value={li.name}
-                      onChange={(e) =>
-                        updateItem(idx, { name: e.target.value })
-                      }
-                    />
+                    <div className="relative">
+                      <input
+                        className="border rounded px-2 py-1 w-full text-xs"
+                        placeholder="Search product by name or SKU"
+                        value={li.name}
+                        onFocus={() => startProductSearch(idx, li.name || "")}
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          updateItem(idx, {
+                            name: value,
+                            product_id: undefined,
+                          });
+                          startProductSearch(idx, value);
+                        }}
+                        onBlur={() => {
+                          setTimeout(() => {
+                            setProductSearchIndex((current) =>
+                              current === idx ? null : current
+                            );
+                          }, 180);
+                        }}
+                      />
+
+                      {dropdownOpen && (
+                        <div className="absolute z-30 mt-1 max-h-64 w-full overflow-auto rounded-xl border border-slate-200 bg-white shadow-xl">
+                          {productSearchLoading ? (
+                            <div className="px-3 py-2 text-xs text-slate-500">
+                              Searching products...
+                            </div>
+                          ) : (
+                            <>
+                              {productSearchResults.map((p) => {
+                                const pImg =
+                                  p.image?.src || p.images?.[0]?.src || "";
+                                const pPrice =
+                                  toNumberPrice(p.price) ||
+                                  toNumberPrice(p.regular_price);
+
+                                return (
+                                  <button
+                                    key={p.id}
+                                    type="button"
+                                    className="flex w-full items-center gap-3 px-3 py-2 text-left hover:bg-slate-50"
+                                    onMouseDown={(e) => e.preventDefault()}
+                                    onClick={() => selectProductForRow(idx, p)}
+                                  >
+                                    <div className="h-10 w-10 shrink-0 overflow-hidden rounded-lg border border-slate-100 bg-slate-50 flex items-center justify-center">
+                                      {pImg ? (
+                                        <img
+                                          src={pImg}
+                                          alt={p.name}
+                                          className="h-full w-full object-cover"
+                                        />
+                                      ) : (
+                                        <span className="text-[10px] text-slate-400">
+                                          No img
+                                        </span>
+                                      )}
+                                    </div>
+
+                                    <div className="min-w-0 flex-1">
+                                      <div className="truncate text-xs font-medium text-slate-900">
+                                        {p.name}
+                                      </div>
+                                      <div className="truncate text-[11px] text-slate-500">
+                                        {p.sku ? `SKU: ${p.sku}` : "No SKU"}
+                                        {pPrice > 0 ? ` • ₹${pPrice}` : ""}
+                                      </div>
+                                    </div>
+                                  </button>
+                                );
+                              })}
+
+                              {!productSearchResults.length && (
+                                <div className="px-3 py-2 text-xs text-slate-500">
+                                  No matching products found.
+                                </div>
+                              )}
+                            </>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
                     <input
                       className="border rounded px-2 py-1 w-full text-xs"
                       placeholder="SKU (optional)"
