@@ -485,7 +485,7 @@ export default function MenuLayoutPage() {
       "ml-2 rounded-full bg-slate-50 px-2 py-0.5 text-[11px] font-medium text-slate-500";
 
     return (
-      <div className="flex items-center justify-between rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm">
         <div className="flex items-center gap-2">
           <span className="select-none text-slate-300">⋮⋮</span>
           <div className="font-medium text-slate-800">
