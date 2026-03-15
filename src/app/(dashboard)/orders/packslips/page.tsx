@@ -1,7 +1,7 @@
+import { headers } from "next/headers";
 import { getWooClient } from "@/lib/woo";
 import { WCOrder } from "@/lib/order-utils";
 import PrintClient from "./PrintClient";
-import { getBaseUrl } from "@/lib/absolute-url";
 
 const LOGO_URL = process.env.NEXT_PUBLIC_PACKSLIP_LOGO || "";
 
@@ -11,12 +11,30 @@ function chunk<T>(arr: T[], size: number) {
   return out;
 }
 
-/** Fetch orders with a concurrency limit (faster + safer than sequential) */
+async function resolveBaseUrl() {
+  if (process.env.NEXT_PUBLIC_BASE_URL) {
+    return process.env.NEXT_PUBLIC_BASE_URL.replace(/\/$/, "");
+  }
+
+  if (process.env.VERCEL_URL) {
+    return `https://${process.env.VERCEL_URL.replace(/\/$/, "")}`;
+  }
+
+  const h = await headers();
+  const host = h.get("x-forwarded-host") || h.get("host") || "localhost:3000";
+  const proto =
+    h.get("x-forwarded-proto") ||
+    (host.includes("localhost") ? "http" : "https");
+
+  return `${proto}://${host}`.replace(/\/$/, "");
+}
+
+/** Fetch orders with a concurrency limit */
 async function getOrders(ids: number[]): Promise<WCOrder[]> {
   const woo = await getWooClient();
   const out: WCOrder[] = [];
 
-  const CONCURRENCY = 8; // tune if needed
+  const CONCURRENCY = 8;
   for (const group of chunk(ids, CONCURRENCY)) {
     const rs = await Promise.allSettled(
       group.map((id) => woo.get<WCOrder>(`/orders/${id}`))
@@ -34,13 +52,16 @@ function pickAddress(o: WCOrder) {
     o.shipping && (o.shipping.first_name || o.shipping.address_1)
       ? o.shipping
       : (o.billing || {});
+
   const name = [a?.first_name, a?.last_name].filter(Boolean).join(" ");
   const lines = [
     a?.address_1,
     a?.address_2,
     [a?.city, a?.state, a?.postcode].filter(Boolean).join(", "),
   ].filter(Boolean) as string[];
+
   const phone = a?.phone || o.billing?.phone || "";
+
   return { name, lines, phone };
 }
 
@@ -59,7 +80,6 @@ export default async function PackSlipsPage({ searchParams }: Props) {
   let orders: WCOrder[] = [];
   let error: string | null = null;
 
-  // return-address settings
   let returnAddress = "";
   let showReturn = false;
 
@@ -67,16 +87,13 @@ export default async function PackSlipsPage({ searchParams }: Props) {
     if (!ids.length) {
       error = "No order IDs provided.";
     } else {
-      const base =
-        (process.env.NEXT_PUBLIC_BASE_URL?.replace(/\/$/, "") as string) ||
-        getBaseUrl();
+      const base = await resolveBaseUrl();
 
-      // Load orders + settings in parallel
       const [ordersResult, settingsRes] = await Promise.all([
         getOrders(ids),
-        fetch(`${base}/api/settings/general`, { cache: "no-store" }).catch(
-          () => null
-        ),
+        fetch(`${base}/api/settings/general`, {
+          cache: "no-store",
+        }).catch(() => null),
       ]);
 
       orders = ordersResult;
@@ -84,13 +101,18 @@ export default async function PackSlipsPage({ searchParams }: Props) {
       if (settingsRes && settingsRes.ok) {
         const text = await settingsRes.text().catch(() => "");
         if (text) {
-          const j = JSON.parse(text);
-          const prod = j?.products || j?.general?.products || {};
-          const addr = String(prod.packslipReturnAddress || "").trim();
-          const flag = !!prod.packslipShowReturn;
-          if (addr && flag) {
-            returnAddress = addr;
-            showReturn = true;
+          try {
+            const j = JSON.parse(text);
+            const prod = j?.products || j?.general?.products || {};
+            const addr = String(prod.packslipReturnAddress || "").trim();
+            const flag = !!prod.packslipShowReturn;
+
+            if (addr && flag) {
+              returnAddress = addr;
+              showReturn = true;
+            }
+          } catch {
+            // ignore settings parse error
           }
         }
       }
@@ -164,6 +186,7 @@ export default async function PackSlipsPage({ searchParams }: Props) {
           margin-bottom: 6px;
           padding-right: 8mm;
         }
+
         .logo { height: 38px; object-fit: contain; }
         .title { font-size: 18px; font-weight: 800; color: var(--text); }
         .meta { font-size: 14px; color: #374151; white-space: nowrap; }
@@ -173,7 +196,12 @@ export default async function PackSlipsPage({ searchParams }: Props) {
 
         .items { margin-top: 8px; font-size: 14px; color: var(--text); }
         .items table { width: 100%; border-collapse: collapse; table-layout: fixed; }
-        .items th, .items td { padding: 5px 0; text-align: left; border-bottom: 1px dotted #E5E7EB; vertical-align: top; }
+        .items th, .items td {
+          padding: 5px 0;
+          text-align: left;
+          border-bottom: 1px dotted #E5E7EB;
+          vertical-align: top;
+        }
         .items th.qty, .items td.qty { width: 52px; text-align: right; }
         .sku { color: var(--muted); }
 
@@ -198,13 +226,14 @@ export default async function PackSlipsPage({ searchParams }: Props) {
       `}</style>
 
       <div className="no-print p-3 text-sm text-slate-600">
-        Pack Slips (A4 portrait) — 2 per page (top/bottom). Extra buffer to keep the
-        footer on the same page; added safe right padding for the order number.
+        Pack Slips (A4 portrait) — 2 per page (top/bottom). Extra buffer to keep
+        the footer on the same page; added safe right padding for the order
+        number.
       </div>
 
       {error ? (
         <div className="sheet">
-          <div className="bg-white rounded border p-6 text-slate-700">
+          <div className="rounded border bg-white p-6 text-slate-700">
             {error}
           </div>
         </div>
@@ -213,23 +242,31 @@ export default async function PackSlipsPage({ searchParams }: Props) {
           {Array.from({ length: Math.ceil(orders.length / 2) }).map(
             (_, sheetIdx) => {
               const slice = orders.slice(sheetIdx * 2, sheetIdx * 2 + 2);
+
               return (
                 <div className="sheet" key={`sheet-${sheetIdx}`}>
                   <div className="grid">
                     {slice.map((o) => {
                       const a = pickAddress(o);
+
                       return (
                         <div className="slip" key={o.id}>
                           <div>
                             <div className="hdr">
-                              <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                              <div
+                                style={{
+                                  display: "flex",
+                                  alignItems: "center",
+                                  gap: "10px",
+                                }}
+                              >
                                 {LOGO_URL ? (
-                                  // eslint-disable-next-line @next/next/no-img-element
                                   <img className="logo" src={LOGO_URL} alt="Logo" />
                                 ) : (
                                   <div className="title">Pack Slip</div>
                                 )}
                               </div>
+
                               <div className="meta">
                                 <b>Order:</b> #{o.number || o.id}
                               </div>
@@ -293,6 +330,7 @@ export default async function PackSlipsPage({ searchParams }: Props) {
                         </div>
                       );
                     })}
+
                     {slice.length < 2 ? <div className="slip" /> : null}
                   </div>
                 </div>
