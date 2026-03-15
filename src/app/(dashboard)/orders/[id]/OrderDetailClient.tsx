@@ -34,10 +34,18 @@ type EditableLineItem = {
   removed?: boolean;
 };
 
+type ShipmentStatus =
+  | ""
+  | "pending"
+  | "packed"
+  | "shipped"
+  | "delivered"
+  | "returned";
+
 type ShipmentDraft = {
   courier: string;
   awb: string;
-  status: string;
+  status: ShipmentStatus;
   mode: string;
   shippedDate: string;
 };
@@ -108,7 +116,7 @@ export default function OrderDetailClient({ initialOrder }: Props) {
   const [shipmentDraft, setShipmentDraft] = useState<ShipmentDraft>({
     courier: initialShipment.courier || "",
     awb: initialShipment.awb || "",
-    status: initialShipment.status || "",
+    status: (initialShipment.status || "") as ShipmentStatus,
     mode: initialShipment.mode || "",
     shippedDate: toDateInputValue(initialShipment.shippedDate || ""),
   });
@@ -191,7 +199,7 @@ export default function OrderDetailClient({ initialOrder }: Props) {
     setShipmentDraft({
       courier: freshShipment.courier || "",
       awb: freshShipment.awb || "",
-      status: freshShipment.status || "",
+      status: (freshShipment.status || "") as ShipmentStatus,
       mode: freshShipment.mode || "",
       shippedDate: toDateInputValue(
         freshShipment.shippedDate ||
@@ -308,7 +316,7 @@ export default function OrderDetailClient({ initialOrder }: Props) {
       setShipmentDraft({
         courier: savedShipment.courier || "",
         awb: savedShipment.awb || "",
-        status: savedShipment.status || "",
+        status: (savedShipment.status || "") as ShipmentStatus,
         mode: savedShipment.mode || "",
         shippedDate: toDateInputValue(
           savedShipment.shippedDate ||
@@ -753,7 +761,7 @@ export default function OrderDetailClient({ initialOrder }: Props) {
                 onChange={(e) =>
                   setShipmentDraft((prev) => ({
                     ...prev,
-                    status: e.target.value,
+                    status: e.target.value as ShipmentStatus,
                   }))
                 }
               >
@@ -762,6 +770,7 @@ export default function OrderDetailClient({ initialOrder }: Props) {
                 <option value="packed">Packed</option>
                 <option value="shipped">Shipped</option>
                 <option value="delivered">Delivered</option>
+                <option value="returned">Returned</option>
               </select>
               <input
                 type="date"
