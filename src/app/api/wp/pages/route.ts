@@ -15,13 +15,11 @@ export async function GET(req: NextRequest) {
 
     const { searchParams } = new URL(req.url);
     const per_page = searchParams.get("per_page") || "100";
-    const search = searchParams.get("search"); // optional
+    const search = searchParams.get("search");
 
     const qs = new URLSearchParams();
     qs.set("per_page", per_page);
     qs.set("_fields", "id,title,slug,link,status");
-    // you can add status=publish if you want only published pages:
-    // qs.set("status", "publish");
     if (search) qs.set("search", search);
 
     const r = await fetch(`${base}/wp-json/wp/v2/pages?${qs.toString()}`, {
@@ -39,7 +37,23 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    return NextResponse.json(json, { status: 200 });
+    const rows = Array.isArray(json) ? json : [];
+
+    const items = rows.map((p: any) => ({
+      id: Number(p.id),
+      name:
+        p?.title?.rendered?.trim() ||
+        p?.slug ||
+        `Page #${p.id}`,
+      slug: p?.slug || "",
+      url: p?.link || "/",
+      status: p?.status || "publish",
+    }));
+
+    return NextResponse.json(
+      { items },
+      { status: 200 }
+    );
   } catch (e: any) {
     return NextResponse.json(
       { error: e?.message || "Proxy GET error" },
