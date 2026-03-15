@@ -42,16 +42,18 @@ type ShipmentStatus =
   | "delivered"
   | "returned";
 
+type ShipmentMode = "" | "shift" | "self";
 type ShipmentDraft = {
   courier: string;
   awb: string;
   status: ShipmentStatus;
-  mode: string;
+  mode: ShipmentMode;
   shippedDate: string;
 };
 
 type Props = {
-  initialOrder: (WCOrder & { meta_data?: any[] }) | any;
+  initialOrder: (WCOrder &
+ { meta_data?: any[] }) | any;
 };
 
 function formatNiceDate(dateGmt?: string | null) {
@@ -117,7 +119,7 @@ export default function OrderDetailClient({ initialOrder }: Props) {
     courier: initialShipment.courier || "",
     awb: initialShipment.awb || "",
     status: (initialShipment.status || "") as ShipmentStatus,
-    mode: initialShipment.mode || "",
+    mode: (initialShipment.mode || "") as ShipmentMode,
     shippedDate: toDateInputValue(initialShipment.shippedDate || ""),
   });
 
@@ -200,7 +202,7 @@ export default function OrderDetailClient({ initialOrder }: Props) {
       courier: freshShipment.courier || "",
       awb: freshShipment.awb || "",
       status: (freshShipment.status || "") as ShipmentStatus,
-      mode: freshShipment.mode || "",
+      mode: (freshShipment.mode || "") as ShipmentMode,
       shippedDate: toDateInputValue(
         freshShipment.shippedDate ||
           (order.status === "completed" ? order.date_completed_gmt : "")
@@ -274,7 +276,7 @@ export default function OrderDetailClient({ initialOrder }: Props) {
         courier: shipmentDraft.courier || "",
         awb: shipmentDraft.awb || "",
         status: shipmentDraft.status || "",
-        mode: shipmentDraft.mode || "",
+        mode: shipmentDraft.mode || undefined,
         shippedDate: shipmentDraft.shippedDate
           ? new Date(`${shipmentDraft.shippedDate}T00:00:00`).toISOString()
           : "",
@@ -317,7 +319,7 @@ export default function OrderDetailClient({ initialOrder }: Props) {
         courier: savedShipment.courier || "",
         awb: savedShipment.awb || "",
         status: (savedShipment.status || "") as ShipmentStatus,
-        mode: savedShipment.mode || "",
+        mode: (savedShipment.mode || "") as ShipmentMode,
         shippedDate: toDateInputValue(
           savedShipment.shippedDate ||
             (updatedOrder.status === "completed"
@@ -682,7 +684,7 @@ export default function OrderDetailClient({ initialOrder }: Props) {
 
         <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-4 flex flex-col gap-3">
           <div className="flex items-center justify-between gap-2">
-            <div>
+            <div className="w-full">
               <div className="text-xs uppercase tracking-wide text-slate-400">
                 Shipment Details
               </div>
@@ -733,17 +735,21 @@ export default function OrderDetailClient({ initialOrder }: Props) {
             </div>
           ) : (
             <div className="text-xs text-slate-700 space-y-2 mt-2">
-              <input
+              <select
                 className="border rounded px-2 py-1 w-full"
-                placeholder="Mode (optional)"
                 value={shipmentDraft.mode}
                 onChange={(e) =>
                   setShipmentDraft((prev) => ({
                     ...prev,
-                    mode: e.target.value,
+                    mode: e.target.value as ShipmentMode,
                   }))
                 }
-              />
+              >
+                <option value="">Select mode</option>
+                <option value="shift">Shift</option>
+                <option value="self">Self</option>
+              </select>
+
               <input
                 className="border rounded px-2 py-1 w-full"
                 placeholder="Tracking number"
@@ -755,6 +761,7 @@ export default function OrderDetailClient({ initialOrder }: Props) {
                   }))
                 }
               />
+
               <select
                 className="border rounded px-2 py-1 w-full"
                 value={shipmentDraft.status}
@@ -772,6 +779,7 @@ export default function OrderDetailClient({ initialOrder }: Props) {
                 <option value="delivered">Delivered</option>
                 <option value="returned">Returned</option>
               </select>
+
               <input
                 type="date"
                 className="border rounded px-2 py-1 w-full"
