@@ -413,8 +413,7 @@ export default function BillingSubscriptionPage() {
               Subscription Payment
             </h2>
             <p className="text-sm text-slate-500">
-              Complete your subscription payment using the details below and
-              submit the UTR number.
+              Choose your plan and continue with secure online payment.
             </p>
           </div>
 
