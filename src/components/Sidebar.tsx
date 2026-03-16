@@ -123,7 +123,9 @@ export default function Sidebar({
 
   const groups = useMemo(() => {
     if (!locked) return ALL_GROUPS;
-    return ALL_GROUPS.filter((g) => g.key === "settings");
+    return ALL_GROUPS.filter(
+    (g) => g.key === "settings" || g.key === "billing"
+  );
   }, [locked]);
 
   const [groupOpen, setGroupOpen] = useState<Record<string, boolean>>(() => {
@@ -143,7 +145,7 @@ export default function Sidebar({
         <nav className="mt-3 flex-1 space-y-1 px-3 pb-2">
           {locked && (
             <div className="mb-2 rounded-xl border border-amber-300/20 bg-amber-400/10 px-3 py-2 text-[11px] leading-5 text-amber-100">
-              Dashboard locked. Only Settings is available until LetzShopy unlocks your store.
+              Dashboard locked. Only Settings and Subscription are available until LetzShopy unlocks your store.
             </div>
           )}
 

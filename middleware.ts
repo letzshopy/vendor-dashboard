@@ -127,6 +127,7 @@ export async function middleware(req: NextRequest) {
     return NextResponse.redirect(url);
   }
 
+  // Protect master routes strictly
   if (isMasterPath(pathname)) {
     if (role === "master_admin") {
       return NextResponse.next();
@@ -138,19 +139,16 @@ export async function middleware(req: NextRequest) {
     return NextResponse.redirect(url);
   }
 
+  // Always-allowed vendor routes
   if (isAlwaysAllowedAfterLogin(pathname)) {
     return NextResponse.next();
   }
 
-  if (role === "master_admin") {
-    const url = req.nextUrl.clone();
-    url.pathname = "/master";
-    url.search = "";
-    return NextResponse.redirect(url);
-  }
+  // IMPORTANT:
+  // Do NOT auto-redirect non-master routes to /master just because ls_role says master_admin.
+  // That cookie can leak across windows/subdomains and wrongly hijack vendor dashboard navigation.
 
-  // 1) Manual master lock is the primary gate for new vendors.
-  // When locked, allow only settings + billing/subscription via isAlwaysAllowedAfterLogin().
+  // 1) Manual master lock
   const locked = await getLockedFromMaster(req);
 
   if (locked) {
@@ -160,7 +158,7 @@ export async function middleware(req: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  // 2) Automatic subscription gate:
+  // 2) Automatic subscription gate
   // Allow dashboard for trial / inactive / pending_payment / payment_submitted / active / suspended.
   // Block only when subscription is EXPIRED.
   const status = await getOnboardingStatus(req);
@@ -172,9 +170,6 @@ export async function middleware(req: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  // 3) Fail open:
-  // If onboarding API fails or status is unavailable, do NOT block dashboard.
-  // Manual lock remains the source of truth for first-stage access.
   return NextResponse.next();
 }
 
