@@ -73,9 +73,11 @@ const ALL_GROUPS: Group[] = [
     label: "Reports & Billing",
     icon: ReceiptIndianRupee,
     items: [
+      { href: "/billing/subscription", label: "Subscription", ready: true },
+      { href: "/subscription-bills", label: "Subscription Invoices", ready: true },
       { href: "/order-invoices", label: "Order Invoices", ready: true },
       { href: "/reports", label: "Reports", ready: true },
-      { href: "/subscription-bills", label: "Subscription Invoices", ready: true },
+      
     ],
   },
   {
@@ -100,7 +102,6 @@ const ALL_GROUPS: Group[] = [
       { href: "/settings?tab=tax", label: "Tax", ready: true },
       { href: "/settings?tab=payments", label: "Payments", ready: true },
       { href: "/settings?tab=account", label: "Account", ready: true },
-      { href: "/settings?tab=subscription", label: "Subscription", ready: true },
       { href: "/settings?tab=coupons", label: "Coupons", ready: true },
       {
         href: "/settings?tab=shipmentFulfillment",

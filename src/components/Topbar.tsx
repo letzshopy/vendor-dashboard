@@ -637,7 +637,7 @@ export default function Topbar({ onToggleSidebar }: TopbarProps) {
                     type="button"
                     onClick={() => {
                       setAccountOpen(false);
-                      window.location.href = "/settings?tab=subscription";
+                      window.location.href = "/billing/subscription";
                     }}
                     className="block w-full px-3 py-2 text-left hover:bg-[#f6f1ff]"
                   >
@@ -650,7 +650,7 @@ export default function Topbar({ onToggleSidebar }: TopbarProps) {
                     type="button"
                     onClick={() => {
                       setAccountOpen(false);
-                      window.location.href = "/subscription-bills";
+                      window.location.href = "/billing/subscription";
                     }}
                     className="block w-full px-3 py-2 text-left hover:bg-[#f6f1ff]"
                   >

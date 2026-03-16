@@ -112,7 +112,7 @@ export default function RenewalNotice({
       <div className="mt-1 text-sm text-violet-700">{message}</div>
       <div className="mt-3">
         <a
-          href="/settings?tab=subscription"
+          href="/billing/subscription"
           className="inline-flex rounded-xl bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-700"
         >
           Renew Subscription

@@ -119,7 +119,7 @@ export default function OnboardingPage() {
                 statusText={prettySubscriptionStatus(status?.subscription_status)}
                 ok={subActive}
                 actionLabel="Go to Subscription"
-                onAction={() => router.push("/settings?tab=subscription")}
+                onAction={() => router.push("/billing/subscription")}
               />
 
               <div className="flex flex-wrap gap-3 pt-2">

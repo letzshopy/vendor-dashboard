@@ -13,7 +13,6 @@ import {
   Building2,
   TicketPercent,
   PackageSearch,
-  Receipt,
 } from "lucide-react";
 
 import ProfileTab from "./tabs/ProfileTab";
@@ -24,7 +23,6 @@ import ShippingTab from "./tabs/ShippingTab";
 import TaxTab from "./tabs/TaxTab";
 import PaymentsTab from "./tabs/PaymentsTab";
 import AccountTab from "./tabs/AccountTab";
-import SubscriptionTab from "./tabs/SubscriptionTab";
 import CouponsTab from "./tabs/CouponsTab";
 import ShipmentFulfillmentTab from "./tabs/ShipmentFulfillmentTab";
 
@@ -37,7 +35,6 @@ type TabId =
   | "tax"
   | "payments"
   | "account"
-  | "subscription"
   | "coupons"
   | "shipmentFulfillment";
 
@@ -58,7 +55,6 @@ const TAB_COMPONENTS: Record<TabId, React.ReactNode> = {
   tax: <TaxTab />,
   payments: <PaymentsTab />,
   account: <AccountTab />,
-  subscription: <SubscriptionTab />,
   coupons: <CouponsTab />,
   shipmentFulfillment: <ShipmentFulfillmentTab />,
 };
@@ -112,13 +108,6 @@ const TABS: TabDef[] = [
     label: "Account",
     description: "Account details, contact info and login security.",
     icon: Building2,
-  },
-  {
-    id: "subscription",
-    label: "Subscription",
-    shortLabel: "Plans",
-    description: "Choose plan, billing period, payment and renewal details.",
-    icon: Receipt,
   },
   {
     id: "coupons",
