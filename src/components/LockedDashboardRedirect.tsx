@@ -14,11 +14,12 @@ export default function LockedDashboardRedirect({ locked }: Props) {
   useEffect(() => {
     if (!locked) return;
 
-    // When locked, allow any Settings tab/page
-    const isAllowed = pathname.startsWith("/settings");
+    const isAllowed =
+      pathname.startsWith("/settings") ||
+      pathname.startsWith("/billing/subscription");
 
     if (!isAllowed) {
-      router.replace("/settings?tab=account");
+      router.replace("/billing/subscription");
     }
   }, [locked, pathname, router]);
 

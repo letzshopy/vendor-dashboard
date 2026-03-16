@@ -22,6 +22,7 @@ function isMasterPath(pathname: string) {
 function isAlwaysAllowedAfterLogin(pathname: string) {
   return (
     pathname.startsWith("/settings") ||
+    pathname.startsWith("/billing/subscription") ||
     pathname.startsWith("/onboarding") ||
     pathname.startsWith("/select-store")
   );
@@ -49,13 +50,16 @@ async function getLockedFromMaster(req: NextRequest): Promise<boolean> {
 
     if (!base || !key) return false;
 
-    const res = await fetch(`${base}/wp-json/letz/v1/master-vendors/${blogId}`, {
-      headers: {
-        Authorization: `Bearer ${key}`,
-        "X-Letz-Master-Key": key,
-      },
-      cache: "no-store",
-    });
+    const res = await fetch(
+      `${base}/wp-json/letz/v1/master-vendors/${blogId}`,
+      {
+        headers: {
+          Authorization: `Bearer ${key}`,
+          "X-Letz-Master-Key": key,
+        },
+        cache: "no-store",
+      }
+    );
 
     const text = await res.text();
     let json: any = {};
@@ -73,7 +77,9 @@ type OnboardingStatusResponse = {
   ok?: boolean;
   kyc_status?: "not_started" | "in_review" | "approved" | "rejected";
   subscription_status?:
+    | "trial"
     | "inactive"
+    | "pending_payment"
     | "payment_submitted"
     | "active"
     | "suspended"
@@ -143,18 +149,19 @@ export async function middleware(req: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  // 1) Manual master lock is the primary gate for new vendors
+  // 1) Manual master lock is the primary gate for new vendors.
+  // When locked, allow only settings + billing/subscription via isAlwaysAllowedAfterLogin().
   const locked = await getLockedFromMaster(req);
 
   if (locked) {
     const url = req.nextUrl.clone();
-    url.pathname = "/settings";
-    url.search = "?tab=account";
+    url.pathname = "/billing/subscription";
+    url.search = "";
     return NextResponse.redirect(url);
   }
 
-  // 2) Automatic onboarding/subscription gate:
-  // Allow dashboard for inactive / payment_submitted / active / suspended.
+  // 2) Automatic subscription gate:
+  // Allow dashboard for trial / inactive / pending_payment / payment_submitted / active / suspended.
   // Block only when subscription is EXPIRED.
   const status = await getOnboardingStatus(req);
 
