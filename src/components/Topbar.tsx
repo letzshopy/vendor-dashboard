@@ -25,6 +25,7 @@ type TopbarProps = {
 };
 
 type SubscriptionStatus =
+  | "trial"
   | "inactive"
   | "pending_payment"
   | "payment_submitted"
@@ -60,7 +61,7 @@ type SearchResult = {
 
 function deriveStatus(raw: string | undefined): SubscriptionStatus {
   const v = (raw || "").toLowerCase().trim();
-
+  if (v === "trial") return "trial";
   if (v === "inactive") return "inactive";
   if (v === "pending_payment") return "pending_payment";
   if (v === "payment_submitted") return "payment_submitted";
@@ -75,6 +76,8 @@ function statusLabel(status: SubscriptionStatus): string {
   switch (status) {
     case "inactive":
       return "Inactive";
+    case "trial":
+      return "Trial";  
     case "pending_payment":
       return "Pending Payment";
     case "payment_submitted":
@@ -94,6 +97,8 @@ function statusDotClass(status: SubscriptionStatus): string {
   switch (status) {
     case "active":
       return "bg-emerald-400";
+    case "trial":
+      return "bg-sky-400";  
     case "pending_payment":
     case "payment_submitted":
       return "bg-amber-400";
@@ -109,6 +114,8 @@ function statusChipClass(status: SubscriptionStatus): string {
   switch (status) {
     case "active":
       return "bg-[#3b4a8d] text-indigo-100";
+    case "trial":
+      return "bg-sky-500/15 text-sky-100";  
     case "pending_payment":
     case "payment_submitted":
       return "bg-amber-500/15 text-amber-100";

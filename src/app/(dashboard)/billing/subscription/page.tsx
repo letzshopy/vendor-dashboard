@@ -47,6 +47,7 @@ function prettyStatus(raw?: string) {
   if (v === "active") return "Active";
   if (v === "expired") return "Expired";
   if (v === "suspended") return "Suspended";
+  if (v === "trial") return "Trial";
   return v.charAt(0).toUpperCase() + v.slice(1).replace(/_/g, " ");
 }
 

@@ -1,6 +1,7 @@
 "use client";
 
 type SubscriptionStatus =
+  | "trial"
   | "inactive"
   | "payment_submitted"
   | "active"

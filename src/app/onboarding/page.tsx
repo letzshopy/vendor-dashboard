@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 
 type KycStatus = "not_started" | "in_review" | "approved" | "rejected";
 type SubscriptionStatus =
+  | "trial"
   | "inactive"
   | "payment_submitted"
   | "active"
@@ -35,6 +36,8 @@ function prettySubscriptionStatus(status?: SubscriptionStatus) {
   switch (status) {
     case "active":
       return "active";
+    case "trial":
+      return "trial";
     case "payment_submitted":
       return "payment submitted";
     case "suspended":

@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 
 type SubscriptionStatus =
+  | "trial"
   | "inactive"
   | "pending_payment"
   | "payment_submitted"
@@ -70,12 +71,15 @@ function prettyStatus(status: string) {
   if (s === "active") return "Active";
   if (s === "suspended") return "Suspended";
   if (s === "expired") return "Expired";
+  if (s === "trial") return "Trial";
   return "Inactive";
 }
 
 function statusPillClass(status: string) {
   const s = (status || "").toLowerCase();
-
+  if (s === "trial") {
+  return "border-sky-200 bg-sky-50 text-sky-700";
+}
   if (s === "active") {
     return "border-emerald-200 bg-emerald-50 text-emerald-700";
   }
@@ -257,6 +261,7 @@ export default function MasterSubscriptionCard({
             onChange={(e) => setStatus(e.target.value as SubscriptionStatus)}
             className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-900"
           >
+            <option value="trial">Trial</option>
             <option value="inactive">Inactive</option>
             <option value="pending_payment">Pending Payment</option>
             <option value="payment_submitted">Payment Submitted</option>
