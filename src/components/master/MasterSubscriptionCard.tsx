@@ -156,9 +156,11 @@ export default function MasterSubscriptionCard({
     setMsg(null);
 
     try {
-      if (!storeUrl) {
-        throw new Error("storeUrl missing");
-      }
+    const resolvedStoreUrl = (storeUrl || initial.storeUrl || "").trim().replace(/\/$/, "");
+
+    if (!resolvedStoreUrl) {
+      throw new Error("storeUrl missing");
+    }
 
       const payload = {
         status,
@@ -170,7 +172,7 @@ export default function MasterSubscriptionCard({
         payment_reference: paymentReference,
         last_paid_date: lastPaidDate,
         next_payment_date: nextPaymentDate,
-        storeUrl,
+        storeUrl: resolvedStoreUrl,
       };
 
       const res = await fetch(`/api/master/vendors/${blogid}/subscription/review`, {
