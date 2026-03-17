@@ -187,7 +187,10 @@ export default async function VendorDetailPage({
 
         <MasterSubscriptionCard
           blogid={data.blogid}
-          initial={sub}
+          initial={{
+            ...sub,
+            store_url: data.site?.url || "",
+          }}
         />
 
         <div className="rounded-2xl border border-white/10 bg-white p-4 shadow-sm">
