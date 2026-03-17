@@ -1,46 +1,78 @@
 import { NextResponse } from "next/server";
 import { getWpBaseUrl } from "@/lib/wpClient";
 
-function authHeader() {
-  const user = process.env.WP_USER!;
-  const pass = (process.env.WP_APP_PASSWORD || "").replace(/\s+/g, "");
-  return "Basic " + Buffer.from(`${user}:${pass}`).toString("base64");
-}
+const TOKEN = process.env.LETZ_INTERNAL_TOKEN;
 
 export async function GET() {
-  const base = (await getWpBaseUrl()).replace(/\/$/, "");
+  try {
+    if (!TOKEN) {
+      return NextResponse.json(
+        { ok: false, error: "LETZ_INTERNAL_TOKEN missing" },
+        { status: 500 }
+      );
+    }
 
-  const r = await fetch(`${base}/wp-json/letz/v1/subscription`, {
-    cache: "no-store",
-    headers: {
-      Authorization: authHeader(),
-    },
-  });
+    const base = (await getWpBaseUrl()).replace(/\/$/, "");
 
-  const data = await r.json();
+    const r = await fetch(`${base}/wp-json/letz/v1/subscription`, {
+      cache: "no-store",
+      headers: {
+        "x-letz-auth": TOKEN,
+      },
+    });
 
-  return NextResponse.json(data, {
-    status: r.status,
-  });
+    const text = await r.text();
+    let data: any = {};
+    try {
+      data = JSON.parse(text);
+    } catch {
+      data = { raw: text };
+    }
+
+    return NextResponse.json(data, { status: r.status });
+  } catch (e: any) {
+    return NextResponse.json(
+      { ok: false, error: e?.message || "Subscription GET failed" },
+      { status: 500 }
+    );
+  }
 }
 
 export async function PUT(req: Request) {
-  const base = (await getWpBaseUrl()).replace(/\/$/, "");
+  try {
+    if (!TOKEN) {
+      return NextResponse.json(
+        { ok: false, error: "LETZ_INTERNAL_TOKEN missing" },
+        { status: 500 }
+      );
+    }
 
-  const body = await req.json();
+    const base = (await getWpBaseUrl()).replace(/\/$/, "");
+    const body = await req.json();
 
-  const r = await fetch(`${base}/wp-json/letz/v1/subscription`, {
-    method: "PUT",
-    headers: {
-      Authorization: authHeader(),
-      "content-type": "application/json",
-    },
-    body: JSON.stringify(body),
-  });
+    const r = await fetch(`${base}/wp-json/letz/v1/subscription`, {
+      method: "PUT",
+      headers: {
+        "x-letz-auth": TOKEN,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify(body),
+      cache: "no-store",
+    });
 
-  const data = await r.json();
+    const text = await r.text();
+    let data: any = {};
+    try {
+      data = JSON.parse(text);
+    } catch {
+      data = { raw: text };
+    }
 
-  return NextResponse.json(data, {
-    status: r.status,
-  });
+    return NextResponse.json(data, { status: r.status });
+  } catch (e: any) {
+    return NextResponse.json(
+      { ok: false, error: e?.message || "Subscription PUT failed" },
+      { status: 500 }
+    );
+  }
 }
