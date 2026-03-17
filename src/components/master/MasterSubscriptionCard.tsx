@@ -15,7 +15,7 @@ type SubscriptionPlan = "standard" | "premium";
 type SubscriptionPeriod = "monthly" | "yearly";
 
 export type MasterSubscriptionData = {
-  strore_url?: string;
+  storeurl?: string;
   plan?: string;
   period?: string;
   status?: string;
