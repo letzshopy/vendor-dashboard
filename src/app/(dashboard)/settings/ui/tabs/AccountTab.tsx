@@ -408,8 +408,7 @@ export default function AccountTab() {
               </div>
 
               <p className="text-[10px] text-slate-500">
-                This updates your LetzShopy dashboard password. We’ll map this
-                to the WordPress user on the backend.
+                This updates your LetzShopy dashboard password.
               </p>
             </div>
           </section>
