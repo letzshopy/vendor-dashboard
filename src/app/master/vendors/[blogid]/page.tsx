@@ -189,7 +189,7 @@ export default async function VendorDetailPage({
           blogid={data.blogid}
           initial={{
             ...sub,
-            storeurl: data.site?.url || "",
+            storeUrl: data.site?.url || "",
           }}
         />
 
