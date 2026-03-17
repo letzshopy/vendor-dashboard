@@ -16,6 +16,8 @@ type Subscription = {
   utr?: string;
   payment_reference?: string;
   payment_mode?: string;
+  last_paid_date?: string;
+  last_billed_at?: string;
 };
 
 type PlanKey = "standard" | "premium";
@@ -24,7 +26,7 @@ type BillingCycle = "monthly" | "yearly";
 const UPI_ID = "sindhiya4@ybl";
 const PAYEE_NAME = "Sindhiya Srinivasan";
 const PAYMENT_NUMBER = "9611621621";
-const QR_SRC = "/upi-qr.jpeg"; // replace with your actual public QR image path if different
+const QR_SRC = "/upi-qr.jpeg";
 
 function normalizePlan(raw?: string): PlanKey {
   const v = (raw || "").toLowerCase().trim();
@@ -94,47 +96,40 @@ export default function BillingSubscriptionPage() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
-  useEffect(() => {
-    let cancelled = false;
+  async function loadSubscription() {
+    try {
+      setLoading(true);
+      setError(null);
 
-    async function load() {
-      try {
-        setLoading(true);
-        setError(null);
+      const res = await fetch("/api/settings/subscription", {
+        cache: "no-store",
+      });
 
-        const res = await fetch("/api/settings/subscription", {
-          cache: "no-store",
-        });
+      const data = await res.json().catch(() => ({}));
 
-        if (!res.ok) throw new Error("Failed to load subscription");
-
-        const data = (await res.json()) as Subscription;
-        if (cancelled) return;
-
-        setSub(data);
-
-        const existingPlan = data.plan || data.current_plan || "";
-        const existingCycle = data.billing_cycle || data.period || "";
-        const existingRef = data.payment_reference || data.utr || "";
-
-        setSelectedPlan(normalizePlan(existingPlan));
-        setBillingCycle(normalizeCycle(existingCycle));
-        setUtr(existingRef);
-      } catch (e) {
-        console.error(e);
-        if (!cancelled) {
-          setError("Could not load subscription details. Please try again.");
-        }
-      } finally {
-        if (!cancelled) setLoading(false);
+      if (!res.ok) {
+        throw new Error(data?.error || "Failed to load subscription");
       }
+
+      setSub(data);
+
+      const existingPlan = data.plan || data.current_plan || "";
+      const existingCycle = data.billing_cycle || data.period || "";
+      const existingRef = data.payment_reference || data.utr || "";
+
+      setSelectedPlan(normalizePlan(existingPlan));
+      setBillingCycle(normalizeCycle(existingCycle));
+      setUtr(existingRef);
+    } catch (e: any) {
+      console.error(e);
+      setError(e?.message || "Could not load subscription details. Please try again.");
+    } finally {
+      setLoading(false);
     }
+  }
 
-    load();
-
-    return () => {
-      cancelled = true;
-    };
+  useEffect(() => {
+    loadSubscription();
   }, []);
 
   const selectedAmount = useMemo(() => {
@@ -172,19 +167,16 @@ export default function BillingSubscriptionPage() {
 
       const payload = {
         plan: selectedPlan,
-        current_plan: selectedPlan,
         billing_cycle: billingCycle,
         period: billingCycle,
-        billing_status: "payment_submitted",
-        status: "payment_submitted",
         amount: selectedAmount,
-        utr: utr.trim(),
         payment_reference: utr.trim(),
+        utr: utr.trim(),
         payment_mode: "upi",
       };
 
-      const res = await fetch("/api/settings/subscription", {
-        method: "PUT",
+      const res = await fetch("/api/settings/subscription/submit", {
+        method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
@@ -195,25 +187,11 @@ export default function BillingSubscriptionPage() {
         throw new Error(data?.error || "Failed to submit payment.");
       }
 
-      const merged: Subscription = {
-        ...(sub || {}),
-        ...data,
-        plan: data?.plan ?? selectedPlan,
-        current_plan: data?.current_plan ?? selectedPlan,
-        billing_cycle: data?.billing_cycle ?? billingCycle,
-        period: data?.period ?? billingCycle,
-        billing_status: data?.billing_status ?? "payment_submitted",
-        status: data?.status ?? "payment_submitted",
-        amount: data?.amount ?? selectedAmount,
-        utr: data?.utr ?? utr.trim(),
-        payment_reference: data?.payment_reference ?? utr.trim(),
-        payment_mode: data?.payment_mode ?? "upi",
-      };
-
-      setSub(merged);
       setSuccess(
         "Payment submitted successfully. LetzShopy team will verify and activate your subscription."
       );
+
+      await loadSubscription();
     } catch (e: any) {
       console.error(e);
       setError(e?.message || "Failed to submit payment.");
@@ -414,7 +392,7 @@ export default function BillingSubscriptionPage() {
               Subscription Payment
             </h2>
             <p className="text-sm text-slate-500">
-              Choose your plan and continue with secure online payment.
+              Make payment using UPI and submit your transaction reference for review.
             </p>
           </div>
 
@@ -510,8 +488,7 @@ export default function BillingSubscriptionPage() {
           />
 
           <p className="text-xs text-slate-500">
-            By proceeding with payment, you agree to our Terms & Conditions and
-            Refund Policy.
+            After payment, enter your UTR / transaction number and submit it for verification.
           </p>
 
           <button

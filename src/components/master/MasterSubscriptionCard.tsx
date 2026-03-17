@@ -30,6 +30,7 @@ export type MasterSubscriptionData = {
 type Props = {
   blogid: number;
   initial: MasterSubscriptionData;
+  storeUrl?: string;
 };
 
 function toIsoDate(value?: string) {
@@ -77,9 +78,10 @@ function prettyStatus(status: string) {
 
 function statusPillClass(status: string) {
   const s = (status || "").toLowerCase();
+
   if (s === "trial") {
-  return "border-sky-200 bg-sky-50 text-sky-700";
-}
+    return "border-sky-200 bg-sky-50 text-sky-700";
+  }
   if (s === "active") {
     return "border-emerald-200 bg-emerald-50 text-emerald-700";
   }
@@ -95,6 +97,7 @@ function statusPillClass(status: string) {
 export default function MasterSubscriptionCard({
   blogid,
   initial,
+  storeUrl,
 }: Props) {
   const [plan, setPlan] = useState<SubscriptionPlan>(
     initial.plan === "premium" ? "premium" : "standard"
@@ -105,12 +108,8 @@ export default function MasterSubscriptionCard({
   const [status, setStatus] = useState<SubscriptionStatus>(
     (initial.status as SubscriptionStatus) || "inactive"
   );
-  const [amount, setAmount] = useState<string>(
-    String(initial.amount ?? "")
-  );
-  const [paymentMode, setPaymentMode] = useState(
-    initial.payment_mode || "UPI"
-  );
+  const [amount, setAmount] = useState<string>(String(initial.amount ?? ""));
+  const [paymentMode, setPaymentMode] = useState(initial.payment_mode || "UPI");
   const [paymentReference, setPaymentReference] = useState(
     initial.payment_reference || ""
   );
@@ -128,8 +127,8 @@ export default function MasterSubscriptionCard({
   const suggestedAmount = useMemo(() => {
     if (plan === "standard" && period === "monthly") return 625;
     if (plan === "standard" && period === "yearly") return 7500;
-    if (plan === "premium" && period === "monthly") return 999;
-    return 12000;
+    if (plan === "premium" && period === "monthly") return 750;
+    return 9000;
   }, [plan, period]);
 
   function applySuggestedAmount() {
@@ -156,30 +155,32 @@ export default function MasterSubscriptionCard({
     setMsg(null);
 
     try {
+      if (!storeUrl) {
+        throw new Error("storeUrl missing");
+      }
+
       const payload = {
-        subscription: {
-          plan,
-          period,
-          status,
-          amount: amount ? Number(amount) : 0,
-          payment_mode: paymentMode,
-          payment_reference: paymentReference,
-          last_paid_date: lastPaidDate,
-          next_payment_date: nextPaymentDate,
-          // keep backward-compatible fields too
-          last_billed_at: lastPaidDate,
-          next_renewal_at: nextPaymentDate,
-        },
+        status,
+        plan,
+        period,
+        billing_cycle: period,
+        amount: amount ? Number(amount) : 0,
+        payment_mode: paymentMode,
+        payment_reference: paymentReference,
+        last_paid_date: lastPaidDate,
+        next_payment_date: nextPaymentDate,
+        storeUrl,
       };
 
-      const res = await fetch(`/api/master/vendors/${blogid}/subscription`, {
-        method: "PUT",
+      const res = await fetch(`/api/master/vendors/${blogid}/subscription/review`, {
+        method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
 
+      const j = await res.json().catch(() => ({}));
+
       if (!res.ok) {
-        const j = await res.json().catch(() => ({}));
         throw new Error(j?.error || "Failed to save subscription");
       }
 

@@ -1,41 +1,71 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 
-const MASTER_WP_URL = process.env.MASTER_WP_URL!;
-const MASTER_API_KEY = process.env.MASTER_API_KEY!;
+const LETZ_INTERNAL_TOKEN = process.env.LETZ_INTERNAL_TOKEN!;
 
-export async function PUT(
-  req: Request,
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
+function normalizeStoreUrl(raw: string | null) {
+  if (!raw) return "";
+  return raw.trim().replace(/\/$/, "");
+}
+
+export async function GET(
+  req: NextRequest,
   { params }: { params: Promise<{ blogid: string }> }
 ) {
   try {
-    const { blogid } = await params;
-    const body = await req.text();
+    await params;
 
-    const res = await fetch(
-      `${MASTER_WP_URL.replace(/\/$/, "")}/wp-json/letz/v1/master-vendors/${blogid}`,
-      {
-        method: "PUT",
-        cache: "no-store",
-        headers: {
-          Authorization: `Bearer ${MASTER_API_KEY}`,
-          "X-Letz-Master-Key": MASTER_API_KEY,
-          "Content-Type": "application/json",
-        },
-        body,
-      }
-    );
+    if (!LETZ_INTERNAL_TOKEN) {
+      return NextResponse.json(
+        { ok: false, error: "LETZ_INTERNAL_TOKEN missing" },
+        { status: 500 }
+      );
+    }
 
-    const text = await res.text();
+    const storeUrl = normalizeStoreUrl(req.nextUrl.searchParams.get("storeUrl"));
+    if (!storeUrl) {
+      return NextResponse.json(
+        { ok: false, error: "storeUrl is required" },
+        { status: 400 }
+      );
+    }
 
-    return new NextResponse(text, {
-      status: res.status,
+    const wpRes = await fetch(`${storeUrl}/wp-json/letz/v1/subscription?_ts=${Date.now()}`, {
+      method: "GET",
       headers: {
-        "content-type": "application/json",
+        "x-letz-auth": LETZ_INTERNAL_TOKEN,
+      },
+      cache: "no-store",
+    });
+
+    const text = await wpRes.text();
+    let json: any = null;
+    try {
+      json = JSON.parse(text);
+    } catch {}
+
+    if (!wpRes.ok) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: "Failed to fetch tenant subscription",
+          details: json || text,
+        },
+        { status: wpRes.status || 500 }
+      );
+    }
+
+    return NextResponse.json(json, {
+      status: 200,
+      headers: {
+        "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
       },
     });
-  } catch (error: any) {
+  } catch (e: any) {
     return NextResponse.json(
-      { error: error?.message || "Failed to update subscription" },
+      { ok: false, error: e?.message || "Failed to load vendor subscription" },
       { status: 500 }
     );
   }
