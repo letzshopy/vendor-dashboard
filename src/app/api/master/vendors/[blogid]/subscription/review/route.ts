@@ -57,7 +57,7 @@ export async function POST(
       next_renewal_at: body?.next_payment_date,
     };
 
-    const reviewRes = await fetch(`${storeUrl}/wp-json/letz/v1/subscription/review`, {
+    const reviewRes = await fetch(`${storeUrl}/wp-json/letz/v1/subscription`, {
       method: "PUT",
       headers: {
         "x-letz-auth": LETZ_INTERNAL_TOKEN,
