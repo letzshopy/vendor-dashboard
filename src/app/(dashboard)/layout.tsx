@@ -7,6 +7,7 @@ import Sidebar from "@/components/Sidebar";
 import WhatsappFab from "@/components/WhatsappFab";
 import LockedDashboardRedirect from "@/components/LockedDashboardRedirect";
 import Footer from "@/components/layout/Footer";
+import VendorAgreementGate from "@/components/VendorAgreementGate";
 import {
   SubscriptionProvider,
   type DashboardSubscription,
@@ -39,13 +40,16 @@ async function getDashboardLockedFromMaster(): Promise<boolean> {
 
     if (!base || !key) return false;
 
-    const res = await fetch(`${base}/wp-json/letz/v1/master-vendors/${blogId}`, {
-      headers: {
-        Authorization: `Bearer ${key}`,
-        "X-Letz-Master-Key": key,
-      },
-      cache: "no-store",
-    });
+    const res = await fetch(
+      `${base}/wp-json/letz/v1/master-vendors/${blogId}`,
+      {
+        headers: {
+          Authorization: `Bearer ${key}`,
+          "X-Letz-Master-Key": key,
+        },
+        cache: "no-store",
+      }
+    );
 
     const text = await res.text();
     let json: any = {};
@@ -115,6 +119,7 @@ async function getVendorAgreementAccepted(): Promise<boolean> {
     return false;
   }
 }
+
 export default async function DashboardLayout({
   children,
 }: {
@@ -131,12 +136,12 @@ export default async function DashboardLayout({
   const [locked, subscription, agreementAccepted] = await Promise.all([
     getDashboardLockedFromMaster(),
     getDashboardSubscription(),
-    role === "store_owner" ? getVendorAgreementAccepted() : Promise.resolve(true),
+    role === "store_owner"
+      ? getVendorAgreementAccepted()
+      : Promise.resolve(true),
   ]);
 
-  if (role === "store_owner" && !agreementAccepted) {
-    redirect("/vendor-agreement/accept");
-  }
+  const showAgreementGate = role === "store_owner" && !agreementAccepted;
 
   return (
     <Suspense
@@ -155,17 +160,20 @@ export default async function DashboardLayout({
 
             {locked && (
               <div className="border-b border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-                Your dashboard is currently locked by LetzShopy. Please complete the required steps in the Settings section.
+                Your dashboard is currently locked by LetzShopy. Please
+                complete the required steps in the Settings section.
               </div>
             )}
 
             <div className="flex flex-1">
               <Sidebar locked={locked} />
 
-              <main className="min-w-0 flex-1">
+              <main className="relative min-w-0 flex-1">
                 <div className="mx-auto flex max-w-6xl flex-col gap-6 px-4 py-6">
                   {children}
                 </div>
+
+                {showAgreementGate && <VendorAgreementGate />}
               </main>
             </div>
 
