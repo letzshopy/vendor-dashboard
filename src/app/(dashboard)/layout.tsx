@@ -110,6 +110,11 @@ async function getVendorAgreementAccepted(): Promise<boolean> {
     if (!res.ok) return false;
 
     const data = await res.json();
+
+    if (!data || typeof data !== "object" || !("legal" in data)) {
+      return true;
+    }
+
     return !!data?.legal?.vendorAgreementAccepted;
   } catch {
     return false;
