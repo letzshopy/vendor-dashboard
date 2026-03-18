@@ -95,7 +95,29 @@ async function getDashboardSubscription(): Promise<DashboardSubscription | null>
 }
 
 async function getVendorAgreementAccepted(): Promise<boolean> {
-  return false;
+  try {
+    const cookieStore = await cookies();
+    const token = cookieStore.get(COOKIE_NAME)?.value;
+
+    if (!token) return false;
+
+    const base = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "");
+    if (!base) return false;
+
+    const res = await fetch(`${base}/api/account/agreement-status`, {
+      cache: "no-store",
+      headers: {
+        Cookie: cookieStore.toString(),
+      },
+    });
+
+    if (!res.ok) return false;
+
+    const data = await res.json();
+    return !!data?.legal?.vendorAgreementAccepted;
+  } catch {
+    return false;
+  }
 }
 
 export default async function DashboardLayout({
