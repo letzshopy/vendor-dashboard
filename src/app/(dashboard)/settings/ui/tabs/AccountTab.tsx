@@ -1,7 +1,7 @@
-// src/app/settings/ui/tabs/AccountTab.tsx
 "use client";
 
 import { useEffect, useState } from "react";
+import { Eye, EyeOff } from "lucide-react";
 import type { AccountSettings } from "@/types/account";
 
 const emptySettings: AccountSettings = {
@@ -15,7 +15,7 @@ const emptySettings: AccountSettings = {
     contact_email: "",
     contact_mobile: "",
   },
-    security: {
+  security: {
     login_email: "",
   },
 };
@@ -33,6 +33,10 @@ export default function AccountTab() {
   const [pwSaving, setPwSaving] = useState(false);
   const [pwMsg, setPwMsg] = useState<string | null>(null);
   const [pwError, setPwError] = useState<string | null>(null);
+
+  // password visibility
+  const [showPwNew, setShowPwNew] = useState(false);
+  const [showPwConfirm, setShowPwConfirm] = useState(false);
 
   // Load from /api/account/settings
   useEffect(() => {
@@ -91,8 +95,6 @@ export default function AccountTab() {
     setSavedMsg(null);
 
     try {
-      // Save only account/contact/security.
-      
       const payload: AccountSettings = {
         ...settings,
       };
@@ -151,6 +153,8 @@ export default function AccountTab() {
       setPwMsg("Password updated.");
       setPwNew("");
       setPwConfirm("");
+      setShowPwNew(false);
+      setShowPwConfirm(false);
     } catch (e: any) {
       console.error(e);
       setPwError(e?.message || "Failed to update password.");
@@ -163,7 +167,6 @@ export default function AccountTab() {
 
   return (
     <div className="max-w-4xl space-y-6">
-      {/* Header */}
       <header className="space-y-2">
         <div className="flex items-center justify-between gap-3">
           <div>
@@ -202,7 +205,6 @@ export default function AccountTab() {
         </div>
       ) : (
         <>
-          {/* Account overview */}
           <section className="space-y-4 rounded-2xl border border-slate-200 bg-white/80 p-4 shadow-sm">
             <div className="space-y-1">
               <h3 className="text-sm font-semibold text-slate-900">
@@ -320,7 +322,6 @@ export default function AccountTab() {
             </div>
           </section>
 
-          {/* Access & security */}
           <section className="mb-6 space-y-4 rounded-2xl border border-slate-200 bg-white/80 p-4 shadow-sm">
             <div className="space-y-1">
               <h3 className="text-sm font-semibold text-slate-900">
@@ -367,24 +368,44 @@ export default function AccountTab() {
                   <label className="mb-1 block text-[11px] font-medium text-slate-600">
                     New password
                   </label>
-                  <input
-                    type="password"
-                    className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-800 focus:bg-white"
-                    value={pwNew}
-                    onChange={(e) => setPwNew(e.target.value)}
-                  />
+                  <div className="relative">
+                    <input
+                      type={showPwNew ? "text" : "password"}
+                      className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 pr-10 text-xs text-slate-800 focus:bg-white"
+                      value={pwNew}
+                      onChange={(e) => setPwNew(e.target.value)}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPwNew((prev) => !prev)}
+                      className="absolute inset-y-0 right-0 flex items-center px-3 text-slate-500 hover:text-slate-700"
+                      aria-label={showPwNew ? "Hide password" : "Show password"}
+                    >
+                      {showPwNew ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
+                  </div>
                 </div>
 
                 <div>
                   <label className="mb-1 block text-[11px] font-medium text-slate-600">
                     Confirm new password
                   </label>
-                  <input
-                    type="password"
-                    className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-800 focus:bg-white"
-                    value={pwConfirm}
-                    onChange={(e) => setPwConfirm(e.target.value)}
-                  />
+                  <div className="relative">
+                    <input
+                      type={showPwConfirm ? "text" : "password"}
+                      className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 pr-10 text-xs text-slate-800 focus:bg-white"
+                      value={pwConfirm}
+                      onChange={(e) => setPwConfirm(e.target.value)}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPwConfirm((prev) => !prev)}
+                      className="absolute inset-y-0 right-0 flex items-center px-3 text-slate-500 hover:text-slate-700"
+                      aria-label={showPwConfirm ? "Hide password" : "Show password"}
+                    >
+                      {showPwConfirm ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
+                  </div>
                 </div>
               </div>
 

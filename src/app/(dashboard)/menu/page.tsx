@@ -265,7 +265,7 @@ export default function MenuLayoutPage() {
       const id = menuMap[def.label];
       if (!id) {
         setItems([]);
-        notify(`Couldn't load “${def.label}” (menu ID not found in WordPress).`);
+        notify(`Couldn't load “${def.label}” (menu ID not found).`);
         return;
       }
       url = `/api/menu/sync?menu_id=${id}`;
@@ -280,7 +280,7 @@ export default function MenuLayoutPage() {
         if (typeof window !== "undefined") {
           localStorage.setItem(STORAGE_KEY(def.key), JSON.stringify(list));
         }
-        notify(`Loaded “${def.label}” from WordPress.`);
+        notify(`Loaded “${def.label}”.`);
       } else {
         const raw =
           typeof window !== "undefined"
@@ -300,7 +300,7 @@ export default function MenuLayoutPage() {
       setItems(raw ? JSON.parse(raw) : []);
       notify(
         e?.message ||
-          `Couldn't reach WordPress. Showing last saved copy from this dashboard.`
+          `Couldn't reach the saved data. Showing last saved copy from this dashboard.`
       );
     }
   }
@@ -345,7 +345,7 @@ export default function MenuLayoutPage() {
       } else {
         const id = menuMap[def.label];
         if (!id) {
-          notify(`Cannot save — missing WordPress menu ID for “${def.label}”.`);
+          notify(`Cannot save — missing menu ID for “${def.label}”.`);
           setSyncing(false);
           return;
         }
@@ -360,7 +360,7 @@ export default function MenuLayoutPage() {
 
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error || "Sync failed");
-      ok("Menu saved to WordPress.");
+      ok("Menu saved.");
     } catch (e: any) {
       notify(e?.message || "Failed to save menu");
     } finally {

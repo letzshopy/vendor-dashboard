@@ -37,6 +37,9 @@ type AccountSettingsResponse = {
   overview?: {
     store_url?: string;
   };
+  security?: {
+    login_email?: string;
+  };
 };
 
 type NotificationItem = {
@@ -77,7 +80,7 @@ function statusLabel(status: SubscriptionStatus): string {
     case "inactive":
       return "Inactive";
     case "trial":
-      return "Trial";  
+      return "Trial";
     case "pending_payment":
       return "Pending Payment";
     case "payment_submitted":
@@ -98,7 +101,7 @@ function statusDotClass(status: SubscriptionStatus): string {
     case "active":
       return "bg-emerald-400";
     case "trial":
-      return "bg-sky-400";  
+      return "bg-sky-400";
     case "pending_payment":
     case "payment_submitted":
       return "bg-amber-400";
@@ -115,7 +118,7 @@ function statusChipClass(status: SubscriptionStatus): string {
     case "active":
       return "bg-[#3b4a8d] text-indigo-100";
     case "trial":
-      return "bg-sky-500/15 text-sky-100";  
+      return "bg-sky-500/15 text-sky-100";
     case "pending_payment":
     case "payment_submitted":
       return "bg-amber-500/15 text-amber-100";
@@ -158,6 +161,7 @@ export default function Topbar({ onToggleSidebar }: TopbarProps) {
   const searchTimeoutRef = useRef<number | null>(null);
 
   const [storeUrl, setStoreUrl] = useState(FALLBACK_STORE_URL);
+  const [loginEmail, setLoginEmail] = useState("");
   const [statusLoading, setStatusLoading] = useState(true);
 
   useEffect(() => {
@@ -193,20 +197,24 @@ export default function Topbar({ onToggleSidebar }: TopbarProps) {
         });
 
         let storeUrlValue = FALLBACK_STORE_URL;
+        let loginEmailValue = "";
 
         if (accountRes.ok) {
           const accountData =
             (await accountRes.json()) as AccountSettingsResponse;
           storeUrlValue = accountData?.overview?.store_url || FALLBACK_STORE_URL;
+          loginEmailValue = accountData?.security?.login_email || "";
         }
 
         if (!cancelled) {
           setStoreUrl(storeUrlValue);
+          setLoginEmail(loginEmailValue);
         }
       } catch (e) {
         console.warn("Topbar account load failed:", e);
         if (!cancelled) {
           setStoreUrl(FALLBACK_STORE_URL);
+          setLoginEmail("");
         }
       } finally {
         if (!cancelled) setStatusLoading(false);
@@ -401,13 +409,21 @@ export default function Topbar({ onToggleSidebar }: TopbarProps) {
                 Live
               </span>
             </div>
-            <div className="mt-0.5 flex flex-wrap items-center gap-3 text-[11px] text-indigo-100/80">
+
+            <div className="mt-0.5 flex flex-col gap-0.5 text-[11px] text-indigo-100/80">
               <span className="truncate">
                 Store:{" "}
                 <span className="font-medium text-white">
                   {normalizedStore || "yourstore.letzshopy.in"}
                 </span>
               </span>
+
+              {loginEmail && (
+                <span className="truncate">
+                  Login:{" "}
+                  <span className="font-medium text-white">{loginEmail}</span>
+                </span>
+              )}
             </div>
           </div>
         </div>
@@ -618,13 +634,18 @@ export default function Topbar({ onToggleSidebar }: TopbarProps) {
                   <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-[#A05AFF] to-[#4BCBEB] text-xs font-bold text-white shadow-md shadow-[#e5d4ff]">
                     {initials}
                   </div>
-                  <div>
+                  <div className="min-w-0">
                     <div className="text-sm font-semibold text-slate-900">
                       Your Store
                     </div>
                     <div className="truncate text-[11px] text-slate-500">
                       {normalizedStore || "yourstore.letzshopy.in"}
                     </div>
+                    {loginEmail && (
+                      <div className="truncate text-[11px] text-slate-500">
+                        {loginEmail}
+                      </div>
+                    )}
                   </div>
                 </div>
 
