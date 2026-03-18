@@ -120,7 +120,7 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
 
   const [title, setTitle] = useState("");
   const [sku, setSku] = useState("");
-  const [status, setStatus] = useState<"draft" | "publish">("draft");
+  const [status, setStatus] = useState<"draft" | "publish">("publish");
   const [visibility, setVisibility] = useState<"visible" | "catalog" | "search" | "hidden">("visible");
   const [shortDesc, setShortDesc] = useState("");
   const [desc, setDesc] = useState("");

@@ -155,7 +155,7 @@ export default function ShipmentDetailsBulkTable({
             <span className="font-medium">Courier Name</span> for each order
             below. When you click{" "}
             <span className="font-medium">Save &amp; Mark Completed</span>, the
-            selected orders will be updated in WooCommerce and removed from this
+            selected orders will be updated and removed from this
             list.
           </p>
         </div>
@@ -308,7 +308,7 @@ export default function ShipmentDetailsBulkTable({
           <span className="font-medium text-slate-700">
             Save &amp; Mark Completed
           </span>
-          , those orders are marked <strong>Completed</strong> in WooCommerce
+          , those orders are marked <strong>Completed</strong> 
           and will disappear from this list.
         </p>
       </div>

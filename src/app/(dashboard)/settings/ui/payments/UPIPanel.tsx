@@ -160,7 +160,7 @@ export default function UPIPanel() {
               {...register("upi.qr_src")}
             />
             <p className="text-xs text-muted-foreground mt-1">
-              If you already uploaded QR to WordPress Media, paste its URL here.
+              If you already uploaded QR to  Media, paste its URL here.
             </p>
           </div>
           <div>
@@ -178,7 +178,7 @@ export default function UPIPanel() {
               onChange={handleQrUpload}
             />
             <p className="text-xs text-muted-foreground mt-1">
-              We&apos;ll upload to WordPress and fill the URL automatically.
+              We&apos;ll upload and fill the URL automatically.
             </p>
             {uploading && (
               <p className="text-xs text-muted-foreground mt-1">

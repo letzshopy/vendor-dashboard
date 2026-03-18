@@ -73,7 +73,7 @@ const faqs: FAQ[] = [
     category: "Orders & fulfilment",
     q: "Where can I see all my orders?",
     a: [
-      "Go to Sales → Orders in the vendor dashboard to see all orders pulled from your WooCommerce store.",
+      "Go to Sales → Orders in the vendor dashboard to see all orders pulled from your store.",
       "Use the status filter at the top (All, Pending, Processing, On-hold, Completed…) to focus on specific orders.",
       "You can search by order number, customer name, phone, email, SKU or product name.",
     ],
@@ -102,7 +102,7 @@ const faqs: FAQ[] = [
     a: [
       "On checkout, customers see your UPI payment number, UPI ID and optionally a QR code.",
       "They pay from their UPI app and enter the transaction number in the checkout form.",
-      "An order is created in WooCommerce with status On-hold and tagged with the customer’s transaction number.",
+      "An order is created in with status On-hold and tagged with the customer’s transaction number.",
       "You review the screenshot and transaction details, then mark the order Processing or Completed once payment is confirmed.",
     ],
   },
@@ -120,7 +120,7 @@ const faqs: FAQ[] = [
     category: "Shipping",
     q: "Does LetzShopy integrate with courier companies?",
     a: [
-      "At present, LetzShopy focuses on configuring shipping charges inside WooCommerce.",
+      "At present, LetzShopy focuses on configuring shipping charges inside.",
       "You create and manage shipments with your own courier or aggregator dashboard (such as Shift or others).",
       "Deeper multi-vendor shipping integrations are planned for future phases of the platform.",
     ],

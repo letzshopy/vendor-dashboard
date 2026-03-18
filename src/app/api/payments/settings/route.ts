@@ -33,7 +33,7 @@ async function setOption(_name: string, value: any) {
   if (!res.ok) {
     const txt = await res.text().catch(() => "");
     console.error("Failed to save payments settings via WP:", txt);
-    throw new Error("Could not persist payments settings in WordPress");
+    throw new Error("Could not persist payments settings");
   }
 }
 

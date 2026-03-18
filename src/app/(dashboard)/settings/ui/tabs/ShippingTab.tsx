@@ -724,7 +724,7 @@ export default function ShippingTab() {
         </h3>
         <p className="text-xs text-slate-500">
           Configure free shipping and weight-based charges by zone and
-          category. These settings are synced to your WooCommerce store.
+          category. These settings are synced to your store.
         </p>
       </header>
 

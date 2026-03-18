@@ -174,7 +174,7 @@ export default function GeneralTab() {
 
       const msg = sync
         ? j.synced
-          ? "Saved & synced to WooCommerce store."
+          ? "Saved & synced to store."
           : "Saved, but sync to store failed."
         : "General settings saved successfully.";
 
@@ -280,7 +280,7 @@ export default function GeneralTab() {
           <div>
             <h4 className="text-sm font-semibold text-slate-900">Measurements</h4>
             <p className="text-[11px] text-slate-500">
-              Used for shipping weights and product dimensions in WooCommerce.
+              Used for shipping weights and product dimensions.
             </p>
           </div>
 
@@ -477,7 +477,7 @@ export default function GeneralTab() {
             <textarea
               className={textareaClass + " whitespace-pre-wrap"}
               rows={3}
-              placeholder={`e.g.\nMosin Boutique\nNo. 12, ABC Street,\nBangalore - 5600xx\nMobile: 9xxxxxxxxx`}
+              placeholder={`Your address`}
               value={p.packslipReturnAddress}
               onChange={(e) =>
                 setField("packslipReturnAddress", e.target.value)
@@ -507,7 +507,7 @@ export default function GeneralTab() {
             disabled={syncing}
             onClick={() => save(true)}
             className={secondaryBtnClass}
-            title="Save and push these settings to your WooCommerce store"
+            title="Save and push these settings to your store"
           >
             {syncing ? "Saving & syncing…" : "Save & Sync to Store"}
           </button>

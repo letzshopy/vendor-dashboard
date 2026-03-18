@@ -22,7 +22,7 @@ const SECTIONS: KBSection[] = [
         points: [
           "A single place to manage your products, orders, shipping, payments and basic store settings.",
           
-          "Use the dashboard for day-to-day work; login to WordPress only when the LetzShopy team asks you to.",
+          "Use the dashboard for day-to-day work. ",
         ],
       },
       {

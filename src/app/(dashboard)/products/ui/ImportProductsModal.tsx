@@ -70,7 +70,7 @@ export default function ImportProductsModal({
               Import products from CSV
             </h3>
             <p className="text-xs text-slate-500">
-              Upload a WooCommerce-compatible CSV file to create or update
+              Upload a compatible CSV file to create or update
               products.
             </p>
           </div>

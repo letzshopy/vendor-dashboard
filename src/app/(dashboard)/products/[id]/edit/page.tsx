@@ -130,7 +130,7 @@ export default function EditProductPage({
 
   const [title, setTitle] = useState("");
   const [sku, setSku] = useState("");
-  const [status, setStatus] = useState<"draft" | "publish">("draft");
+  const [status, setStatus] = useState<"draft" | "publish">("publish");
   const [visibility, setVisibility] = useState<
     "visible" | "catalog" | "search" | "hidden"
   >("visible");
@@ -150,7 +150,7 @@ export default function EditProductPage({
 
   const [taxStatus, setTaxStatus] = useState<
     "taxable" | "shipping" | "none"
-  >("taxable");
+  >("none");
   const [taxClass, setTaxClass] = useState("");
 
   const [weight, setWeight] = useState("");

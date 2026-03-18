@@ -80,7 +80,7 @@ export default function ExportProductsModal({
               Export products to CSV
             </h3>
             <p className="text-xs text-slate-500">
-              Choose filters and columns, then download a WooCommerce-compatible
+              Choose filters and columns, then download a compatible
               CSV.
             </p>
           </div>

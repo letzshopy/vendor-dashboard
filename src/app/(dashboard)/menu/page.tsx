@@ -605,7 +605,7 @@ export default function MenuLayoutPage() {
             className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 shadow-sm hover:border-violet-300 hover:bg-violet-50"
             onClick={() => loadMenu(currentDef)}
           >
-            Reload from WordPress
+            Reload your menu
           </button>
         </div>
       </div>
@@ -730,7 +730,7 @@ export default function MenuLayoutPage() {
             </div>
             <p className="mb-3 text-xs text-slate-500">
               Use the arrow controls to reorder and nest items. This keeps the
-              structure 100% in sync with WordPress.
+              structure 100%.
             </p>
 
             {items.length === 0 && (
@@ -802,8 +802,7 @@ export default function MenuLayoutPage() {
                 {syncing ? "Saving…" : "Save"}
               </button>
               <p className="text-xs text-slate-500">
-                Saving will update the corresponding WordPress menu and theme
-                location.
+                Saving ...
               </p>
             </div>
           </div>

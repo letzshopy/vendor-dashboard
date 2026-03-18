@@ -151,8 +151,7 @@ function QuickSeed({ onDone }: { onDone: () => void }) {
             Quick setup
           </div>
           <p className="mt-1 text-xs text-slate-600">
-            One-click to ensure <b>Color</b> and <b>Size</b> attributes exist in
-            WooCommerce. Safe to run even if they already exist.
+            One-click to ensure <b>Color</b> and <b>Size</b> attributes. Safe to run even if they already exist.
           </p>
         </div>
         <button

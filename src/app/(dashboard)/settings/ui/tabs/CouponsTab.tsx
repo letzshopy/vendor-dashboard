@@ -235,7 +235,7 @@ export default function CouponsTab() {
           <h2 className="text-xl font-semibold text-slate-900">Coupons</h2>
           <p className="text-[11px] text-slate-500">
             Create simple discount codes for your store. These are standard
-            WooCommerce coupons and apply directly at checkout.
+            coupons and apply directly at checkout.
           </p>
         </div>
         <button

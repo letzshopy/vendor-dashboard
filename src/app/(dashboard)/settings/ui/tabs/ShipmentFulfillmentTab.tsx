@@ -211,7 +211,7 @@ export default function ShipmentFulfillmentTab() {
                   value={data.pickup.name}
                   disabled={disabled}
                   onChange={(e) => onChangePickup("name", e.target.value)}
-                  placeholder="e.g. Mosin Boutique"
+                  placeholder="Your Name"
                 />
               </div>
 

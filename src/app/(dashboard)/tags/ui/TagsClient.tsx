@@ -109,7 +109,7 @@ export default function TagsClient({ initial }: { initial: Tag[] }) {
         </h2>
         <p className="mb-4 text-xs text-slate-500">
           Keep tag names short and descriptive. Slugs are generated
-          automatically in WordPress.
+          automatically.
         </p>
 
         <form onSubmit={createTag} className="space-y-3">

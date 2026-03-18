@@ -352,7 +352,7 @@ export default function AccountTab() {
                   }
                 />
                 <p className="mt-1 text-[10px] text-slate-500">
-                  This will be kept in sync with your WordPress user email on
+                  This will be kept in sync with your user email on
                   the server.
                 </p>
               </div>

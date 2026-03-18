@@ -63,8 +63,7 @@ export default async function ShipmentDetailsPage() {
               <span className="font-medium">Tracking Number</span> and{" "}
               <span className="font-medium">Courier Name</span>, then save to
               mark them as{" "}
-              <span className="font-medium text-emerald-700">Completed</span> in
-              WooCommerce.
+              <span className="font-medium text-emerald-700">Completed</span> .
             </p>
           </div>
 

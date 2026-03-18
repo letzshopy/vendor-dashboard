@@ -402,7 +402,7 @@ export default function TaxTab() {
               ))}
             </select>
             <p className="mt-1 text-[11px] text-slate-500">
-              This also updates WooCommerce base location to{" "}
+              This also updates base location to{" "}
               <span className="font-mono text-[10px]">IN:{st.store_state}</span>.
             </p>
           </div>
@@ -491,7 +491,7 @@ export default function TaxTab() {
               <option value={18}>18%</option>
             </select>
             <p className="mt-1 text-[11px] text-slate-500">
-              We push this to the WooCommerce “Standard rate” table automatically.
+              We push this to the “Standard rate” table automatically.
             </p>
           </div>
         </div>

@@ -285,7 +285,7 @@ export default function CreateOrderPage() {
         <div>
           <h1 className="text-2xl font-semibold">Create Manual Order</h1>
           <p className="text-sm text-gray-500 mt-1">
-            Create a WooCommerce order from the dashboard.
+            Create a new order from the dashboard.
           </p>
         </div>
 
