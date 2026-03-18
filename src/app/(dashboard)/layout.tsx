@@ -100,7 +100,7 @@ async function getVendorAgreementAccepted(): Promise<boolean> {
     const base = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "");
     if (!base) return false;
 
-    const res = await fetch(`${base}/api/account/settings`, {
+    const res = await fetch(`${base}/api/account/agreement-status`, {
       cache: "no-store",
       headers: {
         Cookie: cookieStore.toString(),
@@ -110,17 +110,11 @@ async function getVendorAgreementAccepted(): Promise<boolean> {
     if (!res.ok) return false;
 
     const data = await res.json();
-
-    if (!data || typeof data !== "object" || !("legal" in data)) {
-      return true;
-    }
-
     return !!data?.legal?.vendorAgreementAccepted;
   } catch {
     return false;
   }
 }
-
 export default async function DashboardLayout({
   children,
 }: {
