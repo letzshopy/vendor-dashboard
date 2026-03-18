@@ -13,6 +13,7 @@ import {
   ShoppingBag,
   CreditCard,
   CheckCircle2,
+  Store,
 } from "lucide-react";
 import { useDashboardSubscription } from "@/components/subscription/SubscriptionContext";
 
@@ -71,7 +72,6 @@ function deriveStatus(raw: string | undefined): SubscriptionStatus {
   if (v === "active") return "active";
   if (v === "suspended") return "suspended";
   if (v === "expired") return "expired";
-
   return "inactive";
 }
 
@@ -156,7 +156,8 @@ export default function Topbar({ onToggleSidebar }: TopbarProps) {
 
   const accountRef = useRef<HTMLDivElement | null>(null);
   const notifRef = useRef<HTMLDivElement | null>(null);
-  const searchWrapperRef = useRef<HTMLDivElement | null>(null);
+  const desktopSearchRef = useRef<HTMLDivElement | null>(null);
+  const mobileSearchRef = useRef<HTMLDivElement | null>(null);
   const searchAbortRef = useRef<AbortController | null>(null);
   const searchTimeoutRef = useRef<number | null>(null);
 
@@ -171,16 +172,22 @@ export default function Topbar({ onToggleSidebar }: TopbarProps) {
       if (accountRef.current && !accountRef.current.contains(target)) {
         setAccountOpen(false);
       }
+
       if (notifRef.current && !notifRef.current.contains(target)) {
         setNotificationsOpen(false);
       }
-      if (
-        searchWrapperRef.current &&
-        !searchWrapperRef.current.contains(target)
-      ) {
+
+      const clickedInsideDesktopSearch =
+        desktopSearchRef.current && desktopSearchRef.current.contains(target);
+
+      const clickedInsideMobileSearch =
+        mobileSearchRef.current && mobileSearchRef.current.contains(target);
+
+      if (!clickedInsideDesktopSearch && !clickedInsideMobileSearch) {
         setShowSearchDropdown(false);
       }
     }
+
     document.addEventListener("click", onDocClick);
     return () => document.removeEventListener("click", onDocClick);
   }, []);
@@ -236,7 +243,6 @@ export default function Topbar({ onToggleSidebar }: TopbarProps) {
         const res = await fetch("/api/notifications", { cache: "no-store" });
 
         if (!res.ok) {
-          console.warn("Notifications fetch failed:", res.status);
           if (!cancelled) {
             setNotifications([]);
             setUnreadCount(0);
@@ -266,25 +272,12 @@ export default function Topbar({ onToggleSidebar }: TopbarProps) {
 
     loadNotifications();
     const timer = setInterval(loadNotifications, 60_000);
+
     return () => {
       cancelled = true;
       clearInterval(timer);
     };
   }, []);
-
-  function markAllNotificationsRead() {
-    setUnreadCount(0);
-  }
-
-  function toggleNotifications() {
-    setNotificationsOpen((prev) => {
-      const next = !prev;
-      if (next) {
-        setUnreadCount(0);
-      }
-      return next;
-    });
-  }
 
   useEffect(() => {
     if (!search || search.trim().length < 2) {
@@ -304,20 +297,25 @@ export default function Topbar({ onToggleSidebar }: TopbarProps) {
     searchAbortRef.current = controller;
 
     if (searchTimeoutRef.current) window.clearTimeout(searchTimeoutRef.current);
+
     const timeout = window.setTimeout(async () => {
       try {
         const params = new URLSearchParams({
           scope: searchScope,
           q: search.trim(),
         });
+
         const res = await fetch(`/api/search?${params.toString()}`, {
           signal: controller.signal,
         });
+
         if (!res.ok) throw new Error("Search failed");
+
         const json = await res.json();
         const items: SearchResult[] = Array.isArray(json?.items)
           ? json.items
           : [];
+
         setSearchResults(items);
       } catch (e) {
         if (controller.signal.aborted) return;
@@ -336,194 +334,215 @@ export default function Topbar({ onToggleSidebar }: TopbarProps) {
     };
   }, [search, searchScope]);
 
-  function handleSearchSubmit(e: React.FormEvent) {
-  e.preventDefault();
-
-  const q = search.trim();
-  if (!q) return;
-
-  let url = "/products";
-
-  if (searchScope === "orders") {
-    url = `/orders?search=${encodeURIComponent(q)}`;
-  } else if (searchScope === "customers") {
-    url = `/customers?search=${encodeURIComponent(q)}`;
-  } else {
-    url = `/products?search=${encodeURIComponent(q)}`;
+  function markAllNotificationsRead() {
+    setUnreadCount(0);
   }
 
-  setShowSearchDropdown(false);
-  window.location.href = url;
-}
+  function toggleNotifications() {
+    setNotificationsOpen((prev) => {
+      const next = !prev;
+      if (next) {
+        setUnreadCount(0);
+      }
+      return next;
+    });
+  }
+
+  function goToSearch() {
+    const q = search.trim();
+    if (!q) return;
+
+    let url = "/products";
+
+    if (searchScope === "orders") {
+      url = `/orders?search=${encodeURIComponent(q)}`;
+    } else if (searchScope === "customers") {
+      url = `/customers?search=${encodeURIComponent(q)}`;
+    } else {
+      url = `/products?search=${encodeURIComponent(q)}`;
+    }
+
+    setShowSearchDropdown(false);
+    window.location.href = url;
+  }
+
+  function handleSearchSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    goToSearch();
+  }
 
   const normalizedStore = storeUrl.replace(/^https?:\/\//, "");
   const initials = storeInitials(normalizedStore);
-
   const subStatus = deriveStatus(subscription?.status);
 
-  const subscriptionChip =
-    !statusLoading && (
-      <span
-        className={`hidden items-center gap-1 rounded-full px-3 py-1 text-[11px] font-medium md:inline-flex ${statusChipClass(
-          subStatus
-        )}`}
-      >
-        <span
-          className={`inline-block h-1.5 w-1.5 rounded-full ${statusDotClass(
-            subStatus
-          )}`}
-        />
-        Subscription: {statusLabel(subStatus)}
-      </span>
-    );
+  const searchDropdown = showSearchDropdown && (
+    <div className="absolute left-0 right-0 top-full z-40 mt-2 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl shadow-slate-200">
+      <div className="border-b border-slate-100 px-3 py-2 text-[11px] font-medium uppercase tracking-wide text-slate-500">
+        {searchScope === "products"
+          ? "Products"
+          : searchScope === "orders"
+          ? "Orders"
+          : "Customers"}{" "}
+        matching “{search.trim()}”
+      </div>
+
+      {searchResults.length > 0 ? (
+        <ul className="max-h-72 overflow-y-auto text-sm">
+          {searchResults.map((item) => (
+            <li key={item.id}>
+              <button
+                type="button"
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  window.location.href = item.url;
+                }}
+                className="flex w-full flex-col items-start gap-0.5 px-3 py-3 text-left hover:bg-violet-50"
+              >
+                <span className="text-[13px] font-medium text-slate-900">
+                  {item.label}
+                </span>
+                {item.subLabel && (
+                  <span className="text-[11px] text-slate-500">
+                    {item.subLabel}
+                  </span>
+                )}
+              </button>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        !isSearching && (
+          <div className="px-3 py-4 text-xs text-slate-500">No matching results.</div>
+        )
+      )}
+    </div>
+  );
 
   return (
-    <header className="sticky top-0 z-40 w-full bg-[#27346D] shadow-sm shadow-black/20">
-      <div className="flex h-16 items-center justify-between gap-4 px-2 md:h-20 md:px-4">
-        <div className="flex min-w-0 items-center gap-3 md:gap-4">
-          <button
-            type="button"
-            onClick={onToggleSidebar}
-            className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-white/10 text-indigo-50 shadow-sm shadow-[#141936] md:hidden"
-          >
-            <Menu className="h-4 w-4" />
-          </button>
-
-          <div className="flex items-center">
-            <div className="flex items-center justify-center rounded-full bg-white/95 px-3 py-1.5 shadow-md shadow-black/30">
-              <div className="relative h-8 w-[10.5rem] md:h-10 md:w-[10.5rem] lg:h-12 lg:w-[12.5rem]">
-                {BRAND_LOGO_URL ? (
-                  <Image
-                    src={BRAND_LOGO_URL}
-                    alt="LetzShopy"
-                    fill
-                    className="object-contain"
-                    priority
-                  />
-                ) : (
-                  <div className="flex h-full w-full items-center justify-center text-lg font-semibold text-[#1b2a8f]">
-                    LetzShopy
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-
-          <div className="hidden min-w-0 flex-col leading-tight lg:flex">
-            <div className="flex items-center gap-2">
-              <span className="truncate text-sm font-semibold text-white">
-                Admin Dashboard
-              </span>
-              <span className="inline-flex items-center gap-1 rounded-full bg-[#FDE9FF]/10 px-2 py-0.5 text-[11px] font-medium text-[#FFE1F5]">
-                <Sparkles className="h-3 w-3 text-[#FFE1F5]" />
-                Live
-              </span>
-            </div>
-
-            <div className="mt-0.5 flex flex-col gap-0.5 text-[11px] text-indigo-100/80">
-              <span className="truncate">
-                Store:{" "}
-                <span className="font-medium text-white">
-                  {normalizedStore || "yourstore.letzshopy.in"}
-                </span>
-              </span>
-
-              {loginEmail && (
-                <span className="truncate">
-                  Login:{" "}
-                  <span className="font-medium text-white">{loginEmail}</span>
-                </span>
-              )}
-            </div>
-          </div>
-        </div>
-
-        <div
-          className="relative hidden max-w-xl flex-1 items-center md:flex"
-          ref={searchWrapperRef}
-        >
-          <form
-            onSubmit={handleSearchSubmit}
-            className={`flex w-full items-center rounded-full border border-[#d1cdfc] ${SURFACE_CLASS} px-2 py-1.5 text-xs text-slate-600 shadow-sm focus-within:border-[#A05AFF] focus-within:ring-1 focus-within:ring-[#A05AFF]/40`}
-          >
-            <select
-              value={searchScope}
-              onChange={(e) => setSearchScope(e.target.value as SearchScope)}
-              className="mr-2 inline-flex h-8 items-center rounded-full border border-[#d1cdfc] bg-white px-3 text-xs font-medium text-slate-700 shadow-sm focus:outline-none"
+    <header className="sticky top-0 z-40 w-full border-b border-white/10 bg-[#27346D]/95 shadow-sm shadow-black/20 backdrop-blur">
+      <div className="mx-auto w-full max-w-[1600px]">
+        <div className="flex min-h-[72px] items-center justify-between gap-2 px-3 sm:px-4 md:px-6 xl:px-8">
+          <div className="flex min-w-0 items-center gap-2 sm:gap-3 md:gap-4">
+            <button
+              type="button"
+              onClick={onToggleSidebar}
+              className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/10 text-indigo-50 shadow-sm shadow-[#141936] md:hidden"
             >
-              <option value="products">Products</option>
-              <option value="orders">Orders</option>
-              <option value="customers">Customers</option>
-            </select>
+              <Menu className="h-5 w-5" />
+            </button>
 
-            <SearchIcon className="mr-2 h-4 w-4 text-[#7B3EF3]" />
-            <input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search in your store (orders, products, customers)…"
-              className="h-7 flex-1 bg-transparent text-xs text-slate-700 placeholder:text-slate-400 focus:outline-none"
-            />
-            {isSearching && (
-              <Loader2 className="ml-2 h-4 w-4 animate-spin text-[#7B3EF3]" />
-            )}
-          </form>
-
-          {showSearchDropdown && searchResults.length > 0 && (
-            <div className="absolute left-1/2 top-full z-30 mt-2 w-full max-w-xl -translate-x-1/2 rounded-2xl border border-slate-100 bg-white/95 shadow-lg shadow-slate-200">
-              <div className="border-b border-slate-100 px-3 py-2 text-[11px] font-medium uppercase tracking-wide text-slate-500">
-                {searchScope === "products"
-                  ? "Products"
-                  : searchScope === "orders"
-                  ? "Orders"
-                  : "Customers"}{" "}
-                matching “{search.trim()}”
+            <div className="flex min-w-0 items-center gap-3">
+              <div className="flex items-center justify-center rounded-2xl bg-white/95 px-3 py-2 shadow-md shadow-black/20">
+                <div className="relative h-7 w-[8.8rem] sm:h-8 sm:w-[9.5rem] md:h-10 md:w-[10.5rem] lg:h-11 lg:w-[12rem]">
+                  {BRAND_LOGO_URL ? (
+                    <Image
+                      src={BRAND_LOGO_URL}
+                      alt="LetzShopy"
+                      fill
+                      className="object-contain"
+                      priority
+                    />
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center text-base font-semibold text-[#1b2a8f]">
+                      LetzShopy
+                    </div>
+                  )}
+                </div>
               </div>
-              <ul className="max-h-64 overflow-y-auto text-sm">
-                {searchResults.map((item) => (
-                  <li key={item.id}>
-                    <button
-                      type="button"
-                      onMouseDown={(e) => {
-                        e.preventDefault();
-                        window.location.href = item.url;
-                      }}
-                      className="flex w-full flex-col items-start gap-0.5 px-3 py-2 text-left hover:bg-violet-50"
-                    >
-                      <span className="text-[13px] font-medium text-slate-900">
-                        {item.label}
-                      </span>
-                      {item.subLabel && (
-                        <span className="text-[11px] text-slate-500">
-                          {item.subLabel}
-                        </span>
-                      )}
-                    </button>
-                  </li>
-                ))}
-              </ul>
+
+              <div className="hidden min-w-0 lg:flex lg:flex-col">
+                <div className="flex items-center gap-2">
+                  <span className="truncate text-sm font-semibold text-white">
+                    Vendor Dashboard
+                  </span>
+                  <span className="inline-flex items-center gap-1 rounded-full bg-[#FDE9FF]/10 px-2 py-0.5 text-[11px] font-medium text-[#FFE1F5]">
+                    <Sparkles className="h-3 w-3 text-[#FFE1F5]" />
+                    Live
+                  </span>
+                </div>
+
+                <div className="mt-0.5 flex flex-col gap-0.5 text-[11px] text-indigo-100/80">
+                  <span className="truncate">
+                    Store:{" "}
+                    <span className="font-medium text-white">
+                      {normalizedStore || "yourstore.letzshopy.in"}
+                    </span>
+                  </span>
+
+                  {loginEmail && (
+                    <span className="truncate">
+                      Login: <span className="font-medium text-white">{loginEmail}</span>
+                    </span>
+                  )}
+                </div>
+              </div>
             </div>
-          )}
-        </div>
+          </div>
 
-        <div className="flex items-center gap-2 md:gap-3">
-          {subscriptionChip}
-
-          <a
-            href={storeUrl}
-            target="_blank"
-            rel="noreferrer"
-            className="hidden items-center gap-2 rounded-full bg-[#1BCFB4] px-3 py-1.5 text-xs font-semibold text-white shadow-sm shadow-[#0f7669] transition hover:bg-[#16b5a0] md:inline-flex"
+          <div
+            className="relative hidden max-w-xl flex-1 items-center px-2 md:flex"
+            ref={desktopSearchRef}
           >
-            <span className="inline-block h-1.5 w-1.5 rounded-full bg-white" />
-            Visit Store
-          </a>
+            <form
+              onSubmit={handleSearchSubmit}
+              className={`flex w-full items-center rounded-full border border-[#d1cdfc] ${SURFACE_CLASS} px-2 py-1.5 text-xs text-slate-600 shadow-sm focus-within:border-[#A05AFF] focus-within:ring-1 focus-within:ring-[#A05AFF]/40`}
+            >
+              <select
+                value={searchScope}
+                onChange={(e) => setSearchScope(e.target.value as SearchScope)}
+                className="mr-2 inline-flex h-9 items-center rounded-full border border-[#d1cdfc] bg-white px-3 text-xs font-medium text-slate-700 shadow-sm focus:outline-none"
+              >
+                <option value="products">Products</option>
+                <option value="orders">Orders</option>
+                <option value="customers">Customers</option>
+              </select>
 
-          <div className="flex items-center gap-1 md:gap-2">
+              <SearchIcon className="mr-2 h-4 w-4 text-[#7B3EF3]" />
+              <input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search products, orders, customers…"
+                className="h-8 flex-1 bg-transparent text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none"
+              />
+              {isSearching && (
+                <Loader2 className="ml-2 h-4 w-4 animate-spin text-[#7B3EF3]" />
+              )}
+            </form>
+
+            {searchDropdown}
+          </div>
+
+          <div className="flex shrink-0 items-center gap-2">
+            {!statusLoading && (
+              <span
+                className={`hidden items-center gap-1 rounded-full px-3 py-1.5 text-[11px] font-medium lg:inline-flex ${statusChipClass(
+                  subStatus
+                )}`}
+              >
+                <span
+                  className={`inline-block h-1.5 w-1.5 rounded-full ${statusDotClass(
+                    subStatus
+                  )}`}
+                />
+                Subscription: {statusLabel(subStatus)}
+              </span>
+            )}
+
+            <a
+              href={storeUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="hidden items-center gap-2 rounded-full bg-[#1BCFB4] px-3 py-2 text-xs font-semibold text-white shadow-sm shadow-[#0f7669] transition hover:bg-[#16b5a0] md:inline-flex"
+            >
+              <span className="inline-block h-1.5 w-1.5 rounded-full bg-white" />
+              Visit Store
+            </a>
+
             <div className="relative" ref={notifRef}>
               <button
                 type="button"
                 onClick={toggleNotifications}
-                className={`relative inline-flex h-9 w-9 items-center justify-center rounded-full ${SURFACE_CLASS} text-[#27346D] shadow-sm hover:bg-[#ebe6ff]`}
+                className={`relative inline-flex h-10 w-10 items-center justify-center rounded-full ${SURFACE_CLASS} text-[#27346D] shadow-sm hover:bg-[#ebe6ff]`}
               >
                 <Bell className="h-4 w-4" />
                 {unreadCount > 0 && (
@@ -534,7 +553,7 @@ export default function Topbar({ onToggleSidebar }: TopbarProps) {
               </button>
 
               {notificationsOpen && (
-                <div className="absolute right-0 mt-2 w-80 rounded-2xl border border-slate-200 bg-white shadow-xl shadow-slate-200">
+                <div className="absolute right-0 mt-2 w-[min(22rem,calc(100vw-1.5rem))] rounded-2xl border border-slate-200 bg-white shadow-xl shadow-slate-200">
                   <div className="flex items-center justify-between border-b border-slate-100 px-3 py-2">
                     <span className="text-xs font-semibold uppercase tracking-wide text-slate-600">
                       Notifications
@@ -575,9 +594,7 @@ export default function Topbar({ onToggleSidebar }: TopbarProps) {
                       >
                         <div
                           className={`mt-0.5 flex h-6 w-6 items-center justify-center rounded-full text-white ${
-                            n.type === "upi_pending"
-                              ? "bg-rose-500"
-                              : "bg-violet-500"
+                            n.type === "upi_pending" ? "bg-rose-500" : "bg-violet-500"
                           }`}
                         >
                           {n.type === "upi_pending" ? (
@@ -586,6 +603,7 @@ export default function Topbar({ onToggleSidebar }: TopbarProps) {
                             <ShoppingBag className="h-3 w-3" />
                           )}
                         </div>
+
                         <div className="flex-1">
                           <div className="text-[12px] font-semibold text-slate-900">
                             {n.type === "upi_pending"
@@ -621,123 +639,200 @@ export default function Topbar({ onToggleSidebar }: TopbarProps) {
                 </div>
               )}
             </div>
+
+            <div className="relative" ref={accountRef}>
+              <button
+                onClick={() => setAccountOpen((v) => !v)}
+                className={`flex items-center gap-1 rounded-full border border-indigo-300/50 ${SURFACE_CLASS} px-1.5 py-1.5 text-xs text-[#27346D] shadow-sm hover:bg-[#ebe6ff] sm:px-2`}
+              >
+                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-[#A05AFF] to-[#4BCBEB] text-xs font-bold text-white shadow-md shadow-[#141936]">
+                  {initials}
+                </div>
+                <ChevronDown
+                  className={`hidden h-4 w-4 text-[#4f5cc7] transition sm:block ${
+                    accountOpen ? "rotate-180" : ""
+                  }`}
+                />
+              </button>
+
+              {accountOpen && (
+                <div className="absolute right-0 mt-2 w-[18rem] max-w-[calc(100vw-1rem)] overflow-hidden rounded-2xl border border-slate-200 bg-white text-sm text-slate-900 shadow-xl shadow-slate-200">
+                  <div className="flex items-center gap-2 border-b border-slate-100 bg-[#f9f7ff] px-3 py-3">
+                    <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-[#A05AFF] to-[#4BCBEB] text-xs font-bold text-white shadow-md shadow-[#e5d4ff]">
+                      {initials}
+                    </div>
+                    <div className="min-w-0">
+                      <div className="text-sm font-semibold text-slate-900">
+                        Your Store
+                      </div>
+                      <div className="truncate text-[11px] text-slate-500">
+                        {normalizedStore || "yourstore.letzshopy.in"}
+                      </div>
+                      {loginEmail && (
+                        <div className="truncate text-[11px] text-slate-500">
+                          {loginEmail}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="py-1">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAccountOpen(false);
+                        window.location.href = "/settings?tab=profile";
+                      }}
+                      className="block w-full px-3 py-2.5 text-left text-slate-800 hover:bg-[#f6f1ff]"
+                    >
+                      <div className="text-sm">Store Profile &amp; Settings</div>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAccountOpen(false);
+                        window.location.href = "/billing/subscription";
+                      }}
+                      className="block w-full px-3 py-2.5 text-left hover:bg-[#f6f1ff]"
+                    >
+                      <div className="text-sm">Subscription</div>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAccountOpen(false);
+                        window.location.href = "/subscription-bills";
+                      }}
+                      className="block w-full px-3 py-2.5 text-left hover:bg-[#f6f1ff]"
+                    >
+                      <div className="text-sm">Subscription Invoices</div>
+                    </button>
+
+                    <hr className="my-1 border-slate-100" />
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAccountOpen(false);
+                        window.location.href = "/support/tickets";
+                      }}
+                      className="block w-full px-3 py-2.5 text-left hover:bg-[#f6f1ff]"
+                    >
+                      <div className="text-sm">Help Desk</div>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAccountOpen(false);
+                        window.location.href = "/settings?tab=account";
+                      }}
+                      className="block w-full px-3 py-2.5 text-left hover:bg-[#f6f1ff]"
+                    >
+                      <div className="text-sm">Account &amp; Security</div>
+                    </button>
+
+                    <hr className="my-1 border-slate-100" />
+
+                    <button
+                      className="block w-full px-3 py-2.5 text-left text-sm text-rose-600 hover:bg-rose-50"
+                      onClick={async () => {
+                        setAccountOpen(false);
+                        try {
+                          await fetch("/api/auth/logout", { method: "POST" });
+                        } catch (e) {
+                          console.error(e);
+                        }
+                        window.location.href = "/signin";
+                      }}
+                    >
+                      Logout
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <div className="border-t border-white/10 px-3 pb-3 pt-2 md:hidden">
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <div className="min-w-0">
+              <div className="truncate text-sm font-semibold text-white">
+                {normalizedStore || "yourstore.letzshopy.in"}
+              </div>
+              {loginEmail && (
+                <div className="truncate text-[11px] text-indigo-100/75">{loginEmail}</div>
+              )}
+            </div>
+
+            <a
+              href={storeUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-[#1BCFB4] px-3 py-2 text-[11px] font-semibold text-white shadow-sm shadow-[#0f7669]"
+            >
+              <Store className="h-3.5 w-3.5" />
+              View Store
+            </a>
           </div>
 
-          <div className="relative" ref={accountRef}>
-            <button
-              onClick={() => setAccountOpen((v) => !v)}
-              className={`flex items-center gap-1 rounded-full border border-indigo-300/50 ${SURFACE_CLASS} px-2 py-1.5 text-xs text-[#27346D] shadow-sm hover:bg-[#ebe6ff]`}
+          <div className="mb-2">
+            <span
+              className={`inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-[11px] font-medium ${statusChipClass(
+                subStatus
+              )}`}
             >
-              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-[#A05AFF] to-[#4BCBEB] text-xs font-bold text-white shadow-md shadow-[#141936]">
-                {initials}
-              </div>
-              <ChevronDown
-                className={`h-4 w-4 text-[#4f5cc7] transition ${
-                  accountOpen ? "rotate-180" : ""
-                }`}
+              <span
+                className={`inline-block h-1.5 w-1.5 rounded-full ${statusDotClass(
+                  subStatus
+                )}`}
               />
-            </button>
+              Subscription: {statusLabel(subStatus)}
+            </span>
+          </div>
 
-            {accountOpen && (
-              <div className="absolute right-0 mt-2 w-72 overflow-hidden rounded-xl border border-slate-200 bg-white text-sm text-slate-900 shadow-xl shadow-slate-200">
-                <div className="flex items-center gap-2 border-b border-slate-100 bg-[#f9f7ff] px-3 py-2.5">
-                  <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-[#A05AFF] to-[#4BCBEB] text-xs font-bold text-white shadow-md shadow-[#e5d4ff]">
-                    {initials}
-                  </div>
-                  <div className="min-w-0">
-                    <div className="text-sm font-semibold text-slate-900">
-                      Your Store
-                    </div>
-                    <div className="truncate text-[11px] text-slate-500">
-                      {normalizedStore || "yourstore.letzshopy.in"}
-                    </div>
-                    {loginEmail && (
-                      <div className="truncate text-[11px] text-slate-500">
-                        {loginEmail}
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                <div className="py-1">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setAccountOpen(false);
-                      window.location.href = "/settings?tab=profile";
-                    }}
-                    className="block w-full px-3 py-2 text-left text-slate-800 hover:bg-[#f6f1ff]"
-                  >
-                    <div className="text-sm">Store Profile &amp; Settings</div>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setAccountOpen(false);
-                      window.location.href = "/billing/subscription";
-                    }}
-                    className="block w-full px-3 py-2 text-left hover:bg-[#f6f1ff]"
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm">Subscription</span>
-                    </div>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setAccountOpen(false);
-                      window.location.href = "/billing/subscription";
-                    }}
-                    className="block w-full px-3 py-2 text-left hover:bg-[#f6f1ff]"
-                  >
-                    <div className="text-sm">Subscription Invoices</div>
-                  </button>
-
-                  <hr className="my-1 border-slate-100" />
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setAccountOpen(false);
-                      window.location.href = "/support/tickets";
-                    }}
-                    className="block w-full px-3 py-2 text-left hover:bg-[#f6f1ff]"
-                  >
-                    <div className="text-sm">Help Desk</div>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setAccountOpen(false);
-                      window.location.href = "/settings?tab=account";
-                    }}
-                    className="block w-full px-3 py-2 text-left hover:bg-[#f6f1ff]"
-                  >
-                    <div className="text-sm">Account &amp; Security</div>
-                  </button>
-
-                  <hr className="my-1 border-slate-100" />
-
-                  <button
-                    className="block w-full border-t border-slate-100 px-3 py-2 text-left text-sm text-rose-600 hover:bg-rose-50"
-                    onClick={async () => {
-                      setAccountOpen(false);
-                      try {
-                        await fetch("/api/auth/logout", { method: "POST" });
-                      } catch (e) {
-                        console.error(e);
-                      }
-                      window.location.href = "/signin";
-                    }}
-                  >
-                    Logout
-                  </button>
-                </div>
+          <div className="relative" ref={mobileSearchRef}>
+            <form
+              onSubmit={handleSearchSubmit}
+              className={`rounded-2xl border border-[#d1cdfc] ${SURFACE_CLASS} p-2 shadow-sm focus-within:border-[#A05AFF] focus-within:ring-1 focus-within:ring-[#A05AFF]/40`}
+            >
+              <div className="mb-2">
+                <select
+                  value={searchScope}
+                  onChange={(e) => setSearchScope(e.target.value as SearchScope)}
+                  className="h-10 w-full rounded-xl border border-[#d1cdfc] bg-white px-3 text-sm font-medium text-slate-700 focus:outline-none"
+                >
+                  <option value="products">Products</option>
+                  <option value="orders">Orders</option>
+                  <option value="customers">Customers</option>
+                </select>
               </div>
-            )}
+
+              <div className="flex items-center gap-2 rounded-xl bg-white px-3 py-2 shadow-sm">
+                <SearchIcon className="h-4 w-4 text-[#7B3EF3]" />
+                <input
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Search your store…"
+                  className="h-6 flex-1 bg-transparent text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none"
+                />
+                {isSearching ? (
+                  <Loader2 className="h-4 w-4 animate-spin text-[#7B3EF3]" />
+                ) : (
+                  <button
+                    type="submit"
+                    className="rounded-lg bg-[#7B3EF3] px-3 py-1.5 text-[11px] font-semibold text-white"
+                  >
+                    Go
+                  </button>
+                )}
+              </div>
+            </form>
+
+            {searchDropdown}
           </div>
         </div>
       </div>

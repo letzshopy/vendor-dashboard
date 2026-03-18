@@ -2,12 +2,10 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
 
-import Topbar from "@/components/Topbar";
-import Sidebar from "@/components/Sidebar";
 import WhatsappFab from "@/components/WhatsappFab";
 import LockedDashboardRedirect from "@/components/LockedDashboardRedirect";
-import Footer from "@/components/layout/Footer";
 import VendorAgreementGate from "@/components/VendorAgreementGate";
+import DashboardShell from "@/components/dashboard-shell";
 import {
   SubscriptionProvider,
   type DashboardSubscription,
@@ -40,16 +38,13 @@ async function getDashboardLockedFromMaster(): Promise<boolean> {
 
     if (!base || !key) return false;
 
-    const res = await fetch(
-      `${base}/wp-json/letz/v1/master-vendors/${blogId}`,
-      {
-        headers: {
-          Authorization: `Bearer ${key}`,
-          "X-Letz-Master-Key": key,
-        },
-        cache: "no-store",
-      }
-    );
+    const res = await fetch(`${base}/wp-json/letz/v1/master-vendors/${blogId}`, {
+      headers: {
+        Authorization: `Bearer ${key}`,
+        "X-Letz-Master-Key": key,
+      },
+      cache: "no-store",
+    });
 
     const text = await res.text();
     let json: any = {};
@@ -86,8 +81,7 @@ async function getDashboardSubscription(): Promise<DashboardSubscription | null>
 
     return {
       status: data?.billing_status || "",
-      nextPaymentDate:
-        data?.next_payment_date || data?.next_renewal_date || "",
+      nextPaymentDate: data?.next_payment_date || data?.next_renewal_date || "",
     };
   } catch {
     return null;
@@ -155,30 +149,10 @@ export default async function DashboardLayout({
         <>
           <LockedDashboardRedirect locked={locked} />
 
-          <div className="flex min-h-screen flex-col bg-gradient-to-b from-[#f6f4ff] via-white to-[#fff7fb]">
-            <Topbar />
-
-            {locked && (
-              <div className="border-b border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-                Your dashboard is currently locked by LetzShopy. Please
-                complete the required steps in the Settings section.
-              </div>
-            )}
-
-            <div className="flex flex-1">
-              <Sidebar locked={locked} />
-
-              <main className="relative min-w-0 flex-1">
-                <div className="mx-auto flex max-w-6xl flex-col gap-6 px-4 py-6">
-                  {children}
-                </div>
-
-                {showAgreementGate && <VendorAgreementGate />}
-              </main>
-            </div>
-
-            <Footer />
-          </div>
+          <DashboardShell locked={locked}>
+            {children}
+            {showAgreementGate && <VendorAgreementGate />}
+          </DashboardShell>
 
           <WhatsappFab />
         </>
