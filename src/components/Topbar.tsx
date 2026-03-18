@@ -337,14 +337,24 @@ export default function Topbar({ onToggleSidebar }: TopbarProps) {
   }, [search, searchScope]);
 
   function handleSearchSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    const q = search.trim();
-    if (!q) return;
-    const url = `/search?scope=${encodeURIComponent(
-      searchScope
-    )}&q=${encodeURIComponent(q)}`;
-    window.location.href = url;
+  e.preventDefault();
+
+  const q = search.trim();
+  if (!q) return;
+
+  let url = "/products";
+
+  if (searchScope === "orders") {
+    url = `/orders?search=${encodeURIComponent(q)}`;
+  } else if (searchScope === "customers") {
+    url = `/customers?search=${encodeURIComponent(q)}`;
+  } else {
+    url = `/products?search=${encodeURIComponent(q)}`;
   }
+
+  setShowSearchDropdown(false);
+  window.location.href = url;
+}
 
   const normalizedStore = storeUrl.replace(/^https?:\/\//, "");
   const initials = storeInitials(normalizedStore);

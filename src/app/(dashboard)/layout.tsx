@@ -6,6 +6,7 @@ import Topbar from "@/components/Topbar";
 import Sidebar from "@/components/Sidebar";
 import WhatsappFab from "@/components/WhatsappFab";
 import LockedDashboardRedirect from "@/components/LockedDashboardRedirect";
+import Footer from "@/components/layout/Footer";
 import {
   SubscriptionProvider,
   type DashboardSubscription,
@@ -13,6 +14,7 @@ import {
 
 const COOKIE_NAME = process.env.AUTH_COOKIE_NAME || "ls_vendor_auth";
 const TENANT_COOKIE_NAME = process.env.TENANT_COOKIE_NAME || "ls_tenant";
+const ROLE_COOKIE_NAME = "ls_role";
 
 function parseTenantCookie(raw: string | undefined) {
   if (!raw) return null;
@@ -80,10 +82,37 @@ async function getDashboardSubscription(): Promise<DashboardSubscription | null>
 
     return {
       status: data?.billing_status || "",
-      nextPaymentDate: data?.next_payment_date || data?.next_renewal_date || "",
+      nextPaymentDate:
+        data?.next_payment_date || data?.next_renewal_date || "",
     };
   } catch {
     return null;
+  }
+}
+
+async function getVendorAgreementAccepted(): Promise<boolean> {
+  try {
+    const cookieStore = await cookies();
+    const token = cookieStore.get(COOKIE_NAME)?.value;
+
+    if (!token) return false;
+
+    const base = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "");
+    if (!base) return false;
+
+    const res = await fetch(`${base}/api/account/settings`, {
+      cache: "no-store",
+      headers: {
+        Cookie: cookieStore.toString(),
+      },
+    });
+
+    if (!res.ok) return false;
+
+    const data = await res.json();
+    return !!data?.legal?.vendorAgreementAccepted;
+  } catch {
+    return false;
   }
 }
 
@@ -94,15 +123,21 @@ export default async function DashboardLayout({
 }) {
   const cookieStore = await cookies();
   const token = cookieStore.get(COOKIE_NAME)?.value;
+  const role = cookieStore.get(ROLE_COOKIE_NAME)?.value || "";
 
   if (!token) {
     redirect("/signin");
   }
 
-  const [locked, subscription] = await Promise.all([
+  const [locked, subscription, agreementAccepted] = await Promise.all([
     getDashboardLockedFromMaster(),
     getDashboardSubscription(),
+    role === "store_owner" ? getVendorAgreementAccepted() : Promise.resolve(true),
   ]);
+
+  if (role === "store_owner" && !agreementAccepted) {
+    redirect("/vendor-agreement/accept");
+  }
 
   return (
     <Suspense
@@ -116,7 +151,7 @@ export default async function DashboardLayout({
         <>
           <LockedDashboardRedirect locked={locked} />
 
-          <div className="min-h-screen bg-gradient-to-b from-[#f6f4ff] via-white to-[#fff7fb]">
+          <div className="flex min-h-screen flex-col bg-gradient-to-b from-[#f6f4ff] via-white to-[#fff7fb]">
             <Topbar />
 
             {locked && (
@@ -125,14 +160,17 @@ export default async function DashboardLayout({
               </div>
             )}
 
-            <div className="flex">
+            <div className="flex flex-1">
               <Sidebar locked={locked} />
+
               <main className="min-w-0 flex-1">
                 <div className="mx-auto flex max-w-6xl flex-col gap-6 px-4 py-6">
                   {children}
                 </div>
               </main>
             </div>
+
+            <Footer />
           </div>
 
           <WhatsappFab />

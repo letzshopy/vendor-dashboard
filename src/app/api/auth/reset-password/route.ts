@@ -24,14 +24,22 @@ function isRegistryOk(x: any): x is RegistryOk {
 export async function POST(req: Request) {
   try {
     if (!REGISTRY_URL || !REGISTRY_TOKEN) {
-      return NextResponse.json({ ok: true }, { status: 200 });
+      return NextResponse.json(
+        { ok: false, error: "Reset service is not configured." },
+        { status: 500 }
+      );
     }
 
     const body = await req.json().catch(() => null);
     const email = String(body?.email || "").trim().toLowerCase();
+    const token = String(body?.token || "").trim();
+    const newPassword = String(body?.new_password || "");
 
-    if (!email) {
-      return NextResponse.json({ ok: true }, { status: 200 });
+    if (!email || !token || !newPassword) {
+      return NextResponse.json(
+        { ok: false, error: "Missing required fields." },
+        { status: 400 }
+      );
     }
 
     const url = new URL("/wp-json/letz/v1/vendor-by-email", REGISTRY_URL);
@@ -45,25 +53,51 @@ export async function POST(req: Request) {
     const data = (await r.json().catch(() => null)) as RegistryResp | null;
 
     if (!r.ok || !data || !isRegistryOk(data)) {
-      return NextResponse.json({ ok: true }, { status: 200 });
+      return NextResponse.json(
+        { ok: false, error: "Invalid or expired reset link." },
+        { status: 400 }
+      );
     }
 
     const storeUrl = data.stores[0]?.store_url;
     if (!storeUrl) {
-      return NextResponse.json({ ok: true }, { status: 200 });
+      return NextResponse.json(
+        { ok: false, error: "Invalid or expired reset link." },
+        { status: 400 }
+      );
     }
 
     const tenantBase = normalizeBase(storeUrl);
 
-    await fetch(`${tenantBase}/wp-json/letz/v1/auth/forgot-password`, {
+    const tenantRes = await fetch(`${tenantBase}/wp-json/letz/v1/auth/reset-password`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       cache: "no-store",
-      body: JSON.stringify({ email }),
-    }).catch(() => null);
+      body: JSON.stringify({
+        email,
+        token,
+        new_password: newPassword,
+      }),
+    });
+
+    const text = await tenantRes.text();
+    let json: any = null;
+    try {
+      json = JSON.parse(text);
+    } catch {}
+
+    if (!tenantRes.ok) {
+      return NextResponse.json(
+        { ok: false, error: json?.message || json?.error || "Invalid or expired reset link." },
+        { status: tenantRes.status || 400 }
+      );
+    }
 
     return NextResponse.json({ ok: true }, { status: 200 });
-  } catch {
-    return NextResponse.json({ ok: true }, { status: 200 });
+  } catch (e: any) {
+    return NextResponse.json(
+      { ok: false, error: e?.message || "Could not reset password." },
+      { status: 500 }
+    );
   }
 }
