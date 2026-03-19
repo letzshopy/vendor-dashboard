@@ -170,8 +170,8 @@ export default function Sidebar({
     <div className="flex h-full flex-col">
       <div className="flex items-center justify-between border-b border-white/10 px-4 py-4 md:hidden">
         <div>
-          <div className="text-sm font-semibold text-white">LetzShopy</div>
-          <div className="text-[11px] text-indigo-100/70">Dashboard menu</div>
+          <div className="text-base font-semibold text-white">LetzShopy</div>
+          <div className="text-[12px] text-indigo-100/70">Dashboard menu</div>
         </div>
 
         <button
@@ -185,7 +185,7 @@ export default function Sidebar({
 
       <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-3">
         {locked && (
-          <div className="mb-3 rounded-2xl border border-amber-300/20 bg-amber-400/10 px-3 py-3 text-[12px] leading-5 text-amber-100">
+          <div className="mb-3 rounded-2xl border border-amber-300/20 bg-amber-400/10 px-3 py-3 text-[13px] leading-5 text-amber-100">
             Dashboard locked. Only Settings and Subscription are available until
             LetzShopy unlocks your store.
           </div>
@@ -207,14 +207,14 @@ export default function Sidebar({
           });
 
           const groupBtnCls = [
-            "flex w-full items-center justify-between rounded-2xl px-3 py-2.5 text-[13px] transition",
+            "flex w-full items-center justify-between rounded-2xl px-3 py-3 text-[14px] transition",
             groupActive
               ? "bg-[#3C4CC4] text-white shadow-sm shadow-[#1f255a]"
               : "text-indigo-100 hover:bg-white/10",
           ].join(" ");
 
           const iconWrapperCls = [
-            "flex h-8 w-8 items-center justify-center rounded-full",
+            "flex h-9 w-9 items-center justify-center rounded-full",
             groupActive ? "bg-white/15 text-white" : "bg-white/10 text-indigo-100",
           ].join(" ");
 
@@ -235,7 +235,7 @@ export default function Sidebar({
               >
                 <span className="flex min-w-0 items-center gap-2.5">
                   <span className={iconWrapperCls}>
-                    <Icon className="h-4 w-4" />
+                    <Icon className="h-4.5 w-4.5" />
                   </span>
                   <span className="truncate font-medium">{g.label}</span>
                 </span>
@@ -248,7 +248,7 @@ export default function Sidebar({
               </button>
 
               {groupOpen[g.key] && (
-                <div className="mt-1 space-y-1 pl-4">
+                <div className="mt-1 space-y-1 pl-5">
                   {g.items.map((it) => {
                     const itemBase = basePath(it.href);
                     let active = false;
@@ -266,7 +266,7 @@ export default function Sidebar({
                     }
 
                     const itemCls = [
-                      "block rounded-xl px-3 py-2 text-[13px] leading-5 transition",
+                      "block rounded-xl px-3 py-2.5 text-[14px] leading-5 transition",
                       active
                         ? "bg-[#3C4CC4] text-white font-medium shadow-sm shadow-[#1f255a]"
                         : "text-indigo-100 hover:bg-white/10 hover:text-white",
@@ -289,7 +289,7 @@ export default function Sidebar({
                         <span className="flex items-center justify-between gap-2">
                           <span className="truncate">{it.label}</span>
                           {!it.ready && (
-                            <span className="rounded bg-white/10 px-1.5 py-0.5 text-[9px] text-indigo-100">
+                            <span className="rounded bg-white/10 px-1.5 py-0.5 text-[10px] text-indigo-100">
                               Soon
                             </span>
                           )}

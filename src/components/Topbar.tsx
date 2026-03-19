@@ -342,7 +342,18 @@ export default function Topbar({ onToggleSidebar }: TopbarProps) {
     setNotificationsOpen((prev) => {
       const next = !prev;
       if (next) {
+        setAccountOpen(false);
         setUnreadCount(0);
+      }
+      return next;
+    });
+  }
+
+  function toggleAccountMenu() {
+    setAccountOpen((prev) => {
+      const next = !prev;
+      if (next) {
+        setNotificationsOpen(false);
       }
       return next;
     });
@@ -376,7 +387,7 @@ export default function Topbar({ onToggleSidebar }: TopbarProps) {
   const subStatus = deriveStatus(subscription?.status);
 
   const searchDropdown = showSearchDropdown && (
-    <div className="absolute left-0 right-0 top-full z-40 mt-2 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl shadow-slate-200">
+    <div className="absolute left-0 right-0 top-full z-30 mt-2 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl shadow-slate-200">
       <div className="border-b border-slate-100 px-3 py-2 text-[11px] font-medium uppercase tracking-wide text-slate-500">
         {searchScope === "products"
           ? "Products"
@@ -538,7 +549,7 @@ export default function Topbar({ onToggleSidebar }: TopbarProps) {
               Visit Store
             </a>
 
-            <div className="relative" ref={notifRef}>
+            <div className="relative z-[70]" ref={notifRef}>
               <button
                 type="button"
                 onClick={toggleNotifications}
@@ -553,8 +564,8 @@ export default function Topbar({ onToggleSidebar }: TopbarProps) {
               </button>
 
               {notificationsOpen && (
-                <div className="absolute right-0 mt-2 w-[min(22rem,calc(100vw-1.5rem))] rounded-2xl border border-slate-200 bg-white shadow-xl shadow-slate-200">
-                  <div className="flex items-center justify-between border-b border-slate-100 px-3 py-2">
+                <div className="absolute right-0 top-full mt-2 w-[20rem] max-w-[calc(100vw-1rem)] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl shadow-slate-300">
+                  <div className="flex items-center justify-between border-b border-slate-100 px-3 py-3">
                     <span className="text-xs font-semibold uppercase tracking-wide text-slate-600">
                       Notifications
                     </span>
@@ -640,9 +651,9 @@ export default function Topbar({ onToggleSidebar }: TopbarProps) {
               )}
             </div>
 
-            <div className="relative" ref={accountRef}>
+            <div className="relative z-[70]" ref={accountRef}>
               <button
-                onClick={() => setAccountOpen((v) => !v)}
+                onClick={toggleAccountMenu}
                 className={`flex items-center gap-1 rounded-full border border-indigo-300/50 ${SURFACE_CLASS} px-1.5 py-1.5 text-xs text-[#27346D] shadow-sm hover:bg-[#ebe6ff] sm:px-2`}
               >
                 <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-[#A05AFF] to-[#4BCBEB] text-xs font-bold text-white shadow-md shadow-[#141936]">
@@ -656,7 +667,7 @@ export default function Topbar({ onToggleSidebar }: TopbarProps) {
               </button>
 
               {accountOpen && (
-                <div className="absolute right-0 mt-2 w-[18rem] max-w-[calc(100vw-1rem)] overflow-hidden rounded-2xl border border-slate-200 bg-white text-sm text-slate-900 shadow-xl shadow-slate-200">
+                <div className="absolute right-0 top-full mt-2 w-[18rem] max-w-[calc(100vw-1rem)] overflow-hidden rounded-2xl border border-slate-200 bg-white text-sm text-slate-900 shadow-2xl shadow-slate-300">
                   <div className="flex items-center gap-2 border-b border-slate-100 bg-[#f9f7ff] px-3 py-3">
                     <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-[#A05AFF] to-[#4BCBEB] text-xs font-bold text-white shadow-md shadow-[#e5d4ff]">
                       {initials}
@@ -683,9 +694,9 @@ export default function Topbar({ onToggleSidebar }: TopbarProps) {
                         setAccountOpen(false);
                         window.location.href = "/settings?tab=profile";
                       }}
-                      className="block w-full px-3 py-2.5 text-left text-slate-800 hover:bg-[#f6f1ff]"
+                      className="block w-full px-3 py-3 text-left text-slate-800 hover:bg-[#f6f1ff]"
                     >
-                      <div className="text-sm">Store Profile &amp; Settings</div>
+                      <div className="text-[15px]">Store Profile &amp; Settings</div>
                     </button>
 
                     <button
@@ -694,9 +705,9 @@ export default function Topbar({ onToggleSidebar }: TopbarProps) {
                         setAccountOpen(false);
                         window.location.href = "/billing/subscription";
                       }}
-                      className="block w-full px-3 py-2.5 text-left hover:bg-[#f6f1ff]"
+                      className="block w-full px-3 py-3 text-left hover:bg-[#f6f1ff]"
                     >
-                      <div className="text-sm">Subscription</div>
+                      <div className="text-[15px]">Subscription</div>
                     </button>
 
                     <button
@@ -705,9 +716,9 @@ export default function Topbar({ onToggleSidebar }: TopbarProps) {
                         setAccountOpen(false);
                         window.location.href = "/subscription-bills";
                       }}
-                      className="block w-full px-3 py-2.5 text-left hover:bg-[#f6f1ff]"
+                      className="block w-full px-3 py-3 text-left hover:bg-[#f6f1ff]"
                     >
-                      <div className="text-sm">Subscription Invoices</div>
+                      <div className="text-[15px]">Subscription Invoices</div>
                     </button>
 
                     <hr className="my-1 border-slate-100" />
@@ -718,9 +729,9 @@ export default function Topbar({ onToggleSidebar }: TopbarProps) {
                         setAccountOpen(false);
                         window.location.href = "/support/tickets";
                       }}
-                      className="block w-full px-3 py-2.5 text-left hover:bg-[#f6f1ff]"
+                      className="block w-full px-3 py-3 text-left hover:bg-[#f6f1ff]"
                     >
-                      <div className="text-sm">Help Desk</div>
+                      <div className="text-[15px]">Help Desk</div>
                     </button>
 
                     <button
@@ -729,15 +740,15 @@ export default function Topbar({ onToggleSidebar }: TopbarProps) {
                         setAccountOpen(false);
                         window.location.href = "/settings?tab=account";
                       }}
-                      className="block w-full px-3 py-2.5 text-left hover:bg-[#f6f1ff]"
+                      className="block w-full px-3 py-3 text-left hover:bg-[#f6f1ff]"
                     >
-                      <div className="text-sm">Account &amp; Security</div>
+                      <div className="text-[15px]">Account &amp; Security</div>
                     </button>
 
                     <hr className="my-1 border-slate-100" />
 
                     <button
-                      className="block w-full px-3 py-2.5 text-left text-sm text-rose-600 hover:bg-rose-50"
+                      className="block w-full px-3 py-3 text-left text-[15px] text-rose-600 hover:bg-rose-50"
                       onClick={async () => {
                         setAccountOpen(false);
                         try {
@@ -757,7 +768,7 @@ export default function Topbar({ onToggleSidebar }: TopbarProps) {
           </div>
         </div>
 
-        <div className="border-t border-white/10 px-3 pb-3 pt-2 md:hidden">
+        <div className="relative z-10 border-t border-white/10 px-3 pb-3 pt-2 md:hidden">
           <div className="mb-2 flex items-center justify-between gap-2">
             <div className="min-w-0">
               <div className="truncate text-sm font-semibold text-white">
@@ -797,37 +808,37 @@ export default function Topbar({ onToggleSidebar }: TopbarProps) {
           <div className="relative" ref={mobileSearchRef}>
             <form
               onSubmit={handleSearchSubmit}
-              className={`rounded-2xl border border-[#d1cdfc] ${SURFACE_CLASS} p-2 shadow-sm focus-within:border-[#A05AFF] focus-within:ring-1 focus-within:ring-[#A05AFF]/40`}
+              className={`rounded-2xl border border-[#d1cdfc] ${SURFACE_CLASS} p-2.5 shadow-sm focus-within:border-[#A05AFF] focus-within:ring-1 focus-within:ring-[#A05AFF]/40`}
             >
-              <div className="mb-2">
+              <div className="flex items-center gap-2">
                 <select
                   value={searchScope}
                   onChange={(e) => setSearchScope(e.target.value as SearchScope)}
-                  className="h-10 w-full rounded-xl border border-[#d1cdfc] bg-white px-3 text-sm font-medium text-slate-700 focus:outline-none"
+                  className="h-11 min-w-0 flex-1 rounded-xl border border-[#d1cdfc] bg-white px-3 text-sm font-medium text-slate-700 focus:outline-none"
                 >
                   <option value="products">Products</option>
                   <option value="orders">Orders</option>
                   <option value="customers">Customers</option>
                 </select>
+
+                <button
+                  type="submit"
+                  className="inline-flex h-11 shrink-0 items-center justify-center rounded-xl bg-[#7B3EF3] px-4 text-sm font-semibold text-white shadow-sm"
+                >
+                  Go
+                </button>
               </div>
 
-              <div className="flex items-center gap-2 rounded-xl bg-white px-3 py-2 shadow-sm">
-                <SearchIcon className="h-4 w-4 text-[#7B3EF3]" />
+              <div className="mt-2 flex items-center gap-2 rounded-xl bg-white px-3 py-2.5 shadow-sm">
+                <SearchIcon className="h-4 w-4 shrink-0 text-[#7B3EF3]" />
                 <input
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   placeholder="Search your store…"
-                  className="h-6 flex-1 bg-transparent text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none"
+                  className="h-6 min-w-0 flex-1 bg-transparent text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none"
                 />
-                {isSearching ? (
-                  <Loader2 className="h-4 w-4 animate-spin text-[#7B3EF3]" />
-                ) : (
-                  <button
-                    type="submit"
-                    className="rounded-lg bg-[#7B3EF3] px-3 py-1.5 text-[11px] font-semibold text-white"
-                  >
-                    Go
-                  </button>
+                {isSearching && (
+                  <Loader2 className="h-4 w-4 shrink-0 animate-spin text-[#7B3EF3]" />
                 )}
               </div>
             </form>
