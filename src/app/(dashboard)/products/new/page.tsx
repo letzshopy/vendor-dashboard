@@ -2,6 +2,20 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import {
+  ArrowLeft,
+  Boxes,
+  Check,
+  ChevronDown,
+  ImagePlus,
+  Layers3,
+  Package2,
+  Search,
+  Settings2,
+  Tag,
+  Truck,
+  Wallet,
+} from "lucide-react";
 import ProductImages, { type ImgItem } from "@/components/ProductImages";
 import TagPicker from "@/components/TagPicker";
 
@@ -9,6 +23,17 @@ type Cat = { id: number; name: string; parent: number };
 type Attr = { id: number; name: string; slug: string };
 type Term = { id: number; name: string; slug: string };
 type ProductType = "simple" | "variable" | "grouped";
+
+type VRow = {
+  key: string;
+  attrs: { id?: number; name?: string; option: string }[];
+  sku: string;
+  regular_price: string;
+  sale_price: string;
+  manage_stock: boolean;
+  stock_quantity: number | "";
+  backorders: "no" | "notify" | "yes";
+};
 
 function indentCats(cats: Cat[]) {
   const byParent: Record<number, Cat[]> = {};
@@ -59,22 +84,89 @@ function skuPartFor(
 
 function ReqLabel({ children }: { children: React.ReactNode }) {
   return (
-    <label className="mb-1 block text-xs font-medium text-slate-700">
+    <label className="mb-1.5 block text-[13px] font-medium text-slate-700">
       {children} <span className="text-rose-500">*</span>
     </label>
   );
 }
 
-type VRow = {
-  key: string;
-  attrs: { id?: number; name?: string; option: string }[];
-  sku: string;
-  regular_price: string;
-  sale_price: string;
-  manage_stock: boolean;
-  stock_quantity: number | "";
-  backorders: "no" | "notify" | "yes";
-};
+function FieldLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <label className="mb-1.5 block text-[13px] font-medium text-slate-700">
+      {children}
+    </label>
+  );
+}
+
+function SectionCard(props: {
+  title: string;
+  hint?: string;
+  icon: React.ComponentType<{ className?: string }>;
+  children: React.ReactNode;
+}) {
+  const { title, hint, icon: Icon, children } = props;
+
+  return (
+    <section className="overflow-hidden rounded-[28px] border border-slate-200/70 bg-white shadow-sm shadow-slate-200/60">
+      <div className="border-b border-slate-100 bg-gradient-to-r from-[#faf7ff] via-white to-[#f4fbff] px-4 py-4 md:px-5">
+        <div className="flex items-start gap-3">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[#f2ebff] text-[#7a4cf0]">
+            <Icon className="h-5 w-5" />
+          </div>
+          <div className="min-w-0">
+            <h2 className="text-base font-semibold text-slate-900">{title}</h2>
+            {hint && <p className="mt-1 text-xs text-slate-500">{hint}</p>}
+          </div>
+        </div>
+      </div>
+
+      <div className="p-4 md:p-5">{children}</div>
+    </section>
+  );
+}
+
+function MobileField(props: React.InputHTMLAttributes<HTMLInputElement>) {
+  return (
+    <input
+      {...props}
+      className={[
+        "h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-900 shadow-sm",
+        "placeholder:text-slate-400 focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-100",
+        props.className || "",
+      ].join(" ")}
+    />
+  );
+}
+
+function MobileTextarea(
+  props: React.TextareaHTMLAttributes<HTMLTextAreaElement>
+) {
+  return (
+    <textarea
+      {...props}
+      className={[
+        "w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 shadow-sm",
+        "placeholder:text-slate-400 focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-100",
+        props.className || "",
+      ].join(" ")}
+    />
+  );
+}
+
+function MobileSelect(
+  props: React.SelectHTMLAttributes<HTMLSelectElement>
+) {
+  return (
+    <select
+      {...props}
+      className={[
+        "h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-900 shadow-sm",
+        "focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-100",
+        props.className || "",
+      ].join(" ")}
+    />
+  );
+}
 
 export default function AddProductPage() {
   const [title, setTitle] = useState("");
@@ -99,9 +191,9 @@ export default function AddProductPage() {
   const [stockQty, setStockQty] = useState<number | "">("");
   const [backorders, setBackorders] = useState<"no" | "notify" | "yes">("no");
 
-  const [taxStatus, setTaxStatus] = useState<
-    "taxable" | "shipping" | "none"
-  >("none");
+  const [taxStatus, setTaxStatus] = useState<"taxable" | "shipping" | "none">(
+    "none"
+  );
   const [taxClass, setTaxClass] = useState("");
 
   const [weight, setWeight] = useState("");
@@ -127,9 +219,9 @@ export default function AddProductPage() {
   const [termsMap, setTermsMap] = useState<Record<number, Term[]>>({});
   const [varAttrRows, setVarAttrRows] = useState<number[]>([]);
   const [varChosenAttr, setVarChosenAttr] = useState<number | "">("");
-  const [varChosenTerms, setVarChosenTerms] = useState<
-    Record<number, string[]>
-  >({});
+  const [varChosenTerms, setVarChosenTerms] = useState<Record<number, string[]>>(
+    {}
+  );
   const [rows, setRows] = useState<VRow[]>([]);
 
   const [groupQuery, setGroupQuery] = useState("");
@@ -177,6 +269,12 @@ export default function AddProductPage() {
 
     return () => clearTimeout(t);
   }, [sku]);
+
+  useEffect(() => {
+    if (searchDebounce.current) clearTimeout(searchDebounce.current);
+    searchDebounce.current = setTimeout(doGroupSearch, 300);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [groupQuery]);
 
   function swallowEnter(e: React.KeyboardEvent<HTMLFormElement>) {
     if (e.key === "Enter") e.preventDefault();
@@ -263,12 +361,6 @@ export default function AddProductPage() {
 
     setRows(newRows);
   }
-
-  useEffect(() => {
-    if (searchDebounce.current) clearTimeout(searchDebounce.current);
-    searchDebounce.current = setTimeout(doGroupSearch, 300);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [groupQuery]);
 
   async function doGroupSearch() {
     const q = groupQuery.trim();
@@ -421,6 +513,12 @@ export default function AddProductPage() {
       setRows([]);
       setGroupSelected([]);
       setImages([]);
+      setWeight("");
+      setLength("");
+      setWidth("");
+      setHeight("");
+      setTaxClass("");
+      setTaxStatus("none");
     } catch (e: any) {
       setErr(e?.message || "Create failed");
     } finally {
@@ -435,288 +533,276 @@ export default function AddProductPage() {
   }
 
   return (
-    <main className="mx-auto max-w-6xl px-4 py-6">
-      <div className="mb-4 flex items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold text-slate-900">
-            Add product
-          </h1>
-          <p className="mt-1 text-xs text-slate-500">
-            Create a new product for your store.
-          </p>
-        </div>
+    <main className="mx-auto max-w-6xl px-3 py-4 md:px-4 md:py-6">
+      <div className="mb-4 rounded-[28px] border border-white/70 bg-gradient-to-br from-white via-[#faf6ff] to-[#eef7ff] p-4 shadow-sm shadow-slate-200/60 md:p-5">
+        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <div className="min-w-0">
+            <Link
+              href="/products"
+              className="inline-flex items-center gap-1 rounded-full bg-white px-3 py-1.5 text-xs font-medium text-slate-700 shadow-sm hover:bg-slate-50"
+            >
+              <ArrowLeft className="h-3.5 w-3.5" />
+              Back to Products
+            </Link>
 
-        <Link
-          href="/products"
-          className="inline-flex items-center rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 shadow-sm hover:border-violet-300 hover:text-violet-700"
-        >
-          Back to Products
-        </Link>
+            <h1 className="mt-3 text-3xl font-semibold tracking-tight text-slate-900">
+              Add product
+            </h1>
+            <p className="mt-1 text-sm text-slate-600">
+              Create a product with pricing, images, stock and categories in one
+              clean flow.
+            </p>
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            {(["simple", "variable", "grouped"] as ProductType[]).map((t) => {
+              const active = ptype === t;
+              const label = t[0].toUpperCase() + t.slice(1);
+
+              return (
+                <button
+                  key={t}
+                  type="button"
+                  onClick={() => setPtype(t)}
+                  className={[
+                    "inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-medium transition",
+                    active
+                      ? "border-violet-400 bg-violet-600 text-white shadow-sm"
+                      : "border-slate-200 bg-white text-slate-700 hover:border-violet-300 hover:text-violet-700",
+                  ].join(" ")}
+                >
+                  <span
+                    className={`h-2 w-2 rounded-full ${
+                      active ? "bg-white" : "bg-slate-300"
+                    }`}
+                  />
+                  {label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
       </div>
 
       {msg && (
-        <div className="mb-4 flex items-center justify-between gap-3 rounded-2xl border border-emerald-100 bg-emerald-50/90 px-4 py-3 text-xs text-emerald-800 shadow-sm md:text-sm">
-          <div className="flex items-start gap-3">
-            <div className="mt-0.5 flex h-6 w-6 items-center justify-center rounded-full bg-emerald-500/10">
-              <span className="text-base leading-none">✓</span>
+        <div className="mb-4 rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm text-emerald-800 shadow-sm">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex items-start gap-3">
+              <div className="mt-0.5 flex h-6 w-6 items-center justify-center rounded-full bg-emerald-500/10">
+                <Check className="h-4 w-4" />
+              </div>
+              <div>
+                <div className="font-semibold">Product created</div>
+                <div className="mt-0.5 text-xs text-emerald-700">
+                  Saved to your store. You can create another product now.
+                </div>
+              </div>
             </div>
-            <div>
-              <div className="font-semibold">Product created</div>
-              <p className="mt-0.5 text-[11px] md:text-xs">
-                Saved to your store. Add another product or go back to the
-                Products list.
-              </p>
-            </div>
+
+            <button
+              type="button"
+              className="text-xs font-medium text-emerald-700 hover:text-emerald-900"
+              onClick={() => setMsg(null)}
+            >
+              Dismiss
+            </button>
           </div>
-          <button
-            type="button"
-            className="text-[11px] font-medium text-emerald-700 hover:text-emerald-900"
-            onClick={() => setMsg(null)}
-          >
-            Dismiss
-          </button>
         </div>
       )}
 
-      <div className="rounded-3xl border border-slate-100 bg-white/80 shadow-sm shadow-indigo-100">
-        <div className="border-b border-violet-50 bg-gradient-to-r from-[#f7f2ff] via-[#fef6ff] to-[#f5fbff] px-4 py-3">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="text-xs font-medium text-slate-600">
-              Product type <span className="text-rose-500">*</span>
+      <form onSubmit={submit} onKeyDown={swallowEnter} className="space-y-4 md:space-y-5">
+        <SectionCard
+          title="Essentials"
+          hint="Basic product identity and publishing settings"
+          icon={Package2}
+        >
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="md:col-span-2">
+              <ReqLabel>Title</ReqLabel>
+              <MobileField
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="Enter product title"
+                required
+              />
             </div>
 
-            <div
-              className="flex flex-wrap gap-2 text-xs"
-              role="radiogroup"
-              aria-required="true"
-            >
-              {(["simple", "variable", "grouped"] as ProductType[]).map((t) => {
-                const label = t[0].toUpperCase() + t.slice(1);
-                const active = ptype === t;
+            <div>
+              <ReqLabel>SKU</ReqLabel>
+              <MobileField
+                value={sku}
+                onChange={(e) => setSku(e.target.value)}
+                placeholder="Unique product code"
+                required
+              />
+              {skuErr && (
+                <p className="mt-1.5 text-xs font-medium text-rose-600">
+                  {skuErr}
+                </p>
+              )}
+            </div>
 
-                return (
-                  <button
-                    key={t}
-                    type="button"
-                    onClick={() => setPtype(t)}
-                    className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 transition ${
-                      active
-                        ? "border-violet-400 bg-violet-500 text-white shadow-sm"
-                        : "border-slate-200 bg-white text-slate-700 hover:border-violet-300 hover:text-violet-700"
-                    }`}
-                  >
-                    <span className="h-1.5 w-1.5 rounded-full bg-white/80" />
-                    {label}
-                  </button>
-                );
-              })}
+            <div>
+              <ReqLabel>Status</ReqLabel>
+              <MobileSelect
+                value={status}
+                onChange={(e) => setStatus(e.target.value as "draft" | "publish")}
+              >
+                <option value="draft">Draft</option>
+                <option value="publish">Published</option>
+              </MobileSelect>
+            </div>
+
+            <div className="md:col-span-2">
+              <ReqLabel>Visibility</ReqLabel>
+              <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
+                {(
+                  [
+                    ["visible", "Visible"],
+                    ["catalog", "Catalog only"],
+                    ["search", "Search only"],
+                    ["hidden", "Hidden"],
+                  ] as const
+                ).map(([value, label]) => {
+                  const active = visibility === value;
+                  return (
+                    <button
+                      key={value}
+                      type="button"
+                      onClick={() => setVisibility(value)}
+                      className={[
+                        "rounded-2xl border px-3 py-3 text-sm font-medium transition",
+                        active
+                          ? "border-violet-400 bg-violet-50 text-violet-700"
+                          : "border-slate-200 bg-white text-slate-700 hover:border-violet-300",
+                      ].join(" ")}
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           </div>
-        </div>
+        </SectionCard>
 
-        <form
-          onSubmit={submit}
-          onKeyDown={swallowEnter}
-          className="space-y-8 p-4 md:p-6"
+        <SectionCard
+          title="Descriptions"
+          hint="Short summary and full product details"
+          icon={Layers3}
         >
-          <section className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,1.5fr)]">
-            <div className="space-y-4 rounded-2xl border border-slate-100 bg-slate-50/70 p-4">
-              <h2 className="text-sm font-semibold text-slate-900">
-                Essentials
-              </h2>
-
-              <div className="grid gap-3 md:grid-cols-2">
-                <div className="md:col-span-2">
-                  <ReqLabel>Title</ReqLabel>
-                  <input
-                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs shadow-inner focus:border-violet-400 focus:outline-none"
-                    value={title}
-                    onChange={(e) => setTitle(e.target.value)}
-                    required
-                  />
-                </div>
-
-                <div>
-                  <ReqLabel>SKU</ReqLabel>
-                  <input
-                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs shadow-inner focus:border-violet-400 focus:outline-none"
-                    value={sku}
-                    onChange={(e) => setSku(e.target.value)}
-                    required
-                  />
-                  {skuErr && (
-                    <p className="mt-1 text-[11px] text-rose-600">{skuErr}</p>
-                  )}
-                </div>
-
-                <div>
-                  <ReqLabel>Status</ReqLabel>
-                  <select
-                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs focus:border-violet-400 focus:outline-none"
-                    value={status}
-                    onChange={(e) =>
-                      setStatus(e.target.value as "draft" | "publish")
-                    }
-                  >
-                    <option value="draft">Draft</option>
-                    <option value="publish">Published</option>
-                  </select>
-                </div>
-
-                <div>
-                  <ReqLabel>Visibility</ReqLabel>
-                  <select
-                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs focus:border-violet-400 focus:outline-none"
-                    value={visibility}
-                    onChange={(e) =>
-                      setVisibility(
-                        e.target.value as
-                          | "visible"
-                          | "catalog"
-                          | "search"
-                          | "hidden"
-                      )
-                    }
-                  >
-                    <option value="visible">Visible</option>
-                    <option value="catalog">Catalog only</option>
-                    <option value="search">Search only</option>
-                    <option value="hidden">Hidden</option>
-                  </select>
-                </div>
-              </div>
+          <div className="grid gap-4">
+            <div>
+              <FieldLabel>Short description</FieldLabel>
+              <MobileTextarea
+                rows={4}
+                value={shortDesc}
+                onChange={(e) => setShortDesc(e.target.value)}
+                placeholder="Small summary shown in product highlights"
+              />
             </div>
 
-            <div className="space-y-4 rounded-2xl border border-slate-100 bg-slate-50/70 p-4">
-              <h2 className="text-sm font-semibold text-slate-900">
-                Descriptions
-              </h2>
-
-              <div className="space-y-3">
-                <div>
-                  <label className="mb-1 block text-xs font-medium text-slate-700">
-                    Short description
-                  </label>
-                  <textarea
-                    rows={3}
-                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs shadow-inner focus:border-violet-400 focus:outline-none"
-                    value={shortDesc}
-                    onChange={(e) => setShortDesc(e.target.value)}
-                  />
-                </div>
-
-                <div>
-                  <label className="mb-1 block text-xs font-medium text-slate-700">
-                    Description
-                  </label>
-                  <textarea
-                    rows={5}
-                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs shadow-inner focus:border-violet-400 focus:outline-none"
-                    value={desc}
-                    onChange={(e) => setDesc(e.target.value)}
-                  />
-                </div>
-              </div>
+            <div>
+              <FieldLabel>Description</FieldLabel>
+              <MobileTextarea
+                rows={7}
+                value={desc}
+                onChange={(e) => setDesc(e.target.value)}
+                placeholder="Detailed product description"
+              />
             </div>
-          </section>
+          </div>
+        </SectionCard>
 
-          {ptype === "simple" && (
-            <section className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,1.3fr)]">
-              <div className="space-y-4 rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
-                <h2 className="text-sm font-semibold text-slate-900">
-                  Pricing
-                </h2>
+        {ptype === "simple" && (
+          <div className="grid gap-4 xl:grid-cols-[1.2fr_1fr]">
+            <SectionCard
+              title="Pricing"
+              hint="Regular price, sale price and sale schedule"
+              icon={Wallet}
+            >
+              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                <div>
+                  <FieldLabel>Regular price</FieldLabel>
+                  <MobileField
+                    value={regular}
+                    onChange={(e) => setRegular(e.target.value)}
+                    placeholder="e.g. 999"
+                  />
+                </div>
 
-                <div className="grid gap-3 md:grid-cols-4">
-                  <div>
-                    <label className="mb-1 block text-xs text-slate-600">
-                      Regular price
-                    </label>
-                    <input
-                      className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs focus:border-violet-400 focus:outline-none"
-                      value={regular}
-                      onChange={(e) => setRegular(e.target.value)}
-                      placeholder="e.g. 999"
-                    />
-                  </div>
+                <div>
+                  <FieldLabel>Sale price</FieldLabel>
+                  <MobileField
+                    value={sale}
+                    onChange={(e) => setSale(e.target.value)}
+                    placeholder="e.g. 799"
+                  />
+                </div>
 
-                  <div>
-                    <label className="mb-1 block text-xs text-slate-600">
-                      Sale price
-                    </label>
-                    <input
-                      className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs focus:border-violet-400 focus:outline-none"
-                      value={sale}
-                      onChange={(e) => setSale(e.target.value)}
-                      placeholder="e.g. 799"
-                    />
-                  </div>
+                <div>
+                  <FieldLabel>Sale from</FieldLabel>
+                  <MobileField
+                    type="date"
+                    value={saleFrom}
+                    onChange={(e) => setSaleFrom(e.target.value)}
+                  />
+                </div>
 
-                  <div>
-                    <label className="mb-1 block text-xs text-slate-600">
-                      Sale from
-                    </label>
-                    <input
-                      type="date"
-                      className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs focus:border-violet-400 focus:outline-none"
-                      value={saleFrom}
-                      onChange={(e) => setSaleFrom(e.target.value)}
-                    />
-                  </div>
-
-                  <div>
-                    <label className="mb-1 block text-xs text-slate-600">
-                      Sale to
-                    </label>
-                    <input
-                      type="date"
-                      className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs focus:border-violet-400 focus:outline-none"
-                      value={saleTo}
-                      onChange={(e) => setSaleTo(e.target.value)}
-                    />
-                  </div>
+                <div>
+                  <FieldLabel>Sale to</FieldLabel>
+                  <MobileField
+                    type="date"
+                    value={saleTo}
+                    onChange={(e) => setSaleTo(e.target.value)}
+                  />
                 </div>
               </div>
+            </SectionCard>
 
-              <div className="space-y-4 rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
-                <h2 className="text-sm font-semibold text-slate-900">
-                  Inventory
-                </h2>
+            <SectionCard
+              title="Inventory"
+              hint="Stock quantity and backorder rules"
+              icon={Boxes}
+            >
+              <div className="space-y-4">
+                <label className="flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+                  <div>
+                    <div className="text-sm font-medium text-slate-800">
+                      Manage stock
+                    </div>
+                    <div className="text-xs text-slate-500">
+                      Track inventory at product level
+                    </div>
+                  </div>
 
-                <label className="mb-2 inline-flex items-center gap-2 text-xs text-slate-700">
                   <input
                     type="checkbox"
                     checked={manageStock}
                     onChange={(e) => setManageStock(e.target.checked)}
+                    className="h-4 w-4"
                   />
-                  Manage stock at product level
                 </label>
 
                 {manageStock && (
-                  <div className="grid gap-3 md:grid-cols-2">
+                  <div className="grid gap-4 md:grid-cols-2">
                     <div>
                       <ReqLabel>Quantity</ReqLabel>
-                      <input
+                      <MobileField
                         type="number"
                         min={0}
-                        className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs focus:border-violet-400 focus:outline-none"
                         value={stockQty}
                         onChange={(e) =>
                           setStockQty(
-                            e.target.value === ""
-                              ? ""
-                              : Number(e.target.value)
+                            e.target.value === "" ? "" : Number(e.target.value)
                           )
                         }
                       />
                     </div>
 
                     <div>
-                      <label className="mb-1 block text-xs text-slate-600">
-                        Backorders
-                      </label>
-                      <select
-                        className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs focus:border-violet-400 focus:outline-none"
+                      <FieldLabel>Backorders</FieldLabel>
+                      <MobileSelect
                         value={backorders}
                         onChange={(e) =>
                           setBackorders(
@@ -727,450 +813,434 @@ export default function AddProductPage() {
                         <option value="no">Do not allow</option>
                         <option value="notify">Allow, but notify</option>
                         <option value="yes">Allow</option>
-                      </select>
+                      </MobileSelect>
                     </div>
                   </div>
                 )}
               </div>
-            </section>
-          )}
+            </SectionCard>
+          </div>
+        )}
 
-          {ptype !== "grouped" && (
-            <section className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,1.3fr)]">
-              <div className="space-y-4 rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
-                <h2 className="text-sm font-semibold text-slate-900">
-                  Shipping
-                </h2>
+        {ptype !== "grouped" && (
+          <div className="grid gap-4 xl:grid-cols-[1.2fr_1fr]">
+            <SectionCard
+              title="Shipping"
+              hint="Weight and dimensions used for fulfilment"
+              icon={Truck}
+            >
+              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                <div>
+                  <FieldLabel>Weight (kg)</FieldLabel>
+                  <MobileField
+                    value={weight}
+                    onChange={(e) => setWeight(e.target.value)}
+                    placeholder="0.50"
+                  />
+                </div>
 
-                <div className="grid gap-3 md:grid-cols-4">
-                  <div>
-                    <label className="mb-1 block text-xs text-slate-600">
-                      Weight (kg)
-                    </label>
-                    <input
-                      className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs focus:border-violet-400 focus:outline-none"
-                      value={weight}
-                      onChange={(e) => setWeight(e.target.value)}
-                    />
-                  </div>
+                <div>
+                  <FieldLabel>Length (cm)</FieldLabel>
+                  <MobileField
+                    value={length}
+                    onChange={(e) => setLength(e.target.value)}
+                    placeholder="10"
+                  />
+                </div>
 
-                  <div>
-                    <label className="mb-1 block text-xs text-slate-600">
-                      Length (cm)
-                    </label>
-                    <input
-                      className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs focus:border-violet-400 focus:outline-none"
-                      value={length}
-                      onChange={(e) => setLength(e.target.value)}
-                    />
-                  </div>
+                <div>
+                  <FieldLabel>Width (cm)</FieldLabel>
+                  <MobileField
+                    value={width}
+                    onChange={(e) => setWidth(e.target.value)}
+                    placeholder="8"
+                  />
+                </div>
 
-                  <div>
-                    <label className="mb-1 block text-xs text-slate-600">
-                      Width (cm)
-                    </label>
-                    <input
-                      className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs focus:border-violet-400 focus:outline-none"
-                      value={width}
-                      onChange={(e) => setWidth(e.target.value)}
-                    />
-                  </div>
-
-                  <div>
-                    <label className="mb-1 block text-xs text-slate-600">
-                      Height (cm)
-                    </label>
-                    <input
-                      className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs focus:border-violet-400 focus:outline-none"
-                      value={height}
-                      onChange={(e) => setHeight(e.target.value)}
-                    />
-                  </div>
+                <div>
+                  <FieldLabel>Height (cm)</FieldLabel>
+                  <MobileField
+                    value={height}
+                    onChange={(e) => setHeight(e.target.value)}
+                    placeholder="4"
+                  />
                 </div>
               </div>
+            </SectionCard>
 
-              <div className="space-y-4 rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
-                <h2 className="text-sm font-semibold text-slate-900">Tax</h2>
-
-                <div className="grid gap-3 md:grid-cols-2">
-                  <div>
-                    <label className="mb-1 block text-xs text-slate-600">
-                      Tax status
-                    </label>
-                    <select
-                      className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs focus:border-violet-400 focus:outline-none"
-                      value={taxStatus}
-                      onChange={(e) =>
-                        setTaxStatus(
-                          e.target.value as "taxable" | "shipping" | "none"
-                        )
-                      }
-                    >
-                      <option value="taxable">Taxable</option>
-                      <option value="shipping">Shipping only</option>
-                      <option value="none">None</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="mb-1 block text-xs text-slate-600">
-                      Tax class
-                    </label>
-                    <input
-                      className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs focus:border-violet-400 focus:outline-none"
-                      value={taxClass}
-                      onChange={(e) => setTaxClass(e.target.value)}
-                      placeholder="Leave blank for standard"
-                    />
-                  </div>
-                </div>
-              </div>
-            </section>
-          )}
-
-          <section className="grid gap-6 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,2fr)]">
-            <div className="space-y-4 rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
-              <h2 className="text-sm font-semibold text-slate-900">
-                Product images
-              </h2>
-              <ProductImages value={images} onChange={setImages} max={5} />
-              <p className="mt-1 text-[11px] text-slate-500">
-                Upload up to 5 images. The first image will be used as the main
-                thumbnail.
-              </p>
-            </div>
-
-            <div className="space-y-4 rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
-              <h2 className="text-sm font-semibold text-slate-900">
-                Categorisation
-              </h2>
-
+            <SectionCard
+              title="Tax"
+              hint="Tax status and class for this product"
+              icon={Settings2}
+            >
               <div className="grid gap-4 md:grid-cols-2">
-                <div className="relative">
-                  <ReqLabel>Categories</ReqLabel>
-                  <button
-                    type="button"
-                    className="flex w-full items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-left text-xs text-slate-700 hover:border-violet-300 focus:outline-none"
-                    onClick={() => setCatOpen((o) => !o)}
+                <div>
+                  <FieldLabel>Tax status</FieldLabel>
+                  <MobileSelect
+                    value={taxStatus}
+                    onChange={(e) =>
+                      setTaxStatus(
+                        e.target.value as "taxable" | "shipping" | "none"
+                      )
+                    }
                   >
-                    {selectedCats.length === 0 ? (
-                      <span className="text-slate-400">
-                        Select categories…
-                      </span>
-                    ) : (
-                      <span className="truncate">
-                        {selectedCats
+                    <option value="taxable">Taxable</option>
+                    <option value="shipping">Shipping only</option>
+                    <option value="none">None</option>
+                  </MobileSelect>
+                </div>
+
+                <div>
+                  <FieldLabel>Tax class</FieldLabel>
+                  <MobileField
+                    value={taxClass}
+                    onChange={(e) => setTaxClass(e.target.value)}
+                    placeholder="Leave blank for standard"
+                  />
+                </div>
+              </div>
+            </SectionCard>
+          </div>
+        )}
+
+        <div className="grid gap-4 xl:grid-cols-[1fr_1.2fr]">
+          <SectionCard
+            title="Product images"
+            hint="Upload clean images. First image becomes thumbnail."
+            icon={ImagePlus}
+          >
+            <ProductImages value={images} onChange={setImages} max={5} />
+            <p className="mt-3 text-xs text-slate-500">
+              Use clear front images first. Add detail images after that.
+            </p>
+          </SectionCard>
+
+          <SectionCard
+            title="Categorisation"
+            hint="Assign categories and tags so products are easy to find"
+            icon={Tag}
+          >
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="relative">
+                <ReqLabel>Categories</ReqLabel>
+
+                <button
+                  type="button"
+                  className="flex h-12 w-full items-center justify-between rounded-2xl border border-slate-200 bg-white px-4 text-left text-sm text-slate-700 shadow-sm hover:border-violet-300"
+                  onClick={() => setCatOpen((o) => !o)}
+                >
+                  <span className="min-w-0 truncate">
+                    {selectedCats.length === 0
+                      ? "Select categories…"
+                      : selectedCats
                           .map((id) => cats.find((c) => c.id === id)?.name)
                           .filter(Boolean)
                           .join(", ")}
-                      </span>
-                    )}
-                    <span className="text-[10px] text-slate-400">▾</span>
-                  </button>
+                  </span>
+                  <ChevronDown className="h-4 w-4 shrink-0 text-slate-400" />
+                </button>
 
-                  {catOpen && (
-                    <div className="absolute z-20 mt-1 w-full rounded-2xl border border-slate-200 bg-white text-xs shadow-lg">
-                      <div className="border-b px-2 py-1.5">
+                {catOpen && (
+                  <div className="absolute z-20 mt-2 w-full overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-xl">
+                    <div className="border-b border-slate-100 p-3">
+                      <div className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2">
+                        <Search className="h-4 w-4 text-slate-400" />
                         <input
                           autoFocus
-                          className="w-full rounded-lg border border-slate-200 bg-slate-50 px-2 py-1 text-xs focus:border-violet-400 focus:outline-none"
-                          placeholder="Search…"
+                          className="w-full bg-transparent text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none"
+                          placeholder="Search category"
                           value={catQuery}
                           onChange={(e) => setCatQuery(e.target.value)}
                         />
                       </div>
-
-                      <div className="max-h-64 overflow-auto py-1">
-                        {filteredCats.map((c) => {
-                          const checked = selectedCats.includes(c.id);
-                          return (
-                            <label
-                              key={c.id}
-                              className="flex cursor-pointer items-center gap-2 px-3 py-1.5 text-xs hover:bg-slate-50"
-                              style={{ paddingLeft: 12 + c.depth * 14 }}
-                            >
-                              <input
-                                type="checkbox"
-                                checked={checked}
-                                onChange={() =>
-                                  setSelectedCats((arr) =>
-                                    checked
-                                      ? arr.filter((x) => x !== c.id)
-                                      : [...arr, c.id]
-                                  )
-                                }
-                              />
-                              <span>{c.name}</span>
-                            </label>
-                          );
-                        })}
-
-                        {filteredCats.length === 0 && (
-                          <div className="px-3 py-2 text-xs text-slate-500">
-                            No matches.
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="flex justify-between gap-2 border-t px-2 py-2">
-                        <button
-                          type="button"
-                          className="rounded-lg border border-slate-200 px-3 py-1 text-[11px] hover:bg-slate-50"
-                          onClick={() => setSelectedCats([])}
-                        >
-                          Clear all
-                        </button>
-                        <button
-                          type="button"
-                          className="rounded-lg bg-violet-500 px-3 py-1 text-[11px] font-medium text-white hover:bg-violet-600"
-                          onClick={() => setCatOpen(false)}
-                        >
-                          Done
-                        </button>
-                      </div>
                     </div>
-                  )}
-                </div>
 
-                <div>
-                  <label className="mb-1 block text-xs font-medium text-slate-700">
-                    Tags
-                  </label>
-                  <TagPicker value={tags} onChange={setTags} />
-                  <p className="mt-1 text-[11px] text-slate-500">
-                    Start typing to select existing tags or press Enter to
-                    create a new one.
-                  </p>
-                </div>
+                    <div className="max-h-72 overflow-auto py-2">
+                      {filteredCats.map((c) => {
+                        const checked = selectedCats.includes(c.id);
+                        return (
+                          <label
+                            key={c.id}
+                            className="flex cursor-pointer items-center gap-3 px-4 py-2 text-sm hover:bg-slate-50"
+                            style={{ paddingLeft: 16 + c.depth * 18 }}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={() =>
+                                setSelectedCats((arr) =>
+                                  checked
+                                    ? arr.filter((x) => x !== c.id)
+                                    : [...arr, c.id]
+                                )
+                              }
+                              className="h-4 w-4"
+                            />
+                            <span>{c.name}</span>
+                          </label>
+                        );
+                      })}
+
+                      {filteredCats.length === 0 && (
+                        <div className="px-4 py-3 text-sm text-slate-500">
+                          No matches.
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="flex items-center justify-between gap-2 border-t border-slate-100 p-3">
+                      <button
+                        type="button"
+                        className="rounded-full border border-slate-200 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
+                        onClick={() => setSelectedCats([])}
+                      >
+                        Clear
+                      </button>
+
+                      <button
+                        type="button"
+                        className="rounded-full bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-700"
+                        onClick={() => setCatOpen(false)}
+                      >
+                        Done
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
 
-              <p className="mt-1 text-[11px] text-slate-500">
-                <span className="font-semibold text-rose-500">*</span> Required
-                fields
-              </p>
+              <div>
+                <FieldLabel>Tags</FieldLabel>
+                <TagPicker value={tags} onChange={setTags} />
+                <p className="mt-2 text-xs text-slate-500">
+                  Press Enter to create new tags quickly.
+                </p>
+              </div>
             </div>
-          </section>
 
-          {ptype === "variable" && (
-            <>
-              <section className="space-y-4 rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
-                <h2 className="text-sm font-semibold text-slate-900">
-                  Attributes for variations
-                </h2>
+            <p className="mt-4 text-xs text-slate-500">
+              <span className="font-semibold text-rose-500">*</span> Required
+              fields
+            </p>
+          </SectionCard>
+        </div>
 
-                <div className="flex flex-wrap gap-2">
-                  <select
-                    className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs focus:border-violet-400 focus:outline-none"
-                    value={varChosenAttr}
-                    onChange={(e) =>
-                      setVarChosenAttr(e.target.value as unknown as number | "")
-                    }
+        {ptype === "variable" && (
+          <>
+            <SectionCard
+              title="Variation attributes"
+              hint="Choose attributes and terms to generate variation combinations"
+              icon={Layers3}
+            >
+              <div className="flex flex-wrap gap-2">
+                <MobileSelect
+                  value={varChosenAttr}
+                  onChange={(e) =>
+                    setVarChosenAttr(e.target.value as unknown as number | "")
+                  }
+                  className="w-full md:w-[240px]"
+                >
+                  <option value="">Select attribute…</option>
+                  {attrs.map((a) => (
+                    <option key={a.id} value={a.id}>
+                      {a.name}
+                    </option>
+                  ))}
+                </MobileSelect>
+
+                <button
+                  type="button"
+                  className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:border-violet-300 hover:text-violet-700"
+                  onClick={addVarAttrRow}
+                >
+                  Add attribute
+                </button>
+
+                <button
+                  type="button"
+                  className="rounded-full bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-700"
+                  onClick={generateVariations}
+                >
+                  Generate variations
+                </button>
+              </div>
+
+              <div className="mt-4 space-y-3">
+                {varAttrRows.length === 0 && (
+                  <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-4 py-5 text-sm text-slate-500">
+                    No attributes added yet.
+                  </div>
+                )}
+
+                {varAttrRows.map((id) => (
+                  <div
+                    key={id}
+                    className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4"
                   >
-                    <option value="">Select attribute…</option>
-                    {attrs.map((a) => (
-                      <option key={a.id} value={a.id}>
-                        {a.name}
-                      </option>
-                    ))}
-                  </select>
+                    <div className="mb-3 text-sm font-semibold text-slate-800">
+                      {attrs.find((a) => a.id === id)?.name}
+                    </div>
 
-                  <button
-                    type="button"
-                    className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium hover:border-violet-300 hover:text-violet-700"
-                    onClick={addVarAttrRow}
-                  >
-                    Add
-                  </button>
+                    <div className="flex flex-wrap gap-2">
+                      {(termsMap[id] || []).map((t) => {
+                        const selected = (varChosenTerms[id] || []).includes(
+                          t.name
+                        );
 
-                  <button
-                    type="button"
-                    className="rounded-full bg-violet-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-violet-600"
-                    onClick={generateVariations}
-                  >
-                    Generate variations
-                  </button>
+                        return (
+                          <button
+                            key={t.id}
+                            type="button"
+                            onClick={() => toggleVarTerm(id, t.name)}
+                            className={[
+                              "rounded-full border px-3 py-1.5 text-sm transition",
+                              selected
+                                ? "border-violet-400 bg-violet-600 text-white"
+                                : "border-slate-200 bg-white text-slate-700 hover:border-violet-300",
+                            ].join(" ")}
+                            title={t.slug}
+                          >
+                            {t.name}
+                          </button>
+                        );
+                      })}
+
+                      {!termsMap[id] && (
+                        <span className="text-sm text-slate-500">Loading…</span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </SectionCard>
+
+            <SectionCard
+              title="Variations"
+              hint="Edit price and stock for each generated combination"
+              icon={Boxes}
+            >
+              {rows.length === 0 && (
+                <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-4 py-5 text-sm text-slate-500">
+                  No variations yet. Choose terms and tap Generate variations.
                 </div>
+              )}
 
-                <div className="mt-3 space-y-3">
-                  {varAttrRows.map((id) => (
+              {rows.length > 0 && (
+                <div className="space-y-3">
+                  {rows.map((r, i) => (
                     <div
-                      key={id}
-                      className="rounded-xl border border-slate-100 bg-slate-50/70 p-3"
+                      key={r.key}
+                      className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4"
                     >
-                      <div className="mb-2 flex items-center justify-between gap-2">
-                        <div className="text-xs font-semibold text-slate-800">
-                          {attrs.find((a) => a.id === id)?.name}
+                      <div className="mb-3 text-sm font-semibold text-slate-800">
+                        {r.key}
+                      </div>
+
+                      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                        <div>
+                          <FieldLabel>SKU</FieldLabel>
+                          <MobileField
+                            value={r.sku}
+                            onChange={(e) =>
+                              editRow(i, { sku: e.target.value })
+                            }
+                          />
+                        </div>
+
+                        <div>
+                          <FieldLabel>Regular price</FieldLabel>
+                          <MobileField
+                            value={r.regular_price}
+                            onChange={(e) =>
+                              editRow(i, { regular_price: e.target.value })
+                            }
+                          />
+                        </div>
+
+                        <div>
+                          <FieldLabel>Sale price</FieldLabel>
+                          <MobileField
+                            value={r.sale_price}
+                            onChange={(e) =>
+                              editRow(i, { sale_price: e.target.value })
+                            }
+                          />
+                        </div>
+
+                        <div>
+                          <FieldLabel>Backorders</FieldLabel>
+                          <MobileSelect
+                            value={r.backorders}
+                            onChange={(e) =>
+                              editRow(i, {
+                                backorders: e.target.value as
+                                  | "no"
+                                  | "notify"
+                                  | "yes",
+                              })
+                            }
+                          >
+                            <option value="no">Do not allow</option>
+                            <option value="notify">Allow, but notify</option>
+                            <option value="yes">Allow</option>
+                          </MobileSelect>
                         </div>
                       </div>
 
-                      <div className="flex flex-wrap gap-1.5">
-                        {(termsMap[id] || []).map((t) => {
-                          const selected =
-                            (varChosenTerms[id] || []).includes(t.name);
+                      <div className="mt-4 space-y-3">
+                        <label className="flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3">
+                          <div>
+                            <div className="text-sm font-medium text-slate-800">
+                              Manage stock for this variation
+                            </div>
+                          </div>
+                          <input
+                            type="checkbox"
+                            checked={r.manage_stock}
+                            onChange={(e) =>
+                              editRow(i, { manage_stock: e.target.checked })
+                            }
+                            className="h-4 w-4"
+                          />
+                        </label>
 
-                          return (
-                            <button
-                              key={t.id}
-                              type="button"
-                              onClick={() => toggleVarTerm(id, t.name)}
-                              className={`rounded-full border px-2.5 py-1 text-[11px] ${
-                                selected
-                                  ? "border-violet-400 bg-violet-500 text-white"
-                                  : "border-slate-200 bg-white text-slate-700 hover:border-violet-300"
-                              }`}
-                              title={t.slug}
-                            >
-                              {t.name}
-                            </button>
-                          );
-                        })}
-
-                        {!termsMap[id] && (
-                          <span className="text-[11px] text-slate-500">
-                            Loading…
-                          </span>
+                        {r.manage_stock && (
+                          <div className="md:max-w-[220px]">
+                            <FieldLabel>Quantity</FieldLabel>
+                            <MobileField
+                              type="number"
+                              min={0}
+                              value={r.stock_quantity}
+                              onChange={(e) =>
+                                editRow(i, {
+                                  stock_quantity:
+                                    e.target.value === ""
+                                      ? ""
+                                      : Number(e.target.value),
+                                })
+                              }
+                            />
+                          </div>
                         )}
                       </div>
                     </div>
                   ))}
                 </div>
-              </section>
+              )}
+            </SectionCard>
+          </>
+        )}
 
-              <section className="space-y-4 rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
-                <h2 className="text-sm font-semibold text-slate-900">
-                  Variations
-                </h2>
-
-                {rows.length === 0 && (
-                  <p className="text-xs text-slate-600">
-                    No variations yet. Choose terms and click{" "}
-                    <span className="font-semibold">Generate variations</span>.
-                  </p>
-                )}
-
-                {rows.length > 0 && (
-                  <div className="overflow-x-auto rounded-xl border border-slate-100">
-                    <table className="min-w-full text-xs">
-                      <thead className="bg-slate-50 text-left text-[11px] uppercase tracking-wide text-slate-500">
-                        <tr>
-                          <th className="px-3 py-2">Combination</th>
-                          <th className="px-3 py-2">SKU</th>
-                          <th className="px-3 py-2">Regular</th>
-                          <th className="px-3 py-2">Sale</th>
-                          <th className="px-3 py-2">Manage</th>
-                          <th className="px-3 py-2">Qty</th>
-                          <th className="px-3 py-2">Backorders</th>
-                        </tr>
-                      </thead>
-
-                      <tbody>
-                        {rows.map((r, i) => (
-                          <tr
-                            key={r.key}
-                            className="border-t border-slate-100 bg-white"
-                          >
-                            <td className="px-3 py-2 align-top text-[11px] text-slate-700">
-                              {r.key}
-                            </td>
-
-                            <td className="px-3 py-2">
-                              <input
-                                className="w-40 rounded-lg border border-slate-200 bg-slate-50 px-2 py-1 text-[11px] focus:border-violet-400 focus:outline-none"
-                                value={r.sku}
-                                onChange={(e) =>
-                                  editRow(i, { sku: e.target.value })
-                                }
-                              />
-                            </td>
-
-                            <td className="px-3 py-2">
-                              <input
-                                className="w-20 rounded-lg border border-slate-200 bg-slate-50 px-2 py-1 text-[11px] focus:border-violet-400 focus:outline-none"
-                                value={r.regular_price}
-                                onChange={(e) =>
-                                  editRow(i, {
-                                    regular_price: e.target.value,
-                                  })
-                                }
-                              />
-                            </td>
-
-                            <td className="px-3 py-2">
-                              <input
-                                className="w-20 rounded-lg border border-slate-200 bg-slate-50 px-2 py-1 text-[11px] focus:border-violet-400 focus:outline-none"
-                                value={r.sale_price}
-                                onChange={(e) =>
-                                  editRow(i, { sale_price: e.target.value })
-                                }
-                              />
-                            </td>
-
-                            <td className="px-3 py-2 text-center">
-                              <input
-                                type="checkbox"
-                                checked={r.manage_stock}
-                                onChange={(e) =>
-                                  editRow(i, {
-                                    manage_stock: e.target.checked,
-                                  })
-                                }
-                              />
-                            </td>
-
-                            <td className="px-3 py-2">
-                              <input
-                                type="number"
-                                min={0}
-                                disabled={!rows[i].manage_stock}
-                                className="w-20 rounded-lg border border-slate-200 bg-slate-50 px-2 py-1 text-[11px] focus:border-violet-400 focus:outline-none disabled:opacity-40"
-                                value={r.stock_quantity}
-                                onChange={(e) =>
-                                  editRow(i, {
-                                    stock_quantity:
-                                      e.target.value === ""
-                                        ? ""
-                                        : Number(e.target.value),
-                                  })
-                                }
-                              />
-                            </td>
-
-                            <td className="px-3 py-2">
-                              <select
-                                className="w-24 rounded-lg border border-slate-200 bg-slate-50 px-2 py-1 text-[11px] focus:border-violet-400 focus:outline-none"
-                                value={r.backorders}
-                                onChange={(e) =>
-                                  editRow(i, {
-                                    backorders:
-                                      e.target.value as "no" | "notify" | "yes",
-                                  })
-                                }
-                              >
-                                <option value="no">No</option>
-                                <option value="notify">Notify</option>
-                                <option value="yes">Yes</option>
-                              </select>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </section>
-            </>
-          )}
-
-          {ptype === "grouped" && (
-            <section className="space-y-4 rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
-              <h2 className="text-sm font-semibold text-slate-900">
-                Group products
-              </h2>
-
-              <div className="mb-3 flex flex-wrap gap-2">
-                <input
-                  className="w-64 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs focus:border-violet-400 focus:outline-none"
-                  placeholder="Search by name or SKU"
+        {ptype === "grouped" && (
+          <SectionCard
+            title="Group products"
+            hint="Search and select existing products to include in this grouped product"
+            icon={Boxes}
+          >
+            <div className="flex flex-col gap-3 sm:flex-row">
+              <div className="relative flex-1">
+                <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                <MobileField
                   value={groupQuery}
                   onChange={(e) => setGroupQuery(e.target.value)}
                   onKeyDown={(e) => {
@@ -1179,64 +1249,68 @@ export default function AddProductPage() {
                       doGroupSearch();
                     }
                   }}
+                  placeholder="Search by name or SKU"
+                  className="pl-11"
                 />
-
-                <button
-                  type="button"
-                  className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium hover:border-violet-300 hover:text-violet-700"
-                  onClick={doGroupSearch}
-                >
-                  Search
-                </button>
               </div>
 
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="space-y-2 rounded-xl border border-slate-100 bg-slate-50/70 p-3">
-                  <div className="text-[11px] font-medium text-slate-600">
-                    Results
-                  </div>
+              <button
+                type="button"
+                className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:border-violet-300 hover:text-violet-700"
+                onClick={doGroupSearch}
+              >
+                Search
+              </button>
+            </div>
 
+            <div className="mt-4 grid gap-4 md:grid-cols-2">
+              <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4">
+                <div className="mb-3 text-sm font-semibold text-slate-800">
+                  Results
+                </div>
+
+                <div className="space-y-2">
                   {groupResults.map((r) => (
                     <button
                       type="button"
                       key={r.id}
-                      className="flex w-full items-center justify-between rounded-lg bg-white px-2 py-1.5 text-left text-[11px] hover:bg-slate-50"
+                      className="flex w-full items-center justify-between rounded-2xl bg-white px-3 py-3 text-left text-sm shadow-sm hover:bg-slate-50"
                       onClick={() =>
-                        setGroupSelected((s) =>
-                          s.includes(r.id) ? s : [...s, r.id]
-                        )
+                        setGroupSelected((s) => (s.includes(r.id) ? s : [...s, r.id]))
                       }
                     >
-                      <span className="truncate">{r.name}</span>
-                      <span className="ml-2 shrink-0 text-[10px] text-slate-400">
+                      <span className="min-w-0 truncate">{r.name}</span>
+                      <span className="ml-3 shrink-0 text-xs text-slate-400">
                         {r.sku || "no-sku"}
                       </span>
                     </button>
                   ))}
 
                   {groupResults.length === 0 && (
-                    <div className="text-[11px] text-slate-500">
-                      No results yet.
-                    </div>
+                    <div className="text-sm text-slate-500">No results yet.</div>
                   )}
                 </div>
+              </div>
 
-                <div className="space-y-2 rounded-xl border border-slate-100 bg-slate-50/70 p-3">
-                  <div className="text-[11px] font-medium text-slate-600">
-                    Selected
-                  </div>
+              <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4">
+                <div className="mb-3 text-sm font-semibold text-slate-800">
+                  Selected
+                </div>
 
+                <div className="space-y-2">
                   {groupSelected.map((id) => {
                     const r = groupResults.find((x) => x.id === id);
                     return (
                       <div
                         key={id}
-                        className="flex items-center justify-between rounded-lg bg-white px-2 py-1.5 text-[11px]"
+                        className="flex items-center justify-between rounded-2xl bg-white px-3 py-3 text-sm shadow-sm"
                       >
-                        <span className="truncate">{r?.name || `#${id}`}</span>
+                        <span className="min-w-0 truncate">
+                          {r?.name || `#${id}`}
+                        </span>
                         <button
                           type="button"
-                          className="ml-2 text-[10px] font-medium text-rose-500 hover:text-rose-600"
+                          className="ml-3 shrink-0 text-xs font-medium text-rose-600 hover:text-rose-700"
                           onClick={() =>
                             setGroupSelected((s) => s.filter((x) => x !== id))
                           }
@@ -1248,34 +1322,43 @@ export default function AddProductPage() {
                   })}
 
                   {groupSelected.length === 0 && (
-                    <div className="text-[11px] text-slate-500">
+                    <div className="text-sm text-slate-500">
                       None selected yet.
                     </div>
                   )}
                 </div>
               </div>
-            </section>
-          )}
+            </div>
+          </SectionCard>
+        )}
 
-          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-4">
-            <div className="flex items-center gap-3">
+        <div className="app-sticky-actions -mx-3 mt-2 px-3 md:mx-0 md:px-0">
+          <div className="flex flex-col gap-3 rounded-[24px] border border-slate-200/80 bg-white/90 p-3 shadow-lg shadow-slate-200/70 backdrop-blur md:flex-row md:items-center md:justify-between">
+            <div className="min-h-[20px]">
               {err && (
-                <span className="text-xs font-medium text-rose-600">
-                  {err}
-                </span>
+                <span className="text-sm font-medium text-rose-600">{err}</span>
               )}
             </div>
 
-            <button
-              type="submit"
-              disabled={busy || !!skuErr}
-              className="inline-flex items-center rounded-full bg-gradient-to-r from-[#8b5cff] to-[#ff7ac3] px-5 py-2 text-xs font-semibold text-white shadow-sm hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {busy ? "Creating…" : "Create product"}
-            </button>
+            <div className="flex gap-2">
+              <Link
+                href="/products"
+                className="inline-flex flex-1 items-center justify-center rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-medium text-slate-700 hover:bg-slate-50 md:flex-none"
+              >
+                Cancel
+              </Link>
+
+              <button
+                type="submit"
+                disabled={busy || !!skuErr}
+                className="inline-flex flex-1 items-center justify-center rounded-2xl bg-gradient-to-r from-[#8b5cff] to-[#ff7ac3] px-5 py-3 text-sm font-semibold text-white shadow-sm hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-60 md:flex-none"
+              >
+                {busy ? "Creating…" : "Create product"}
+              </button>
+            </div>
           </div>
-        </form>
-      </div>
+        </div>
+      </form>
     </main>
   );
 }
