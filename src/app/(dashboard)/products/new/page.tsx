@@ -548,10 +548,7 @@ export default function AddProductPage() {
             <h1 className="mt-3 text-3xl font-semibold tracking-tight text-slate-900">
               Add product
             </h1>
-            <p className="mt-1 text-sm text-slate-600">
-              Create a product with pricing, images, stock and categories in one
-              clean flow.
-            </p>
+            
           </div>
 
           <div className="flex flex-wrap gap-2">
