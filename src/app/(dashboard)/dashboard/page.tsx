@@ -1,8 +1,18 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import RenewalNotice from "@/components/subscription/RenewalNotice";
 import { useDashboardSubscription } from "@/components/subscription/SubscriptionContext";
+import {
+  ArrowRight,
+  Boxes,
+  CircleCheckBig,
+  Clock3,
+  IndianRupee,
+  PackageCheck,
+  ShoppingBag,
+  Wallet,
+} from "lucide-react";
 
 type ProductMetrics = {
   total: number;
@@ -48,16 +58,19 @@ function formatMoney(num: number): string {
 function formatShortMoney(num: number): string {
   const n = Number.isFinite(num) ? num : 0;
 
-  if (n >= 1_00_00_000) {
-    return "₹" + (n / 1_00_00_000).toFixed(1) + " Cr";
-  }
-  if (n >= 1_00_000) {
-    return "₹" + (n / 1_00_000).toFixed(1) + " L";
-  }
-  if (n >= 1_000) {
-    return "₹" + (n / 1_000).toFixed(1) + "k";
-  }
+  if (n >= 1_00_00_000) return "₹" + (n / 1_00_00_000).toFixed(1) + " Cr";
+  if (n >= 1_00_000) return "₹" + (n / 1_00_000).toFixed(1) + " L";
+  if (n >= 1_000) return "₹" + (n / 1_000).toFixed(1) + "k";
   return "₹" + n.toFixed(0);
+}
+
+function formatDateShort(dateString: string): string {
+  const d = new Date(dateString);
+  if (Number.isNaN(d.getTime())) return "--";
+  return d.toLocaleDateString("en-IN", {
+    day: "2-digit",
+    month: "short",
+  });
 }
 
 export default function DashboardPage() {
@@ -86,23 +99,16 @@ export default function DashboardPage() {
 
         const data = (await res.json()) as ProductMetrics;
 
-        if (!cancelled) {
-          setProductMetrics(data);
-        }
+        if (!cancelled) setProductMetrics(data);
       } catch (e) {
         console.error(e);
-        if (!cancelled) {
-          setProductErr("Failed to load product metrics");
-        }
+        if (!cancelled) setProductErr("Failed to load product metrics");
       } finally {
-        if (!cancelled) {
-          setProductLoading(false);
-        }
+        if (!cancelled) setProductLoading(false);
       }
     }
 
     loadProducts();
-
     return () => {
       cancelled = true;
     };
@@ -121,23 +127,16 @@ export default function DashboardPage() {
 
         const data = (await res.json()) as OrdersSummary;
 
-        if (!cancelled) {
-          setOrderStats(data);
-        }
+        if (!cancelled) setOrderStats(data);
       } catch (e) {
         console.error(e);
-        if (!cancelled) {
-          setOrderErr("Failed to load order metrics");
-        }
+        if (!cancelled) setOrderErr("Failed to load order metrics");
       } finally {
-        if (!cancelled) {
-          setOrderLoading(false);
-        }
+        if (!cancelled) setOrderLoading(false);
       }
     }
 
     loadOrders();
-
     return () => {
       cancelled = true;
     };
@@ -148,93 +147,165 @@ export default function DashboardPage() {
   const summaryOrdersLast30 = String(orderStats?.ordersLast30 ?? 0);
   const summaryPendingUPI = String(orderStats?.pendingOnHold ?? 0);
 
+  const quickHighlights = useMemo(
+    () => [
+      {
+        title: "Today's sales",
+        value: summaryTodaySales,
+        note: "Created today",
+        icon: Wallet,
+        gradient:
+          "from-[#ff8fa2] via-[#ff7fae] to-[#ff6fb1]",
+      },
+      {
+        title: "This month's sales",
+        value: summaryMonthSales,
+        note: "This month",
+        icon: IndianRupee,
+        gradient:
+          "from-[#5b8cff] via-[#5a74ff] to-[#6a5cff]",
+      },
+      {
+        title: "Orders",
+        value: summaryOrdersLast30,
+        note: "Last 30 days",
+        icon: ShoppingBag,
+        gradient:
+          "from-[#19c6b4] via-[#13b5cf] to-[#1aa4ff]",
+      },
+      {
+        title: "Pending UPI",
+        value: summaryPendingUPI,
+        note: "Needs review",
+        icon: Clock3,
+        gradient:
+          "from-[#ffb27a] via-[#ff9c78] to-[#ff7e8c]",
+      },
+    ],
+    [summaryMonthSales, summaryOrdersLast30, summaryPendingUPI, summaryTodaySales]
+  );
+
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold text-slate-900">Dashboard</h1>
-        <p className="mt-1 text-sm text-slate-500">
-          Snapshot of your store — sales, orders, and products.
-        </p>
-      </div>
+    <div className="space-y-5 md:space-y-6">
+      <section className="rounded-[28px] border border-white/70 bg-gradient-to-br from-white via-[#f9f3ff] to-[#eef5ff] p-4 shadow-sm shadow-slate-200/60 md:p-6">
+        <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+          <div className="min-w-0">
+            <div className="inline-flex items-center rounded-full bg-[#ede7ff] px-3 py-1 text-[11px] font-medium text-[#7252ff]">
+              Store dashboard
+            </div>
+            <h1 className="mt-3 text-3xl font-semibold tracking-tight text-slate-900 md:text-4xl">
+              Dashboard
+            </h1>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600 md:text-[15px]">
+              Snapshot of your store performance, orders, products, and setup
+              progress in one place.
+            </p>
+          </div>
 
-      {subscription && (
-        <RenewalNotice
-          status={subscription.status}
-          nextPaymentDate={subscription.nextPaymentDate}
-        />
-      )}
+          <div className="grid grid-cols-2 gap-2 md:min-w-[280px]">
+            <MiniInfoPill
+              label="Products"
+              value={String(productMetrics?.total ?? 0)}
+              loading={productLoading}
+            />
+            <MiniInfoPill
+              label="In stock"
+              value={String(productMetrics?.inStock ?? 0)}
+              loading={productLoading}
+            />
+            <MiniInfoPill
+              label="Out of stock"
+              value={String(productMetrics?.outOfStock ?? 0)}
+              loading={productLoading}
+            />
+            <MiniInfoPill
+              label="Pending UPI"
+              value={String(orderStats?.pendingOnHold ?? 0)}
+              loading={orderLoading}
+            />
+          </div>
+        </div>
 
-      <div className="grid gap-4 md:grid-cols-4">
-        <SummaryCard
-          title="Today's sales"
-          value={summaryTodaySales}
-          description="Completed & processing orders created today"
-          gradient="from-[#ff8a8a] to-[#ff6fb1]"
-          loading={orderLoading}
-          error={orderErr}
-        />
-        <SummaryCard
-          title="This month's sales"
-          value={summaryMonthSales}
-          description="From processing & completed orders this month"
-          gradient="from-[#4f8bff] to-[#5f5dff]"
-          loading={orderLoading}
-          error={orderErr}
-        />
-        <SummaryCard
-          title="Orders"
-          value={summaryOrdersLast30}
-          description="Last 30 days (all statuses)"
-          gradient="from-[#00c9a7] to-[#00a3ff]"
-          loading={orderLoading}
-          error={orderErr}
-        />
-        <SummaryCard
-          title="Pending UPI verification"
-          value={summaryPendingUPI}
-          description="On-hold orders paid via Letz UPI"
-          gradient="from-[#ffb07c] to-[#ff7c88]"
-          loading={orderLoading}
-          error={orderErr}
-        />
-      </div>
+        {subscription && (
+          <div className="mt-4">
+            <RenewalNotice
+              status={subscription.status}
+              nextPaymentDate={subscription.nextPaymentDate}
+            />
+          </div>
+        )}
+      </section>
 
-      <div className="space-y-4 rounded-3xl bg-gradient-to-b from-white via-[#f9f3ff] to-[#f1f6ff] p-4 md:p-5">
-        <div className="grid gap-4 lg:grid-cols-3">
-          <ProductsOverviewCard
-            metrics={productMetrics}
-            loading={productLoading}
-            error={productErr}
-          />
-
-          <OrdersStatusCard
+      <section className="grid grid-cols-2 gap-3 md:grid-cols-2 xl:grid-cols-4">
+        {quickHighlights.map((item) => (
+          <SummaryCard
+            key={item.title}
+            title={item.title}
+            value={item.value}
+            note={item.note}
+            gradient={item.gradient}
+            icon={item.icon}
             loading={orderLoading}
             error={orderErr}
-            statusLast30={
-              orderStats?.statusLast30 || {
-                completed: 0,
-                processing: 0,
-                onHold: 0,
-              }
+          />
+        ))}
+      </section>
+
+      <section className="grid gap-4 xl:grid-cols-[1.15fr_1fr]">
+        <ProductsOverviewCard
+          metrics={productMetrics}
+          loading={productLoading}
+          error={productErr}
+        />
+
+        <OrdersStatusCard
+          loading={orderLoading}
+          error={orderErr}
+          statusLast30={
+            orderStats?.statusLast30 || {
+              completed: 0,
+              processing: 0,
+              onHold: 0,
             }
-          />
+          }
+        />
+      </section>
 
-          <ChecklistCard />
-        </div>
+      <section className="grid gap-4 xl:grid-cols-[1.15fr_1fr]">
+        <RevenueCard
+          loading={orderLoading}
+          error={orderErr}
+          revenue={orderStats?.revenueByWeek || []}
+        />
 
-        <div className="grid gap-4 lg:grid-cols-3">
-          <RevenueCard
-            loading={orderLoading}
-            error={orderErr}
-            revenue={orderStats?.revenueByWeek || []}
-          />
-          <RecentOrdersCard
-            loading={orderLoading}
-            error={orderErr}
-            orders={orderStats?.recentOrders || []}
-          />
-          <SupportCard />
-        </div>
+        <ChecklistCard />
+      </section>
+
+      <section className="grid gap-4 xl:grid-cols-[1.15fr_1fr]">
+        <RecentOrdersCard
+          loading={orderLoading}
+          error={orderErr}
+          orders={orderStats?.recentOrders || []}
+        />
+
+        <SupportCard />
+      </section>
+    </div>
+  );
+}
+
+function MiniInfoPill(props: {
+  label: string;
+  value: string;
+  loading?: boolean;
+}) {
+  const { label, value, loading } = props;
+
+  return (
+    <div className="rounded-2xl border border-slate-200/80 bg-white/80 px-3 py-3 shadow-sm">
+      <div className="text-[11px] font-medium text-slate-500">{label}</div>
+      <div className="mt-1 text-base font-semibold text-slate-900">
+        {loading ? "…" : value}
       </div>
     </div>
   );
@@ -243,29 +314,39 @@ export default function DashboardPage() {
 function SummaryCard(props: {
   title: string;
   value: string;
-  description: string;
+  note: string;
   gradient: string;
   loading?: boolean;
   error?: string | null;
+  icon: React.ComponentType<{ className?: string }>;
 }) {
-  const { title, value, description, gradient, loading, error } = props;
+  const { title, value, note, gradient, loading, error, icon: Icon } = props;
 
   return (
-    <div className="overflow-hidden rounded-2xl bg-gradient-to-tr from-10% to-90% text-white shadow-sm">
-      <div className={`relative h-28 bg-gradient-to-br ${gradient}`}>
-        <div className="pointer-events-none absolute -right-10 -top-10 h-24 w-24 rounded-full bg-white/10" />
-        <div className="pointer-events-none absolute -right-16 bottom-[-48px] h-32 w-32 rounded-full bg-white/10" />
+    <div className="group overflow-hidden rounded-[24px] border border-white/40 bg-white shadow-sm shadow-slate-200/70 transition hover:-translate-y-0.5">
+      <div className={`relative min-h-[132px] bg-gradient-to-br ${gradient}`}>
+        <div className="pointer-events-none absolute -right-8 -top-8 h-24 w-24 rounded-full bg-white/10" />
+        <div className="pointer-events-none absolute -bottom-10 -right-10 h-28 w-28 rounded-full bg-white/10" />
+
         <div className="relative flex h-full flex-col justify-between p-4">
-          <div className="text-xs font-medium uppercase tracking-wide text-white/80">
-            {title}
+          <div className="flex items-start justify-between gap-3">
+            <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-white/80 md:text-xs">
+              {title}
+            </div>
+            <div className="flex h-9 w-9 items-center justify-center rounded-2xl bg-white/16 text-white backdrop-blur">
+              <Icon className="h-4 w-4" />
+            </div>
           </div>
-          <div className="text-2xl font-semibold">
-            {loading ? "…" : error ? "--" : value}
+
+          <div>
+            <div className="text-2xl font-semibold tracking-tight text-white md:text-3xl">
+              {loading ? "…" : error ? "--" : value}
+            </div>
+            <div className="mt-1 text-[11px] text-white/80 md:text-xs">
+              {note}
+            </div>
           </div>
         </div>
-      </div>
-      <div className="bg-white/5 px-4 py-2 text-[11px] text-white/85">
-        {description}
       </div>
     </div>
   );
@@ -286,34 +367,32 @@ function ProductsOverviewCard(props: {
   const inStockPct = (inStock / chartTotal) * 100;
 
   return (
-    <div className="flex flex-col rounded-2xl border border-slate-100 bg-white/80 p-4 shadow-sm">
-      <div className="mb-3 flex items-center justify-between">
-        <h2 className="text-sm font-semibold text-slate-800">
-          Products overview
-        </h2>
+    <div className="rounded-[28px] border border-slate-200/70 bg-white p-4 shadow-sm shadow-slate-200/60 md:p-5">
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <div>
+          <h2 className="text-base font-semibold text-slate-900">
+            Products overview
+          </h2>
+          <p className="mt-1 text-xs text-slate-500">
+            Stock health and product count
+          </p>
+        </div>
+
         <a
           href="/products"
-          className="text-xs font-medium text-[#8b5cff] hover:underline"
+          className="inline-flex items-center gap-1 rounded-full bg-[#f3eeff] px-3 py-1.5 text-xs font-medium text-[#7a4cf0] hover:bg-[#ece4ff]"
         >
-          Manage products
+          Manage
+          <ArrowRight className="h-3.5 w-3.5" />
         </a>
       </div>
 
-      {loading && (
-        <div className="flex flex-1 items-center justify-center py-8 text-xs text-slate-400">
-          Loading…
-        </div>
-      )}
-
-      {!loading && error && (
-        <div className="flex flex-1 items-center justify-center py-8 text-xs text-rose-500">
-          {error}
-        </div>
-      )}
+      {loading && <LoadingBlock />}
+      {!loading && error && <ErrorBlock text={error} />}
 
       {!loading && !error && (
-        <div className="flex flex-1 flex-col gap-4 md:flex-row md:items-center">
-          <div className="flex flex-1 items-center justify-center">
+        <div className="flex flex-col gap-4 md:flex-row md:items-center">
+          <div className="flex justify-center md:w-[220px]">
             <DonutChart
               inStockPct={inStockPct}
               inStock={inStock}
@@ -321,30 +400,42 @@ function ProductsOverviewCard(props: {
             />
           </div>
 
-          <div className="flex-1 space-y-2 text-sm">
-            <div className="flex items-baseline justify-between">
-              <span className="text-slate-500">Total products</span>
-              <span className="font-semibold text-slate-900">{total}</span>
-            </div>
-            <div className="flex items-baseline justify-between">
-              <span className="inline-flex items-center gap-2 text-slate-500">
-                <span className="h-2 w-2 rounded-full bg-[#4b5dff]" />
-                In stock
-              </span>
-              <span className="font-semibold text-slate-900">{inStock}</span>
-            </div>
-            <div className="flex items-baseline justify-between">
-              <span className="inline-flex items-center gap-2 text-slate-500">
-                <span className="h-2 w-2 rounded-full bg-[#ff8a5c]" />
-                Out of stock
-              </span>
-              <span className="font-semibold text-rose-500">
-                {outOfStock}
-              </span>
-            </div>
+          <div className="grid flex-1 grid-cols-1 gap-3 sm:grid-cols-3 md:grid-cols-1 xl:grid-cols-3">
+            <StatTile
+              label="Total products"
+              value={String(total)}
+              color="bg-slate-100 text-slate-900"
+            />
+            <StatTile
+              label="In stock"
+              value={String(inStock)}
+              color="bg-indigo-50 text-indigo-700"
+            />
+            <StatTile
+              label="Out of stock"
+              value={String(outOfStock)}
+              color="bg-rose-50 text-rose-600"
+            />
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function StatTile(props: {
+  label: string;
+  value: string;
+  color: string;
+}) {
+  const { label, value, color } = props;
+
+  return (
+    <div className="rounded-2xl border border-slate-200/70 bg-slate-50/70 p-3">
+      <div className="text-[11px] font-medium text-slate-500">{label}</div>
+      <div className={`mt-2 inline-flex rounded-full px-2.5 py-1 text-sm font-semibold ${color}`}>
+        {value}
+      </div>
     </div>
   );
 }
@@ -360,7 +451,7 @@ function DonutChart(props: {
   const remaining = 100 - pct;
 
   return (
-    <div className="relative h-32 w-32">
+    <div className="relative h-40 w-40">
       <svg viewBox="0 0 36 36" className="h-full w-full">
         <circle
           className="text-indigo-100"
@@ -386,8 +477,8 @@ function DonutChart(props: {
       </svg>
 
       <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-        <div className="text-xs font-medium text-slate-500">In stock</div>
-        <div className="text-lg font-semibold text-slate-900">
+        <div className="text-[11px] font-medium text-slate-500">In stock</div>
+        <div className="text-xl font-semibold text-slate-900">
           {inStock} / {inStock + outOfStock}
         </div>
       </div>
@@ -407,69 +498,91 @@ function OrdersStatusCard(props: {
       label: "Completed",
       value: statusLast30.completed,
       color: "bg-[#4b5dff]",
+      light: "bg-indigo-50",
+      icon: CircleCheckBig,
     },
     {
       label: "Processing",
       value: statusLast30.processing,
       color: "bg-[#ffb84d]",
+      light: "bg-amber-50",
+      icon: PackageCheck,
     },
     {
       label: "On hold / Pending UPI",
       value: statusLast30.onHold,
       color: "bg-[#ff6b88]",
+      light: "bg-rose-50",
+      icon: Clock3,
     },
   ];
 
   const total = rows.reduce((sum, s) => sum + s.value, 0) || 1;
 
   return (
-    <div className="flex flex-col rounded-2xl border border-slate-100 bg-white/80 p-4 shadow-sm">
-      <div className="mb-3 flex items-center justify-between">
-        <h2 className="text-sm font-semibold text-slate-800">
-          Orders by status (last 30 days)
-        </h2>
+    <div className="rounded-[28px] border border-slate-200/70 bg-white p-4 shadow-sm shadow-slate-200/60 md:p-5">
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <div>
+          <h2 className="text-base font-semibold text-slate-900">
+            Orders by status
+          </h2>
+          <p className="mt-1 text-xs text-slate-500">Last 30 days overview</p>
+        </div>
+
         <a
           href="/orders"
-          className="text-xs font-medium text-[#8b5cff] hover:underline"
+          className="inline-flex items-center gap-1 rounded-full bg-[#f3eeff] px-3 py-1.5 text-xs font-medium text-[#7a4cf0] hover:bg-[#ece4ff]"
         >
           View all
+          <ArrowRight className="h-3.5 w-3.5" />
         </a>
       </div>
 
-      {loading && <div className="py-6 text-xs text-slate-400">Loading…</div>}
-      {!loading && error && (
-        <div className="py-6 text-xs text-rose-500">{error}</div>
-      )}
+      {loading && <LoadingBlock />}
+      {!loading && error && <ErrorBlock text={error} />}
 
       {!loading && !error && (
-        <>
-          <div className="space-y-3">
-            {rows.map((row) => {
-              const pct = (row.value / total) * 100;
-              return (
-                <div key={row.label} className="space-y-1 text-xs">
-                  <div className="flex items-center justify-between">
-                    <span className="text-slate-600">{row.label}</span>
-                    <span className="font-semibold text-slate-900">
-                      {row.value}
+        <div className="space-y-3">
+          {rows.map((row) => {
+            const pct = (row.value / total) * 100;
+            const Icon = row.icon;
+
+            return (
+              <div
+                key={row.label}
+                className="rounded-2xl border border-slate-200/70 bg-slate-50/70 p-3"
+              >
+                <div className="mb-2 flex items-center justify-between gap-3">
+                  <div className="flex min-w-0 items-center gap-2">
+                    <span
+                      className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl ${row.light}`}
+                    >
+                      <Icon className="h-4 w-4 text-slate-700" />
+                    </span>
+                    <span className="truncate text-sm font-medium text-slate-700">
+                      {row.label}
                     </span>
                   </div>
-                  <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-100">
-                    <div
-                      className={`h-full ${row.color}`}
-                      style={{ width: `${pct}%` }}
-                    />
-                  </div>
+                  <span className="text-sm font-semibold text-slate-900">
+                    {row.value}
+                  </span>
                 </div>
-              );
-            })}
-          </div>
 
-          <p className="mt-4 text-[11px] text-slate-500">
-            Use the <span className="font-medium text-slate-700">Orders</span>{" "}
+                <div className="h-2 w-full overflow-hidden rounded-full bg-slate-200">
+                  <div
+                    className={`h-full ${row.color}`}
+                    style={{ width: `${pct}%` }}
+                  />
+                </div>
+              </div>
+            );
+          })}
+
+          <p className="pt-1 text-xs leading-5 text-slate-500">
+            Open the <span className="font-medium text-slate-700">Orders</span>{" "}
             page to filter by status, date range, payment method and more.
           </p>
-        </>
+        </div>
       )}
     </div>
   );
@@ -502,24 +615,30 @@ function ChecklistCard() {
   const doneCount = checklistItems.filter((i) => i.done).length;
 
   return (
-    <div className="flex flex-col rounded-2xl border border-slate-100 bg-white/80 p-4 shadow-sm">
-      <div className="mb-3 flex items-center justify-between">
-        <h2 className="text-sm font-semibold text-slate-800">
-          Getting started checklist
-        </h2>
-        <span className="rounded-full bg-[#f3e9ff] px-2 py-0.5 text-[11px] font-medium text-[#8b5cff]">
+    <div className="rounded-[28px] border border-slate-200/70 bg-white p-4 shadow-sm shadow-slate-200/60 md:p-5">
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <div>
+          <h2 className="text-base font-semibold text-slate-900">
+            Getting started
+          </h2>
+          <p className="mt-1 text-xs text-slate-500">
+            Setup checklist for your store
+          </p>
+        </div>
+
+        <span className="rounded-full bg-[#f3e9ff] px-2.5 py-1 text-[11px] font-medium text-[#8b5cff]">
           {doneCount}/{checklistItems.length} done
         </span>
       </div>
 
-      <ul className="space-y-2 text-xs">
+      <ul className="space-y-2.5">
         {checklistItems.map((item) => (
           <li
             key={item.label}
-            className="flex items-start gap-2 rounded-xl bg-slate-50/60 px-2 py-2"
+            className="flex items-start gap-3 rounded-2xl border border-slate-200/70 bg-slate-50/70 px-3 py-3"
           >
             <span
-              className={`mt-0.5 flex h-4 w-4 items-center justify-center rounded-full text-[10px] ${
+              className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[11px] ${
                 item.done
                   ? "bg-emerald-500 text-white"
                   : "border border-slate-300 bg-white text-slate-400"
@@ -527,16 +646,19 @@ function ChecklistCard() {
             >
               {item.done ? "✓" : ""}
             </span>
-            <span className="text-slate-600">{item.label}</span>
+            <span className="text-sm leading-5 text-slate-600">
+              {item.label}
+            </span>
           </li>
         ))}
       </ul>
 
       <a
         href="/settings?tab=profile"
-        className="mt-4 inline-flex items-center text-[11px] font-medium text-[#8b5cff] hover:underline"
+        className="mt-4 inline-flex items-center gap-1 text-sm font-medium text-[#8b5cff] hover:underline"
       >
-        Go to setup guide →
+        Go to setup guide
+        <ArrowRight className="h-4 w-4" />
       </a>
     </div>
   );
@@ -550,45 +672,47 @@ function RevenueCard(props: {
   const { loading, error, revenue } = props;
 
   return (
-    <div className="flex flex-col rounded-2xl border border-slate-100 bg-white/80 p-4 shadow-sm">
-      <h2 className="text-sm font-semibold text-slate-800">
-        Revenue from completed orders (last 30 days)
-      </h2>
-      <p className="mt-1 text-[11px] text-slate-500">
-        Based on completed & processing orders in the last 30 days.
-      </p>
+    <div className="rounded-[28px] border border-slate-200/70 bg-white p-4 shadow-sm shadow-slate-200/60 md:p-5">
+      <div className="mb-4">
+        <h2 className="text-base font-semibold text-slate-900">
+          Revenue trend
+        </h2>
+        <p className="mt-1 text-xs text-slate-500">
+          Completed and processing orders from the last 30 days
+        </p>
+      </div>
 
-      {loading && <div className="mt-6 text-xs text-slate-400">Loading…</div>}
-      {!loading && error && (
-        <div className="mt-6 text-xs text-rose-500">{error}</div>
-      )}
+      {loading && <LoadingBlock />}
+      {!loading && error && <ErrorBlock text={error} />}
 
       {!loading && !error && (
         <>
           {revenue.length === 0 || revenue.every((w) => w.total === 0) ? (
-            <div className="mt-6 text-xs text-slate-400">
-              No paid orders in the last 30 days.
-            </div>
+            <EmptyBlock text="No paid orders in the last 30 days." />
           ) : (
-            <div className="mt-4 flex flex-1 items-end gap-4">
+            <div className="grid grid-cols-4 gap-3">
               {(() => {
                 const max =
                   revenue.reduce((m, w) => (w.total > m ? w.total : m), 0) || 1;
 
                 return revenue.map((w) => {
                   const height = (w.total / max) * 100;
+
                   return (
                     <div
                       key={w.label}
-                      className="flex flex-1 flex-col items-center gap-1"
+                      className="flex flex-col items-center justify-end gap-2"
                     >
-                      <div className="relative flex h-24 w-10 items-end overflow-hidden rounded-full bg-slate-100">
-                        <div
-                          className="absolute bottom-0 w-full rounded-full bg-gradient-to-t from-[#4b5dff] via-[#8b5cff] to-[#ff6fb1]"
-                          style={{ height: `${height}%` }}
-                        />
+                      <div className="flex h-32 w-full items-end justify-center">
+                        <div className="relative flex h-full w-12 items-end overflow-hidden rounded-full bg-slate-100">
+                          <div
+                            className="absolute bottom-0 w-full rounded-full bg-gradient-to-t from-[#4b5dff] via-[#8b5cff] to-[#ff6fb1]"
+                            style={{ height: `${height}%` }}
+                          />
+                        </div>
                       </div>
-                      <div className="text-[10px] text-slate-500">
+
+                      <div className="text-[11px] font-medium text-slate-500">
                         {w.label}
                       </div>
                       <div className="text-[11px] font-semibold text-slate-800">
@@ -614,79 +738,75 @@ function RecentOrdersCard(props: {
   const { loading, error, orders } = props;
 
   return (
-    <div className="flex flex-col rounded-2xl border border-slate-100 bg-white/80 p-4 shadow-sm">
-      <div className="mb-3 flex items-center justify-between">
-        <h2 className="text-sm font-semibold text-slate-800">Recent orders</h2>
+    <div className="rounded-[28px] border border-slate-200/70 bg-white p-4 shadow-sm shadow-slate-200/60 md:p-5">
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <div>
+          <h2 className="text-base font-semibold text-slate-900">
+            Recent orders
+          </h2>
+          <p className="mt-1 text-xs text-slate-500">
+            Latest activity from your store
+          </p>
+        </div>
+
         <a
           href="/orders"
-          className="text-xs font-medium text-[#8b5cff] hover:underline"
+          className="inline-flex items-center gap-1 rounded-full bg-[#f3eeff] px-3 py-1.5 text-xs font-medium text-[#7a4cf0] hover:bg-[#ece4ff]"
         >
           View all
+          <ArrowRight className="h-3.5 w-3.5" />
         </a>
       </div>
 
-      {loading && (
-        <div className="flex-1 py-4 text-xs text-slate-400">Loading…</div>
-      )}
-      {!loading && error && (
-        <div className="flex-1 py-4 text-xs text-rose-500">{error}</div>
-      )}
+      {loading && <LoadingBlock />}
+      {!loading && error && <ErrorBlock text={error} />}
 
       {!loading && !error && (
-        <div className="flex-1 space-y-2 text-xs">
+        <div className="space-y-2.5">
           {orders.length === 0 && (
-            <div className="py-4 text-xs text-slate-400">
-              No orders yet. New orders will show here.
-            </div>
+            <EmptyBlock text="No orders yet. New orders will show here." />
           )}
 
           {orders.map((o) => {
             const status = o.status.toLowerCase();
             let statusLabel = o.status || "—";
             let statusClass =
-              "inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-[10px] text-slate-600";
+              "inline-flex items-center rounded-full bg-slate-100 px-2 py-1 text-[10px] text-slate-600";
 
             if (status === "completed") {
               statusLabel = "Completed";
               statusClass =
-                "inline-flex items-center rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] text-emerald-600";
+                "inline-flex items-center rounded-full bg-emerald-50 px-2 py-1 text-[10px] text-emerald-600";
             } else if (status === "processing") {
               statusLabel = "Processing";
               statusClass =
-                "inline-flex items-center rounded-full bg-amber-50 px-2 py-0.5 text-[10px] text-amber-600";
+                "inline-flex items-center rounded-full bg-amber-50 px-2 py-1 text-[10px] text-amber-600";
             } else if (status === "on-hold") {
               statusLabel = "On hold";
               statusClass =
-                "inline-flex items-center rounded-full bg-rose-50 px-2 py-0.5 text-[10px] text-rose-600";
+                "inline-flex items-center rounded-full bg-rose-50 px-2 py-1 text-[10px] text-rose-600";
             }
-
-            const d = new Date(o.date_created);
-            const dateStr = d.toLocaleDateString("en-IN", {
-              day: "2-digit",
-              month: "short",
-            });
 
             return (
               <a
                 key={o.id}
                 href={`/orders/${o.id}`}
-                className="flex items-center justify-between rounded-xl bg-slate-50/70 px-3 py-2 hover:bg-slate-100"
+                className="flex items-center justify-between gap-3 rounded-2xl border border-slate-200/70 bg-slate-50/70 px-3 py-3 transition hover:bg-slate-100"
               >
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
-                    <div className="font-medium text-slate-800">
-                      {o.number}
-                    </div>
+                    <div className="font-medium text-slate-800">{o.number}</div>
                     <span className="text-[10px] text-slate-400">
-                      {dateStr}
+                      {formatDateShort(o.date_created)}
                     </span>
                   </div>
-                  <div className="truncate text-[11px] text-slate-500">
+                  <div className="mt-1 truncate text-[12px] text-slate-500">
                     {o.customer}
                   </div>
                 </div>
-                <div className="text-right">
-                  <div className="font-semibold text-slate-900">
+
+                <div className="shrink-0 text-right">
+                  <div className="text-sm font-semibold text-slate-900">
                     {formatMoney(o.total)}
                   </div>
                   <div className="mt-1">
@@ -704,39 +824,69 @@ function RecentOrdersCard(props: {
 
 function SupportCard() {
   return (
-    <div className="flex flex-col rounded-2xl border border-slate-100 bg-gradient-to-br from-[#f5ecff] via-white to-[#e8f4ff] p-4 shadow-sm">
-      <h2 className="text-sm font-semibold text-slate-800">Support</h2>
-      <p className="mt-1 text-xs text-slate-500">
-        Run into an issue with your store setup, billing or technical settings?
-        We’re here for you.
-      </p>
+    <div className="rounded-[28px] border border-slate-200/70 bg-gradient-to-br from-[#f5ecff] via-white to-[#e8f4ff] p-4 shadow-sm shadow-slate-200/60 md:p-5">
+      <div className="mb-4">
+        <h2 className="text-base font-semibold text-slate-900">
+          Need help?
+        </h2>
+        <p className="mt-1 text-sm leading-6 text-slate-600">
+          For billing, settings, shipping or technical issues, use the support
+          options below.
+        </p>
+      </div>
 
-      <div className="mt-4 space-y-2 text-xs">
+      <div className="space-y-2.5">
         <a
           href="/support/knowledge-base"
-          className="flex items-center justify-between rounded-xl bg-white/80 px-3 py-2 text-slate-700 hover:bg-white"
+          className="flex items-center justify-between rounded-2xl border border-white/70 bg-white/85 px-3 py-3 text-sm text-slate-700 hover:bg-white"
         >
-          <span>Browse Knowledge Base</span>
-          <span className="text-[11px] text-slate-400">
-            Docs &amp; how-to guides
-          </span>
+          <div className="flex items-center gap-2">
+            <Boxes className="h-4 w-4 text-slate-500" />
+            <span>Browse Knowledge Base</span>
+          </div>
+          <span className="text-[11px] text-slate-400">Guides</span>
         </a>
 
         <a
           href="/support/tickets"
-          className="flex items-center justify-between rounded-xl bg-[#8b5cff] px-3 py-2 text-xs font-medium text-white hover:bg-[#7a4cf0]"
+          className="flex items-center justify-between rounded-2xl bg-[#8b5cff] px-3 py-3 text-sm font-medium text-white hover:bg-[#7a4cf0]"
         >
-          <span>Open a support ticket</span>
-          <span className="text-[11px] text-white/80">
-            Avg. reply &lt; 24h
-          </span>
+          <div className="flex items-center gap-2">
+            <ShoppingBag className="h-4 w-4" />
+            <span>Open support ticket</span>
+          </div>
+          <span className="text-[11px] text-white/80">&lt; 24h reply</span>
         </a>
-
-        <p className="pt-1 text-[11px] text-slate-500">
-          For urgent issues, you can also use the WhatsApp button in the bottom
-          right corner.
-        </p>
       </div>
+
+      <p className="mt-4 text-xs leading-5 text-slate-500">
+        For urgent issues, you can also use the WhatsApp button in the bottom
+        right corner.
+      </p>
+    </div>
+  );
+}
+
+function LoadingBlock() {
+  return (
+    <div className="flex min-h-[160px] items-center justify-center rounded-2xl border border-slate-200/70 bg-slate-50/60 text-sm text-slate-400">
+      Loading…
+    </div>
+  );
+}
+
+function ErrorBlock({ text }: { text: string }) {
+  return (
+    <div className="flex min-h-[160px] items-center justify-center rounded-2xl border border-rose-200 bg-rose-50 px-4 text-sm text-rose-600">
+      {text}
+    </div>
+  );
+}
+
+function EmptyBlock({ text }: { text: string }) {
+  return (
+    <div className="flex min-h-[140px] items-center justify-center rounded-2xl border border-slate-200/70 bg-slate-50/60 px-4 text-sm text-slate-400">
+      {text}
     </div>
   );
 }
