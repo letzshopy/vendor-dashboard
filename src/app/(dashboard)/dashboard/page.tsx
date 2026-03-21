@@ -98,7 +98,6 @@ export default function DashboardPage() {
         if (!res.ok) throw new Error("Failed to load product metrics");
 
         const data = (await res.json()) as ProductMetrics;
-
         if (!cancelled) setProductMetrics(data);
       } catch (e) {
         console.error(e);
@@ -126,7 +125,6 @@ export default function DashboardPage() {
         if (!res.ok) throw new Error("Failed to load order metrics");
 
         const data = (await res.json()) as OrdersSummary;
-
         if (!cancelled) setOrderStats(data);
       } catch (e) {
         console.error(e);
@@ -142,101 +140,52 @@ export default function DashboardPage() {
     };
   }, []);
 
-  const summaryTodaySales = formatMoney(orderStats?.todaySales ?? 0);
-  const summaryMonthSales = formatMoney(orderStats?.monthSales ?? 0);
-  const summaryOrdersLast30 = String(orderStats?.ordersLast30 ?? 0);
-  const summaryPendingUPI = String(orderStats?.pendingOnHold ?? 0);
-
   const quickHighlights = useMemo(
     () => [
       {
         title: "Today's sales",
-        value: summaryTodaySales,
+        value: formatMoney(orderStats?.todaySales ?? 0),
         note: "Created today",
         icon: Wallet,
-        gradient:
-          "from-[#ff8fa2] via-[#ff7fae] to-[#ff6fb1]",
+        gradient: "from-[#ff8fa2] via-[#ff7fae] to-[#ff6fb1]",
       },
       {
         title: "This month's sales",
-        value: summaryMonthSales,
+        value: formatMoney(orderStats?.monthSales ?? 0),
         note: "This month",
         icon: IndianRupee,
-        gradient:
-          "from-[#5b8cff] via-[#5a74ff] to-[#6a5cff]",
+        gradient: "from-[#5b8cff] via-[#5a74ff] to-[#6a5cff]",
       },
       {
         title: "Orders",
-        value: summaryOrdersLast30,
+        value: String(orderStats?.ordersLast30 ?? 0),
         note: "Last 30 days",
         icon: ShoppingBag,
-        gradient:
-          "from-[#19c6b4] via-[#13b5cf] to-[#1aa4ff]",
+        gradient: "from-[#19c6b4] via-[#13b5cf] to-[#1aa4ff]",
       },
       {
         title: "Pending UPI",
-        value: summaryPendingUPI,
+        value: String(orderStats?.pendingOnHold ?? 0),
         note: "Needs review",
         icon: Clock3,
-        gradient:
-          "from-[#ffb27a] via-[#ff9c78] to-[#ff7e8c]",
+        gradient: "from-[#ffb27a] via-[#ff9c78] to-[#ff7e8c]",
       },
     ],
-    [summaryMonthSales, summaryOrdersLast30, summaryPendingUPI, summaryTodaySales]
+    [orderStats]
   );
 
   return (
-    <div className="space-y-5 md:space-y-6">
-      <section className="rounded-[28px] border border-white/70 bg-gradient-to-br from-white via-[#f9f3ff] to-[#eef5ff] p-4 shadow-sm shadow-slate-200/60 md:p-6">
-        <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-          <div className="min-w-0">
-            <div className="inline-flex items-center rounded-full bg-[#ede7ff] px-3 py-1 text-[11px] font-medium text-[#7252ff]">
-              Store dashboard
-            </div>
-            <h1 className="mt-3 text-3xl font-semibold tracking-tight text-slate-900 md:text-4xl">
-              Dashboard
-            </h1>
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600 md:text-[15px]">
-              Snapshot of your store performance, orders, products, and setup
-              progress in one place.
-            </p>
-          </div>
+    <div className="space-y-4 md:space-y-6">
+      {subscription && (
+        <section>
+          <RenewalNotice
+            status={subscription.status}
+            nextPaymentDate={subscription.nextPaymentDate}
+          />
+        </section>
+      )}
 
-          <div className="grid grid-cols-2 gap-2 md:min-w-[280px]">
-            <MiniInfoPill
-              label="Products"
-              value={String(productMetrics?.total ?? 0)}
-              loading={productLoading}
-            />
-            <MiniInfoPill
-              label="In stock"
-              value={String(productMetrics?.inStock ?? 0)}
-              loading={productLoading}
-            />
-            <MiniInfoPill
-              label="Out of stock"
-              value={String(productMetrics?.outOfStock ?? 0)}
-              loading={productLoading}
-            />
-            <MiniInfoPill
-              label="Pending UPI"
-              value={String(orderStats?.pendingOnHold ?? 0)}
-              loading={orderLoading}
-            />
-          </div>
-        </div>
-
-        {subscription && (
-          <div className="mt-4">
-            <RenewalNotice
-              status={subscription.status}
-              nextPaymentDate={subscription.nextPaymentDate}
-            />
-          </div>
-        )}
-      </section>
-
-      <section className="grid grid-cols-2 gap-3 md:grid-cols-2 xl:grid-cols-4">
+      <section className="grid grid-cols-2 gap-3 xl:grid-cols-4">
         {quickHighlights.map((item) => (
           <SummaryCard
             key={item.title}
@@ -294,23 +243,6 @@ export default function DashboardPage() {
   );
 }
 
-function MiniInfoPill(props: {
-  label: string;
-  value: string;
-  loading?: boolean;
-}) {
-  const { label, value, loading } = props;
-
-  return (
-    <div className="rounded-2xl border border-slate-200/80 bg-white/80 px-3 py-3 shadow-sm">
-      <div className="text-[11px] font-medium text-slate-500">{label}</div>
-      <div className="mt-1 text-base font-semibold text-slate-900">
-        {loading ? "…" : value}
-      </div>
-    </div>
-  );
-}
-
 function SummaryCard(props: {
   title: string;
   value: string;
@@ -324,16 +256,16 @@ function SummaryCard(props: {
 
   return (
     <div className="group overflow-hidden rounded-[24px] border border-white/40 bg-white shadow-sm shadow-slate-200/70 transition hover:-translate-y-0.5">
-      <div className={`relative min-h-[132px] bg-gradient-to-br ${gradient}`}>
+      <div className={`relative min-h-[138px] bg-gradient-to-br ${gradient}`}>
         <div className="pointer-events-none absolute -right-8 -top-8 h-24 w-24 rounded-full bg-white/10" />
         <div className="pointer-events-none absolute -bottom-10 -right-10 h-28 w-28 rounded-full bg-white/10" />
 
         <div className="relative flex h-full flex-col justify-between p-4">
           <div className="flex items-start justify-between gap-3">
-            <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-white/80 md:text-xs">
+            <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-white/85 md:text-xs">
               {title}
             </div>
-            <div className="flex h-9 w-9 items-center justify-center rounded-2xl bg-white/16 text-white backdrop-blur">
+            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white/16 text-white backdrop-blur">
               <Icon className="h-4 w-4" />
             </div>
           </div>
@@ -342,7 +274,7 @@ function SummaryCard(props: {
             <div className="text-2xl font-semibold tracking-tight text-white md:text-3xl">
               {loading ? "…" : error ? "--" : value}
             </div>
-            <div className="mt-1 text-[11px] text-white/80 md:text-xs">
+            <div className="mt-1 text-[11px] text-white/85 md:text-xs">
               {note}
             </div>
           </div>
@@ -433,7 +365,9 @@ function StatTile(props: {
   return (
     <div className="rounded-2xl border border-slate-200/70 bg-slate-50/70 p-3">
       <div className="text-[11px] font-medium text-slate-500">{label}</div>
-      <div className={`mt-2 inline-flex rounded-full px-2.5 py-1 text-sm font-semibold ${color}`}>
+      <div
+        className={`mt-2 inline-flex rounded-full px-2.5 py-1 text-sm font-semibold ${color}`}
+      >
         {value}
       </div>
     </div>
@@ -826,9 +760,7 @@ function SupportCard() {
   return (
     <div className="rounded-[28px] border border-slate-200/70 bg-gradient-to-br from-[#f5ecff] via-white to-[#e8f4ff] p-4 shadow-sm shadow-slate-200/60 md:p-5">
       <div className="mb-4">
-        <h2 className="text-base font-semibold text-slate-900">
-          Need help?
-        </h2>
+        <h2 className="text-base font-semibold text-slate-900">Need help?</h2>
         <p className="mt-1 text-sm leading-6 text-slate-600">
           For billing, settings, shipping or technical issues, use the support
           options below.
