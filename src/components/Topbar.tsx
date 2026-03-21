@@ -139,6 +139,18 @@ function storeInitials(normalizedStore: string): string {
   return (clean[0] + clean[1]).toUpperCase();
 }
 
+function mobileScopeLabel(scope: SearchScope): string {
+  switch (scope) {
+    case "orders":
+      return "Search orders...";
+    case "customers":
+      return "Search customers...";
+    case "products":
+    default:
+      return "Search products...";
+  }
+}
+
 export default function Topbar({ onToggleSidebar }: TopbarProps) {
   const { subscription } = useDashboardSubscription();
 
@@ -795,13 +807,40 @@ export default function Topbar({ onToggleSidebar }: TopbarProps) {
 
         <div className="relative z-10 border-t border-white/10 px-3 pb-3 pt-2 md:hidden">
           <div className="relative" ref={mobileSearchRef}>
+            <div className="mb-2 flex items-center gap-2">
+              {(["products", "orders", "customers"] as SearchScope[]).map(
+                (scope) => {
+                  const active = searchScope === scope;
+                  return (
+                    <button
+                      key={scope}
+                      type="button"
+                      onClick={() => setSearchScope(scope)}
+                      className={[
+                        "rounded-full px-3 py-1.5 text-[11px] font-medium transition",
+                        active
+                          ? "bg-white text-[#27346D] shadow-sm"
+                          : "bg-white/10 text-indigo-100 hover:bg-white/15",
+                      ].join(" ")}
+                    >
+                      {scope === "products"
+                        ? "Products"
+                        : scope === "orders"
+                        ? "Orders"
+                        : "Customers"}
+                    </button>
+                  );
+                }
+              )}
+            </div>
+
             <form onSubmit={handleSearchSubmit}>
               <div className="flex items-center rounded-full border border-white/15 bg-white/95 px-3 py-2 shadow-sm">
                 <SearchIcon className="h-4 w-4 shrink-0 text-[#7B3EF3]" />
                 <input
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Search products, orders, customers..."
+                  placeholder={mobileScopeLabel(searchScope)}
                   className="ml-2 h-5 min-w-0 flex-1 bg-transparent text-[13px] text-slate-700 placeholder:text-slate-400 focus:outline-none"
                 />
                 {isSearching ? (
