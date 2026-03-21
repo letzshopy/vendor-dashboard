@@ -769,13 +769,15 @@ export default function Topbar({ onToggleSidebar }: TopbarProps) {
         </div>
 
         <div className="relative z-10 border-t border-white/10 px-3 pb-3 pt-2 md:hidden">
-          <div className="mb-2 flex items-center justify-between gap-2">
-            <div className="min-w-0">
-              <div className="truncate text-sm font-semibold text-white">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0 flex-1">
+              <div className="truncate text-[15px] font-semibold text-white">
                 {normalizedStore || "yourstore.letzshopy.in"}
               </div>
               {loginEmail && (
-                <div className="truncate text-[11px] text-indigo-100/75">{loginEmail}</div>
+                <div className="mt-0.5 truncate text-[12px] text-indigo-100/75">
+                  {loginEmail}
+                </div>
               )}
             </div>
 
@@ -790,7 +792,7 @@ export default function Topbar({ onToggleSidebar }: TopbarProps) {
             </a>
           </div>
 
-          <div className="mb-2">
+          <div className="mt-2 flex items-center gap-2">
             <span
               className={`inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-[11px] font-medium ${statusChipClass(
                 subStatus
@@ -801,45 +803,23 @@ export default function Topbar({ onToggleSidebar }: TopbarProps) {
                   subStatus
                 )}`}
               />
-              Subscription: {statusLabel(subStatus)}
+              {statusLabel(subStatus)}
             </span>
           </div>
 
-          <div className="relative" ref={mobileSearchRef}>
-            <form
-              onSubmit={handleSearchSubmit}
-              className={`rounded-2xl border border-[#d1cdfc] ${SURFACE_CLASS} p-2.5 shadow-sm focus-within:border-[#A05AFF] focus-within:ring-1 focus-within:ring-[#A05AFF]/40`}
-            >
-              <div className="flex items-center gap-2">
-                <select
-                  value={searchScope}
-                  onChange={(e) => setSearchScope(e.target.value as SearchScope)}
-                  className="h-11 min-w-0 flex-1 rounded-xl border border-[#d1cdfc] bg-white px-3 text-sm font-medium text-slate-700 focus:outline-none"
-                >
-                  <option value="products">Products</option>
-                  <option value="orders">Orders</option>
-                  <option value="customers">Customers</option>
-                </select>
-
-                <button
-                  type="submit"
-                  className="inline-flex h-11 shrink-0 items-center justify-center rounded-xl bg-[#7B3EF3] px-4 text-sm font-semibold text-white shadow-sm"
-                >
-                  Go
-                </button>
-              </div>
-
-              <div className="mt-2 flex items-center gap-2 rounded-xl bg-white px-3 py-2.5 shadow-sm">
+          <div className="relative mt-2" ref={mobileSearchRef}>
+            <form onSubmit={handleSearchSubmit}>
+              <div className="flex items-center rounded-full border border-white/15 bg-white/95 px-3 py-2 shadow-sm">
                 <SearchIcon className="h-4 w-4 shrink-0 text-[#7B3EF3]" />
                 <input
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Search your store…"
-                  className="h-6 min-w-0 flex-1 bg-transparent text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none"
+                  placeholder="Search products, orders, customers..."
+                  className="ml-2 h-5 min-w-0 flex-1 bg-transparent text-[13px] text-slate-700 placeholder:text-slate-400 focus:outline-none"
                 />
-                {isSearching && (
+                {isSearching ? (
                   <Loader2 className="h-4 w-4 shrink-0 animate-spin text-[#7B3EF3]" />
-                )}
+                ) : null}
               </div>
             </form>
 
