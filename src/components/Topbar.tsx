@@ -282,7 +282,8 @@ export default function Topbar({ onToggleSidebar }: TopbarProps) {
   useEffect(() => {
     if (!search || search.trim().length < 2) {
       if (searchAbortRef.current) searchAbortRef.current.abort();
-      if (searchTimeoutRef.current) window.clearTimeout(searchTimeoutRef.current);
+      if (searchTimeoutRef.current)
+        window.clearTimeout(searchTimeoutRef.current);
       setSearchResults([]);
       setIsSearching(false);
       setShowSearchDropdown(false);
@@ -296,7 +297,8 @@ export default function Topbar({ onToggleSidebar }: TopbarProps) {
     const controller = new AbortController();
     searchAbortRef.current = controller;
 
-    if (searchTimeoutRef.current) window.clearTimeout(searchTimeoutRef.current);
+    if (searchTimeoutRef.current)
+      window.clearTimeout(searchTimeoutRef.current);
 
     const timeout = window.setTimeout(async () => {
       try {
@@ -423,7 +425,9 @@ export default function Topbar({ onToggleSidebar }: TopbarProps) {
         </ul>
       ) : (
         !isSearching && (
-          <div className="px-3 py-4 text-xs text-slate-500">No matching results.</div>
+          <div className="px-3 py-4 text-xs text-slate-500">
+            No matching results.
+          </div>
         )
       )}
     </div>
@@ -482,7 +486,10 @@ export default function Topbar({ onToggleSidebar }: TopbarProps) {
 
                   {loginEmail && (
                     <span className="truncate">
-                      Login: <span className="font-medium text-white">{loginEmail}</span>
+                      Login:{" "}
+                      <span className="font-medium text-white">
+                        {loginEmail}
+                      </span>
                     </span>
                   )}
                 </div>
@@ -549,6 +556,17 @@ export default function Topbar({ onToggleSidebar }: TopbarProps) {
               Visit Store
             </a>
 
+            <a
+              href={storeUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-[#1BCFB4] text-white shadow-sm shadow-[#0f7669] transition hover:bg-[#16b5a0]"
+              aria-label="View Store"
+              title="View Store"
+            >
+              <Store className="h-4 w-4" />
+            </a>
+
             <div className="relative z-[70]" ref={notifRef}>
               <button
                 type="button"
@@ -605,7 +623,9 @@ export default function Topbar({ onToggleSidebar }: TopbarProps) {
                       >
                         <div
                           className={`mt-0.5 flex h-6 w-6 items-center justify-center rounded-full text-white ${
-                            n.type === "upi_pending" ? "bg-rose-500" : "bg-violet-500"
+                            n.type === "upi_pending"
+                              ? "bg-rose-500"
+                              : "bg-violet-500"
                           }`}
                         >
                           {n.type === "upi_pending" ? (
@@ -684,6 +704,9 @@ export default function Topbar({ onToggleSidebar }: TopbarProps) {
                           {loginEmail}
                         </div>
                       )}
+                      <div className="mt-1 text-[11px] font-medium text-indigo-600">
+                        Subscription: {statusLabel(subStatus)}
+                      </div>
                     </div>
                   </div>
 
@@ -696,7 +719,9 @@ export default function Topbar({ onToggleSidebar }: TopbarProps) {
                       }}
                       className="block w-full px-3 py-3 text-left text-slate-800 hover:bg-[#f6f1ff]"
                     >
-                      <div className="text-[15px]">Store Profile &amp; Settings</div>
+                      <div className="text-[15px]">
+                        Store Profile &amp; Settings
+                      </div>
                     </button>
 
                     <button
@@ -769,45 +794,7 @@ export default function Topbar({ onToggleSidebar }: TopbarProps) {
         </div>
 
         <div className="relative z-10 border-t border-white/10 px-3 pb-3 pt-2 md:hidden">
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0 flex-1">
-              <div className="truncate text-[15px] font-semibold text-white">
-                {normalizedStore || "yourstore.letzshopy.in"}
-              </div>
-              {loginEmail && (
-                <div className="mt-0.5 truncate text-[12px] text-indigo-100/75">
-                  {loginEmail}
-                </div>
-              )}
-            </div>
-
-            <a
-              href={storeUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-[#1BCFB4] px-3 py-2 text-[11px] font-semibold text-white shadow-sm shadow-[#0f7669]"
-            >
-              <Store className="h-3.5 w-3.5" />
-              View Store
-            </a>
-          </div>
-
-          <div className="mt-2 flex items-center gap-2">
-            <span
-              className={`inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-[11px] font-medium ${statusChipClass(
-                subStatus
-              )}`}
-            >
-              <span
-                className={`inline-block h-1.5 w-1.5 rounded-full ${statusDotClass(
-                  subStatus
-                )}`}
-              />
-              {statusLabel(subStatus)}
-            </span>
-          </div>
-
-          <div className="relative mt-2" ref={mobileSearchRef}>
+          <div className="relative" ref={mobileSearchRef}>
             <form onSubmit={handleSearchSubmit}>
               <div className="flex items-center rounded-full border border-white/15 bg-white/95 px-3 py-2 shadow-sm">
                 <SearchIcon className="h-4 w-4 shrink-0 text-[#7B3EF3]" />
