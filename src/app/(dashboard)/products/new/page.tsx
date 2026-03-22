@@ -12,6 +12,7 @@ import {
   Package2,
   Search,
   Settings2,
+  Sparkles,
   Tag,
   Truck,
   Wallet,
@@ -84,7 +85,7 @@ function skuPartFor(
 
 function ReqLabel({ children }: { children: React.ReactNode }) {
   return (
-    <label className="mb-1.5 block text-[13px] font-medium text-slate-700">
+    <label className="mb-2 block text-[13px] font-semibold tracking-[0.01em] text-slate-700">
       {children} <span className="text-rose-500">*</span>
     </label>
   );
@@ -92,7 +93,7 @@ function ReqLabel({ children }: { children: React.ReactNode }) {
 
 function FieldLabel({ children }: { children: React.ReactNode }) {
   return (
-    <label className="mb-1.5 block text-[13px] font-medium text-slate-700">
+    <label className="mb-2 block text-[13px] font-semibold tracking-[0.01em] text-slate-700">
       {children}
     </label>
   );
@@ -103,20 +104,28 @@ function SectionCard(props: {
   hint?: string;
   icon: React.ComponentType<{ className?: string }>;
   children: React.ReactNode;
+  rightSlot?: React.ReactNode;
 }) {
-  const { title, hint, icon: Icon, children } = props;
+  const { title, hint, icon: Icon, children, rightSlot } = props;
 
   return (
-    <section className="overflow-hidden rounded-[28px] border border-slate-200/70 bg-white shadow-sm shadow-slate-200/60">
-      <div className="border-b border-slate-100 bg-gradient-to-r from-[#faf7ff] via-white to-[#f4fbff] px-4 py-4 md:px-5">
-        <div className="flex items-start gap-3">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[#f2ebff] text-[#7a4cf0]">
-            <Icon className="h-5 w-5" />
+    <section className="overflow-hidden rounded-[26px] border border-slate-200/80 bg-white shadow-[0_10px_30px_rgba(15,23,42,0.05)]">
+      <div className="border-b border-slate-100 bg-gradient-to-r from-[#faf7ff] via-white to-[#f3f9ff] px-4 py-4 md:px-5">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex min-w-0 items-start gap-3">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-100 to-fuchsia-50 text-violet-700 shadow-sm">
+              <Icon className="h-5 w-5" />
+            </div>
+
+            <div className="min-w-0">
+              <h2 className="text-[17px] font-semibold tracking-tight text-slate-900">
+                {title}
+              </h2>
+              {hint && <p className="mt-1 text-xs leading-5 text-slate-500">{hint}</p>}
+            </div>
           </div>
-          <div className="min-w-0">
-            <h2 className="text-base font-semibold text-slate-900">{title}</h2>
-            {hint && <p className="mt-1 text-xs text-slate-500">{hint}</p>}
-          </div>
+
+          {rightSlot ? <div className="shrink-0">{rightSlot}</div> : null}
         </div>
       </div>
 
@@ -125,13 +134,32 @@ function SectionCard(props: {
   );
 }
 
+function FieldShell({
+  children,
+  className = "",
+}: {
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <div
+      className={[
+        "rounded-[22px] border border-slate-200/80 bg-white p-3 shadow-sm shadow-slate-100",
+        className,
+      ].join(" ")}
+    >
+      {children}
+    </div>
+  );
+}
+
 function MobileField(props: React.InputHTMLAttributes<HTMLInputElement>) {
   return (
     <input
       {...props}
       className={[
-        "h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-900 shadow-sm",
-        "placeholder:text-slate-400 focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-100",
+        "h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-900 shadow-sm transition",
+        "placeholder:text-slate-400 focus:border-violet-400 focus:outline-none focus:ring-4 focus:ring-violet-100",
         props.className || "",
       ].join(" ")}
     />
@@ -145,26 +173,104 @@ function MobileTextarea(
     <textarea
       {...props}
       className={[
-        "w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 shadow-sm",
-        "placeholder:text-slate-400 focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-100",
+        "w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 shadow-sm transition",
+        "placeholder:text-slate-400 focus:border-violet-400 focus:outline-none focus:ring-4 focus:ring-violet-100",
         props.className || "",
       ].join(" ")}
     />
   );
 }
 
-function MobileSelect(
-  props: React.SelectHTMLAttributes<HTMLSelectElement>
-) {
+function MobileSelect(props: React.SelectHTMLAttributes<HTMLSelectElement>) {
   return (
     <select
       {...props}
       className={[
-        "h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-900 shadow-sm",
-        "focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-100",
+        "h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-900 shadow-sm transition",
+        "focus:border-violet-400 focus:outline-none focus:ring-4 focus:ring-violet-100",
         props.className || "",
       ].join(" ")}
     />
+  );
+}
+
+function ToggleCard(props: {
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+  title: string;
+  hint?: string;
+}) {
+  const { checked, onChange, title, hint } = props;
+
+  return (
+    <label
+      className={[
+        "flex items-center justify-between gap-3 rounded-[22px] border px-4 py-3.5 transition",
+        checked
+          ? "border-violet-300 bg-violet-50/70"
+          : "border-slate-200 bg-slate-50/70",
+      ].join(" ")}
+    >
+      <div className="min-w-0">
+        <div className="text-sm font-semibold text-slate-800">{title}</div>
+        {hint ? <div className="mt-0.5 text-xs text-slate-500">{hint}</div> : null}
+      </div>
+
+      <button
+        type="button"
+        aria-pressed={checked}
+        onClick={() => onChange(!checked)}
+        className={[
+          "relative h-7 w-12 shrink-0 rounded-full transition",
+          checked ? "bg-violet-600" : "bg-slate-300",
+        ].join(" ")}
+      >
+        <span
+          className={[
+            "absolute top-1 h-5 w-5 rounded-full bg-white shadow-sm transition",
+            checked ? "left-6" : "left-1",
+          ].join(" ")}
+        />
+      </button>
+
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={(e) => onChange(e.target.checked)}
+        className="sr-only"
+      />
+    </label>
+  );
+}
+
+function StepChip({
+  index,
+  label,
+  active = false,
+}: {
+  index: number;
+  label: string;
+  active?: boolean;
+}) {
+  return (
+    <div
+      className={[
+        "inline-flex items-center gap-2 rounded-full border px-3 py-2 text-xs font-semibold",
+        active
+          ? "border-violet-300 bg-violet-50 text-violet-700"
+          : "border-slate-200 bg-white text-slate-500",
+      ].join(" ")}
+    >
+      <span
+        className={[
+          "flex h-5 w-5 items-center justify-center rounded-full text-[11px]",
+          active ? "bg-violet-600 text-white" : "bg-slate-100 text-slate-600",
+        ].join(" ")}
+      >
+        {index}
+      </span>
+      {label}
+    </div>
   );
 }
 
@@ -348,7 +454,7 @@ export default function AddProductPage() {
       const autoSku = base ? `${base}-${parts.join("-")}` : "";
 
       return {
-        key: attrsCombo.map((a) => `${a.name}=${a.option}`).join("|"),
+        key: attrsCombo.map((a) => `${a.name}=${a.option}`).join(" • "),
         attrs: attrsCombo,
         sku: autoSku,
         regular_price: "",
@@ -532,73 +638,108 @@ export default function AddProductPage() {
     );
   }
 
-  return (
-    <main className="mx-auto max-w-6xl px-3 py-4 md:px-4 md:py-6">
-      <div className="mb-4 rounded-[28px] border border-white/70 bg-gradient-to-br from-white via-[#faf6ff] to-[#eef7ff] p-4 shadow-sm shadow-slate-200/60 md:p-5">
-        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-          <div className="min-w-0">
-            <Link
-              href="/products"
-              className="inline-flex items-center gap-1 rounded-full bg-white px-3 py-1.5 text-xs font-medium text-slate-700 shadow-sm hover:bg-slate-50"
-            >
-              <ArrowLeft className="h-3.5 w-3.5" />
-              Back to Products
-            </Link>
+  const selectedCatNames = selectedCats
+    .map((id) => cats.find((c) => c.id === id)?.name)
+    .filter(Boolean) as string[];
 
-            <h1 className="mt-3 text-3xl font-semibold tracking-tight text-slate-900">
-              Add product
-            </h1>
-            
+  return (
+    <main className="mx-auto max-w-7xl px-3 pb-28 pt-3 md:px-4 md:pb-10 md:pt-5">
+      <div className="mb-4 rounded-[30px] border border-white/80 bg-gradient-to-br from-white via-[#faf6ff] to-[#eef7ff] p-4 shadow-[0_14px_40px_rgba(15,23,42,0.06)] md:p-5">
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+            <div className="min-w-0">
+              <Link
+                href="/products"
+                className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-slate-50"
+              >
+                <ArrowLeft className="h-3.5 w-3.5" />
+                Back to Products
+              </Link>
+
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                <div className="inline-flex items-center gap-1.5 rounded-full bg-violet-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-violet-700">
+                  <Sparkles className="h-3.5 w-3.5" />
+                  New product
+                </div>
+                <div className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-600">
+                  {ptype}
+                </div>
+              </div>
+
+              <h1 className="mt-3 text-[28px] font-semibold tracking-tight text-slate-900 md:text-[34px]">
+                Add product
+              </h1>
+              <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-500">
+                Create a polished product listing for your store. All existing
+                product flows and logic are preserved.
+              </p>
+            </div>
+
+            <div className="rounded-[24px] border border-slate-200/80 bg-white/85 p-3 shadow-sm backdrop-blur">
+              <div className="mb-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">
+                Product type
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {(["simple", "variable", "grouped"] as ProductType[]).map((t) => {
+                  const active = ptype === t;
+                  const label = t[0].toUpperCase() + t.slice(1);
+
+                  return (
+                    <button
+                      key={t}
+                      type="button"
+                      onClick={() => setPtype(t)}
+                      className={[
+                        "inline-flex items-center gap-2 rounded-full border px-4 py-2.5 text-sm font-semibold transition",
+                        active
+                          ? "border-violet-500 bg-violet-600 text-white shadow-sm"
+                          : "border-slate-200 bg-white text-slate-700 hover:border-violet-300 hover:text-violet-700",
+                      ].join(" ")}
+                    >
+                      <span
+                        className={`h-2 w-2 rounded-full ${
+                          active ? "bg-white" : "bg-slate-300"
+                        }`}
+                      />
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
           </div>
 
           <div className="flex flex-wrap gap-2">
-            {(["simple", "variable", "grouped"] as ProductType[]).map((t) => {
-              const active = ptype === t;
-              const label = t[0].toUpperCase() + t.slice(1);
-
-              return (
-                <button
-                  key={t}
-                  type="button"
-                  onClick={() => setPtype(t)}
-                  className={[
-                    "inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-medium transition",
-                    active
-                      ? "border-violet-400 bg-violet-600 text-white shadow-sm"
-                      : "border-slate-200 bg-white text-slate-700 hover:border-violet-300 hover:text-violet-700",
-                  ].join(" ")}
-                >
-                  <span
-                    className={`h-2 w-2 rounded-full ${
-                      active ? "bg-white" : "bg-slate-300"
-                    }`}
-                  />
-                  {label}
-                </button>
-              );
-            })}
+            <StepChip index={1} label="Basic info" active />
+            <StepChip index={2} label="Pricing & stock" active={ptype !== "grouped"} />
+            <StepChip index={3} label="Images & categories" active />
+            <StepChip
+              index={4}
+              label={ptype === "variable" ? "Variations" : ptype === "grouped" ? "Linked items" : "Ready to publish"}
+              active
+            />
           </div>
         </div>
       </div>
 
       {msg && (
-        <div className="mb-4 rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm text-emerald-800 shadow-sm">
+        <div className="mb-4 rounded-[24px] border border-emerald-100 bg-emerald-50 px-4 py-3.5 text-sm text-emerald-800 shadow-sm">
           <div className="flex items-start justify-between gap-3">
             <div className="flex items-start gap-3">
-              <div className="mt-0.5 flex h-6 w-6 items-center justify-center rounded-full bg-emerald-500/10">
+              <div className="mt-0.5 flex h-7 w-7 items-center justify-center rounded-full bg-emerald-500/10">
                 <Check className="h-4 w-4" />
               </div>
               <div>
                 <div className="font-semibold">Product created</div>
                 <div className="mt-0.5 text-xs text-emerald-700">
-                  Saved to your store. You can create another product now.
+                  Saved to your store. You can continue adding the next product.
                 </div>
               </div>
             </div>
 
             <button
               type="button"
-              className="text-xs font-medium text-emerald-700 hover:text-emerald-900"
+              className="text-xs font-semibold text-emerald-700 hover:text-emerald-900"
               onClick={() => setMsg(null)}
             >
               Dismiss
@@ -613,8 +754,8 @@ export default function AddProductPage() {
           hint="Basic product identity and publishing settings"
           icon={Package2}
         >
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="md:col-span-2">
+          <div className="grid gap-3 md:grid-cols-2">
+            <FieldShell className="md:col-span-2">
               <ReqLabel>Title</ReqLabel>
               <MobileField
                 value={title}
@@ -622,9 +763,9 @@ export default function AddProductPage() {
                 placeholder="Enter product title"
                 required
               />
-            </div>
+            </FieldShell>
 
-            <div>
+            <FieldShell>
               <ReqLabel>SKU</ReqLabel>
               <MobileField
                 value={sku}
@@ -632,14 +773,16 @@ export default function AddProductPage() {
                 placeholder="Unique product code"
                 required
               />
-              {skuErr && (
-                <p className="mt-1.5 text-xs font-medium text-rose-600">
-                  {skuErr}
+              {skuErr ? (
+                <p className="mt-2 text-xs font-semibold text-rose-600">{skuErr}</p>
+              ) : (
+                <p className="mt-2 text-xs text-slate-400">
+                  Use a unique code to identify this product.
                 </p>
               )}
-            </div>
+            </FieldShell>
 
-            <div>
+            <FieldShell>
               <ReqLabel>Status</ReqLabel>
               <MobileSelect
                 value={status}
@@ -648,9 +791,9 @@ export default function AddProductPage() {
                 <option value="draft">Draft</option>
                 <option value="publish">Published</option>
               </MobileSelect>
-            </div>
+            </FieldShell>
 
-            <div className="md:col-span-2">
+            <FieldShell className="md:col-span-2">
               <ReqLabel>Visibility</ReqLabel>
               <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
                 {(
@@ -668,9 +811,9 @@ export default function AddProductPage() {
                       type="button"
                       onClick={() => setVisibility(value)}
                       className={[
-                        "rounded-2xl border px-3 py-3 text-sm font-medium transition",
+                        "rounded-2xl border px-3 py-3 text-sm font-semibold transition",
                         active
-                          ? "border-violet-400 bg-violet-50 text-violet-700"
+                          ? "border-violet-400 bg-violet-50 text-violet-700 shadow-sm"
                           : "border-slate-200 bg-white text-slate-700 hover:border-violet-300",
                       ].join(" ")}
                     >
@@ -679,7 +822,7 @@ export default function AddProductPage() {
                   );
                 })}
               </div>
-            </div>
+            </FieldShell>
           </div>
         </SectionCard>
 
@@ -688,8 +831,8 @@ export default function AddProductPage() {
           hint="Short summary and full product details"
           icon={Layers3}
         >
-          <div className="grid gap-4">
-            <div>
+          <div className="grid gap-3">
+            <FieldShell>
               <FieldLabel>Short description</FieldLabel>
               <MobileTextarea
                 rows={4}
@@ -697,9 +840,9 @@ export default function AddProductPage() {
                 onChange={(e) => setShortDesc(e.target.value)}
                 placeholder="Small summary shown in product highlights"
               />
-            </div>
+            </FieldShell>
 
-            <div>
+            <FieldShell>
               <FieldLabel>Description</FieldLabel>
               <MobileTextarea
                 rows={7}
@@ -707,7 +850,7 @@ export default function AddProductPage() {
                 onChange={(e) => setDesc(e.target.value)}
                 placeholder="Detailed product description"
               />
-            </div>
+            </FieldShell>
           </div>
         </SectionCard>
 
@@ -718,42 +861,42 @@ export default function AddProductPage() {
               hint="Regular price, sale price and sale schedule"
               icon={Wallet}
             >
-              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-                <div>
+              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                <FieldShell>
                   <FieldLabel>Regular price</FieldLabel>
                   <MobileField
                     value={regular}
                     onChange={(e) => setRegular(e.target.value)}
                     placeholder="e.g. 999"
                   />
-                </div>
+                </FieldShell>
 
-                <div>
+                <FieldShell>
                   <FieldLabel>Sale price</FieldLabel>
                   <MobileField
                     value={sale}
                     onChange={(e) => setSale(e.target.value)}
                     placeholder="e.g. 799"
                   />
-                </div>
+                </FieldShell>
 
-                <div>
+                <FieldShell>
                   <FieldLabel>Sale from</FieldLabel>
                   <MobileField
                     type="date"
                     value={saleFrom}
                     onChange={(e) => setSaleFrom(e.target.value)}
                   />
-                </div>
+                </FieldShell>
 
-                <div>
+                <FieldShell>
                   <FieldLabel>Sale to</FieldLabel>
                   <MobileField
                     type="date"
                     value={saleTo}
                     onChange={(e) => setSaleTo(e.target.value)}
                   />
-                </div>
+                </FieldShell>
               </div>
             </SectionCard>
 
@@ -762,28 +905,17 @@ export default function AddProductPage() {
               hint="Stock quantity and backorder rules"
               icon={Boxes}
             >
-              <div className="space-y-4">
-                <label className="flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
-                  <div>
-                    <div className="text-sm font-medium text-slate-800">
-                      Manage stock
-                    </div>
-                    <div className="text-xs text-slate-500">
-                      Track inventory at product level
-                    </div>
-                  </div>
-
-                  <input
-                    type="checkbox"
-                    checked={manageStock}
-                    onChange={(e) => setManageStock(e.target.checked)}
-                    className="h-4 w-4"
-                  />
-                </label>
+              <div className="space-y-3">
+                <ToggleCard
+                  checked={manageStock}
+                  onChange={setManageStock}
+                  title="Manage stock"
+                  hint="Track inventory at product level"
+                />
 
                 {manageStock && (
-                  <div className="grid gap-4 md:grid-cols-2">
-                    <div>
+                  <div className="grid gap-3 md:grid-cols-2">
+                    <FieldShell>
                       <ReqLabel>Quantity</ReqLabel>
                       <MobileField
                         type="number"
@@ -795,9 +927,9 @@ export default function AddProductPage() {
                           )
                         }
                       />
-                    </div>
+                    </FieldShell>
 
-                    <div>
+                    <FieldShell>
                       <FieldLabel>Backorders</FieldLabel>
                       <MobileSelect
                         value={backorders}
@@ -811,7 +943,7 @@ export default function AddProductPage() {
                         <option value="notify">Allow, but notify</option>
                         <option value="yes">Allow</option>
                       </MobileSelect>
-                    </div>
+                    </FieldShell>
                   </div>
                 )}
               </div>
@@ -826,42 +958,42 @@ export default function AddProductPage() {
               hint="Weight and dimensions used for fulfilment"
               icon={Truck}
             >
-              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-                <div>
+              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                <FieldShell>
                   <FieldLabel>Weight (kg)</FieldLabel>
                   <MobileField
                     value={weight}
                     onChange={(e) => setWeight(e.target.value)}
                     placeholder="0.50"
                   />
-                </div>
+                </FieldShell>
 
-                <div>
+                <FieldShell>
                   <FieldLabel>Length (cm)</FieldLabel>
                   <MobileField
                     value={length}
                     onChange={(e) => setLength(e.target.value)}
                     placeholder="10"
                   />
-                </div>
+                </FieldShell>
 
-                <div>
+                <FieldShell>
                   <FieldLabel>Width (cm)</FieldLabel>
                   <MobileField
                     value={width}
                     onChange={(e) => setWidth(e.target.value)}
                     placeholder="8"
                   />
-                </div>
+                </FieldShell>
 
-                <div>
+                <FieldShell>
                   <FieldLabel>Height (cm)</FieldLabel>
                   <MobileField
                     value={height}
                     onChange={(e) => setHeight(e.target.value)}
                     placeholder="4"
                   />
-                </div>
+                </FieldShell>
               </div>
             </SectionCard>
 
@@ -870,8 +1002,8 @@ export default function AddProductPage() {
               hint="Tax status and class for this product"
               icon={Settings2}
             >
-              <div className="grid gap-4 md:grid-cols-2">
-                <div>
+              <div className="grid gap-3 md:grid-cols-2">
+                <FieldShell>
                   <FieldLabel>Tax status</FieldLabel>
                   <MobileSelect
                     value={taxStatus}
@@ -885,16 +1017,16 @@ export default function AddProductPage() {
                     <option value="shipping">Shipping only</option>
                     <option value="none">None</option>
                   </MobileSelect>
-                </div>
+                </FieldShell>
 
-                <div>
+                <FieldShell>
                   <FieldLabel>Tax class</FieldLabel>
                   <MobileField
                     value={taxClass}
                     onChange={(e) => setTaxClass(e.target.value)}
                     placeholder="Leave blank for standard"
                   />
-                </div>
+                </FieldShell>
               </div>
             </SectionCard>
           </div>
@@ -905,10 +1037,17 @@ export default function AddProductPage() {
             title="Product images"
             hint="Upload clean images. First image becomes thumbnail."
             icon={ImagePlus}
+            rightSlot={
+              <div className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">
+                {images.length}/5
+              </div>
+            }
           >
-            <ProductImages value={images} onChange={setImages} max={5} />
-            <p className="mt-3 text-xs text-slate-500">
-              Use clear front images first. Add detail images after that.
+            <div className="rounded-[22px] border border-slate-200/80 bg-slate-50/70 p-3">
+              <ProductImages value={images} onChange={setImages} max={5} />
+            </div>
+            <p className="mt-3 text-xs leading-5 text-slate-500">
+              Use clean front images first. Add detail images after that.
             </p>
           </SectionCard>
 
@@ -917,28 +1056,38 @@ export default function AddProductPage() {
             hint="Assign categories and tags so products are easy to find"
             icon={Tag}
           >
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="relative">
+            <div className="grid gap-3 md:grid-cols-2">
+              <FieldShell className="relative">
                 <ReqLabel>Categories</ReqLabel>
 
                 <button
                   type="button"
-                  className="flex h-12 w-full items-center justify-between rounded-2xl border border-slate-200 bg-white px-4 text-left text-sm text-slate-700 shadow-sm hover:border-violet-300"
+                  className="flex h-12 w-full items-center justify-between rounded-2xl border border-slate-200 bg-white px-4 text-left text-sm text-slate-700 shadow-sm transition hover:border-violet-300"
                   onClick={() => setCatOpen((o) => !o)}
                 >
                   <span className="min-w-0 truncate">
                     {selectedCats.length === 0
                       ? "Select categories…"
-                      : selectedCats
-                          .map((id) => cats.find((c) => c.id === id)?.name)
-                          .filter(Boolean)
-                          .join(", ")}
+                      : selectedCatNames.join(", ")}
                   </span>
                   <ChevronDown className="h-4 w-4 shrink-0 text-slate-400" />
                 </button>
 
+                {selectedCatNames.length > 0 && (
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {selectedCatNames.map((name) => (
+                      <span
+                        key={name}
+                        className="rounded-full bg-violet-50 px-3 py-1 text-xs font-semibold text-violet-700"
+                      >
+                        {name}
+                      </span>
+                    ))}
+                  </div>
+                )}
+
                 {catOpen && (
-                  <div className="absolute z-20 mt-2 w-full overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-xl">
+                  <div className="absolute left-0 right-0 top-full z-20 mt-2 overflow-hidden rounded-[26px] border border-slate-200 bg-white shadow-2xl">
                     <div className="border-b border-slate-100 p-3">
                       <div className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2">
                         <Search className="h-4 w-4 text-slate-400" />
@@ -958,7 +1107,7 @@ export default function AddProductPage() {
                         return (
                           <label
                             key={c.id}
-                            className="flex cursor-pointer items-center gap-3 px-4 py-2 text-sm hover:bg-slate-50"
+                            className="flex cursor-pointer items-center gap-3 px-4 py-2.5 text-sm transition hover:bg-slate-50"
                             style={{ paddingLeft: 16 + c.depth * 18 }}
                           >
                             <input
@@ -973,7 +1122,7 @@ export default function AddProductPage() {
                               }
                               className="h-4 w-4"
                             />
-                            <span>{c.name}</span>
+                            <span className="text-slate-700">{c.name}</span>
                           </label>
                         );
                       })}
@@ -988,7 +1137,7 @@ export default function AddProductPage() {
                     <div className="flex items-center justify-between gap-2 border-t border-slate-100 p-3">
                       <button
                         type="button"
-                        className="rounded-full border border-slate-200 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
+                        className="rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
                         onClick={() => setSelectedCats([])}
                       >
                         Clear
@@ -996,7 +1145,7 @@ export default function AddProductPage() {
 
                       <button
                         type="button"
-                        className="rounded-full bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-700"
+                        className="rounded-full bg-violet-600 px-4 py-2 text-sm font-semibold text-white hover:bg-violet-700"
                         onClick={() => setCatOpen(false)}
                       >
                         Done
@@ -1004,21 +1153,20 @@ export default function AddProductPage() {
                     </div>
                   </div>
                 )}
-              </div>
+              </FieldShell>
 
-              <div>
+              <FieldShell>
                 <FieldLabel>Tags</FieldLabel>
                 <TagPicker value={tags} onChange={setTags} />
-                <p className="mt-2 text-xs text-slate-500">
+                <p className="mt-2 text-xs leading-5 text-slate-500">
                   Press Enter to create new tags quickly.
                 </p>
-              </div>
+              </FieldShell>
             </div>
 
-            <p className="mt-4 text-xs text-slate-500">
-              <span className="font-semibold text-rose-500">*</span> Required
-              fields
-            </p>
+            <div className="mt-4 rounded-2xl bg-slate-50 px-4 py-3 text-xs text-slate-500">
+              <span className="font-semibold text-rose-500">*</span> Required fields
+            </div>
           </SectionCard>
         </div>
 
@@ -1029,42 +1177,44 @@ export default function AddProductPage() {
               hint="Choose attributes and terms to generate variation combinations"
               icon={Layers3}
             >
-              <div className="flex flex-wrap gap-2">
-                <MobileSelect
-                  value={varChosenAttr}
-                  onChange={(e) =>
-                    setVarChosenAttr(e.target.value as unknown as number | "")
-                  }
-                  className="w-full md:w-[240px]"
-                >
-                  <option value="">Select attribute…</option>
-                  {attrs.map((a) => (
-                    <option key={a.id} value={a.id}>
-                      {a.name}
-                    </option>
-                  ))}
-                </MobileSelect>
+              <div className="rounded-[22px] border border-slate-200/80 bg-slate-50/60 p-3">
+                <div className="flex flex-col gap-2 md:flex-row md:flex-wrap">
+                  <MobileSelect
+                    value={varChosenAttr}
+                    onChange={(e) =>
+                      setVarChosenAttr(e.target.value as unknown as number | "")
+                    }
+                    className="w-full md:w-[260px]"
+                  >
+                    <option value="">Select attribute…</option>
+                    {attrs.map((a) => (
+                      <option key={a.id} value={a.id}>
+                        {a.name}
+                      </option>
+                    ))}
+                  </MobileSelect>
 
-                <button
-                  type="button"
-                  className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:border-violet-300 hover:text-violet-700"
-                  onClick={addVarAttrRow}
-                >
-                  Add attribute
-                </button>
+                  <button
+                    type="button"
+                    className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition hover:border-violet-300 hover:text-violet-700"
+                    onClick={addVarAttrRow}
+                  >
+                    Add attribute
+                  </button>
 
-                <button
-                  type="button"
-                  className="rounded-full bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-700"
-                  onClick={generateVariations}
-                >
-                  Generate variations
-                </button>
+                  <button
+                    type="button"
+                    className="rounded-2xl bg-violet-600 px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-violet-700"
+                    onClick={generateVariations}
+                  >
+                    Generate variations
+                  </button>
+                </div>
               </div>
 
               <div className="mt-4 space-y-3">
                 {varAttrRows.length === 0 && (
-                  <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-4 py-5 text-sm text-slate-500">
+                  <div className="rounded-[22px] border border-dashed border-slate-300 bg-slate-50 px-4 py-5 text-sm text-slate-500">
                     No attributes added yet.
                   </div>
                 )}
@@ -1072,10 +1222,15 @@ export default function AddProductPage() {
                 {varAttrRows.map((id) => (
                   <div
                     key={id}
-                    className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4"
+                    className="rounded-[22px] border border-slate-200 bg-slate-50/70 p-4"
                   >
-                    <div className="mb-3 text-sm font-semibold text-slate-800">
-                      {attrs.find((a) => a.id === id)?.name}
+                    <div className="mb-3 flex items-center justify-between gap-2">
+                      <div className="text-sm font-semibold text-slate-800">
+                        {attrs.find((a) => a.id === id)?.name}
+                      </div>
+                      <div className="text-xs font-medium text-slate-400">
+                        {(varChosenTerms[id] || []).length} selected
+                      </div>
                     </div>
 
                     <div className="flex flex-wrap gap-2">
@@ -1090,9 +1245,9 @@ export default function AddProductPage() {
                             type="button"
                             onClick={() => toggleVarTerm(id, t.name)}
                             className={[
-                              "rounded-full border px-3 py-1.5 text-sm transition",
+                              "rounded-full border px-3 py-2 text-sm font-medium transition",
                               selected
-                                ? "border-violet-400 bg-violet-600 text-white"
+                                ? "border-violet-400 bg-violet-600 text-white shadow-sm"
                                 : "border-slate-200 bg-white text-slate-700 hover:border-violet-300",
                             ].join(" ")}
                             title={t.slug}
@@ -1115,9 +1270,16 @@ export default function AddProductPage() {
               title="Variations"
               hint="Edit price and stock for each generated combination"
               icon={Boxes}
+              rightSlot={
+                rows.length > 0 ? (
+                  <div className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">
+                    {rows.length} variations
+                  </div>
+                ) : null
+              }
             >
               {rows.length === 0 && (
-                <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-4 py-5 text-sm text-slate-500">
+                <div className="rounded-[22px] border border-dashed border-slate-300 bg-slate-50 px-4 py-5 text-sm text-slate-500">
                   No variations yet. Choose terms and tap Generate variations.
                 </div>
               )}
@@ -1127,14 +1289,19 @@ export default function AddProductPage() {
                   {rows.map((r, i) => (
                     <div
                       key={r.key}
-                      className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4"
+                      className="rounded-[24px] border border-slate-200 bg-slate-50/70 p-4"
                     >
-                      <div className="mb-3 text-sm font-semibold text-slate-800">
-                        {r.key}
+                      <div className="mb-3 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+                        <div className="text-sm font-semibold text-slate-800">
+                          {r.key}
+                        </div>
+                        <div className="rounded-full bg-white px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500">
+                          Variation {i + 1}
+                        </div>
                       </div>
 
                       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-                        <div>
+                        <FieldShell>
                           <FieldLabel>SKU</FieldLabel>
                           <MobileField
                             value={r.sku}
@@ -1142,9 +1309,9 @@ export default function AddProductPage() {
                               editRow(i, { sku: e.target.value })
                             }
                           />
-                        </div>
+                        </FieldShell>
 
-                        <div>
+                        <FieldShell>
                           <FieldLabel>Regular price</FieldLabel>
                           <MobileField
                             value={r.regular_price}
@@ -1152,9 +1319,9 @@ export default function AddProductPage() {
                               editRow(i, { regular_price: e.target.value })
                             }
                           />
-                        </div>
+                        </FieldShell>
 
-                        <div>
+                        <FieldShell>
                           <FieldLabel>Sale price</FieldLabel>
                           <MobileField
                             value={r.sale_price}
@@ -1162,9 +1329,9 @@ export default function AddProductPage() {
                               editRow(i, { sale_price: e.target.value })
                             }
                           />
-                        </div>
+                        </FieldShell>
 
-                        <div>
+                        <FieldShell>
                           <FieldLabel>Backorders</FieldLabel>
                           <MobileSelect
                             value={r.backorders}
@@ -1181,42 +1348,36 @@ export default function AddProductPage() {
                             <option value="notify">Allow, but notify</option>
                             <option value="yes">Allow</option>
                           </MobileSelect>
-                        </div>
+                        </FieldShell>
                       </div>
 
                       <div className="mt-4 space-y-3">
-                        <label className="flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3">
-                          <div>
-                            <div className="text-sm font-medium text-slate-800">
-                              Manage stock for this variation
-                            </div>
-                          </div>
-                          <input
-                            type="checkbox"
-                            checked={r.manage_stock}
-                            onChange={(e) =>
-                              editRow(i, { manage_stock: e.target.checked })
-                            }
-                            className="h-4 w-4"
-                          />
-                        </label>
+                        <ToggleCard
+                          checked={r.manage_stock}
+                          onChange={(checked) =>
+                            editRow(i, { manage_stock: checked })
+                          }
+                          title="Manage stock for this variation"
+                        />
 
                         {r.manage_stock && (
-                          <div className="md:max-w-[220px]">
-                            <FieldLabel>Quantity</FieldLabel>
-                            <MobileField
-                              type="number"
-                              min={0}
-                              value={r.stock_quantity}
-                              onChange={(e) =>
-                                editRow(i, {
-                                  stock_quantity:
-                                    e.target.value === ""
-                                      ? ""
-                                      : Number(e.target.value),
-                                })
-                              }
-                            />
+                          <div className="md:max-w-[240px]">
+                            <FieldShell>
+                              <FieldLabel>Quantity</FieldLabel>
+                              <MobileField
+                                type="number"
+                                min={0}
+                                value={r.stock_quantity}
+                                onChange={(e) =>
+                                  editRow(i, {
+                                    stock_quantity:
+                                      e.target.value === ""
+                                        ? ""
+                                        : Number(e.target.value),
+                                  })
+                                }
+                              />
+                            </FieldShell>
                           </div>
                         )}
                       </div>
@@ -1234,34 +1395,36 @@ export default function AddProductPage() {
             hint="Search and select existing products to include in this grouped product"
             icon={Boxes}
           >
-            <div className="flex flex-col gap-3 sm:flex-row">
-              <div className="relative flex-1">
-                <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                <MobileField
-                  value={groupQuery}
-                  onChange={(e) => setGroupQuery(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault();
-                      doGroupSearch();
-                    }
-                  }}
-                  placeholder="Search by name or SKU"
-                  className="pl-11"
-                />
-              </div>
+            <div className="rounded-[22px] border border-slate-200/80 bg-slate-50/60 p-3">
+              <div className="flex flex-col gap-3 sm:flex-row">
+                <div className="relative flex-1">
+                  <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                  <MobileField
+                    value={groupQuery}
+                    onChange={(e) => setGroupQuery(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        doGroupSearch();
+                      }
+                    }}
+                    placeholder="Search by name or SKU"
+                    className="pl-11"
+                  />
+                </div>
 
-              <button
-                type="button"
-                className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:border-violet-300 hover:text-violet-700"
-                onClick={doGroupSearch}
-              >
-                Search
-              </button>
+                <button
+                  type="button"
+                  className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition hover:border-violet-300 hover:text-violet-700"
+                  onClick={doGroupSearch}
+                >
+                  Search
+                </button>
+              </div>
             </div>
 
             <div className="mt-4 grid gap-4 md:grid-cols-2">
-              <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4">
+              <div className="rounded-[22px] border border-slate-200 bg-slate-50/70 p-4">
                 <div className="mb-3 text-sm font-semibold text-slate-800">
                   Results
                 </div>
@@ -1271,12 +1434,14 @@ export default function AddProductPage() {
                     <button
                       type="button"
                       key={r.id}
-                      className="flex w-full items-center justify-between rounded-2xl bg-white px-3 py-3 text-left text-sm shadow-sm hover:bg-slate-50"
+                      className="flex w-full items-center justify-between rounded-2xl border border-slate-200 bg-white px-3 py-3 text-left text-sm shadow-sm transition hover:border-violet-300 hover:bg-slate-50"
                       onClick={() =>
                         setGroupSelected((s) => (s.includes(r.id) ? s : [...s, r.id]))
                       }
                     >
-                      <span className="min-w-0 truncate">{r.name}</span>
+                      <span className="min-w-0 truncate font-medium text-slate-700">
+                        {r.name}
+                      </span>
                       <span className="ml-3 shrink-0 text-xs text-slate-400">
                         {r.sku || "no-sku"}
                       </span>
@@ -1289,7 +1454,7 @@ export default function AddProductPage() {
                 </div>
               </div>
 
-              <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4">
+              <div className="rounded-[22px] border border-slate-200 bg-slate-50/70 p-4">
                 <div className="mb-3 text-sm font-semibold text-slate-800">
                   Selected
                 </div>
@@ -1300,14 +1465,14 @@ export default function AddProductPage() {
                     return (
                       <div
                         key={id}
-                        className="flex items-center justify-between rounded-2xl bg-white px-3 py-3 text-sm shadow-sm"
+                        className="flex items-center justify-between rounded-2xl border border-slate-200 bg-white px-3 py-3 text-sm shadow-sm"
                       >
-                        <span className="min-w-0 truncate">
+                        <span className="min-w-0 truncate font-medium text-slate-700">
                           {r?.name || `#${id}`}
                         </span>
                         <button
                           type="button"
-                          className="ml-3 shrink-0 text-xs font-medium text-rose-600 hover:text-rose-700"
+                          className="ml-3 shrink-0 text-xs font-semibold text-rose-600 hover:text-rose-700"
                           onClick={() =>
                             setGroupSelected((s) => s.filter((x) => x !== id))
                           }
@@ -1329,29 +1494,35 @@ export default function AddProductPage() {
           </SectionCard>
         )}
 
-        <div className="app-sticky-actions -mx-3 mt-2 px-3 md:mx-0 md:px-0">
-          <div className="flex flex-col gap-3 rounded-[24px] border border-slate-200/80 bg-white/90 p-3 shadow-lg shadow-slate-200/70 backdrop-blur md:flex-row md:items-center md:justify-between">
-            <div className="min-h-[20px]">
-              {err && (
-                <span className="text-sm font-medium text-rose-600">{err}</span>
-              )}
-            </div>
+        <div className="sticky bottom-3 z-30 -mx-1 md:bottom-4 md:mx-0">
+          <div className="rounded-[26px] border border-slate-200/90 bg-white/92 p-3 shadow-[0_20px_50px_rgba(15,23,42,0.12)] backdrop-blur">
+            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+              <div className="min-h-[20px]">
+                {err ? (
+                  <span className="text-sm font-semibold text-rose-600">{err}</span>
+                ) : (
+                  <span className="text-xs text-slate-500">
+                    Review details and create product when ready.
+                  </span>
+                )}
+              </div>
 
-            <div className="flex gap-2">
-              <Link
-                href="/products"
-                className="inline-flex flex-1 items-center justify-center rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-medium text-slate-700 hover:bg-slate-50 md:flex-none"
-              >
-                Cancel
-              </Link>
+              <div className="flex gap-2">
+                <Link
+                  href="/products"
+                  className="inline-flex flex-1 items-center justify-center rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 md:flex-none"
+                >
+                  Cancel
+                </Link>
 
-              <button
-                type="submit"
-                disabled={busy || !!skuErr}
-                className="inline-flex flex-1 items-center justify-center rounded-2xl bg-gradient-to-r from-[#8b5cff] to-[#ff7ac3] px-5 py-3 text-sm font-semibold text-white shadow-sm hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-60 md:flex-none"
-              >
-                {busy ? "Creating…" : "Create product"}
-              </button>
+                <button
+                  type="submit"
+                  disabled={busy || !!skuErr}
+                  className="inline-flex flex-1 items-center justify-center rounded-2xl bg-gradient-to-r from-[#8b5cff] to-[#ff7ac3] px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-60 md:min-w-[170px] md:flex-none"
+                >
+                  {busy ? "Creating…" : "Create product"}
+                </button>
+              </div>
             </div>
           </div>
         </div>
