@@ -823,45 +823,39 @@ export default function AddProductPage() {
               </p>
             </div>
 
-            <div className="rounded-[24px] border border-slate-200/80 bg-white/85 p-3 shadow-sm backdrop-blur">
-              <div className="mb-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">
-                Product type
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {(["simple", "variable", "grouped"] as ProductType[]).map((t) => {
-                  const active = ptype === t;
-                  const label = t[0].toUpperCase() + t.slice(1);
+            <div className="rounded-[24px] border border-slate-200/80 bg-white/85 p-3 shadow-sm backdrop-blur md:min-w-[320px]">
+  <div className="mb-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">
+    Product type
+  </div>
 
-                  return (
-                    <button
-                      key={t}
-                      type="button"
-                      onClick={() => setPtype(t)}
-                      className={[
-                        "inline-flex items-center gap-2 rounded-full border px-4 py-2.5 text-sm font-semibold transition",
-                        active
-                          ? "border-violet-500 bg-violet-600 text-white shadow-sm"
-                          : "border-slate-200 bg-white text-slate-700 hover:border-violet-300 hover:text-violet-700",
-                      ].join(" ")}
-                    >
-                      <span
-                        className={`h-2 w-2 rounded-full ${
-                          active ? "bg-white" : "bg-slate-300"
-                        }`}
-                      />
-                      {label}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
+  <div className="grid grid-cols-1 gap-2 sm:grid-cols-3 md:grid-cols-1 md:gap-2">
+    {(["simple", "variable", "grouped"] as ProductType[]).map((t) => {
+      const active = ptype === t;
+      const label = t[0].toUpperCase() + t.slice(1);
 
-          <div className="flex flex-wrap gap-2">
-            <StepChip index={1} label="Basic info" active />
-            <StepChip index={2} label="Pricing & stock" active={ptype !== "grouped"} />
-            <StepChip index={3} label="Media & categories" active />
-            <StepChip index={4} label="Shipping & tax" active={ptype !== "grouped"} />
+      return (
+        <button
+          key={t}
+          type="button"
+          onClick={() => setPtype(t)}
+          className={[
+            "inline-flex w-full items-center justify-center gap-2 rounded-2xl border px-4 py-3 text-sm font-semibold transition",
+            active
+              ? "border-violet-500 bg-violet-600 text-white shadow-sm"
+              : "border-slate-200 bg-white text-slate-700 hover:border-violet-300 hover:text-violet-700",
+          ].join(" ")}
+        >
+          <span
+            className={`h-2.5 w-2.5 rounded-full ${
+              active ? "bg-white" : "bg-slate-300"
+            }`}
+          />
+          {label}
+        </button>
+      );
+    })}
+  </div>
+</div>
           </div>
         </div>
       </div>
