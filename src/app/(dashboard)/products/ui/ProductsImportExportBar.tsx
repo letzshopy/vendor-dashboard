@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { Download, Upload } from "lucide-react";
 import ImportProductsModal from "./ImportProductsModal";
 import ExportProductsModal from "./ExportProductsModal";
 
@@ -17,22 +16,20 @@ export default function ProductsImportExportBar({
 
   return (
     <>
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex items-center gap-3">
         <button
           type="button"
           onClick={() => setShowImport(true)}
-          className="inline-flex h-11 items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 text-sm font-medium text-slate-700 shadow-sm transition hover:border-violet-300 hover:text-violet-700"
+          className="inline-flex items-center rounded-full border border-slate-200 bg-white px-4 py-1.5 text-xs font-medium text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-slate-50"
         >
-          <Upload className="h-4 w-4" />
           Import CSV
         </button>
 
         <button
           type="button"
           onClick={() => setShowExport(true)}
-          className="inline-flex h-11 items-center gap-2 rounded-2xl bg-slate-900 px-4 text-sm font-medium text-white shadow-sm transition hover:bg-slate-800"
+          className="inline-flex items-center rounded-full bg-slate-900 px-4 py-1.5 text-xs font-medium text-white shadow-sm transition hover:bg-slate-800"
         >
-          <Download className="h-4 w-4" />
           Export CSV
         </button>
       </div>
