@@ -16,6 +16,7 @@ import {
   Tag,
   Truck,
   Wallet,
+  X,
 } from "lucide-react";
 import ProductImages, { type ImgItem } from "@/components/ProductImages";
 import TagPicker from "@/components/TagPicker";
@@ -274,6 +275,39 @@ function StepChip({
   );
 }
 
+function MobileSheet({
+  open,
+  title,
+  onClose,
+  children,
+}: {
+  open: boolean;
+  title: string;
+  onClose: () => void;
+  children: React.ReactNode;
+}) {
+  if (!open) return null;
+
+  return (
+    <div className="fixed inset-0 z-[120] md:hidden">
+      <div className="absolute inset-0 bg-slate-900/30 backdrop-blur-[1px]" onClick={onClose} />
+      <div className="absolute inset-x-0 bottom-0 top-16 overflow-hidden rounded-t-[28px] bg-white shadow-2xl">
+        <div className="flex items-center justify-between border-b border-slate-100 px-4 py-4">
+          <div className="text-base font-semibold text-slate-900">{title}</div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+        <div className="h-[calc(100%-73px)] overflow-auto p-4 pb-28">{children}</div>
+      </div>
+    </div>
+  );
+}
+
 export default function AddProductPage() {
   const [title, setTitle] = useState("");
   const [sku, setSku] = useState("");
@@ -313,6 +347,8 @@ export default function AddProductPage() {
   const [selectedCats, setSelectedCats] = useState<number[]>([]);
   const [catOpen, setCatOpen] = useState(false);
   const [catQuery, setCatQuery] = useState("");
+  const [mobileCatOpen, setMobileCatOpen] = useState(false);
+  const [mobileTagOpen, setMobileTagOpen] = useState(false);
 
   const filteredCats = useMemo(() => {
     const q = catQuery.trim().toLowerCase();
@@ -505,13 +541,9 @@ export default function AddProductPage() {
         sale_price:
           ptype === "simple" && enableSalePrice ? sale || undefined : undefined,
         date_on_sale_from:
-          ptype === "simple" && enableSalePrice
-            ? saleFrom || undefined
-            : undefined,
+          ptype === "simple" && enableSalePrice ? saleFrom || undefined : undefined,
         date_on_sale_to:
-          ptype === "simple" && enableSalePrice
-            ? saleTo || undefined
-            : undefined,
+          ptype === "simple" && enableSalePrice ? saleTo || undefined : undefined,
 
         manage_stock: ptype === "simple" ? manageStock : false,
         stock_quantity:
@@ -635,6 +667,7 @@ export default function AddProductPage() {
       setTaxClass("");
       setTaxStatus("none");
       setEnableTax(false);
+      setCatQuery("");
     } catch (e: any) {
       setErr(e?.message || "Create failed");
     } finally {
@@ -654,6 +687,106 @@ export default function AddProductPage() {
 
   return (
     <main className="mx-auto max-w-7xl px-3 pb-28 pt-3 md:px-4 md:pb-10 md:pt-5">
+      <MobileSheet
+        open={mobileCatOpen}
+        title="Select categories"
+        onClose={() => setMobileCatOpen(false)}
+      >
+        <div className="space-y-4">
+          <div className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3">
+            <Search className="h-4 w-4 text-slate-400" />
+            <input
+              autoFocus
+              className="w-full bg-transparent text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none"
+              placeholder="Search category"
+              value={catQuery}
+              onChange={(e) => setCatQuery(e.target.value)}
+            />
+          </div>
+
+          <div className="rounded-[22px] border border-slate-200 bg-white">
+            <div className="max-h-[52vh] overflow-auto py-2">
+              {filteredCats.map((c) => {
+                const checked = selectedCats.includes(c.id);
+                return (
+                  <label
+                    key={c.id}
+                    className="flex cursor-pointer items-center gap-3 px-4 py-3 text-sm hover:bg-slate-50"
+                    style={{ paddingLeft: 16 + c.depth * 16 }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={() =>
+                        setSelectedCats((arr) =>
+                          checked ? arr.filter((x) => x !== c.id) : [...arr, c.id]
+                        )
+                      }
+                      className="h-4 w-4"
+                    />
+                    <span className="text-slate-700">{c.name}</span>
+                  </label>
+                );
+              })}
+
+              {filteredCats.length === 0 && (
+                <div className="px-4 py-4 text-sm text-slate-500">No matches.</div>
+              )}
+            </div>
+          </div>
+
+          <div className="flex gap-2">
+            <button
+              type="button"
+              className="flex-1 rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-700"
+              onClick={() => setSelectedCats([])}
+            >
+              Clear
+            </button>
+            <button
+              type="button"
+              className="flex-1 rounded-2xl bg-violet-600 px-4 py-3 text-sm font-semibold text-white"
+              onClick={() => setMobileCatOpen(false)}
+            >
+              Done
+            </button>
+          </div>
+        </div>
+      </MobileSheet>
+
+      <MobileSheet
+        open={mobileTagOpen}
+        title="Manage tags"
+        onClose={() => setMobileTagOpen(false)}
+      >
+        <div className="space-y-4">
+          <div className="rounded-[22px] border border-slate-200 bg-white p-3">
+            <TagPicker value={tags} onChange={setTags} />
+          </div>
+
+          {tags.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              {tags.map((tag) => (
+                <span
+                  key={tag}
+                  className="rounded-full bg-violet-50 px-3 py-1.5 text-xs font-semibold text-violet-700"
+                >
+                  {tag}
+                </span>
+              ))}
+            </div>
+          )}
+
+          <button
+            type="button"
+            className="w-full rounded-2xl bg-violet-600 px-4 py-3 text-sm font-semibold text-white"
+            onClick={() => setMobileTagOpen(false)}
+          >
+            Done
+          </button>
+        </div>
+      </MobileSheet>
+
       <div className="mb-4 rounded-[30px] border border-white/80 bg-gradient-to-br from-white via-[#faf6ff] to-[#eef7ff] p-4 shadow-[0_14px_40px_rgba(15,23,42,0.06)] md:p-5">
         <div className="flex flex-col gap-4">
           <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
@@ -722,12 +855,8 @@ export default function AddProductPage() {
           <div className="flex flex-wrap gap-2">
             <StepChip index={1} label="Basic info" active />
             <StepChip index={2} label="Pricing & stock" active={ptype !== "grouped"} />
-            <StepChip index={3} label="Images & categories" active />
-            <StepChip
-              index={4}
-              label={ptype === "variable" ? "Variations" : ptype === "grouped" ? "Linked items" : "Ready to publish"}
-              active
-            />
+            <StepChip index={3} label="Shipping & tax" active={ptype !== "grouped"} />
+            <StepChip index={4} label="Media & categorisation" active />
           </div>
         </div>
       </div>
@@ -1103,8 +1232,8 @@ export default function AddProductPage() {
 
                 <button
                   type="button"
-                  className="flex h-12 w-full items-center justify-between rounded-2xl border border-slate-200 bg-white px-4 text-left text-sm text-slate-700 shadow-sm transition hover:border-violet-300"
-                  onClick={() => setCatOpen((o) => !o)}
+                  onClick={() => setMobileCatOpen(true)}
+                  className="flex h-12 w-full items-center justify-between rounded-2xl border border-slate-200 bg-white px-4 text-left text-sm text-slate-700 shadow-sm md:hidden"
                 >
                   <span className="min-w-0 truncate">
                     {selectedCats.length === 0
@@ -1113,6 +1242,21 @@ export default function AddProductPage() {
                   </span>
                   <ChevronDown className="h-4 w-4 shrink-0 text-slate-400" />
                 </button>
+
+                <div className="hidden md:block">
+                  <button
+                    type="button"
+                    className="flex h-12 w-full items-center justify-between rounded-2xl border border-slate-200 bg-white px-4 text-left text-sm text-slate-700 shadow-sm transition hover:border-violet-300"
+                    onClick={() => setCatOpen((o) => !o)}
+                  >
+                    <span className="min-w-0 truncate">
+                      {selectedCats.length === 0
+                        ? "Select categories…"
+                        : selectedCatNames.join(", ")}
+                    </span>
+                    <ChevronDown className="h-4 w-4 shrink-0 text-slate-400" />
+                  </button>
+                </div>
 
                 {selectedCatNames.length > 0 && (
                   <div className="mt-3 flex flex-wrap gap-2">
@@ -1128,7 +1272,7 @@ export default function AddProductPage() {
                 )}
 
                 {catOpen && (
-                  <div className="absolute left-0 right-0 top-full z-[100] mt-2 overflow-hidden rounded-[26px] border border-slate-200 bg-white shadow-2xl xl:w-[440px]">
+                  <div className="absolute left-0 right-0 top-full z-[100] mt-2 hidden overflow-hidden rounded-[26px] border border-slate-200 bg-white shadow-2xl md:block xl:w-[440px]">
                     <div className="border-b border-slate-100 p-3">
                       <div className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2">
                         <Search className="h-4 w-4 text-slate-400" />
@@ -1198,7 +1342,35 @@ export default function AddProductPage() {
 
               <FieldShell className="relative z-20">
                 <FieldLabel>Tags</FieldLabel>
-                <TagPicker value={tags} onChange={setTags} />
+
+                <button
+                  type="button"
+                  onClick={() => setMobileTagOpen(true)}
+                  className="flex h-12 w-full items-center justify-between rounded-2xl border border-slate-200 bg-white px-4 text-left text-sm text-slate-700 shadow-sm md:hidden"
+                >
+                  <span className="min-w-0 truncate">
+                    {tags.length === 0 ? "Add tags…" : `${tags.length} tag(s) selected`}
+                  </span>
+                  <ChevronDown className="h-4 w-4 shrink-0 text-slate-400" />
+                </button>
+
+                <div className="hidden md:block">
+                  <TagPicker value={tags} onChange={setTags} />
+                </div>
+
+                {tags.length > 0 && (
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {tags.map((tag) => (
+                      <span
+                        key={tag}
+                        className="rounded-full bg-violet-50 px-3 py-1 text-xs font-semibold text-violet-700"
+                      >
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                )}
+
                 <p className="mt-2 text-xs leading-5 text-slate-500">
                   Press Enter to create new tags quickly.
                 </p>
