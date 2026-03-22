@@ -169,9 +169,9 @@ export default async function ProductsPage({
           <QuickPill label="Simple" value={typeCounts.simple} />
           <QuickPill label="Variable" value={typeCounts.variable} />
           <QuickPill label="Grouped" value={typeCounts.grouped} />
-          {category ? <ActivePill label={`Category filter active`} /> : null}
-          {stock ? <ActivePill label={`Stock filter active`} /> : null}
-          {ptype ? <ActivePill label={`Type filter active`} /> : null}
+          {category ? <ActivePill label="Category filter active" /> : null}
+          {stock ? <ActivePill label="Stock filter active" /> : null}
+          {ptype ? <ActivePill label="Type filter active" /> : null}
         </div>
       </section>
 
@@ -189,7 +189,7 @@ export default async function ProductsPage({
           }
         />
 
-        <ProductsClientTable products={products} categories={categories} />
+        <ProductsClientTable products={products} />
       </section>
     </main>
   );

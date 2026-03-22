@@ -2,13 +2,7 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import {
-  Pencil,
-  Copy,
-  Trash2,
-  Eye,
-  Search,
-} from "lucide-react";
+import { Pencil, Copy, Trash2, Eye, Search } from "lucide-react";
 
 type P = {
   id: number;
@@ -31,161 +25,165 @@ export default function ProductsClientTable({
   const [query, setQuery] = useState("");
 
   const filtered = useMemo(() => {
-    const q = query.toLowerCase();
+    const q = query.toLowerCase().trim();
     return products.filter(
       (p) =>
-        p.name?.toLowerCase().includes(q) ||
-        p.sku?.toLowerCase().includes(q)
+        p.name?.toLowerCase().includes(q) || p.sku?.toLowerCase().includes(q)
     );
   }, [products, query]);
 
-  function StockBadge(p: P) {
-    if (p.stock_status === "instock")
+  function StockBadge({ product }: { product: P }) {
+    if (product.stock_status === "instock") {
       return (
-        <span className="text-[11px] bg-emerald-100 text-emerald-700 px-2 py-1 rounded-full">
-          In stock ({p.stock_quantity ?? 0})
+        <span className="inline-flex rounded-full bg-emerald-100 px-2 py-1 text-[11px] font-medium text-emerald-700">
+          In stock ({product.stock_quantity ?? 0})
         </span>
       );
+    }
 
-    if (p.stock_status === "outofstock")
+    if (product.stock_status === "outofstock") {
       return (
-        <span className="text-[11px] bg-rose-100 text-rose-600 px-2 py-1 rounded-full">
+        <span className="inline-flex rounded-full bg-rose-100 px-2 py-1 text-[11px] font-medium text-rose-600">
           Out of stock
         </span>
       );
+    }
 
     return (
-      <span className="text-[11px] bg-amber-100 text-amber-700 px-2 py-1 rounded-full">
+      <span className="inline-flex rounded-full bg-amber-100 px-2 py-1 text-[11px] font-medium text-amber-700">
         Backorder
       </span>
     );
   }
 
   return (
-    <div className="mt-4">
-      {/* 🔍 Search */}
-      <div className="mb-4 relative">
-        <Search className="absolute left-4 top-3 h-4 w-4 text-slate-400" />
-        <input
-          placeholder="Search products..."
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          className="w-full rounded-full border border-slate-200 pl-10 pr-4 py-3 text-sm focus:ring-2 focus:ring-violet-200 focus:border-violet-400"
-        />
+    <section className="rounded-[28px] border border-slate-200/70 bg-white shadow-sm shadow-slate-200/60">
+      <div className="border-b border-slate-100 px-4 py-4 md:px-5">
+        <div className="relative">
+          <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+          <input
+            placeholder="Search by product title or SKU"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            className="h-12 w-full rounded-2xl border border-slate-200 bg-white pl-11 pr-4 text-sm text-slate-800 shadow-sm focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-100"
+          />
+        </div>
       </div>
 
-      {/* 🧠 Product List */}
-      <div className="space-y-3">
+      <div className="space-y-3 p-4 md:p-5">
         {filtered.map((p, index) => {
           const img = p.images?.[0]?.src;
 
           return (
             <div
               key={p.id}
-              className="group relative rounded-2xl border border-slate-200 bg-white p-3 shadow-sm hover:shadow-md transition"
+              className="group rounded-[24px] border border-slate-200 bg-gradient-to-r from-white to-slate-50/70 p-3 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
             >
               <div className="flex gap-3">
-                {/* IMAGE = SERIAL */}
-                <div className="relative">
+                <div className="relative shrink-0">
                   {img ? (
                     <img
                       src={img}
-                      className="h-20 w-20 rounded-xl object-cover"
+                      alt={p.name}
+                      className="h-20 w-20 rounded-2xl object-cover ring-1 ring-slate-200"
                     />
                   ) : (
-                    <div className="h-20 w-20 rounded-xl bg-slate-100 flex items-center justify-center text-xs text-slate-400">
-                      No Image
+                    <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-slate-100 text-[11px] text-slate-400 ring-1 ring-slate-200">
+                      No image
                     </div>
                   )}
 
-                  {/* Serial number */}
-                  <div className="absolute -top-2 -left-2 bg-violet-600 text-white text-[10px] px-2 py-0.5 rounded-full shadow">
+                  <div className="absolute -left-2 -top-2 rounded-full bg-violet-600 px-2 py-0.5 text-[10px] font-semibold text-white shadow">
                     #{index + 1}
                   </div>
                 </div>
 
-                {/* CONTENT */}
-                <div className="flex-1 min-w-0">
-                  <Link
-                    href={`/products/${p.id}`}
-                    className="font-semibold text-slate-800 truncate block"
-                  >
-                    {p.name}
-                  </Link>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <Link
+                        href={`/products/${p.id}`}
+                        className="block truncate text-[15px] font-semibold text-slate-900 hover:text-violet-700"
+                      >
+                        {p.name}
+                      </Link>
 
-                  <div className="text-xs text-slate-500 mt-1">
-                    {p.sku || "—"} • {p.type}
-                  </div>
-
-                  <div className="flex items-center justify-between mt-2">
-                    <div className="font-semibold text-violet-600">
-                      ₹{p.price || "—"}
+                      <div className="mt-1 text-xs text-slate-500">
+                        {p.sku || "—"} • {p.type || "simple"}
+                      </div>
                     </div>
 
-                    <StockBadge {...p} />
+                    <div className="shrink-0 text-right">
+                      <div className="text-base font-semibold text-violet-700">
+                        ₹{p.price || "—"}
+                      </div>
+                    </div>
                   </div>
 
-                  {/* Categories */}
-                  <div className="flex flex-wrap gap-1 mt-2">
-                    {(p.categories || []).slice(0, 3).map((c, i) => (
-                      <span
-                        key={i}
-                        className="text-[10px] bg-slate-100 px-2 py-0.5 rounded-full text-slate-600"
-                      >
-                        {c.name}
-                      </span>
-                    ))}
+                  <div className="mt-3 flex items-center justify-between gap-3">
+                    <StockBadge product={p} />
+                  </div>
+
+                  {(p.categories || []).length > 0 && (
+                    <div className="mt-3 flex flex-wrap gap-1.5">
+                      {(p.categories || []).slice(0, 4).map((c, i) => (
+                        <span
+                          key={i}
+                          className="rounded-full bg-slate-100 px-2 py-1 text-[10px] font-medium text-slate-600"
+                        >
+                          {c.name}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <Link href={`/products/${p.id}/edit`} className="action-btn">
+                      <Pencil size={14} />
+                    </Link>
+
+                    <button type="button" className="action-btn">
+                      <Copy size={14} />
+                    </button>
+
+                    <button type="button" className="action-btn text-rose-500 hover:border-rose-300 hover:text-rose-600">
+                      <Trash2 size={14} />
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => p.permalink && window.open(p.permalink, "_blank")}
+                      className="action-btn"
+                    >
+                      <Eye size={14} />
+                    </button>
                   </div>
                 </div>
-              </div>
-
-              {/* ACTION BAR */}
-              <div className="flex gap-2 mt-3 opacity-70 group-hover:opacity-100 transition">
-                <Link
-                  href={`/products/${p.id}/edit`}
-                  className="action-btn"
-                >
-                  <Pencil size={14} />
-                </Link>
-
-                <button className="action-btn">
-                  <Copy size={14} />
-                </button>
-
-                <button className="action-btn text-rose-500">
-                  <Trash2 size={14} />
-                </button>
-
-                <button
-                  onClick={() => window.open(p.permalink)}
-                  className="action-btn"
-                >
-                  <Eye size={14} />
-                </button>
               </div>
             </div>
           );
         })}
 
         {filtered.length === 0 && (
-          <div className="text-center py-10 text-slate-500">
-            No products found
+          <div className="rounded-[24px] border border-dashed border-slate-300 bg-slate-50 px-4 py-10 text-center text-sm text-slate-500">
+            No products found.
           </div>
         )}
       </div>
 
-      {/* STYLE */}
       <style jsx>{`
         .action-btn {
-          height: 32px;
-          width: 32px;
-          display: flex;
+          height: 34px;
+          width: 34px;
+          display: inline-flex;
           align-items: center;
           justify-content: center;
           border-radius: 999px;
           border: 1px solid #e5e7eb;
           background: white;
+          color: #475569;
           transition: 0.2s;
+          box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
         }
 
         .action-btn:hover {
@@ -193,6 +191,6 @@ export default function ProductsClientTable({
           color: #7c3aed;
         }
       `}</style>
-    </div>
+    </section>
   );
 }
