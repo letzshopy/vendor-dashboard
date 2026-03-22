@@ -1,7 +1,15 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import {
+  Filter,
+  Layers3,
+  PackageCheck,
+  Shapes,
+  Sparkles,
+  X,
+} from "lucide-react";
 
 type Category = { id: number; name: string; parent: number };
 
@@ -10,8 +18,29 @@ type Props = {
   initialCategory: string;
   initialStock: string;
   initialType: string;
-  rightSlot?: React.ReactNode; // Import/Export bar
+  rightSlot?: React.ReactNode;
 };
+
+function indentCats(cats: Category[]) {
+  const byParent: Record<number, Category[]> = {};
+  cats.forEach((c) => {
+    byParent[c.parent] ??= [];
+    byParent[c.parent].push(c);
+  });
+
+  const out: (Category & { depth: number })[] = [];
+
+  (function walk(parent: number, depth: number) {
+    (byParent[parent] || [])
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .forEach((c) => {
+        out.push({ ...c, depth });
+        walk(c.id, depth + 1);
+      });
+  })(0, 0);
+
+  return out;
+}
 
 export default function ProductsFilters({
   categories,
@@ -25,6 +54,7 @@ export default function ProductsFilters({
   const [category, setCategory] = useState(initialCategory || "");
   const [stock, setStock] = useState(initialStock || "");
   const [ptype, setPtype] = useState(initialType || "");
+  const [open, setOpen] = useState(false);
 
   useEffect(() => {
     setCategory(initialCategory || "");
@@ -38,6 +68,7 @@ export default function ProductsFilters({
     setPtype(initialType || "");
   }, [initialType]);
 
+  const flatCats = useMemo(() => indentCats(categories), [categories]);
   const hasFilters = Boolean(category || stock || ptype);
 
   function applyFilters() {
@@ -47,6 +78,7 @@ export default function ProductsFilters({
     if (ptype) params.set("ptype", ptype);
     const qs = params.toString();
     router.push(qs ? `/products?${qs}` : "/products");
+    setOpen(false);
   }
 
   function clearFilters() {
@@ -54,90 +86,138 @@ export default function ProductsFilters({
     setStock("");
     setPtype("");
     router.push("/products");
+    setOpen(false);
   }
 
+  const selectedCategoryName =
+    flatCats.find((c) => String(c.id) === category)?.name || "All categories";
+
+  const selectedStockLabel =
+    stock === "instock"
+      ? "In stock"
+      : stock === "outofstock"
+      ? "Out of stock"
+      : stock === "onbackorder"
+      ? "On backorder"
+      : "Any stock";
+
+  const selectedTypeLabel =
+    ptype === "simple"
+      ? "Simple"
+      : ptype === "variable"
+      ? "Variable"
+      : ptype === "grouped"
+      ? "Grouped"
+      : "All types";
+
   return (
-    <section className="mt-4">
-      <div className="rounded-2xl border border-violet-100 bg-white/80 shadow-[0_12px_30px_rgba(15,23,42,0.06)] backdrop-blur-sm">
-        {/* Header row: title + Import/Export + Apply */}
-        <div className="flex flex-col gap-3 border-b border-violet-50 px-5 py-3 md:flex-row md:items-center md:justify-between">
-          <div className="flex items-start gap-3">
-            <span className="mt-0.5 inline-flex h-8 w-8 items-center justify-center rounded-full bg-violet-100 text-violet-500">
-              🔍
-            </span>
-            <div>
-              <h2 className="text-sm font-semibold text-slate-800">Filters</h2>
-              <p className="text-xs text-slate-500">
-                Quickly slice your catalog by category, stock status and product type.
-              </p>
+    <section className="rounded-[28px] border border-slate-200/70 bg-white shadow-sm shadow-slate-200/60">
+      <div className="border-b border-slate-100 bg-gradient-to-r from-[#faf7ff] via-white to-[#eef7ff] px-4 py-4 md:px-5">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+          <div className="min-w-0">
+            <div className="flex items-start gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[#f2ebff] text-[#7a4cf0]">
+                <Filter className="h-5 w-5" />
+              </div>
+
+              <div className="min-w-0">
+                <div className="flex items-center gap-2">
+                  <h2 className="text-base font-semibold text-slate-900">
+                    Filters
+                  </h2>
+                  {hasFilters && (
+                    <span className="rounded-full bg-violet-50 px-2 py-0.5 text-[11px] font-medium text-violet-700">
+                      Active
+                    </span>
+                  )}
+                </div>
+                <p className="mt-1 text-xs leading-5 text-slate-500">
+                  Narrow your catalog by category, stock status and product type.
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-3 flex flex-wrap gap-2">
+              <SummaryPill
+                icon={Layers3}
+                label={selectedCategoryName}
+                active={Boolean(category)}
+              />
+              <SummaryPill
+                icon={PackageCheck}
+                label={selectedStockLabel}
+                active={Boolean(stock)}
+              />
+              <SummaryPill
+                icon={Shapes}
+                label={selectedTypeLabel}
+                active={Boolean(ptype)}
+              />
             </div>
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            {rightSlot && rightSlot}
+            {rightSlot}
             <button
               type="button"
-              onClick={applyFilters}
-              className="inline-flex items-center rounded-full bg-gradient-to-r from-violet-500 to-fuchsia-500 px-4 py-1.5 text-xs font-medium text-white shadow-sm hover:shadow-md focus:outline-none focus:ring-2 focus:ring-violet-300"
+              onClick={() => setOpen((v) => !v)}
+              className="inline-flex h-11 items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 text-sm font-medium text-slate-700 shadow-sm hover:border-violet-300 hover:text-violet-700"
             >
-              Apply filters
+              <Sparkles className="h-4 w-4" />
+              {open ? "Hide filters" : "Open filters"}
             </button>
           </div>
         </div>
+      </div>
 
-        {/* Body: three dropdowns + status line */}
-        <div className="space-y-3 px-5 pb-4 pt-3">
-          <div className="grid gap-3 md:grid-cols-3">
-            {/* Category */}
-            <div className="flex flex-col gap-1">
-              <label className="text-xs font-medium uppercase tracking-wide text-slate-500">
-                Filter by Categories
+      {open && (
+        <div className="space-y-4 px-4 py-4 md:px-5">
+          <div className="grid gap-4 md:grid-cols-3">
+            <div>
+              <label className="mb-1.5 block text-[12px] font-medium uppercase tracking-wide text-slate-500">
+                Category
               </label>
               <select
                 value={category}
                 onChange={(e) => setCategory(e.target.value)}
-                className="w-full rounded-full border border-violet-100 bg-white px-4 py-2.5 text-sm text-slate-700 shadow-[0_1px_3px_rgba(15,23,42,0.06)] outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-200"
+                className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-700 shadow-sm focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-100"
               >
-                <option value="">All</option>
-                {categories
-                  .slice()
-                  .sort((a, b) => a.name.localeCompare(b.name))
-                  .map((c) => (
-                    <option key={c.id} value={String(c.id)}>
-                      {c.name}
-                    </option>
-                  ))}
+                <option value="">All categories</option>
+                {flatCats.map((c) => (
+                  <option key={c.id} value={String(c.id)}>
+                    {"— ".repeat(c.depth)}
+                    {c.name}
+                  </option>
+                ))}
               </select>
             </div>
 
-            {/* Stock */}
-            <div className="flex flex-col gap-1">
-              <label className="text-xs font-medium uppercase tracking-wide text-slate-500">
-                Filter by Stock
+            <div>
+              <label className="mb-1.5 block text-[12px] font-medium uppercase tracking-wide text-slate-500">
+                Stock
               </label>
               <select
                 value={stock}
                 onChange={(e) => setStock(e.target.value)}
-                className="w-full rounded-full border border-violet-100 bg-white px-4 py-2.5 text-sm text-slate-700 shadow-[0_1px_3px_rgba(15,23,42,0.06)] outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-200"
+                className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-700 shadow-sm focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-100"
               >
-                <option value="">All</option>
+                <option value="">Any stock</option>
                 <option value="instock">In stock</option>
                 <option value="outofstock">Out of stock</option>
                 <option value="onbackorder">On backorder</option>
               </select>
             </div>
 
-            {/* Type */}
-            <div className="flex flex-col gap-1">
-              <label className="text-xs font-medium uppercase tracking-wide text-slate-500">
-                Filter by Type
+            <div>
+              <label className="mb-1.5 block text-[12px] font-medium uppercase tracking-wide text-slate-500">
+                Product type
               </label>
               <select
                 value={ptype}
                 onChange={(e) => setPtype(e.target.value)}
-                className="w-full rounded-full border border-violet-100 bg-white px-4 py-2.5 text-sm text-slate-700 shadow-[0_1px_3px_rgba(15,23,42,0.06)] outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-200"
+                className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-700 shadow-sm focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-100"
               >
-                <option value="">All</option>
+                <option value="">All types</option>
                 <option value="simple">Simple</option>
                 <option value="variable">Variable</option>
                 <option value="grouped">Grouped</option>
@@ -145,25 +225,60 @@ export default function ProductsFilters({
             </div>
           </div>
 
-          {/* Status line + Clear button */}
-          <div className="flex items-center justify-between text-xs text-slate-500">
-            <span>
+          <div className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-slate-50/70 px-4 py-3 md:flex-row md:items-center md:justify-between">
+            <p className="text-xs leading-5 text-slate-500">
               {hasFilters
-                ? "Filters active. Adjust or clear to see your full catalog."
-                : "No filters applied. Showing your full catalog."}
-            </span>
-            {hasFilters && (
+                ? "Filters are ready. Apply them to refresh the product list."
+                : "No filters selected. Apply is optional until you choose something."}
+            </p>
+
+            <div className="flex flex-wrap gap-2">
+              {hasFilters && (
+                <button
+                  type="button"
+                  onClick={clearFilters}
+                  className="inline-flex h-10 items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                >
+                  <X className="h-4 w-4" />
+                  Clear
+                </button>
+              )}
+
               <button
                 type="button"
-                onClick={clearFilters}
-                className="font-medium text-violet-600 hover:text-violet-700"
+                onClick={applyFilters}
+                className="inline-flex h-10 items-center rounded-2xl bg-gradient-to-r from-[#8b5cff] to-[#ff79c7] px-4 text-sm font-semibold text-white shadow-sm hover:brightness-105"
               >
-                Clear filters
+                Apply filters
               </button>
-            )}
+            </div>
           </div>
         </div>
-      </div>
+      )}
     </section>
+  );
+}
+
+function SummaryPill({
+  icon: Icon,
+  label,
+  active,
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+  label: string;
+  active?: boolean;
+}) {
+  return (
+    <span
+      className={[
+        "inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium shadow-sm",
+        active
+          ? "border-violet-200 bg-violet-50 text-violet-700"
+          : "border-slate-200 bg-white text-slate-600",
+      ].join(" ")}
+    >
+      <Icon className="h-3.5 w-3.5" />
+      <span className="max-w-[180px] truncate">{label}</span>
+    </span>
   );
 }
