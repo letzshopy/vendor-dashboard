@@ -109,7 +109,7 @@ function SectionCard(props: {
   const { title, hint, icon: Icon, children, rightSlot } = props;
 
   return (
-    <section className="overflow-hidden rounded-[26px] border border-slate-200/80 bg-white shadow-[0_10px_30px_rgba(15,23,42,0.05)]">
+    <section className="overflow-visible rounded-[26px] border border-slate-200/80 bg-white shadow-[0_10px_30px_rgba(15,23,42,0.05)]">
       <div className="border-b border-slate-100 bg-gradient-to-r from-[#faf7ff] via-white to-[#f3f9ff] px-4 py-4 md:px-5">
         <div className="flex items-start justify-between gap-3">
           <div className="flex min-w-0 items-start gap-3">
@@ -279,9 +279,7 @@ export default function AddProductPage() {
   const [sku, setSku] = useState("");
   const [skuErr, setSkuErr] = useState<string | null>(null);
   const [status, setStatus] = useState<"draft" | "publish">("publish");
-  const [visibility, setVisibility] = useState<
-    "visible" | "catalog" | "search" | "hidden"
-  >("visible");
+  const [visibility, setVisibility] = useState<"visible" | "hidden">("visible");
   const [ptype, setPtype] = useState<ProductType>("simple");
   const [shortDesc, setShortDesc] = useState("");
   const [desc, setDesc] = useState("");
@@ -292,11 +290,13 @@ export default function AddProductPage() {
   const [sale, setSale] = useState("");
   const [saleFrom, setSaleFrom] = useState("");
   const [saleTo, setSaleTo] = useState("");
+  const [enableSalePrice, setEnableSalePrice] = useState(false);
 
-  const [manageStock, setManageStock] = useState(false);
+  const [manageStock, setManageStock] = useState(true);
   const [stockQty, setStockQty] = useState<number | "">("");
   const [backorders, setBackorders] = useState<"no" | "notify" | "yes">("no");
 
+  const [enableTax, setEnableTax] = useState(false);
   const [taxStatus, setTaxStatus] = useState<"taxable" | "shipping" | "none">(
     "none"
   );
@@ -306,6 +306,7 @@ export default function AddProductPage() {
   const [length, setLength] = useState("");
   const [width, setWidth] = useState("");
   const [height, setHeight] = useState("");
+  const [enableDimensions, setEnableDimensions] = useState(false);
 
   const [cats, setCats] = useState<Cat[]>([]);
   const flatCats = useMemo(() => indentCats(cats), [cats]);
@@ -459,7 +460,7 @@ export default function AddProductPage() {
         sku: autoSku,
         regular_price: "",
         sale_price: "",
-        manage_stock: false,
+        manage_stock: true,
         stock_quantity: "",
         backorders: "no",
       };
@@ -501,10 +502,16 @@ export default function AddProductPage() {
         description: desc,
 
         regular_price: ptype === "simple" ? regular || undefined : undefined,
-        sale_price: ptype === "simple" ? sale || undefined : undefined,
+        sale_price:
+          ptype === "simple" && enableSalePrice ? sale || undefined : undefined,
         date_on_sale_from:
-          ptype === "simple" ? saleFrom || undefined : undefined,
-        date_on_sale_to: ptype === "simple" ? saleTo || undefined : undefined,
+          ptype === "simple" && enableSalePrice
+            ? saleFrom || undefined
+            : undefined,
+        date_on_sale_to:
+          ptype === "simple" && enableSalePrice
+            ? saleTo || undefined
+            : undefined,
 
         manage_stock: ptype === "simple" ? manageStock : false,
         stock_quantity:
@@ -513,12 +520,12 @@ export default function AddProductPage() {
             : undefined,
         backorders: ptype === "simple" ? backorders : "no",
 
-        tax_status: taxStatus,
-        tax_class: taxClass || undefined,
+        tax_status: enableTax ? taxStatus : "none",
+        tax_class: enableTax ? taxClass || undefined : undefined,
 
         weight: ptype !== "grouped" ? weight || undefined : undefined,
         dimensions:
-          ptype !== "grouped" && (length || width || height)
+          ptype !== "grouped" && enableDimensions && (length || width || height)
             ? { length, width, height }
             : undefined,
 
@@ -611,7 +618,8 @@ export default function AddProductPage() {
       setSale("");
       setSaleFrom("");
       setSaleTo("");
-      setManageStock(false);
+      setEnableSalePrice(false);
+      setManageStock(true);
       setStockQty("");
       setBackorders("no");
       setVarAttrRows([]);
@@ -623,8 +631,10 @@ export default function AddProductPage() {
       setLength("");
       setWidth("");
       setHeight("");
+      setEnableDimensions(false);
       setTaxClass("");
       setTaxStatus("none");
+      setEnableTax(false);
     } catch (e: any) {
       setErr(e?.message || "Create failed");
     } finally {
@@ -795,12 +805,10 @@ export default function AddProductPage() {
 
             <FieldShell className="md:col-span-2">
               <ReqLabel>Visibility</ReqLabel>
-              <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
+              <div className="grid grid-cols-2 gap-2">
                 {(
                   [
                     ["visible", "Visible"],
-                    ["catalog", "Catalog only"],
-                    ["search", "Search only"],
                     ["hidden", "Hidden"],
                   ] as const
                 ).map(([value, label]) => {
@@ -858,10 +866,10 @@ export default function AddProductPage() {
           <div className="grid gap-4 xl:grid-cols-[1.2fr_1fr]">
             <SectionCard
               title="Pricing"
-              hint="Regular price, sale price and sale schedule"
+              hint="Regular price, optional sale price and sale schedule"
               icon={Wallet}
             >
-              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+              <div className="space-y-3">
                 <FieldShell>
                   <FieldLabel>Regular price</FieldLabel>
                   <MobileField
@@ -871,32 +879,43 @@ export default function AddProductPage() {
                   />
                 </FieldShell>
 
-                <FieldShell>
-                  <FieldLabel>Sale price</FieldLabel>
-                  <MobileField
-                    value={sale}
-                    onChange={(e) => setSale(e.target.value)}
-                    placeholder="e.g. 799"
-                  />
-                </FieldShell>
+                <ToggleCard
+                  checked={enableSalePrice}
+                  onChange={setEnableSalePrice}
+                  title="Enable sale price"
+                  hint="Show sale price and sale date fields"
+                />
 
-                <FieldShell>
-                  <FieldLabel>Sale from</FieldLabel>
-                  <MobileField
-                    type="date"
-                    value={saleFrom}
-                    onChange={(e) => setSaleFrom(e.target.value)}
-                  />
-                </FieldShell>
+                {enableSalePrice && (
+                  <div className="grid gap-3 md:grid-cols-3">
+                    <FieldShell>
+                      <FieldLabel>Sale price</FieldLabel>
+                      <MobileField
+                        value={sale}
+                        onChange={(e) => setSale(e.target.value)}
+                        placeholder="e.g. 799"
+                      />
+                    </FieldShell>
 
-                <FieldShell>
-                  <FieldLabel>Sale to</FieldLabel>
-                  <MobileField
-                    type="date"
-                    value={saleTo}
-                    onChange={(e) => setSaleTo(e.target.value)}
-                  />
-                </FieldShell>
+                    <FieldShell>
+                      <FieldLabel>Sale from</FieldLabel>
+                      <MobileField
+                        type="date"
+                        value={saleFrom}
+                        onChange={(e) => setSaleFrom(e.target.value)}
+                      />
+                    </FieldShell>
+
+                    <FieldShell>
+                      <FieldLabel>Sale to</FieldLabel>
+                      <MobileField
+                        type="date"
+                        value={saleTo}
+                        onChange={(e) => setSaleTo(e.target.value)}
+                      />
+                    </FieldShell>
+                  </div>
+                )}
               </div>
             </SectionCard>
 
@@ -955,10 +974,10 @@ export default function AddProductPage() {
           <div className="grid gap-4 xl:grid-cols-[1.2fr_1fr]">
             <SectionCard
               title="Shipping"
-              hint="Weight and dimensions used for fulfilment"
+              hint="Weight first, dimensions only when needed"
               icon={Truck}
             >
-              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+              <div className="space-y-3">
                 <FieldShell>
                   <FieldLabel>Weight (kg)</FieldLabel>
                   <MobileField
@@ -968,65 +987,87 @@ export default function AddProductPage() {
                   />
                 </FieldShell>
 
-                <FieldShell>
-                  <FieldLabel>Length (cm)</FieldLabel>
-                  <MobileField
-                    value={length}
-                    onChange={(e) => setLength(e.target.value)}
-                    placeholder="10"
-                  />
-                </FieldShell>
+                <ToggleCard
+                  checked={enableDimensions}
+                  onChange={setEnableDimensions}
+                  title="Include dimensions"
+                  hint="Show length, width and height fields"
+                />
 
-                <FieldShell>
-                  <FieldLabel>Width (cm)</FieldLabel>
-                  <MobileField
-                    value={width}
-                    onChange={(e) => setWidth(e.target.value)}
-                    placeholder="8"
-                  />
-                </FieldShell>
+                {enableDimensions && (
+                  <div className="grid gap-3 md:grid-cols-3">
+                    <FieldShell>
+                      <FieldLabel>Length (cm)</FieldLabel>
+                      <MobileField
+                        value={length}
+                        onChange={(e) => setLength(e.target.value)}
+                        placeholder="10"
+                      />
+                    </FieldShell>
 
-                <FieldShell>
-                  <FieldLabel>Height (cm)</FieldLabel>
-                  <MobileField
-                    value={height}
-                    onChange={(e) => setHeight(e.target.value)}
-                    placeholder="4"
-                  />
-                </FieldShell>
+                    <FieldShell>
+                      <FieldLabel>Width (cm)</FieldLabel>
+                      <MobileField
+                        value={width}
+                        onChange={(e) => setWidth(e.target.value)}
+                        placeholder="8"
+                      />
+                    </FieldShell>
+
+                    <FieldShell>
+                      <FieldLabel>Height (cm)</FieldLabel>
+                      <MobileField
+                        value={height}
+                        onChange={(e) => setHeight(e.target.value)}
+                        placeholder="4"
+                      />
+                    </FieldShell>
+                  </div>
+                )}
               </div>
             </SectionCard>
 
             <SectionCard
               title="Tax"
-              hint="Tax status and class for this product"
+              hint="Enable only when this product needs tax settings"
               icon={Settings2}
             >
-              <div className="grid gap-3 md:grid-cols-2">
-                <FieldShell>
-                  <FieldLabel>Tax status</FieldLabel>
-                  <MobileSelect
-                    value={taxStatus}
-                    onChange={(e) =>
-                      setTaxStatus(
-                        e.target.value as "taxable" | "shipping" | "none"
-                      )
-                    }
-                  >
-                    <option value="taxable">Taxable</option>
-                    <option value="shipping">Shipping only</option>
-                    <option value="none">None</option>
-                  </MobileSelect>
-                </FieldShell>
+              <div className="space-y-3">
+                <ToggleCard
+                  checked={enableTax}
+                  onChange={setEnableTax}
+                  title="Enable tax"
+                  hint="Show tax status and tax class fields"
+                />
 
-                <FieldShell>
-                  <FieldLabel>Tax class</FieldLabel>
-                  <MobileField
-                    value={taxClass}
-                    onChange={(e) => setTaxClass(e.target.value)}
-                    placeholder="Leave blank for standard"
-                  />
-                </FieldShell>
+                {enableTax && (
+                  <div className="grid gap-3 md:grid-cols-2">
+                    <FieldShell>
+                      <FieldLabel>Tax status</FieldLabel>
+                      <MobileSelect
+                        value={taxStatus}
+                        onChange={(e) =>
+                          setTaxStatus(
+                            e.target.value as "taxable" | "shipping" | "none"
+                          )
+                        }
+                      >
+                        <option value="taxable">Taxable</option>
+                        <option value="shipping">Shipping only</option>
+                        <option value="none">None</option>
+                      </MobileSelect>
+                    </FieldShell>
+
+                    <FieldShell>
+                      <FieldLabel>Tax class</FieldLabel>
+                      <MobileField
+                        value={taxClass}
+                        onChange={(e) => setTaxClass(e.target.value)}
+                        placeholder="Leave blank for standard"
+                      />
+                    </FieldShell>
+                  </div>
+                )}
               </div>
             </SectionCard>
           </div>
@@ -1057,7 +1098,7 @@ export default function AddProductPage() {
             icon={Tag}
           >
             <div className="grid gap-3 md:grid-cols-2">
-              <FieldShell className="relative">
+              <FieldShell className="relative z-30">
                 <ReqLabel>Categories</ReqLabel>
 
                 <button
@@ -1087,7 +1128,7 @@ export default function AddProductPage() {
                 )}
 
                 {catOpen && (
-                  <div className="absolute left-0 right-0 top-full z-20 mt-2 overflow-hidden rounded-[26px] border border-slate-200 bg-white shadow-2xl">
+                  <div className="absolute left-0 right-0 top-full z-[100] mt-2 overflow-hidden rounded-[26px] border border-slate-200 bg-white shadow-2xl xl:w-[440px]">
                     <div className="border-b border-slate-100 p-3">
                       <div className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2">
                         <Search className="h-4 w-4 text-slate-400" />
@@ -1155,7 +1196,7 @@ export default function AddProductPage() {
                 )}
               </FieldShell>
 
-              <FieldShell>
+              <FieldShell className="relative z-20">
                 <FieldLabel>Tags</FieldLabel>
                 <TagPicker value={tags} onChange={setTags} />
                 <p className="mt-2 text-xs leading-5 text-slate-500">
@@ -1494,7 +1535,7 @@ export default function AddProductPage() {
           </SectionCard>
         )}
 
-        <div className="sticky bottom-3 z-30 -mx-1 md:bottom-4 md:mx-0">
+        <div className="sticky bottom-3 z-40 -mx-1 md:bottom-4 md:mx-0">
           <div className="rounded-[26px] border border-slate-200/90 bg-white/92 p-3 shadow-[0_20px_50px_rgba(15,23,42,0.12)] backdrop-blur">
             <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
               <div className="min-h-[20px]">
