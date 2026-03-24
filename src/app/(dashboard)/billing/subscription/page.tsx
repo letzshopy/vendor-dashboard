@@ -136,7 +136,7 @@ export default function BillingSubscriptionPage() {
     if (selectedPlan === "standard") {
       return billingCycle === "yearly" ? 7500 : 625;
     }
-    return billingCycle === "yearly" ? 9000 : 750;
+    return billingCycle === "yearly" ? 12000 : 999;
   }, [selectedPlan, billingCycle]);
 
   const selectedPlanLabel = useMemo(() => {
@@ -355,7 +355,7 @@ export default function BillingSubscriptionPage() {
           </div>
 
           <div className="mt-4 text-4xl font-bold text-slate-900">
-            ₹{billingCycle === "yearly" ? "9,000" : "750"}
+            ₹{billingCycle === "yearly" ? "12,000" : "999"}
           </div>
           <div className="mt-1 text-sm text-slate-500">
             / {billingCycle === "yearly" ? "year" : "month"}
