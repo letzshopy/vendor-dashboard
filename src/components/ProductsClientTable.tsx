@@ -1,11 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  Box,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
+  MoreVertical,
   Package2,
   Search,
   SlidersHorizontal,
@@ -77,142 +78,101 @@ function StockBadge({
   );
 }
 
-function SoftInfoPill({
-  children,
-  tone = "slate",
+function ActionMenu({
+  product,
+  onBulkClone,
+  onDuplicate,
+  onTrash,
+  onView,
 }: {
-  children: React.ReactNode;
-  tone?: "slate" | "violet";
+  product: P;
+  onBulkClone: (id: number) => void;
+  onDuplicate: (id: number) => void;
+  onTrash: (id: number) => void;
+  onView: (url?: string) => void;
 }) {
+  const [open, setOpen] = useState(false);
+  const wrapRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (!wrapRef.current) return;
+      if (!wrapRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
+
   return (
-    <span
-      className={[
-        "inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-semibold",
-        tone === "violet"
-          ? "bg-violet-50 text-violet-700"
-          : "bg-slate-100 text-slate-600",
-      ].join(" ")}
-    >
-      {children}
-    </span>
+    <div className="relative" ref={wrapRef}>
+      <button
+        type="button"
+        onClick={() => setOpen((s) => !s)}
+        className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-sm hover:border-violet-300 hover:text-violet-700"
+      >
+        <MoreVertical className="h-4 w-4" />
+      </button>
+
+      {open && (
+        <div className="absolute right-0 top-11 z-30 min-w-[170px] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl">
+          <Link
+            href={`/products/${product.id}/edit`}
+            className="flex items-center gap-3 px-4 py-3 text-sm text-slate-700 hover:bg-slate-50"
+            onClick={() => setOpen(false)}
+          >
+            ✏️ <span>Edit</span>
+          </Link>
+
+          <button
+            type="button"
+            onClick={() => {
+              setOpen(false);
+              onBulkClone(product.id);
+            }}
+            className="flex w-full items-center gap-3 px-4 py-3 text-left text-sm text-slate-700 hover:bg-slate-50"
+          >
+            📚 <span>Bulk-clone</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setOpen(false);
+              onDuplicate(product.id);
+            }}
+            className="flex w-full items-center gap-3 px-4 py-3 text-left text-sm text-slate-700 hover:bg-slate-50"
+          >
+            📄 <span>Duplicate</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setOpen(false);
+              onTrash(product.id);
+            }}
+            className="flex w-full items-center gap-3 px-4 py-3 text-left text-sm text-rose-600 hover:bg-rose-50"
+          >
+            🗑️ <span>Trash</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setOpen(false);
+              onView(product.permalink);
+            }}
+            className="flex w-full items-center gap-3 px-4 py-3 text-left text-sm text-slate-700 hover:bg-slate-50"
+          >
+            👁️ <span>View in store</span>
+          </button>
+        </div>
+      )}
+    </div>
   );
 }
-
-/** Simple inline SVG icons */
-const Icon = {
-  edit: (
-    <svg
-      className="h-3.5 w-3.5"
-      viewBox="0 0 20 20"
-      fill="none"
-      aria-hidden="true"
-    >
-      <path
-        d="M4 13.5 14 3.5l2.5 2.5L6.5 16H4v-2.5Z"
-        stroke="currentColor"
-        strokeWidth="1.3"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  ),
-  clone: (
-    <svg
-      className="h-3.5 w-3.5"
-      viewBox="0 0 20 20"
-      fill="none"
-      aria-hidden="true"
-    >
-      <rect
-        x="5"
-        y="5"
-        width="9"
-        height="9"
-        rx="1.5"
-        stroke="currentColor"
-        strokeWidth="1.3"
-      />
-      <rect
-        x="8"
-        y="8"
-        width="7"
-        height="7"
-        rx="1.3"
-        stroke="currentColor"
-        strokeWidth="1.1"
-      />
-    </svg>
-  ),
-  duplicate: (
-    <svg
-      className="h-3.5 w-3.5"
-      viewBox="0 0 20 20"
-      fill="none"
-      aria-hidden="true"
-    >
-      <rect
-        x="4"
-        y="6"
-        width="9"
-        height="10"
-        rx="1.5"
-        stroke="currentColor"
-        strokeWidth="1.3"
-      />
-      <rect
-        x="8"
-        y="4"
-        width="7"
-        height="10"
-        rx="1.3"
-        stroke="currentColor"
-        strokeWidth="1.1"
-      />
-    </svg>
-  ),
-  trash: (
-    <svg
-      className="h-3.5 w-3.5"
-      viewBox="0 0 20 20"
-      fill="none"
-      aria-hidden="true"
-    >
-      <path
-        d="M5 6.5h10M8.5 6.5v7M11.5 6.5v7M7 6.5h6l-.5 8H7.5L7 6.5Z"
-        stroke="currentColor"
-        strokeWidth="1.3"
-        strokeLinecap="round"
-      />
-      <path
-        d="M8 4.5h4l.5 1.5H7.5l.5-1.5Z"
-        stroke="currentColor"
-        strokeWidth="1.3"
-        strokeLinecap="round"
-      />
-    </svg>
-  ),
-  view: (
-    <svg
-      className="h-3.5 w-3.5"
-      viewBox="0 0 20 20"
-      fill="none"
-      aria-hidden="true"
-    >
-      <path
-        d="M3 10s2.5-4 7-4 7 4 7 4-2.5 4-7 4-7-4-7-4Z"
-        stroke="currentColor"
-        strokeWidth="1.3"
-      />
-      <circle
-        cx="10"
-        cy="10"
-        r="2.2"
-        stroke="currentColor"
-        strokeWidth="1.3"
-      />
-    </svg>
-  ),
-};
 
 /** ---------- Component ---------- */
 export default function ProductsClientTable({
@@ -275,6 +235,7 @@ export default function ProductsClientTable({
   const [showCats, setShowCats] = useState(false);
   const [showTags, setShowTags] = useState(false);
   const [showPrice, setShowPrice] = useState(false);
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
   const [showStockModal, setShowStockModal] = useState(false);
   const [stockMode, setStockMode] = useState<"instock" | "outofstock">(
@@ -498,80 +459,69 @@ export default function ProductsClientTable({
 
   return (
     <div className="overflow-hidden rounded-[26px] border border-slate-200/80 bg-white shadow-[0_10px_30px_rgba(15,23,42,0.05)]">
-      {/* Top action bar */}
       <div className="border-b border-slate-100 bg-gradient-to-r from-white via-[#faf7ff] to-[#f4fbff] px-4 py-4 md:px-5">
-        <div className="flex flex-col gap-4">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <h2 className="text-[17px] font-semibold tracking-tight text-slate-900">
-                Product list
-              </h2>
-              <p className="mt-1 text-xs leading-5 text-slate-500">
-                Search, bulk-edit and manage products from one place.
-              </p>
-            </div>
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="text-[17px] font-semibold tracking-tight text-slate-900">
+            Product list
+          </h2>
 
-            <div className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">
-              {totalItems} items
-            </div>
+          <div className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">
+            {totalItems} items
+          </div>
+        </div>
+
+        <div className="mt-3 space-y-3">
+          <div className="flex items-center gap-2 rounded-[22px] border border-slate-200 bg-slate-50 px-3 py-2.5 shadow-sm">
+            <Search className="h-4 w-4 text-slate-400" />
+            <input
+              className="w-full bg-transparent text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none"
+              placeholder="Search by title or SKU…"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+            />
           </div>
 
-          <div className="grid gap-3 lg:grid-cols-[1fr_auto] lg:items-center">
-            <div className="flex flex-col gap-3 sm:flex-row">
-              <div className="flex flex-1 items-center gap-2 rounded-[22px] border border-slate-200 bg-slate-50 px-3 py-2.5 shadow-sm">
-                <Search className="h-4 w-4 text-slate-400" />
-                <input
-                  className="w-full bg-transparent text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none"
-                  placeholder="Search by title or SKU…"
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                />
-              </div>
+          <div className="flex items-center gap-2">
+            <select
+              className="h-11 flex-1 rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-700 shadow-sm focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-200"
+              value={bulk}
+              onChange={(e) => setBulk(e.target.value)}
+            >
+              <option value="">Bulk actions…</option>
+              <option value="trash">Move to Trash</option>
+              <option value="delete">Delete permanently</option>
+              <option value="instock">Set In stock…</option>
+              <option value="outofstock">Set Out of stock…</option>
+              <option value="set-cats">Set categories…</option>
+              <option value="set-tags">Set tags…</option>
+              <option value="set-price">Set price…</option>
+            </select>
 
-              <div className="flex items-center gap-2 rounded-[22px] border border-slate-200 bg-white px-3 py-2.5 shadow-sm sm:w-auto">
-                <SlidersHorizontal className="h-4 w-4 text-slate-400" />
-                <select
-                  className="min-w-0 bg-transparent text-sm text-slate-700 focus:outline-none"
-                  value={bulk}
-                  onChange={(e) => setBulk(e.target.value)}
-                >
-                  <option value="">Bulk actions…</option>
-                  <option value="trash">Move to Trash</option>
-                  <option value="delete">Delete permanently</option>
-                  <option value="instock">Set In stock…</option>
-                  <option value="outofstock">Set Out of stock…</option>
-                  <option value="set-cats">Set categories…</option>
-                  <option value="set-tags">Set tags…</option>
-                  <option value="set-price">Set price…</option>
-                </select>
-              </div>
+            <button
+              className="inline-flex h-11 shrink-0 items-center justify-center rounded-2xl bg-violet-600 px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-violet-700"
+              onClick={applyBulk}
+            >
+              Apply
+            </button>
+          </div>
 
-              <button
-                className="inline-flex h-11 items-center justify-center rounded-2xl bg-violet-600 px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-violet-700"
-                onClick={applyBulk}
+          <div className="flex items-center justify-between gap-2 text-xs text-slate-500">
+            <span className="rounded-full bg-slate-100 px-3 py-1 font-semibold text-slate-600">
+              {checked.length} selected
+            </span>
+
+            <div className="flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5 shadow-sm">
+              <span>Rows</span>
+              <select
+                className="bg-transparent text-xs font-semibold text-slate-700 focus:outline-none"
+                value={perPage}
+                onChange={(e) => setPerPage(Number(e.target.value))}
               >
-                Apply
-              </button>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500 lg:justify-end">
-              <span className="rounded-full bg-slate-100 px-3 py-1 font-semibold text-slate-600">
-                {checked.length} selected
-              </span>
-
-              <div className="flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5 shadow-sm">
-                <span>Rows</span>
-                <select
-                  className="bg-transparent text-xs font-semibold text-slate-700 focus:outline-none"
-                  value={perPage}
-                  onChange={(e) => setPerPage(Number(e.target.value))}
-                >
-                  <option value={10}>10</option>
-                  <option value={25}>25</option>
-                  <option value={50}>50</option>
-                  <option value={100}>100</option>
-                </select>
-              </div>
+                <option value={10}>10</option>
+                <option value={25}>25</option>
+                <option value={50}>50</option>
+                <option value={100}>100</option>
+              </select>
             </div>
           </div>
         </div>
@@ -580,7 +530,7 @@ export default function ProductsClientTable({
       {/* Mobile cards */}
       <div className="block md:hidden">
         {pageProducts.length > 0 ? (
-          <div className="space-y-3 p-3">
+          <div className="space-y-2 p-3">
             {pageProducts.map((p) => {
               const img = p.images?.[0]?.src;
               const cats = (p.categories || []).map((c) => c.name).join(", ");
@@ -588,10 +538,10 @@ export default function ProductsClientTable({
               return (
                 <div
                   key={p.id}
-                  className="rounded-[24px] border border-slate-200 bg-white p-3 shadow-sm"
+                  className="rounded-[20px] border border-slate-200 bg-white px-3 py-3 shadow-sm"
                 >
-                  <div className="flex gap-3">
-                    <div className="pt-1">
+                  <div className="flex items-start gap-3">
+                    <div className="pt-2">
                       <input
                         type="checkbox"
                         checked={checked.includes(p.id)}
@@ -603,112 +553,65 @@ export default function ProductsClientTable({
                       <img
                         src={img}
                         alt={p.name}
-                        className="h-16 w-16 rounded-2xl border border-slate-100 object-cover shadow-sm"
+                        className="h-14 w-14 shrink-0 rounded-2xl border border-slate-100 object-cover"
                       />
                     ) : (
-                      <div className="grid h-16 w-16 place-items-center rounded-2xl border border-dashed border-slate-200 bg-slate-50 text-[10px] text-slate-400">
+                      <div className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl border border-dashed border-slate-200 bg-slate-50 text-[10px] text-slate-400">
                         No image
                       </div>
                     )}
 
                     <div className="min-w-0 flex-1">
-                      <Link
-                        href={`/products/${p.id}`}
-                        className="block truncate text-sm font-semibold text-slate-900"
-                        title={p.name}
-                      >
-                        {p.name || "(no title)"}
-                      </Link>
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <Link
+                            href={`/products/${p.id}`}
+                            className="block truncate text-sm font-semibold text-slate-900"
+                            title={p.name}
+                          >
+                            {p.name || "(no title)"}
+                          </Link>
 
-                      <div className="mt-1 flex flex-wrap gap-2">
-                        <SoftInfoPill tone="violet">{p.type || "—"}</SoftInfoPill>
-                        <SoftInfoPill>{p.catalog_visibility || "visible"}</SoftInfoPill>
+                          <div className="mt-1 text-base font-semibold text-slate-900">
+                            {p.price ? `₹${p.price}` : "—"}
+                          </div>
+                        </div>
+
+                        <ActionMenu
+                          product={p}
+                          onBulkClone={rowBulkClone}
+                          onDuplicate={rowDuplicate}
+                          onTrash={rowTrash}
+                          onView={rowView}
+                        />
                       </div>
 
-                      <div className="mt-2 text-sm font-semibold text-slate-900">
-                        {p.price ? `₹${p.price}` : "—"}
+                      <div className="mt-2">
+                        <StockBadge
+                          status={p.stock_status}
+                          qty={
+                            typeof p.stock_quantity === "number"
+                              ? p.stock_quantity
+                              : undefined
+                          }
+                        />
+                      </div>
+
+                      <div className="mt-2 space-y-1 text-sm text-slate-600">
+                        <div>
+                          <span className="text-slate-400">SKU: </span>
+                          <span>{p.sku || "—"}</span>
+                        </div>
+                        <div className="line-clamp-1">
+                          <span className="text-slate-400">Category: </span>
+                          <span>{cats || "—"}</span>
+                        </div>
+                        <div>
+                          <span className="text-slate-400">Visibility: </span>
+                          <span>{p.catalog_visibility || "visible"}</span>
+                        </div>
                       </div>
                     </div>
-                  </div>
-
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    <StockBadge
-                      status={p.stock_status}
-                      qty={
-                        typeof p.stock_quantity === "number"
-                          ? p.stock_quantity
-                          : undefined
-                      }
-                    />
-                  </div>
-
-                  <div className="mt-3 grid grid-cols-2 gap-3 text-xs">
-                    <div className="rounded-2xl bg-slate-50 px-3 py-2">
-                      <div className="text-slate-400">SKU</div>
-                      <div className="mt-0.5 truncate font-medium text-slate-700">
-                        {p.sku || "—"}
-                      </div>
-                    </div>
-
-                    <div className="rounded-2xl bg-slate-50 px-3 py-2">
-                      <div className="text-slate-400">Created</div>
-                      <div className="mt-0.5 font-medium text-slate-700">
-                        {fmtDate(p.date_created)}
-                      </div>
-                    </div>
-
-                    <div className="col-span-2 rounded-2xl bg-slate-50 px-3 py-2">
-                      <div className="text-slate-400">Categories</div>
-                      <div className="mt-0.5 line-clamp-2 font-medium text-slate-700">
-                        {cats || "—"}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    <Link
-                      href={`/products/${p.id}/edit`}
-                      className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-sm hover:border-violet-400 hover:text-violet-600"
-                      title="Edit"
-                    >
-                      {Icon.edit}
-                    </Link>
-
-                    <button
-                      type="button"
-                      onClick={() => rowBulkClone(p.id)}
-                      className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-sm hover:border-violet-400 hover:text-violet-600"
-                      title="Bulk-clone"
-                    >
-                      {Icon.clone}
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => rowDuplicate(p.id)}
-                      className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-sm hover:border-violet-400 hover:text-violet-600"
-                      title="Duplicate"
-                    >
-                      {Icon.duplicate}
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => rowTrash(p.id)}
-                      className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-sm hover:border-rose-300 hover:text-rose-600"
-                      title="Move to Trash"
-                    >
-                      {Icon.trash}
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => rowView(p.permalink)}
-                      className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-sm hover:border-violet-400 hover:text-violet-600"
-                      title="View product in store"
-                    >
-                      {Icon.view}
-                    </button>
                   </div>
                 </div>
               );
@@ -721,9 +624,6 @@ export default function ProductsClientTable({
             </div>
             <div className="mt-4 text-sm font-semibold text-slate-700">
               {query.trim() ? "No products match your search." : "No products found."}
-            </div>
-            <div className="mt-1 text-xs text-slate-500">
-              Try changing filters, search terms, or add a new product.
             </div>
           </div>
         )}
@@ -796,7 +696,7 @@ export default function ProductsClientTable({
                           className="flex h-7 w-7 items-center justify-center rounded-full border border-slate-200 bg-white text-[10px] shadow-sm hover:border-violet-400 hover:text-violet-600"
                           title="Edit"
                         >
-                          {Icon.edit}
+                          ✏️
                         </Link>
 
                         <button
@@ -805,7 +705,7 @@ export default function ProductsClientTable({
                           className="flex h-7 w-7 items-center justify-center rounded-full border border-slate-200 bg-white text-[10px] shadow-sm hover:border-violet-400 hover:text-violet-600"
                           title="Bulk-clone"
                         >
-                          {Icon.clone}
+                          📚
                         </button>
 
                         <button
@@ -814,7 +714,7 @@ export default function ProductsClientTable({
                           className="flex h-7 w-7 items-center justify-center rounded-full border border-slate-200 bg-white text-[10px] shadow-sm hover:border-violet-400 hover:text-violet-600"
                           title="Duplicate"
                         >
-                          {Icon.duplicate}
+                          📄
                         </button>
 
                         <button
@@ -823,7 +723,7 @@ export default function ProductsClientTable({
                           className="flex h-7 w-7 items-center justify-center rounded-full border border-slate-200 bg-white text-[10px] shadow-sm hover:border-rose-300 hover:text-rose-600"
                           title="Move to Trash"
                         >
-                          {Icon.trash}
+                          🗑️
                         </button>
 
                         <button
@@ -832,7 +732,7 @@ export default function ProductsClientTable({
                           className="flex h-7 w-7 items-center justify-center rounded-full border border-slate-200 bg-white text-[10px] shadow-sm hover:border-violet-400 hover:text-violet-600"
                           title="View product in store"
                         >
-                          {Icon.view}
+                          👁️
                         </button>
                       </div>
                     </div>
@@ -882,7 +782,6 @@ export default function ProductsClientTable({
         </table>
       </div>
 
-      {/* Footer */}
       {filteredProducts.length > 0 && (
         <div className="flex flex-col gap-3 border-t border-slate-100 bg-white px-4 py-4 text-xs text-slate-600 md:flex-row md:items-center md:justify-between md:px-5">
           <div>
@@ -919,8 +818,7 @@ export default function ProductsClientTable({
         </div>
       )}
 
-      {/* ---------- Modals ---------- */}
-
+      {/* Set Categories */}
       {showCats && (
         <div className="fixed inset-0 z-[100] flex items-start justify-center bg-black/30 px-4 pt-24">
           <div className="w-full max-w-[560px] rounded-2xl border border-slate-200 bg-white shadow-lg">
@@ -973,6 +871,7 @@ export default function ProductsClientTable({
         </div>
       )}
 
+      {/* Set Tags */}
       {showTags && (
         <div className="fixed inset-0 z-[100] flex items-start justify-center bg-black/30 px-4 pt-24">
           <div className="w-full max-w-[560px] rounded-2xl border border-slate-200 bg-white shadow-lg">
@@ -989,9 +888,6 @@ export default function ProductsClientTable({
                 value={tagsCSV}
                 onChange={(e) => setTagsCSV(e.target.value)}
               />
-              <div className="mt-2 text-xs text-slate-500">
-                Enter comma-separated tag names. Existing and new tags are supported.
-              </div>
             </div>
             <div className="flex justify-end gap-2 border-t px-4 py-3">
               <button
@@ -1011,6 +907,7 @@ export default function ProductsClientTable({
         </div>
       )}
 
+      {/* Set Price */}
       {showPrice && (
         <div className="fixed inset-0 z-[100] flex items-start justify-center bg-black/30 px-4 pt-24">
           <div className="w-full max-w-[560px] rounded-2xl border border-slate-200 bg-white shadow-lg">
@@ -1039,9 +936,6 @@ export default function ProductsClientTable({
                   onChange={(e) => setPriceValue(e.target.value)}
                 />
               </div>
-              <div className="text-xs text-slate-500">
-                Operates on the regular price. Percent adjustments use current price as the base.
-              </div>
             </div>
             <div className="flex justify-end gap-2 border-t px-4 py-3">
               <button
@@ -1061,6 +955,7 @@ export default function ProductsClientTable({
         </div>
       )}
 
+      {/* Set Stock */}
       {showStockModal && (
         <div className="fixed inset-0 z-[110] flex items-start justify-center bg-black/30 px-4 pt-24">
           <div className="w-full max-w-[460px] rounded-2xl border border-slate-200 bg-white shadow-lg">
@@ -1074,7 +969,7 @@ export default function ProductsClientTable({
               {stockMode === "instock" ? (
                 <>
                   <p className="text-xs text-slate-600">
-                    Enter the stock quantity that should be applied to{" "}
+                    Enter the stock quantity for{" "}
                     <span className="font-semibold">{checked.length}</span> selected
                     products.
                   </p>
@@ -1093,8 +988,7 @@ export default function ProductsClientTable({
                 <p className="text-xs text-slate-600">
                   This will mark{" "}
                   <span className="font-semibold">{checked.length}</span> selected
-                  products as <span className="font-semibold">Out of stock</span> and
-                  set stock quantity to <span className="font-semibold">0</span>.
+                  products as out of stock and set quantity to 0.
                 </p>
               )}
             </div>
