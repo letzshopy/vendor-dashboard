@@ -3,13 +3,11 @@
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  ChevronDown,
   ChevronLeft,
   ChevronRight,
   MoreVertical,
   Package2,
   Search,
-  SlidersHorizontal,
 } from "lucide-react";
 
 /** ---------- Types ---------- */
@@ -38,7 +36,9 @@ function indentCats(cats: Category[]) {
     byParent[c.parent] ??= [];
     byParent[c.parent].push(c);
   });
+
   const out: (Category & { depth: number })[] = [];
+
   (function walk(parent: number, depth: number) {
     (byParent[parent] || [])
       .sort((a, b) => a.name.localeCompare(b.name))
@@ -47,6 +47,7 @@ function indentCats(cats: Category[]) {
         walk(c.id, depth + 1);
       });
   })(0, 0);
+
   return out;
 }
 
@@ -64,6 +65,7 @@ function StockBadge({
       </span>
     );
   }
+
   if (status === "outofstock") {
     return (
       <span className="inline-flex items-center rounded-full bg-rose-50 px-3 py-1 text-xs font-medium text-rose-600 whitespace-nowrap">
@@ -71,6 +73,7 @@ function StockBadge({
       </span>
     );
   }
+
   return (
     <span className="inline-flex items-center rounded-full bg-amber-50 px-3 py-1 text-xs font-medium text-amber-700 whitespace-nowrap">
       ● On backorder
@@ -101,6 +104,7 @@ function ActionMenu({
         setOpen(false);
       }
     }
+
     document.addEventListener("mousedown", handleClick);
     return () => document.removeEventListener("mousedown", handleClick);
   }, []);
@@ -110,7 +114,7 @@ function ActionMenu({
       <button
         type="button"
         onClick={() => setOpen((s) => !s)}
-        className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-sm hover:border-violet-300 hover:text-violet-700"
+        className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:border-violet-300 hover:text-violet-700"
       >
         <MoreVertical className="h-4 w-4" />
       </button>
@@ -119,7 +123,7 @@ function ActionMenu({
         <div className="absolute right-0 top-11 z-30 min-w-[170px] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl">
           <Link
             href={`/products/${product.id}/edit`}
-            className="flex items-center gap-3 px-4 py-3 text-sm text-slate-700 hover:bg-slate-50"
+            className="flex items-center gap-3 px-4 py-3 text-sm text-slate-700 transition hover:bg-slate-50"
             onClick={() => setOpen(false)}
           >
             ✏️ <span>Edit</span>
@@ -131,7 +135,7 @@ function ActionMenu({
               setOpen(false);
               onBulkClone(product.id);
             }}
-            className="flex w-full items-center gap-3 px-4 py-3 text-left text-sm text-slate-700 hover:bg-slate-50"
+            className="flex w-full items-center gap-3 px-4 py-3 text-left text-sm text-slate-700 transition hover:bg-slate-50"
           >
             📚 <span>Bulk-clone</span>
           </button>
@@ -142,7 +146,7 @@ function ActionMenu({
               setOpen(false);
               onDuplicate(product.id);
             }}
-            className="flex w-full items-center gap-3 px-4 py-3 text-left text-sm text-slate-700 hover:bg-slate-50"
+            className="flex w-full items-center gap-3 px-4 py-3 text-left text-sm text-slate-700 transition hover:bg-slate-50"
           >
             📄 <span>Duplicate</span>
           </button>
@@ -153,7 +157,7 @@ function ActionMenu({
               setOpen(false);
               onTrash(product.id);
             }}
-            className="flex w-full items-center gap-3 px-4 py-3 text-left text-sm text-rose-600 hover:bg-rose-50"
+            className="flex w-full items-center gap-3 px-4 py-3 text-left text-sm text-rose-600 transition hover:bg-rose-50"
           >
             🗑️ <span>Trash</span>
           </button>
@@ -164,7 +168,7 @@ function ActionMenu({
               setOpen(false);
               onView(product.permalink);
             }}
-            className="flex w-full items-center gap-3 px-4 py-3 text-left text-sm text-slate-700 hover:bg-slate-50"
+            className="flex w-full items-center gap-3 px-4 py-3 text-left text-sm text-slate-700 transition hover:bg-slate-50"
           >
             👁️ <span>View in store</span>
           </button>
@@ -225,6 +229,7 @@ export default function ProductsClientTable({
   function toggleAll() {
     setChecked((prev) => (prev.length === allIds.length ? [] : allIds));
   }
+
   function toggle(id: number) {
     setChecked((prev) =>
       prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
@@ -235,13 +240,16 @@ export default function ProductsClientTable({
   const [showCats, setShowCats] = useState(false);
   const [showTags, setShowTags] = useState(false);
   const [showPrice, setShowPrice] = useState(false);
-  const [filtersOpen, setFiltersOpen] = useState(false);
 
   const [showStockModal, setShowStockModal] = useState(false);
   const [stockMode, setStockMode] = useState<"instock" | "outofstock">(
     "instock"
   );
   const [stockQty, setStockQty] = useState<string>("");
+
+  const [showCloneModal, setShowCloneModal] = useState(false);
+  const [cloneProductId, setCloneProductId] = useState<number | null>(null);
+  const [cloneCount, setCloneCount] = useState("1");
 
   const flatCats = useMemo(() => indentCats(categories), [categories]);
   const [selectedCatIds, setSelectedCatIds] = useState<number[]>([]);
@@ -286,10 +294,12 @@ export default function ProductsClientTable({
       setShowCats(true);
       return;
     }
+
     if (bulk === "set-tags") {
       setShowTags(true);
       return;
     }
+
     if (bulk === "set-price") {
       setShowPrice(true);
       return;
@@ -298,6 +308,7 @@ export default function ProductsClientTable({
 
   async function doBulkSetCategories() {
     if (selectedCatIds.length === 0) return;
+
     await Promise.all(
       checked.map((id) =>
         fetch(`/api/products/${id}/update`, {
@@ -317,6 +328,7 @@ export default function ProductsClientTable({
       .split(",")
       .map((s) => s.trim())
       .filter(Boolean);
+
     if (names.length === 0) return;
 
     await Promise.all(
@@ -375,6 +387,7 @@ export default function ProductsClientTable({
         });
       })
     );
+
     location.reload();
   }
 
@@ -419,15 +432,26 @@ export default function ProductsClientTable({
     location.reload();
   }
 
-  async function rowBulkClone(id: number) {
-    const countStr = prompt("How many clones to create?", "1");
-    const count = Number(countStr || 0);
-    if (!count || count < 1) return;
-    const r = await fetch(`/api/products/${id}/bulk-clone`, {
+  function rowBulkClone(id: number) {
+    setCloneProductId(id);
+    setCloneCount("1");
+    setShowCloneModal(true);
+  }
+
+  async function confirmBulkClone() {
+    const count = Number(cloneCount || 0);
+    if (!cloneProductId || !count || count < 1) return;
+
+    const r = await fetch(`/api/products/${cloneProductId}/bulk-clone`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ count }),
     });
+
+    setShowCloneModal(false);
+    setCloneProductId(null);
+    setCloneCount("1");
+
     if (r.ok) location.reload();
     else alert("Clone failed");
   }
@@ -538,7 +562,7 @@ export default function ProductsClientTable({
               return (
                 <div
                   key={p.id}
-                  className="rounded-[20px] border border-slate-200 bg-white px-3 py-3 shadow-sm"
+                  className="rounded-[20px] border border-slate-200 bg-white px-3 py-3 shadow-sm transition"
                 >
                   <div className="flex items-start gap-3">
                     <div className="pt-2">
@@ -563,42 +587,48 @@ export default function ProductsClientTable({
 
                     <div className="min-w-0 flex-1">
                       <div className="flex items-start justify-between gap-2">
-  <div className="min-w-0">
-    <Link
-      href={`/products/${p.id}`}
-      className="block truncate text-sm font-semibold text-slate-900"
-      title={p.name}
-    >
-      {p.name || "(no title)"}
-    </Link>
-  </div>
+                        <div className="min-w-0">
+                          <Link
+                            href={`/products/${p.id}`}
+                            className="block truncate text-sm font-semibold text-slate-900"
+                            title={p.name}
+                          >
+                            {p.name || "(no title)"}
+                          </Link>
+                        </div>
 
-  <ActionMenu
-    product={p}
-    onBulkClone={rowBulkClone}
-    onDuplicate={rowDuplicate}
-    onTrash={rowTrash}
-    onView={rowView}
-  />
-</div>
-                      <div className="mt-2 flex items-center justify-between gap-3">
-  <div className="text-base font-semibold text-slate-900">
-    {p.price ? `₹${p.price}` : "—"}
-  </div>
+                        <ActionMenu
+                          product={p}
+                          onBulkClone={rowBulkClone}
+                          onDuplicate={rowDuplicate}
+                          onTrash={rowTrash}
+                          onView={rowView}
+                        />
+                      </div>
 
-  <StockBadge
-    status={p.stock_status}
-    qty={
-      typeof p.stock_quantity === "number"
-        ? p.stock_quantity
-        : undefined
-    }
-  />
-</div>
+                      <div className="mt-2 flex items-center gap-3">
+                        <div className="text-base font-semibold text-slate-900">
+                          {p.price ? `₹${p.price}` : "—"}
+                        </div>
 
-<div className="mt-2 line-clamp-1 text-sm text-slate-600">
-  {(p.sku || "—") + " - " + (cats || "—") + " - " + (p.catalog_visibility || "visible")}
-</div>                    </div>
+                        <StockBadge
+                          status={p.stock_status}
+                          qty={
+                            typeof p.stock_quantity === "number"
+                              ? p.stock_quantity
+                              : undefined
+                          }
+                        />
+                      </div>
+
+                      <div className="mt-2 line-clamp-1 text-sm text-slate-600">
+                        {(p.sku || "—") +
+                          " - " +
+                          (cats || "—") +
+                          " - " +
+                          (p.catalog_visibility || "visible")}
+                      </div>
+                    </div>
                   </div>
                 </div>
               );
@@ -756,6 +786,7 @@ export default function ProductsClientTable({
                 </tr>
               );
             })}
+
             {filteredProducts.length === 0 && (
               <tr>
                 <td colSpan={10} className="px-6 py-12 text-center text-slate-500">
@@ -836,6 +867,7 @@ export default function ProductsClientTable({
                   </label>
                 );
               })}
+
               {flatCats.length === 0 && (
                 <div className="text-sm text-slate-500">No categories.</div>
               )}
@@ -992,6 +1024,58 @@ export default function ProductsClientTable({
                 onClick={doBulkSetStock}
               >
                 Apply to {checked.length} products
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Clone Modal */}
+      {showCloneModal && (
+        <div className="fixed inset-0 z-[120] flex items-start justify-center bg-black/30 px-4 pt-24">
+          <div className="w-full max-w-[420px] rounded-2xl border border-slate-200 bg-white shadow-lg">
+            <div className="border-b px-4 py-3 text-sm font-semibold text-slate-800">
+              Bulk clone product
+            </div>
+
+            <div className="space-y-3 px-4 py-4">
+              <p className="text-sm text-slate-600">
+                Enter how many clones you want to create.
+              </p>
+
+              <div>
+                <label className="mb-1 block text-sm font-medium text-slate-700">
+                  Number of clones
+                </label>
+                <input
+                  type="number"
+                  min={1}
+                  value={cloneCount}
+                  onChange={(e) => setCloneCount(e.target.value)}
+                  className="h-11 w-full rounded-xl border border-slate-200 px-3 text-sm text-slate-700 shadow-sm focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-200"
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 border-t px-4 py-3">
+              <button
+                type="button"
+                className="rounded-xl border px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
+                onClick={() => {
+                  setShowCloneModal(false);
+                  setCloneProductId(null);
+                  setCloneCount("1");
+                }}
+              >
+                Cancel
+              </button>
+
+              <button
+                type="button"
+                className="rounded-xl bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-700"
+                onClick={confirmBulkClone}
+              >
+                Create clones
               </button>
             </div>
           </div>

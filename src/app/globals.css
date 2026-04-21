@@ -122,3 +122,21 @@ img {
 .touch-scroll {
   -webkit-overflow-scrolling: touch;
 }
+@media (hover: none) and (pointer: coarse) {
+  a,
+  button,
+  [role="button"],
+  summary,
+  select {
+    -webkit-tap-highlight-color: transparent;
+    transition: transform 0.12s ease, opacity 0.12s ease, box-shadow 0.12s ease;
+  }
+
+  a:active,
+  button:active,
+  [role="button"]:active,
+  summary:active,
+  select:active {
+    transform: scale(0.98);
+  }
+}

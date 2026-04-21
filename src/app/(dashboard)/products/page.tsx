@@ -83,10 +83,7 @@ export default async function ProductsPage({
   return (
     <main className="mx-auto max-w-7xl px-3 py-3 md:px-4 md:py-5">
       <div className="rounded-[26px] border border-white/80 bg-gradient-to-br from-white via-[#faf6ff] to-[#eef7ff] p-4 shadow-[0_14px_40px_rgba(15,23,42,0.06)] md:p-5">
-        <div className="inline-flex items-center gap-2 rounded-full bg-violet-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-violet-700">
-          <Boxes className="h-3.5 w-3.5" />
-          Catalog
-        </div>
+        
 
         <div className="mt-3 flex items-center justify-between gap-3">
           <h1 className="text-[28px] font-semibold tracking-tight text-slate-900 md:text-[34px]">
@@ -101,10 +98,6 @@ export default async function ProductsPage({
             Add New Product
           </Link>
         </div>
-
-        <p className="mt-2 text-sm leading-6 text-slate-500">
-          Manage product listings, stock, pricing and categories.
-        </p>
       </div>
 
       <section className="mt-4 space-y-4 md:space-y-5">
