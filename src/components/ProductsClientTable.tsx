@@ -586,32 +586,24 @@ export default function ProductsClientTable({
                         />
                       </div>
 
-                      <div className="mt-2">
-                        <StockBadge
-                          status={p.stock_status}
-                          qty={
-                            typeof p.stock_quantity === "number"
-                              ? p.stock_quantity
-                              : undefined
-                          }
-                        />
-                      </div>
+                      <div className="mt-2 flex items-center justify-between gap-3">
+  <div className="text-base font-semibold text-slate-900">
+    {p.price ? `₹${p.price}` : "—"}
+  </div>
 
-                      <div className="mt-2 space-y-1 text-sm text-slate-600">
-                        <div>
-                          <span className="text-slate-400">SKU: </span>
-                          <span>{p.sku || "—"}</span>
-                        </div>
-                        <div className="line-clamp-1">
-                          <span className="text-slate-400">Category: </span>
-                          <span>{cats || "—"}</span>
-                        </div>
-                        <div>
-                          <span className="text-slate-400">Visibility: </span>
-                          <span>{p.catalog_visibility || "visible"}</span>
-                        </div>
-                      </div>
-                    </div>
+  <StockBadge
+    status={p.stock_status}
+    qty={
+      typeof p.stock_quantity === "number"
+        ? p.stock_quantity
+        : undefined
+    }
+  />
+</div>
+
+<div className="mt-2 line-clamp-1 text-sm text-slate-600">
+  {(p.sku || "—") + " - " + (cats || "—") + " - " + (p.catalog_visibility || "visible")}
+</div>                    </div>
                   </div>
                 </div>
               );

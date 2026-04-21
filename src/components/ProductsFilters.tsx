@@ -73,7 +73,7 @@ export default function ProductsFilters({
               <button
                 type="button"
                 onClick={() => setOpen((s) => !s)}
-                className="inline-flex min-w-0 items-center gap-3 rounded-2xl border border-slate-200 bg-white px-3 py-2.5 text-left shadow-sm transition hover:border-violet-300 hover:bg-violet-50/40"
+                className="inline-flex shrink-0 items-center gap-3 rounded-2xl border border-slate-200 bg-white px-3 py-2.5 text-left shadow-sm transition hover:border-violet-300 hover:bg-violet-50/40"
               >
                 <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-violet-100 text-violet-600">
                   <SlidersHorizontal className="h-4 w-4" />
@@ -99,9 +99,9 @@ export default function ProductsFilters({
               )}
             </div>
 
-            <div className="flex flex-wrap items-center gap-2">
-              {rightSlot}
-            </div>
+            <div className="flex items-center gap-2 overflow-x-auto pb-1">
+  {rightSlot}
+</div>
           </div>
         </div>
 
