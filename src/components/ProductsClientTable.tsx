@@ -587,48 +587,47 @@ export default function ProductsClientTable({
 
                     <div className="min-w-0 flex-1">
                       <div className="flex items-start justify-between gap-2">
-                        <div className="min-w-0">
-                          <Link
-                            href={`/products/${p.id}`}
-                            className="block truncate text-sm font-semibold text-slate-900"
-                            title={p.name}
-                          >
-                            {p.name || "(no title)"}
-                          </Link>
-                        </div>
+  <div className="min-w-0 flex-1">
+    <Link
+      href={`/products/${p.id}`}
+      className="block truncate text-sm font-semibold leading-tight text-slate-900"
+      title={p.name}
+    >
+      {p.name || "(no title)"}
+    </Link>
 
-                        <ActionMenu
-                          product={p}
-                          onBulkClone={rowBulkClone}
-                          onDuplicate={rowDuplicate}
-                          onTrash={rowTrash}
-                          onView={rowView}
-                        />
-                      </div>
+    <div className="mt-1 flex items-center gap-3">
+      <div className="text-base font-semibold text-slate-900">
+        {p.price ? `₹${p.price}` : "—"}
+      </div>
 
-                      <div className="mt-2 flex items-center gap-3">
-                        <div className="text-base font-semibold text-slate-900">
-                          {p.price ? `₹${p.price}` : "—"}
-                        </div>
+      <StockBadge
+        status={p.stock_status}
+        qty={
+          typeof p.stock_quantity === "number"
+            ? p.stock_quantity
+            : undefined
+        }
+      />
+    </div>
 
-                        <StockBadge
-                          status={p.stock_status}
-                          qty={
-                            typeof p.stock_quantity === "number"
-                              ? p.stock_quantity
-                              : undefined
-                          }
-                        />
-                      </div>
+    <div className="mt-1 line-clamp-1 text-sm text-slate-600">
+      {(p.sku || "—") +
+        " - " +
+        (cats || "—") +
+        " - " +
+        (p.catalog_visibility || "visible")}
+    </div>
+  </div>
 
-                      <div className="mt-2 line-clamp-1 text-sm text-slate-600">
-                        {(p.sku || "—") +
-                          " - " +
-                          (cats || "—") +
-                          " - " +
-                          (p.catalog_visibility || "visible")}
-                      </div>
-                    </div>
+  <ActionMenu
+    product={p}
+    onBulkClone={rowBulkClone}
+    onDuplicate={rowDuplicate}
+    onTrash={rowTrash}
+    onView={rowView}
+  />
+</div>                    </div>
                   </div>
                 </div>
               );

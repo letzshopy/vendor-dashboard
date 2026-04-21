@@ -140,3 +140,23 @@ img {
     transform: scale(0.98);
   }
 }
+a,
+button,
+[role="button"],
+summary,
+select {
+  transition:
+    transform 0.12s ease,
+    opacity 0.12s ease,
+    box-shadow 0.12s ease,
+    background-color 0.12s ease,
+    border-color 0.12s ease;
+}
+
+a:active,
+button:active,
+[role="button"]:active,
+summary:active,
+select:active {
+  transform: scale(0.98);
+}
