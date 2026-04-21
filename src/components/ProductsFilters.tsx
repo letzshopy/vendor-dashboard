@@ -68,41 +68,36 @@ export default function ProductsFilters({
     <section>
       <div className="overflow-hidden rounded-[26px] border border-slate-200/80 bg-white shadow-[0_10px_30px_rgba(15,23,42,0.05)]">
         <div className="px-4 py-4 md:px-5">
-          <div className="flex flex-col gap-3">
-            <div className="flex items-center justify-between gap-3">
-              <button
-                type="button"
-                onClick={() => setOpen((s) => !s)}
-                className="inline-flex shrink-0 items-center gap-3 rounded-2xl border border-slate-200 bg-white px-3 py-2.5 text-left shadow-sm transition hover:border-violet-300 hover:bg-violet-50/40"
-              >
-                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-violet-100 text-violet-600">
-                  <SlidersHorizontal className="h-4 w-4" />
-                </span>
+          <div className="flex items-center gap-2 overflow-x-auto pb-1">
+            <button
+  type="button"
+  onClick={() => setOpen((s) => !s)}
+  className="inline-flex shrink-0 items-center gap-3 rounded-2xl border border-slate-200 bg-white px-3 py-2.5 text-left shadow-sm transition hover:border-violet-300 hover:bg-violet-50/40"
+>
+  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-violet-100 text-violet-600">
+    <SlidersHorizontal className="h-4 w-4" />
+  </span>
 
-                <span className="min-w-0">
-                  <span className="block text-sm font-semibold text-slate-800">
-                    Filters
-                  </span>
-                </span>
+  <span className="min-w-0">
+    <span className="block text-sm font-semibold text-slate-800">
+      Filters
+    </span>
+  </span>
 
-                <ChevronDown
-                  className={`h-4 w-4 shrink-0 text-slate-400 transition ${
-                    open ? "rotate-180" : ""
-                  }`}
-                />
-              </button>
+  <ChevronDown
+    className={`h-4 w-4 shrink-0 text-slate-400 transition ${
+      open ? "rotate-180" : ""
+    }`}
+  />
+</button>
 
-              {hasFilters && (
-                <span className="rounded-full bg-violet-50 px-3 py-1 text-xs font-semibold text-violet-700">
-                  Filters active
-                </span>
-              )}
-            </div>
+{rightSlot}
 
-            <div className="flex items-center gap-2 overflow-x-auto pb-1">
-  {rightSlot}
-</div>
-          </div>
+{hasFilters && (
+  <span className="rounded-full bg-violet-50 px-3 py-1 text-xs font-semibold text-violet-700">
+    Filters active
+  </span>
+)}          </div>
         </div>
 
         {open && (
