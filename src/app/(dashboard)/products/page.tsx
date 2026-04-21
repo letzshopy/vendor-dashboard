@@ -1,5 +1,5 @@
-// src/app/(dashboard)/products/page.tsx
 import Link from "next/link";
+import { Boxes, Plus } from "lucide-react";
 import { getWooClient } from "@/lib/woo";
 import ProductsClientTable from "@/components/ProductsClientTable";
 import ProductsFilters from "@/components/ProductsFilters";
@@ -67,14 +67,12 @@ export default async function ProductsPage({
     ptype?: "simple" | "variable" | "grouped";
   }>;
 }) {
-  // ✅ Next style: await searchParams (as in your project)
   const sp = await searchParams;
 
   const category = sp.category || "";
   const stock = sp.stock || undefined;
   const ptype = (sp.ptype as any) || "";
 
-  // ✅ Create woo client ONCE
   const woo = await getWooClient();
 
   const [products, categories] = await Promise.all([
@@ -83,34 +81,59 @@ export default async function ProductsPage({
   ]);
 
   return (
-    <main className="p-6 max-w-6xl mx-auto">
-      <div className="flex items-center justify-between mb-4">
-        <div>
-          <h1 className="text-2xl font-semibold text-slate-900">Products</h1>
-          <p className="mt-1 text-sm text-slate-500"></p>
-        </div>
+    <main className="mx-auto max-w-7xl px-3 py-3 md:px-4 md:py-5">
+      <div className="rounded-[30px] border border-white/80 bg-gradient-to-br from-white via-[#faf6ff] to-[#eef7ff] p-4 shadow-[0_14px_40px_rgba(15,23,42,0.06)] md:p-5">
+        <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+          <div className="min-w-0">
+            <div className="inline-flex items-center gap-2 rounded-full bg-violet-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-violet-700">
+              <Boxes className="h-3.5 w-3.5" />
+              Catalog
+            </div>
 
-        <Link
-          href="/products/new"
-          className="rounded-full bg-violet-600 text-white px-4 py-2 text-sm font-medium shadow-sm hover:bg-violet-700"
-        >
-          + Add New
-        </Link>
+            <h1 className="mt-3 text-[28px] font-semibold tracking-tight text-slate-900 md:text-[34px]">
+              Products
+            </h1>
+            <p className="mt-1 text-sm leading-6 text-slate-500">
+              Manage product listings, stock, pricing, categories and quick bulk actions.
+            </p>
+          </div>
+
+          <Link
+            href="/products/new"
+            className="inline-flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#8b5cff] to-[#ff7ac3] px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:brightness-105 md:px-5"
+          >
+            <Plus className="h-4 w-4" />
+            Add New Product
+          </Link>
+        </div>
       </div>
 
-      <section className="mt-4 space-y-8">
-        <ProductsFilters
-          categories={categories}
-          initialCategory={category}
-          initialStock={(stock as any) || ""}
-          initialType={(ptype as any) || ""}
-          rightSlot={
-            <ProductsImportExportBar
-              key="products-import-export"
+      <section className="mt-4 space-y-4 md:space-y-5">
+        <div className="rounded-[26px] border border-slate-200/80 bg-white shadow-[0_10px_30px_rgba(15,23,42,0.05)]">
+          <div className="border-b border-slate-100 bg-gradient-to-r from-[#faf7ff] via-white to-[#f3f9ff] px-4 py-4 md:px-5">
+            <h2 className="text-[17px] font-semibold tracking-tight text-slate-900">
+              Filters & tools
+            </h2>
+            <p className="mt-1 text-xs leading-5 text-slate-500">
+              Narrow the list and access import or export tools.
+            </p>
+          </div>
+
+          <div className="p-4 md:p-5">
+            <ProductsFilters
               categories={categories}
+              initialCategory={category}
+              initialStock={(stock as any) || ""}
+              initialType={(ptype as any) || ""}
+              rightSlot={
+                <ProductsImportExportBar
+                  key="products-import-export"
+                  categories={categories}
+                />
+              }
             />
-          }
-        />
+          </div>
+        </div>
 
         <ProductsClientTable products={products} categories={categories} />
       </section>

@@ -1,8 +1,15 @@
-// src/components/ProductsClientTable.tsx
 "use client";
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import {
+  Box,
+  ChevronLeft,
+  ChevronRight,
+  Package2,
+  Search,
+  SlidersHorizontal,
+} from "lucide-react";
 
 /** ---------- Types ---------- */
 type P = {
@@ -66,6 +73,27 @@ function StockBadge({
   return (
     <span className="inline-flex items-center rounded-full bg-amber-50 px-3 py-1 text-xs font-medium text-amber-700 whitespace-nowrap">
       ● On backorder
+    </span>
+  );
+}
+
+function SoftInfoPill({
+  children,
+  tone = "slate",
+}: {
+  children: React.ReactNode;
+  tone?: "slate" | "violet";
+}) {
+  return (
+    <span
+      className={[
+        "inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-semibold",
+        tone === "violet"
+          ? "bg-violet-50 text-violet-700"
+          : "bg-slate-100 text-slate-600",
+      ].join(" ")}
+    >
+      {children}
     </span>
   );
 }
@@ -194,7 +222,6 @@ export default function ProductsClientTable({
   products: P[];
   categories?: Category[];
 }) {
-  // ---------- Search (title / SKU) ----------
   const [query, setQuery] = useState("");
 
   const filteredProducts = useMemo(() => {
@@ -208,19 +235,15 @@ export default function ProductsClientTable({
     });
   }, [products, query]);
 
-  // ---------- Pagination ----------
   const [perPage, setPerPage] = useState<number>(25);
   const [page, setPage] = useState<number>(1);
 
   useEffect(() => {
-    // reset to first page when filter or page-size changes
     setPage(1);
   }, [query, perPage, products.length]);
 
   const totalItems = filteredProducts.length;
   const totalPages = Math.max(1, Math.ceil(totalItems / perPage));
-
-  // clamp page in case total pages shrinks
   const currentPage = Math.min(page, totalPages);
 
   const pageProducts = useMemo(() => {
@@ -232,7 +255,6 @@ export default function ProductsClientTable({
   const fromIndex = totalItems === 0 ? 0 : (currentPage - 1) * perPage + 1;
   const toIndex = Math.min(currentPage * perPage, totalItems);
 
-  // selection
   const [checked, setChecked] = useState<number[]>([]);
   const allIds = useMemo(
     () => filteredProducts.map((p) => p.id),
@@ -249,20 +271,17 @@ export default function ProductsClientTable({
     );
   }
 
-  // bulk actions
   const [bulk, setBulk] = useState("");
   const [showCats, setShowCats] = useState(false);
   const [showTags, setShowTags] = useState(false);
   const [showPrice, setShowPrice] = useState(false);
 
-  // stock modal state
   const [showStockModal, setShowStockModal] = useState(false);
   const [stockMode, setStockMode] = useState<"instock" | "outofstock">(
     "instock"
   );
   const [stockQty, setStockQty] = useState<string>("");
 
-  // modal states
   const flatCats = useMemo(() => indentCats(categories), [categories]);
   const [selectedCatIds, setSelectedCatIds] = useState<number[]>([]);
   const [tagsCSV, setTagsCSV] = useState("");
@@ -295,7 +314,6 @@ export default function ProductsClientTable({
       return;
     }
 
-    // stock actions → open modal near top
     if (bulk === "instock" || bulk === "outofstock") {
       setStockMode(bulk === "instock" ? "instock" : "outofstock");
       setStockQty("");
@@ -303,7 +321,6 @@ export default function ProductsClientTable({
       return;
     }
 
-    // modals for extra inputs
     if (bulk === "set-cats") {
       setShowCats(true);
       return;
@@ -326,7 +343,7 @@ export default function ProductsClientTable({
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            categories: selectedCatIds.map((cid) => ({ id: cid })), // replace
+            categories: selectedCatIds.map((cid) => ({ id: cid })),
           }),
         })
       )
@@ -347,7 +364,7 @@ export default function ProductsClientTable({
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            tags: names.map((name) => ({ name })), // create-by-name
+            tags: names.map((name) => ({ name })),
           }),
         })
       )
@@ -370,7 +387,6 @@ export default function ProductsClientTable({
           });
         }
 
-        // fetch current price for adjustments
         const r = await fetch(`/api/products/${id}`);
         const pj = await r.json();
         const cur = Number(pj?.regular_price || 0) || 0;
@@ -401,7 +417,6 @@ export default function ProductsClientTable({
     location.reload();
   }
 
-  // bulk stock handler
   async function doBulkSetStock() {
     if (stockMode === "instock") {
       const qtyNum = Number(stockQty);
@@ -443,7 +458,6 @@ export default function ProductsClientTable({
     location.reload();
   }
 
-  // per-row helpers
   async function rowBulkClone(id: number) {
     const countStr = prompt("How many clones to create?", "1");
     const count = Number(countStr || 0);
@@ -483,229 +497,394 @@ export default function ProductsClientTable({
   }
 
   return (
-    <div className="mt-4 overflow-x-auto rounded-2xl border border-violet-100 bg-white/80 shadow-[0_12px_30px_rgba(15,23,42,0.06)] backdrop-blur-sm">
-      {/* Header row: bulk actions + search + counts */}
-      <div className="flex flex-col gap-3 border-b border-slate-100 bg-gradient-to-r from-white to-violet-50/50 px-4 py-3 md:flex-row md:items-center md:justify-between">
-        <div className="flex items-center gap-2">
-          <select
-            className="h-9 rounded-full border border-slate-200 bg-white px-3 text-sm text-slate-700 shadow-sm focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-200"
-            value={bulk}
-            onChange={(e) => setBulk(e.target.value)}
-          >
-            <option value="">Bulk actions…</option>
-            {/* Bulk-clone (single only) removed here */}
-            <option value="trash">Move to Trash</option>
-            <option value="delete">Delete permanently</option>
-            <option value="instock">Set In stock…</option>
-            <option value="outofstock">Set Out of stock…</option>
-            <option value="set-cats">Set categories…</option>
-            <option value="set-tags">Set tags…</option>
-            <option value="set-price">Set price…</option>
-          </select>
-          <button
-            className="inline-flex h-9 items-center rounded-full bg-violet-500 px-4 text-xs font-medium text-white shadow-sm hover:bg-violet-600 focus:outline-none focus:ring-2 focus:ring-violet-300"
-            onClick={applyBulk}
-          >
-            Apply
-          </button>
-          <span className="hidden text-xs text-slate-500 md:inline-block">
-            {checked.length} selected
-          </span>
-        </div>
+    <div className="overflow-hidden rounded-[26px] border border-slate-200/80 bg-white shadow-[0_10px_30px_rgba(15,23,42,0.05)]">
+      {/* Top action bar */}
+      <div className="border-b border-slate-100 bg-gradient-to-r from-white via-[#faf7ff] to-[#f4fbff] px-4 py-4 md:px-5">
+        <div className="flex flex-col gap-4">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <h2 className="text-[17px] font-semibold tracking-tight text-slate-900">
+                Product list
+              </h2>
+              <p className="mt-1 text-xs leading-5 text-slate-500">
+                Search, bulk-edit and manage products from one place.
+              </p>
+            </div>
 
-        {/* Search + per page */}
-        <div className="flex flex-1 items-center justify-end gap-3">
-          <div className="hidden items-center gap-1 text-xs text-slate-600 sm:flex">
-            <span>Rows per page</span>
-            <select
-              className="h-8 rounded-full border border-slate-200 bg-white px-2 text-xs text-slate-700 shadow-sm focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-200"
-              value={perPage}
-              onChange={(e) => setPerPage(Number(e.target.value))}
-            >
-              <option value={10}>10</option>
-              <option value={25}>25</option>
-              <option value={50}>50</option>
-              <option value={100}>100</option>
-            </select>
+            <div className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">
+              {totalItems} items
+            </div>
           </div>
 
-          <div className="relative w-full max-w-xs">
-            <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-slate-400">
-              🔍
-            </span>
-            <input
-              className="w-full rounded-full border border-slate-200 bg-white py-2 pl-8 pr-3 text-sm text-slate-700 shadow-sm focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-200"
-              placeholder="Search by title or SKU…"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-            />
+          <div className="grid gap-3 lg:grid-cols-[1fr_auto] lg:items-center">
+            <div className="flex flex-col gap-3 sm:flex-row">
+              <div className="flex flex-1 items-center gap-2 rounded-[22px] border border-slate-200 bg-slate-50 px-3 py-2.5 shadow-sm">
+                <Search className="h-4 w-4 text-slate-400" />
+                <input
+                  className="w-full bg-transparent text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none"
+                  placeholder="Search by title or SKU…"
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                />
+              </div>
+
+              <div className="flex items-center gap-2 rounded-[22px] border border-slate-200 bg-white px-3 py-2.5 shadow-sm sm:w-auto">
+                <SlidersHorizontal className="h-4 w-4 text-slate-400" />
+                <select
+                  className="min-w-0 bg-transparent text-sm text-slate-700 focus:outline-none"
+                  value={bulk}
+                  onChange={(e) => setBulk(e.target.value)}
+                >
+                  <option value="">Bulk actions…</option>
+                  <option value="trash">Move to Trash</option>
+                  <option value="delete">Delete permanently</option>
+                  <option value="instock">Set In stock…</option>
+                  <option value="outofstock">Set Out of stock…</option>
+                  <option value="set-cats">Set categories…</option>
+                  <option value="set-tags">Set tags…</option>
+                  <option value="set-price">Set price…</option>
+                </select>
+              </div>
+
+              <button
+                className="inline-flex h-11 items-center justify-center rounded-2xl bg-violet-600 px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-violet-700"
+                onClick={applyBulk}
+              >
+                Apply
+              </button>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500 lg:justify-end">
+              <span className="rounded-full bg-slate-100 px-3 py-1 font-semibold text-slate-600">
+                {checked.length} selected
+              </span>
+
+              <div className="flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5 shadow-sm">
+                <span>Rows</span>
+                <select
+                  className="bg-transparent text-xs font-semibold text-slate-700 focus:outline-none"
+                  value={perPage}
+                  onChange={(e) => setPerPage(Number(e.target.value))}
+                >
+                  <option value={10}>10</option>
+                  <option value={25}>25</option>
+                  <option value={50}>50</option>
+                  <option value={100}>100</option>
+                </select>
+              </div>
+            </div>
           </div>
-          <span className="text-xs text-slate-500 md:hidden">
-            {checked.length} selected
-          </span>
         </div>
       </div>
 
-      <table className="min-w-full text-sm">
-        <thead>
-          <tr className="bg-violet-50/60 text-left text-xs font-medium uppercase tracking-wide text-slate-600">
-            <th className="px-4 py-3">
-              <input type="checkbox" checked={allChecked} onChange={toggleAll} />
-            </th>
-            <th className="px-4 py-3 w-20">Image</th>
-            <th className="px-4 py-3">Title / Actions</th>
-            <th className="px-4 py-3 whitespace-nowrap">SKU</th>
-            <th className="px-4 py-3 whitespace-nowrap">Price</th>
-            <th className="px-4 py-3 whitespace-nowrap">Stock</th>
-            <th className="px-4 py-3">Categories</th>
-            <th className="px-4 py-3 whitespace-nowrap">Type</th>
-            <th className="px-4 py-3 whitespace-nowrap">Visibility</th>
-            <th className="px-4 py-3 whitespace-nowrap">Created</th>
-          </tr>
-        </thead>
-        <tbody>
-          {pageProducts.map((p) => {
-            const img = p.images?.[0]?.src;
-            const cats = (p.categories || []).map((c) => c.name).join(", ");
+      {/* Mobile cards */}
+      <div className="block md:hidden">
+        {pageProducts.length > 0 ? (
+          <div className="space-y-3 p-3">
+            {pageProducts.map((p) => {
+              const img = p.images?.[0]?.src;
+              const cats = (p.categories || []).map((c) => c.name).join(", ");
 
-            return (
-              <tr
-                key={p.id}
-                className="border-t border-slate-100 bg-white/70 hover:bg-violet-50/40"
-              >
-                <td className="px-4 py-4 align-top">
-                  <input
-                    type="checkbox"
-                    checked={checked.includes(p.id)}
-                    onChange={() => toggle(p.id)}
-                  />
-                </td>
-
-                {/* Image */}
-                <td className="px-4 py-4 align-top">
-                  {img ? (
-                    <img
-                      src={img}
-                      alt={p.name}
-                      className="h-14 w-14 rounded-xl border border-slate-100 object-cover shadow-sm"
-                    />
-                  ) : (
-                    <div className="grid h-14 w-14 place-items-center rounded-xl border border-dashed border-slate-200 text-[10px] text-slate-400">
-                      No image
+              return (
+                <div
+                  key={p.id}
+                  className="rounded-[24px] border border-slate-200 bg-white p-3 shadow-sm"
+                >
+                  <div className="flex gap-3">
+                    <div className="pt-1">
+                      <input
+                        type="checkbox"
+                        checked={checked.includes(p.id)}
+                        onChange={() => toggle(p.id)}
+                      />
                     </div>
-                  )}
-                </td>
 
-                {/* Title + icon actions */}
-                <td className="px-4 py-4 align-top">
-                  <div className="flex flex-col gap-2">
-                    <Link
-                      href={`/products/${p.id}`}
-                      className="max-w-xs truncate text-sm font-semibold text-slate-800 hover:text-violet-600"
-                      title={p.name}
-                    >
-                      {p.name || "(no title)"}
-                    </Link>
+                    {img ? (
+                      <img
+                        src={img}
+                        alt={p.name}
+                        className="h-16 w-16 rounded-2xl border border-slate-100 object-cover shadow-sm"
+                      />
+                    ) : (
+                      <div className="grid h-16 w-16 place-items-center rounded-2xl border border-dashed border-slate-200 bg-slate-50 text-[10px] text-slate-400">
+                        No image
+                      </div>
+                    )}
 
-                    <div className="flex flex-wrap gap-1.5 text-slate-500">
-                      {/* Edit */}
+                    <div className="min-w-0 flex-1">
                       <Link
-                        href={`/products/${p.id}/edit`}
-                        className="flex h-7 w-7 items-center justify-center rounded-full border border-slate-200 bg-white text-[10px] shadow-sm hover:border-violet-400 hover:text-violet-600"
-                        title="Edit"
+                        href={`/products/${p.id}`}
+                        className="block truncate text-sm font-semibold text-slate-900"
+                        title={p.name}
                       >
-                        {Icon.edit}
+                        {p.name || "(no title)"}
                       </Link>
 
-                      {/* Bulk-clone (per row) */}
-                      <button
-                        type="button"
-                        onClick={() => rowBulkClone(p.id)}
-                        className="flex h-7 w-7 items-center justify-center rounded-full border border-slate-200 bg-white text-[10px] shadow-sm hover:border-violet-400 hover:text-violet-600"
-                        title="Bulk-clone"
-                      >
-                        {Icon.clone}
-                      </button>
+                      <div className="mt-1 flex flex-wrap gap-2">
+                        <SoftInfoPill tone="violet">{p.type || "—"}</SoftInfoPill>
+                        <SoftInfoPill>{p.catalog_visibility || "visible"}</SoftInfoPill>
+                      </div>
 
-                      {/* Duplicate */}
-                      <button
-                        type="button"
-                        onClick={() => rowDuplicate(p.id)}
-                        className="flex h-7 w-7 items-center justify-center rounded-full border border-slate-200 bg-white text-[10px] shadow-sm hover:border-violet-400 hover:text-violet-600"
-                        title="Duplicate"
-                      >
-                        {Icon.duplicate}
-                      </button>
-
-                      {/* Trash */}
-                      <button
-                        type="button"
-                        onClick={() => rowTrash(p.id)}
-                        className="flex h-7 w-7 items-center justify-center rounded-full border border-slate-200 bg-white text-[10px] shadow-sm hover:border-rose-300 hover:text-rose-600"
-                        title="Move to Trash"
-                      >
-                        {Icon.trash}
-                      </button>
-
-                      {/* View */}
-                      <button
-                        type="button"
-                        onClick={() => rowView(p.permalink)}
-                        className="flex h-7 w-7 items-center justify-center rounded-full border border-slate-200 bg-white text-[10px] shadow-sm hover:border-violet-400 hover:text-violet-600"
-                        title="View product in store"
-                      >
-                        {Icon.view}
-                      </button>
+                      <div className="mt-2 text-sm font-semibold text-slate-900">
+                        {p.price ? `₹${p.price}` : "—"}
+                      </div>
                     </div>
                   </div>
-                </td>
 
-                <td className="px-4 py-4 align-top text-sm text-slate-700 whitespace-nowrap">
-                  {p.sku || "—"}
-                </td>
-                <td className="px-4 py-4 align-top text-sm text-slate-700 whitespace-nowrap">
-                  {p.price ? `₹${p.price}` : "—"}
-                </td>
-                <td className="px-4 py-4 align-top">
-                  <StockBadge
-                    status={p.stock_status}
-                    qty={
-                      typeof p.stock_quantity === "number"
-                        ? p.stock_quantity
-                        : undefined
-                    }
-                  />
-                </td>
-                <td className="px-4 py-4 align-top text-sm text-slate-700">
-                  {cats || "—"}
-                </td>
-                <td className="px-4 py-4 align-top text-sm capitalize text-slate-700 whitespace-nowrap">
-                  {p.type || "—"}
-                </td>
-                <td className="px-4 py-4 align-top text-sm capitalize text-slate-700 whitespace-nowrap">
-                  {p.catalog_visibility || "visible"}
-                </td>
-                <td className="px-4 py-4 align-top text-xs text-slate-500 whitespace-nowrap">
-                  {fmtDate(p.date_created)}
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <StockBadge
+                      status={p.stock_status}
+                      qty={
+                        typeof p.stock_quantity === "number"
+                          ? p.stock_quantity
+                          : undefined
+                      }
+                    />
+                  </div>
+
+                  <div className="mt-3 grid grid-cols-2 gap-3 text-xs">
+                    <div className="rounded-2xl bg-slate-50 px-3 py-2">
+                      <div className="text-slate-400">SKU</div>
+                      <div className="mt-0.5 truncate font-medium text-slate-700">
+                        {p.sku || "—"}
+                      </div>
+                    </div>
+
+                    <div className="rounded-2xl bg-slate-50 px-3 py-2">
+                      <div className="text-slate-400">Created</div>
+                      <div className="mt-0.5 font-medium text-slate-700">
+                        {fmtDate(p.date_created)}
+                      </div>
+                    </div>
+
+                    <div className="col-span-2 rounded-2xl bg-slate-50 px-3 py-2">
+                      <div className="text-slate-400">Categories</div>
+                      <div className="mt-0.5 line-clamp-2 font-medium text-slate-700">
+                        {cats || "—"}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <Link
+                      href={`/products/${p.id}/edit`}
+                      className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-sm hover:border-violet-400 hover:text-violet-600"
+                      title="Edit"
+                    >
+                      {Icon.edit}
+                    </Link>
+
+                    <button
+                      type="button"
+                      onClick={() => rowBulkClone(p.id)}
+                      className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-sm hover:border-violet-400 hover:text-violet-600"
+                      title="Bulk-clone"
+                    >
+                      {Icon.clone}
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => rowDuplicate(p.id)}
+                      className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-sm hover:border-violet-400 hover:text-violet-600"
+                      title="Duplicate"
+                    >
+                      {Icon.duplicate}
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => rowTrash(p.id)}
+                      className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-sm hover:border-rose-300 hover:text-rose-600"
+                      title="Move to Trash"
+                    >
+                      {Icon.trash}
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => rowView(p.permalink)}
+                      className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-sm hover:border-violet-400 hover:text-violet-600"
+                      title="View product in store"
+                    >
+                      {Icon.view}
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="px-6 py-12 text-center">
+            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100 text-slate-400">
+              <Package2 className="h-6 w-6" />
+            </div>
+            <div className="mt-4 text-sm font-semibold text-slate-700">
+              {query.trim() ? "No products match your search." : "No products found."}
+            </div>
+            <div className="mt-1 text-xs text-slate-500">
+              Try changing filters, search terms, or add a new product.
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Desktop table */}
+      <div className="hidden overflow-x-auto md:block">
+        <table className="min-w-full text-sm">
+          <thead>
+            <tr className="bg-violet-50/60 text-left text-xs font-medium uppercase tracking-wide text-slate-600">
+              <th className="px-4 py-3">
+                <input type="checkbox" checked={allChecked} onChange={toggleAll} />
+              </th>
+              <th className="px-4 py-3 w-20">Image</th>
+              <th className="px-4 py-3">Title / Actions</th>
+              <th className="px-4 py-3 whitespace-nowrap">SKU</th>
+              <th className="px-4 py-3 whitespace-nowrap">Price</th>
+              <th className="px-4 py-3 whitespace-nowrap">Stock</th>
+              <th className="px-4 py-3">Categories</th>
+              <th className="px-4 py-3 whitespace-nowrap">Type</th>
+              <th className="px-4 py-3 whitespace-nowrap">Visibility</th>
+              <th className="px-4 py-3 whitespace-nowrap">Created</th>
+            </tr>
+          </thead>
+          <tbody>
+            {pageProducts.map((p) => {
+              const img = p.images?.[0]?.src;
+              const cats = (p.categories || []).map((c) => c.name).join(", ");
+
+              return (
+                <tr
+                  key={p.id}
+                  className="border-t border-slate-100 bg-white/70 hover:bg-violet-50/40"
+                >
+                  <td className="px-4 py-4 align-top">
+                    <input
+                      type="checkbox"
+                      checked={checked.includes(p.id)}
+                      onChange={() => toggle(p.id)}
+                    />
+                  </td>
+
+                  <td className="px-4 py-4 align-top">
+                    {img ? (
+                      <img
+                        src={img}
+                        alt={p.name}
+                        className="h-14 w-14 rounded-xl border border-slate-100 object-cover shadow-sm"
+                      />
+                    ) : (
+                      <div className="grid h-14 w-14 place-items-center rounded-xl border border-dashed border-slate-200 text-[10px] text-slate-400">
+                        No image
+                      </div>
+                    )}
+                  </td>
+
+                  <td className="px-4 py-4 align-top">
+                    <div className="flex flex-col gap-2">
+                      <Link
+                        href={`/products/${p.id}`}
+                        className="max-w-xs truncate text-sm font-semibold text-slate-800 hover:text-violet-600"
+                        title={p.name}
+                      >
+                        {p.name || "(no title)"}
+                      </Link>
+
+                      <div className="flex flex-wrap gap-1.5 text-slate-500">
+                        <Link
+                          href={`/products/${p.id}/edit`}
+                          className="flex h-7 w-7 items-center justify-center rounded-full border border-slate-200 bg-white text-[10px] shadow-sm hover:border-violet-400 hover:text-violet-600"
+                          title="Edit"
+                        >
+                          {Icon.edit}
+                        </Link>
+
+                        <button
+                          type="button"
+                          onClick={() => rowBulkClone(p.id)}
+                          className="flex h-7 w-7 items-center justify-center rounded-full border border-slate-200 bg-white text-[10px] shadow-sm hover:border-violet-400 hover:text-violet-600"
+                          title="Bulk-clone"
+                        >
+                          {Icon.clone}
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => rowDuplicate(p.id)}
+                          className="flex h-7 w-7 items-center justify-center rounded-full border border-slate-200 bg-white text-[10px] shadow-sm hover:border-violet-400 hover:text-violet-600"
+                          title="Duplicate"
+                        >
+                          {Icon.duplicate}
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => rowTrash(p.id)}
+                          className="flex h-7 w-7 items-center justify-center rounded-full border border-slate-200 bg-white text-[10px] shadow-sm hover:border-rose-300 hover:text-rose-600"
+                          title="Move to Trash"
+                        >
+                          {Icon.trash}
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => rowView(p.permalink)}
+                          className="flex h-7 w-7 items-center justify-center rounded-full border border-slate-200 bg-white text-[10px] shadow-sm hover:border-violet-400 hover:text-violet-600"
+                          title="View product in store"
+                        >
+                          {Icon.view}
+                        </button>
+                      </div>
+                    </div>
+                  </td>
+
+                  <td className="px-4 py-4 align-top text-sm text-slate-700 whitespace-nowrap">
+                    {p.sku || "—"}
+                  </td>
+                  <td className="px-4 py-4 align-top text-sm font-medium text-slate-800 whitespace-nowrap">
+                    {p.price ? `₹${p.price}` : "—"}
+                  </td>
+                  <td className="px-4 py-4 align-top">
+                    <StockBadge
+                      status={p.stock_status}
+                      qty={
+                        typeof p.stock_quantity === "number"
+                          ? p.stock_quantity
+                          : undefined
+                      }
+                    />
+                  </td>
+                  <td className="px-4 py-4 align-top text-sm text-slate-700">
+                    {cats || "—"}
+                  </td>
+                  <td className="px-4 py-4 align-top text-sm capitalize text-slate-700 whitespace-nowrap">
+                    {p.type || "—"}
+                  </td>
+                  <td className="px-4 py-4 align-top text-sm capitalize text-slate-700 whitespace-nowrap">
+                    {p.catalog_visibility || "visible"}
+                  </td>
+                  <td className="px-4 py-4 align-top text-xs text-slate-500 whitespace-nowrap">
+                    {fmtDate(p.date_created)}
+                  </td>
+                </tr>
+              );
+            })}
+            {filteredProducts.length === 0 && (
+              <tr>
+                <td colSpan={10} className="px-6 py-12 text-center text-slate-500">
+                  {query.trim()
+                    ? "No products match your search."
+                    : "No products found."}
                 </td>
               </tr>
-            );
-          })}
-          {filteredProducts.length === 0 && (
-            <tr>
-              <td colSpan={10} className="px-6 py-10 text-center text-slate-500">
-                {query.trim()
-                  ? "No products match your search."
-                  : "No products found."}
-              </td>
-            </tr>
-          )}
-        </tbody>
-      </table>
+            )}
+          </tbody>
+        </table>
+      </div>
 
-      {/* Footer: pagination */}
+      {/* Footer */}
       {filteredProducts.length > 0 && (
-        <div className="flex flex-col items-center justify-between gap-3 border-t border-slate-100 px-4 py-3 text-xs text-slate-600 sm:flex-row">
+        <div className="flex flex-col gap-3 border-t border-slate-100 bg-white px-4 py-4 text-xs text-slate-600 md:flex-row md:items-center md:justify-between md:px-5">
           <div>
             Showing{" "}
             <span className="font-semibold">
@@ -713,38 +892,39 @@ export default function ProductsClientTable({
             </span>{" "}
             of <span className="font-semibold">{totalItems}</span> products
           </div>
-          <div className="flex items-center gap-2">
+
+          <div className="flex items-center justify-between gap-2 md:justify-end">
             <button
-              className="rounded-full border border-slate-200 px-3 py-1 text-xs hover:bg-slate-50 disabled:opacity-40"
+              className="inline-flex items-center gap-1 rounded-full border border-slate-200 px-3 py-2 text-xs font-medium hover:bg-slate-50 disabled:opacity-40"
               disabled={currentPage <= 1}
               onClick={() => setPage((p) => Math.max(1, p - 1))}
             >
+              <ChevronLeft className="h-3.5 w-3.5" />
               Previous
             </button>
-            <span className="text-xs">
-              Page <span className="font-semibold">{currentPage}</span> of{" "}
-              <span className="font-semibold">{totalPages}</span>
+
+            <span className="rounded-full bg-slate-100 px-3 py-2 text-xs font-medium text-slate-600">
+              Page {currentPage} of {totalPages}
             </span>
+
             <button
-              className="rounded-full border border-slate-200 px-3 py-1 text-xs hover:bg-slate-50 disabled:opacity-40"
+              className="inline-flex items-center gap-1 rounded-full border border-slate-200 px-3 py-2 text-xs font-medium hover:bg-slate-50 disabled:opacity-40"
               disabled={currentPage >= totalPages}
-              onClick={() =>
-                setPage((p) => Math.min(totalPages, p + 1))
-              }
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
             >
               Next
+              <ChevronRight className="h-3.5 w-3.5" />
             </button>
           </div>
         </div>
       )}
 
-      {/* ---------- Modals (fixed + near top) ---------- */}
+      {/* ---------- Modals ---------- */}
 
-      {/* Set Categories */}
       {showCats && (
         <div className="fixed inset-0 z-[100] flex items-start justify-center bg-black/30 px-4 pt-24">
-          <div className="w-full max-w-[560px] rounded-lg border bg-white shadow-lg">
-            <div className="border-b px-4 py-2.5 text-sm font-medium">
+          <div className="w-full max-w-[560px] rounded-2xl border border-slate-200 bg-white shadow-lg">
+            <div className="border-b px-4 py-3 text-sm font-semibold text-slate-800">
               Set categories
             </div>
             <div className="max-h-[60vh] overflow-auto px-4 py-3">
@@ -753,7 +933,7 @@ export default function ProductsClientTable({
                 return (
                   <label
                     key={c.id}
-                    className="flex cursor-pointer items-center gap-2 rounded px-1 py-1 hover:bg-slate-50"
+                    className="flex cursor-pointer items-center gap-2 rounded px-1 py-1.5 hover:bg-slate-50"
                     style={{ paddingLeft: 8 + c.depth * 14 }}
                   >
                     <input
@@ -775,15 +955,15 @@ export default function ProductsClientTable({
                 <div className="text-sm text-slate-500">No categories.</div>
               )}
             </div>
-            <div className="flex justify-end gap-2 border-t px-4 py-2.5">
+            <div className="flex justify-end gap-2 border-t px-4 py-3">
               <button
-                className="rounded-md border px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50"
+                className="rounded-xl border px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
                 onClick={() => setShowCats(false)}
               >
                 Cancel
               </button>
               <button
-                className="rounded-md bg-violet-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-violet-700"
+                className="rounded-xl bg-violet-600 px-3 py-2 text-sm font-medium text-white hover:bg-violet-700"
                 onClick={doBulkSetCategories}
               >
                 Apply to {checked.length} products
@@ -793,11 +973,10 @@ export default function ProductsClientTable({
         </div>
       )}
 
-      {/* Set Tags */}
       {showTags && (
         <div className="fixed inset-0 z-[100] flex items-start justify-center bg-black/30 px-4 pt-24">
-          <div className="w-full max-w-[560px] rounded-lg border bg-white shadow-lg">
-            <div className="border-b px-4 py-2.5 text-sm font-medium">
+          <div className="w-full max-w-[560px] rounded-2xl border border-slate-200 bg-white shadow-lg">
+            <div className="border-b px-4 py-3 text-sm font-semibold text-slate-800">
               Set tags
             </div>
             <div className="px-4 py-3">
@@ -805,25 +984,24 @@ export default function ProductsClientTable({
                 Tags (comma separated)
               </label>
               <input
-                className="w-full rounded-md border border-slate-200 px-3 py-2 text-sm text-slate-700 shadow-sm focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-200"
+                className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm text-slate-700 shadow-sm focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-200"
                 placeholder="e.g. festive, saree, cotton"
                 value={tagsCSV}
                 onChange={(e) => setTagsCSV(e.target.value)}
               />
               <div className="mt-2 text-xs text-slate-500">
-                Enter comma-separated tag names. Existing and new tags are
-                supported.
+                Enter comma-separated tag names. Existing and new tags are supported.
               </div>
             </div>
-            <div className="flex justify-end gap-2 border-t px-4 py-2.5">
+            <div className="flex justify-end gap-2 border-t px-4 py-3">
               <button
-                className="rounded-md border px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50"
+                className="rounded-xl border px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
                 onClick={() => setShowTags(false)}
               >
                 Cancel
               </button>
               <button
-                className="rounded-md bg-violet-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-violet-700"
+                className="rounded-xl bg-violet-600 px-3 py-2 text-sm font-medium text-white hover:bg-violet-700"
                 onClick={doBulkSetTags}
               >
                 Apply to {checked.length} products
@@ -833,17 +1011,16 @@ export default function ProductsClientTable({
         </div>
       )}
 
-      {/* Set Price */}
       {showPrice && (
         <div className="fixed inset-0 z-[100] flex items-start justify-center bg-black/30 px-4 pt-24">
-          <div className="w-full max-w-[560px] rounded-lg border bg-white shadow-lg">
-            <div className="border-b px-4 py-2.5 text-sm font-medium">
+          <div className="w-full max-w-[560px] rounded-2xl border border-slate-200 bg-white shadow-lg">
+            <div className="border-b px-4 py-3 text-sm font-semibold text-slate-800">
               Set price
             </div>
             <div className="space-y-3 px-4 py-3">
               <div className="flex flex-wrap items-center gap-2">
                 <select
-                  className="rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 shadow-sm focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-200"
+                  className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 shadow-sm focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-200"
                   value={priceMode}
                   onChange={(e) =>
                     setPriceMode(e.target.value as typeof priceMode)
@@ -856,26 +1033,25 @@ export default function ProductsClientTable({
                   <option value="decval">Decrease by amount</option>
                 </select>
                 <input
-                  className="w-32 rounded-md border border-slate-200 px-3 py-2 text-sm text-slate-700 shadow-sm focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-200"
+                  className="w-32 rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-700 shadow-sm focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-200"
                   placeholder="Value"
                   value={priceValue}
                   onChange={(e) => setPriceValue(e.target.value)}
                 />
               </div>
               <div className="text-xs text-slate-500">
-                Operates on the regular price. Percent adjustments use current
-                price as the base.
+                Operates on the regular price. Percent adjustments use current price as the base.
               </div>
             </div>
-            <div className="flex justify-end gap-2 border-t px-4 py-2.5">
+            <div className="flex justify-end gap-2 border-t px-4 py-3">
               <button
-                className="rounded-md border px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50"
+                className="rounded-xl border px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
                 onClick={() => setShowPrice(false)}
               >
                 Cancel
               </button>
               <button
-                className="rounded-md bg-violet-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-violet-700"
+                className="rounded-xl bg-violet-600 px-3 py-2 text-sm font-medium text-white hover:bg-violet-700"
                 onClick={doBulkSetPrice}
               >
                 Apply to {checked.length} products
@@ -885,35 +1061,29 @@ export default function ProductsClientTable({
         </div>
       )}
 
-      {/* Set Stock (In stock / Out of stock) */}
       {showStockModal && (
         <div className="fixed inset-0 z-[110] flex items-start justify-center bg-black/30 px-4 pt-24">
-          <div className="w-full max-w-[460px] rounded-lg border bg-white shadow-lg">
-            <div className="border-b px-4 py-2.5 text-sm font-medium">
+          <div className="w-full max-w-[460px] rounded-2xl border border-slate-200 bg-white shadow-lg">
+            <div className="border-b px-4 py-3 text-sm font-semibold text-slate-800">
               {stockMode === "instock"
                 ? "Set stock quantity"
                 : "Set products Out of stock"}
             </div>
 
-            <div className="px-4 py-3 space-y-3">
+            <div className="space-y-3 px-4 py-3">
               {stockMode === "instock" ? (
                 <>
                   <p className="text-xs text-slate-600">
                     Enter the stock quantity that should be applied to{" "}
-                    <span className="font-semibold">{checked.length}</span>{" "}
-                    selected products. Their status will be set to{" "}
-                    <span className="font-semibold">In stock</span> when
-                    quantity &gt; 0, otherwise{" "}
-                    <span className="font-semibold">Out of stock</span>.
+                    <span className="font-semibold">{checked.length}</span> selected
+                    products.
                   </p>
                   <div className="flex items-center gap-2">
-                    <label className="text-sm text-slate-700">
-                      Quantity
-                    </label>
+                    <label className="text-sm text-slate-700">Quantity</label>
                     <input
                       type="number"
                       min={0}
-                      className="w-32 rounded-md border border-slate-200 px-3 py-1.5 text-sm text-slate-700 shadow-sm focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-200"
+                      className="w-32 rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-700 shadow-sm focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-200"
                       value={stockQty}
                       onChange={(e) => setStockQty(e.target.value)}
                     />
@@ -922,23 +1092,22 @@ export default function ProductsClientTable({
               ) : (
                 <p className="text-xs text-slate-600">
                   This will mark{" "}
-                  <span className="font-semibold">{checked.length}</span>{" "}
-                  selected products as{" "}
-                  <span className="font-semibold">Out of stock</span> and set
-                  their stock quantity to <span className="font-semibold">0</span>.
+                  <span className="font-semibold">{checked.length}</span> selected
+                  products as <span className="font-semibold">Out of stock</span> and
+                  set stock quantity to <span className="font-semibold">0</span>.
                 </p>
               )}
             </div>
 
-            <div className="flex justify-end gap-2 border-t px-4 py-2.5">
+            <div className="flex justify-end gap-2 border-t px-4 py-3">
               <button
-                className="rounded-md border px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50"
+                className="rounded-xl border px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
                 onClick={() => setShowStockModal(false)}
               >
                 Cancel
               </button>
               <button
-                className="rounded-md bg-violet-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-violet-700"
+                className="rounded-xl bg-violet-600 px-3 py-2 text-sm font-medium text-white hover:bg-violet-700"
                 onClick={doBulkSetStock}
               >
                 Apply to {checked.length} products
