@@ -1,4 +1,4 @@
-// src/app/(dashboard)/categories/page.tsx
+import { FolderTree, Plus } from "lucide-react";
 import { getWooClient } from "@/lib/woo";
 import CategoriesClient from "./ui/CategoriesClient";
 
@@ -18,7 +18,7 @@ async function fetchCategories(): Promise<Cat[]> {
     const woo = await getWooClient();
 
     const PER_PAGE = 100;
-    const MAX_PAGES = 25; // safety cap (2500 categories)
+    const MAX_PAGES = 25;
 
     const all: Cat[] = [];
     let page = 1;
@@ -53,19 +53,33 @@ export default async function CategoriesPage() {
   const categories = await fetchCategories();
 
   return (
-    <main className="p-6 max-w-6xl mx-auto">
-      <header className="mb-5">
-        <h1 className="text-2xl font-semibold text-slate-900">
-          Product Categories
-        </h1>
-        <p className="mt-1 text-sm text-slate-600">
-          Create and manage product categories. Use{" "}
-          <span className="font-medium">Parent</span> to build nested menus for
-          your store.
-        </p>
-      </header>
+    <main className="mx-auto max-w-7xl px-3 py-3 md:px-4 md:py-5">
+      <div className="rounded-[30px] border border-white/80 bg-gradient-to-br from-white via-[#faf6ff] to-[#eef7ff] p-4 shadow-[0_14px_40px_rgba(15,23,42,0.06)] md:p-5">
+        <div className="inline-flex items-center gap-2 rounded-full bg-violet-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-violet-700">
+          <FolderTree className="h-3.5 w-3.5" />
+          Catalog
+        </div>
 
-      <CategoriesClient initial={categories} />
+        <div className="mt-3 flex items-center justify-between gap-3">
+          <h1 className="text-[28px] font-semibold tracking-tight text-slate-900 md:text-[34px]">
+            Categories
+          </h1>
+
+          <div className="inline-flex items-center gap-2 rounded-2xl bg-white/85 px-4 py-2 text-sm font-medium text-slate-600 shadow-sm">
+            <Plus className="h-4 w-4 text-violet-600" />
+            Manage
+          </div>
+        </div>
+
+        <p className="mt-2 text-sm leading-6 text-slate-500">
+          Create and organise product categories. Build nested category structure
+          using parent categories.
+        </p>
+      </div>
+
+      <section className="mt-4">
+        <CategoriesClient initial={categories} />
+      </section>
     </main>
   );
 }
