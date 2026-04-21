@@ -32,14 +32,14 @@ export interface PaymentsFormValues {
     /** Payment time limit in minutes */
     time_min?: string;
 
-    /** Notes shown on thank-you page */
+    /** Notes shown on checkout / email */
     notes?: string;
 
     /** URL of uploaded QR image */
     qr_src?: string;
 
-    /** Enable mobile deep-link button (Pay via UPI App) */
-    mobile_button_enabled?: boolean;
+    /** Screenshot upload on thank-you page on/off */
+    require_screenshot: boolean;
   };
 
   bank: {

@@ -1,4 +1,3 @@
-// src/app/orders/UPIVerificationInline.tsx
 "use client";
 
 import { useState } from "react";
@@ -7,7 +6,7 @@ import type { WCOrder } from "@/lib/order-utils";
 type Props = {
   order: WCOrder & {
     meta_data?: any[];
-    payment_method?: string; // <-- add this so TS knows it exists
+    payment_method?: string;
   };
 };
 
@@ -15,6 +14,10 @@ function getMeta(order: any, key: string): any | undefined {
   const meta = (order.meta_data || []) as any[];
   const item = meta.find((m) => m.key === key);
   return item?.value;
+}
+
+function isTruthyMeta(value: any): boolean {
+  return value === true || value === 1 || value === "1" || value === "yes" || value === "on";
 }
 
 export function UPIVerificationInline({ order }: Props) {
@@ -25,6 +28,10 @@ export function UPIVerificationInline({ order }: Props) {
   const txn = getMeta(order, "_letz_upi_txn");
   const screenshotUrl = getMeta(order, "_letz_upi_screenshot_url");
   const screenshotId = getMeta(order, "_letz_upi_screenshot_id");
+  const requireScreenshotMeta = getMeta(order, "_letz_upi_require_screenshot");
+  const requiresScreenshot = requireScreenshotMeta === undefined
+    ? true
+    : isTruthyMeta(requireScreenshotMeta);
 
   const [loading, setLoading] = useState(false);
   const [showShot, setShowShot] = useState(false);
@@ -73,12 +80,10 @@ export function UPIVerificationInline({ order }: Props) {
     <>
       <div className="mt-1 w-full">
         <div className="rounded-2xl border border-slate-200 bg-indigo-50/60 px-3 py-2 text-xs text-slate-800 flex gap-2 items-start">
-          {/* Left icon */}
           <div className="h-8 w-8 rounded-full bg-slate-900 text-white flex items-center justify-center text-xs shrink-0">
             ₹
           </div>
 
-          {/* Main content */}
           <div className="flex-1 space-y-1 min-w-0">
             <div className="flex items-center justify-between gap-2">
               <div className="text-[11px] font-semibold text-slate-900">
@@ -94,26 +99,30 @@ export function UPIVerificationInline({ order }: Props) {
               </div>
             )}
 
-            {/* Screenshot row */}
-            {screenshotUrl ? (
-              <button
-                type="button"
-                className="text-[11px] text-indigo-700 underline"
-                onClick={() => setShowShot(true)}
-              >
-                View payment screenshot
-              </button>
-            ) : screenshotId ? (
-              <div className="text-[11px] text-amber-700">
-                Screenshot uploaded (open order in Woo admin to view).
-              </div>
+            {requiresScreenshot ? (
+              screenshotUrl ? (
+                <button
+                  type="button"
+                  className="text-[11px] text-indigo-700 underline"
+                  onClick={() => setShowShot(true)}
+                >
+                  View payment screenshot
+                </button>
+              ) : screenshotId ? (
+                <div className="text-[11px] text-amber-700">
+                  Screenshot uploaded (open order in Woo admin to view).
+                </div>
+              ) : (
+                <div className="text-[11px] text-amber-700">
+                  Screenshot not uploaded yet.
+                </div>
+              )
             ) : (
-              <div className="text-[11px] text-red-600">
-                Screenshot not uploaded yet (keep order On hold).
+              <div className="text-[11px] text-slate-600">
+                Screenshot proof disabled for this order. Verify using transaction number.
               </div>
             )}
 
-            {/* Footer text + verify button */}
             {!isOnHold && (
               <div className="text-[11px] text-emerald-700">
                 Payment already verified ({order.status}).
@@ -134,7 +143,6 @@ export function UPIVerificationInline({ order }: Props) {
         </div>
       </div>
 
-      {/* Screenshot popup (mini modal on same tab) */}
       {showShot && screenshotUrl && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"

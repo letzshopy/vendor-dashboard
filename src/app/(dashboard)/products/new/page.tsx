@@ -17,6 +17,7 @@ import {
   Truck,
   Wallet,
   X,
+  Palette,
 } from "lucide-react";
 import ProductImages, { type ImgItem } from "@/components/ProductImages";
 import TagPicker from "@/components/TagPicker";
@@ -244,37 +245,6 @@ function ToggleCard(props: {
   );
 }
 
-function StepChip({
-  index,
-  label,
-  active = false,
-}: {
-  index: number;
-  label: string;
-  active?: boolean;
-}) {
-  return (
-    <div
-      className={[
-        "inline-flex items-center gap-2 rounded-full border px-3 py-2 text-xs font-semibold",
-        active
-          ? "border-violet-300 bg-violet-50 text-violet-700"
-          : "border-slate-200 bg-white text-slate-500",
-      ].join(" ")}
-    >
-      <span
-        className={[
-          "flex h-5 w-5 items-center justify-center rounded-full text-[11px]",
-          active ? "bg-violet-600 text-white" : "bg-slate-100 text-slate-600",
-        ].join(" ")}
-      >
-        {index}
-      </span>
-      {label}
-    </div>
-  );
-}
-
 function MobileSheet({
   open,
   title,
@@ -314,6 +284,7 @@ function MobileSheet({
 export default function AddProductPage() {
   const [title, setTitle] = useState("");
   const [sku, setSku] = useState("");
+  const [color, setColor] = useState("");
   const [skuErr, setSkuErr] = useState<string | null>(null);
   const [status, setStatus] = useState<"draft" | "publish">("publish");
   const [visibility, setVisibility] = useState<"visible" | "hidden">("visible");
@@ -534,6 +505,7 @@ export default function AddProductPage() {
       const basePayload: any = {
         name: title,
         sku: sku.trim(),
+        color: color.trim(),
         status,
         catalog_visibility: visibility,
         type: ptype,
@@ -645,6 +617,7 @@ export default function AddProductPage() {
 
       setTitle("");
       setSku("");
+      setColor("");
       setShortDesc("");
       setDesc("");
       setTags([]);
@@ -824,38 +797,38 @@ export default function AddProductPage() {
             </div>
 
             <div className="rounded-[24px] border border-slate-200/80 bg-white/85 p-3 shadow-sm backdrop-blur md:min-w-[320px]">
-  <div className="mb-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">
-    Product type
-  </div>
+              <div className="mb-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">
+                Product type
+              </div>
 
-  <div className="grid grid-cols-1 gap-2 sm:grid-cols-3 md:grid-cols-1 md:gap-2">
-    {(["simple", "variable", "grouped"] as ProductType[]).map((t) => {
-      const active = ptype === t;
-      const label = t[0].toUpperCase() + t.slice(1);
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-3 md:grid-cols-1 md:gap-2">
+                {(["simple", "variable", "grouped"] as ProductType[]).map((t) => {
+                  const active = ptype === t;
+                  const label = t[0].toUpperCase() + t.slice(1);
 
-      return (
-        <button
-          key={t}
-          type="button"
-          onClick={() => setPtype(t)}
-          className={[
-            "inline-flex w-full items-center justify-center gap-2 rounded-2xl border px-4 py-3 text-sm font-semibold transition",
-            active
-              ? "border-violet-500 bg-violet-600 text-white shadow-sm"
-              : "border-slate-200 bg-white text-slate-700 hover:border-violet-300 hover:text-violet-700",
-          ].join(" ")}
-        >
-          <span
-            className={`h-2.5 w-2.5 rounded-full ${
-              active ? "bg-white" : "bg-slate-300"
-            }`}
-          />
-          {label}
-        </button>
-      );
-    })}
-  </div>
-</div>
+                  return (
+                    <button
+                      key={t}
+                      type="button"
+                      onClick={() => setPtype(t)}
+                      className={[
+                        "inline-flex w-full items-center justify-center gap-2 rounded-2xl border px-4 py-3 text-sm font-semibold transition",
+                        active
+                          ? "border-violet-500 bg-violet-600 text-white shadow-sm"
+                          : "border-slate-200 bg-white text-slate-700 hover:border-violet-300 hover:text-violet-700",
+                      ].join(" ")}
+                    >
+                      <span
+                        className={`h-2.5 w-2.5 rounded-full ${
+                          active ? "bg-white" : "bg-slate-300"
+                        }`}
+                      />
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -918,6 +891,18 @@ export default function AddProductPage() {
                   Use a unique code to identify this product.
                 </p>
               )}
+            </FieldShell>
+
+            <FieldShell>
+              <FieldLabel>Color</FieldLabel>
+              <MobileField
+                value={color}
+                onChange={(e) => setColor(e.target.value)}
+                placeholder="e.g. Pink, Navy Blue, Maroon"
+              />
+              <p className="mt-2 text-xs text-slate-400">
+                This saves to Woo custom field and can be used for search later.
+              </p>
             </FieldShell>
 
             <FieldShell>

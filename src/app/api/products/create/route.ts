@@ -16,6 +16,20 @@ function toNumOrUndef(v: any) {
   return Number.isFinite(n) ? n : undefined;
 }
 
+function buildMetaData(body: any) {
+  const meta_data: { key: string; value: string }[] = [];
+
+  const color = String(body?.color || "").trim();
+  if (color) {
+    meta_data.push({
+      key: "_ls_color",
+      value: color,
+    });
+  }
+
+  return meta_data;
+}
+
 function buildPayload(body: any, sku?: string) {
   const categories = Array.isArray(body?.categories)
     ? body.categories
@@ -26,7 +40,13 @@ function buildPayload(body: any, sku?: string) {
 
   const tags = Array.isArray(body?.tags)
     ? body.tags
-        .map((t: any) => (typeof t === "string" ? t.trim() : ""))
+        .map((t: any) => {
+          if (typeof t === "string") return t.trim();
+          if (t && typeof t === "object" && typeof t.name === "string") {
+            return t.name.trim();
+          }
+          return "";
+        })
         .filter(Boolean)
         .map((name: string) => ({ name }))
     : [];
@@ -40,6 +60,8 @@ function buildPayload(body: any, sku?: string) {
         options: Array.isArray(a?.options) ? a.options.map(String) : [],
       }))
     : [];
+
+  const meta_data = buildMetaData(body);
 
   const payload: any = {
     name: body?.name,
@@ -76,9 +98,9 @@ function buildPayload(body: any, sku?: string) {
           .map((n: any) => Number(n))
           .filter((x: number) => Number.isFinite(x) && x > 0)
       : undefined,
+    ...(meta_data.length ? { meta_data } : {}),
   };
 
-  // only set SKU when we want to
   if (sku) payload.sku = sku;
 
   return payload;
@@ -97,12 +119,10 @@ export async function POST(req: Request) {
 
     const sku = String((body as any).sku || "").trim();
 
-    // clean any stale local row so our local UNIQUE(sku) never trips
     if (sku) {
       await deleteExistingSkuFromLookup(sku);
     }
 
-    // 1) try with SKU
     try {
       const withSku = buildPayload(body, sku || undefined);
       const { data } = await woo.post("/products", withSku);
@@ -127,20 +147,18 @@ export async function POST(req: Request) {
         err?.message ||
         "";
 
-      // If Woo screams about “lookup table / SKU already present”, retry once WITHOUT SKU
       const looksLikeWooSkuBug = /lookup/i.test(msg) && /sku/i.test(msg);
 
       if (!looksLikeWooSkuBug) {
         throw err;
       }
 
-      // 2) retry without SKU (to unblock creation)
       const noSku = buildPayload(body, undefined);
       const { data } = await woo.post("/products", noSku);
 
       await upsertProductLookup({
         woo_id: Number(data.id),
-        sku: "", // skip sku locally since Woo refused it
+        sku: "",
         name: data.name || noSku.name || "",
         status: data.status || noSku.status || "draft",
       });

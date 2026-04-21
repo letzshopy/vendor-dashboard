@@ -24,7 +24,6 @@ export default function UPIPanel() {
       const formData = new FormData();
       formData.append("file", file);
 
-      // Re-use your media upload API (same one used for products)
       const res = await fetch("/api/media/upload", {
         method: "POST",
         body: formData,
@@ -42,7 +41,6 @@ export default function UPIPanel() {
         throw new Error("Upload succeeded but no URL returned");
       }
 
-      // Save URL into form state so it goes into letz_payments_settings.upi.qr_src
       setValue("upi.qr_src", url, { shouldDirty: true, shouldTouch: true });
     } catch (err: any) {
       setUploadError(err?.message || "Upload failed");
@@ -54,7 +52,6 @@ export default function UPIPanel() {
 
   return (
     <div className="space-y-4">
-      {/* Row: UPI ID + UPI Payment Number */}
       <div className="grid gap-4 md:grid-cols-2">
         <div>
           <label
@@ -86,7 +83,6 @@ export default function UPIPanel() {
         </div>
       </div>
 
-      {/* Row: Payee + Time limit */}
       <div className="grid gap-4 md:grid-cols-2">
         <div>
           <label
@@ -121,7 +117,6 @@ export default function UPIPanel() {
         </div>
       </div>
 
-      {/* Show QR select */}
       <div className="grid gap-4 md:grid-cols-2">
         <div>
           <label
@@ -135,7 +130,11 @@ export default function UPIPanel() {
             className="w-full border rounded-md px-3 py-2 text-sm"
             {...register("upi.qr")}
             value={qrValue}
-            onChange={(e) => setValue("upi.qr", e.target.value as "yes" | "no")}
+            onChange={(e) =>
+              setValue("upi.qr", e.target.value as "yes" | "no", {
+                shouldDirty: true,
+              })
+            }
           >
             <option value="no">No</option>
             <option value="yes">Yes</option>
@@ -143,7 +142,6 @@ export default function UPIPanel() {
         </div>
       </div>
 
-      {/* QR URL + upload – only when QR is enabled */}
       {qrValue === "yes" && (
         <div className="grid gap-4 md:grid-cols-2">
           <div>
@@ -160,7 +158,7 @@ export default function UPIPanel() {
               {...register("upi.qr_src")}
             />
             <p className="text-xs text-muted-foreground mt-1">
-              If you already uploaded QR to  Media, paste its URL here.
+              If you already uploaded QR to Media, paste its URL here.
             </p>
           </div>
           <div>
@@ -192,13 +190,12 @@ export default function UPIPanel() {
         </div>
       )}
 
-      {/* Notes */}
       <div>
         <label
           htmlFor="upi_notes"
           className="block text-sm font-medium mb-1"
         >
-          Notes (shown on Thank-you &amp; Email)
+          Notes (shown on checkout / email)
         </label>
         <textarea
           id="upi_notes"
@@ -208,8 +205,8 @@ export default function UPIPanel() {
           {...register("upi.notes")}
         />
         <p className="text-xs text-muted-foreground mt-1">
-          Customers will see these UPI instructions on checkout, thank-you page
-          and in order emails.
+          Customers will see these UPI instructions on checkout and in order
+          emails.
         </p>
       </div>
     </div>

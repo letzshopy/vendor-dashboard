@@ -6,6 +6,19 @@ type RouteContext = {
   params: Promise<{ id: string }>;
 };
 
+function buildMetaData(body: any) {
+  const meta_data: { key: string; value: string }[] = [];
+
+  if ("color" in body) {
+    meta_data.push({
+      key: "_ls_color",
+      value: String(body?.color || "").trim(),
+    });
+  }
+
+  return meta_data;
+}
+
 export async function PUT(req: NextRequest, context: RouteContext) {
   try {
     const woo = await getWooClient();
@@ -33,7 +46,16 @@ export async function PUT(req: NextRequest, context: RouteContext) {
       );
     }
 
-    const { data } = await woo.put(`/products/${productId}`, body);
+    const payload: any = { ...body };
+
+    const meta_data = buildMetaData(body);
+    delete payload.color;
+
+    if (meta_data.length) {
+      payload.meta_data = meta_data;
+    }
+
+    const { data } = await woo.put(`/products/${productId}`, payload);
 
     return NextResponse.json({ ok: true, product: data });
   } catch (e: any) {

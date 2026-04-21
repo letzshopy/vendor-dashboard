@@ -40,6 +40,7 @@ type Product = {
   id: number;
   name: string;
   sku?: string;
+  color?: string;
   type?: string;
   status?: string;
   permalink?: string;
@@ -267,9 +268,7 @@ export default function ProductViewPage() {
             })
           );
 
-          setGroupedChildren(
-            children.filter(Boolean) as GroupedChild[]
-          );
+          setGroupedChildren(children.filter(Boolean) as GroupedChild[]);
         } else {
           setGroupedChildren([]);
         }
@@ -469,6 +468,15 @@ export default function ProductViewPage() {
                 </div>
                 <div className="mt-1 text-sm text-slate-900">
                   {fmt(product.sku, "—")}
+                </div>
+              </div>
+
+              <div>
+                <div className="text-[11px] font-medium uppercase tracking-wide text-slate-500">
+                  Color
+                </div>
+                <div className="mt-1 text-sm text-slate-900">
+                  {fmt(product.color, "—")}
                 </div>
               </div>
 

@@ -1,10 +1,23 @@
-// src/lib/settingsStore.ts
-
 export type KycStatus = "not_started" | "in_review" | "approved" | "rejected";
 
-export interface PagesSettings {
-  homeBannerUrl: string;
-  aboutText: string;
+export interface SetupSiteSettings {
+  branding: {
+    topbarMessage: string;
+    heroBannerUrl: string;
+    heroTopText: string;
+    heroHeading: string;
+    heroBottomText: string;
+    heroButtonText: string;
+    heroButtonLink: string;
+  };
+  policies: {
+    returnsAccepted: string;
+    returnWindowDays: string;
+    returnConditionNotes: string;
+    refundProcessingDays: string;
+    returnAddressSame: boolean;
+    returnAddress: string;
+  };
 }
 
 export interface SettingsState {
@@ -21,6 +34,9 @@ export interface SettingsState {
       email: string;
       address: string;
       logoUrl?: string;
+      state?: string;
+      city?: string;
+      category?: string;
     };
     social: {
       instagram?: string;
@@ -33,7 +49,12 @@ export interface SettingsState {
   };
 
   kyc: {
-    businessType: "individual" | "proprietorship" | "partnership" | "private_ltd" | "llp";
+    businessType:
+      | "individual"
+      | "proprietorship"
+      | "partnership"
+      | "private_ltd"
+      | "llp";
     pan?: string;
     gstin?: string;
     gst_legal_name?: string;
@@ -64,7 +85,7 @@ export interface SettingsState {
     submittedAt?: string;
   };
 
-  pages: PagesSettings;
+  setupSite: SetupSiteSettings;
 
   general: {
     products: {
@@ -87,18 +108,52 @@ export interface SettingsState {
 let _settings: SettingsState = {
   profile: {
     personal: { name: "", mobile: "", email: "", address: "" },
-    business: { name: "", phone: "", email: "", address: "", logoUrl: "" },
-    social: { showWhatsAppIcon: false },
+    business: {
+      name: "",
+      phone: "",
+      email: "",
+      address: "",
+      logoUrl: "",
+      state: "",
+      city: "",
+      category: "",
+    },
+    social: {
+      instagram: "",
+      facebook: "",
+      youtube: "",
+      whatsappLink: "",
+      whatsappNumber: "",
+      showWhatsAppIcon: false,
+    },
   },
+
   kyc: {
     businessType: "individual",
     docs: {},
     kycStatus: "not_started",
   },
-  pages: {
-    homeBannerUrl: "",
-    aboutText: "",
+
+  setupSite: {
+    branding: {
+      topbarMessage: "",
+      heroBannerUrl: "",
+      heroTopText: "",
+      heroHeading: "",
+      heroBottomText: "",
+      heroButtonText: "",
+      heroButtonLink: "",
+    },
+    policies: {
+      returnsAccepted: "",
+      returnWindowDays: "",
+      returnConditionNotes: "",
+      refundProcessingDays: "",
+      returnAddressSame: true,
+      returnAddress: "",
+    },
   },
+
   general: {
     products: {
       currency: "INR",
@@ -129,23 +184,49 @@ export function deepPatchSettings(patch: Partial<SettingsState>) {
     profile: {
       ..._settings.profile,
       ...patch.profile,
-      personal: { ..._settings.profile.personal, ...(patch.profile?.personal ?? {}) },
-      business: { ..._settings.profile.business, ...(patch.profile?.business ?? {}) },
-      social: { ..._settings.profile.social, ...(patch.profile?.social ?? {}) },
+      personal: {
+        ..._settings.profile.personal,
+        ...(patch.profile?.personal ?? {}),
+      },
+      business: {
+        ..._settings.profile.business,
+        ...(patch.profile?.business ?? {}),
+      },
+      social: {
+        ..._settings.profile.social,
+        ...(patch.profile?.social ?? {}),
+      },
     },
 
     kyc: {
       ..._settings.kyc,
       ...patch.kyc,
-      docs: { ..._settings.kyc.docs, ...(patch.kyc?.docs ?? {}) },
+      docs: {
+        ..._settings.kyc.docs,
+        ...(patch.kyc?.docs ?? {}),
+      },
     },
 
-    pages: { ..._settings.pages, ...(patch.pages ?? {}) },
+    setupSite: {
+      ..._settings.setupSite,
+      ...(patch.setupSite ?? {}),
+      branding: {
+        ..._settings.setupSite.branding,
+        ...(patch.setupSite?.branding ?? {}),
+      },
+      policies: {
+        ..._settings.setupSite.policies,
+        ...(patch.setupSite?.policies ?? {}),
+      },
+    },
 
     general: {
       ..._settings.general,
       ...(patch.general ?? {}),
-      products: { ..._settings.general.products, ...(patch.general?.products ?? {}) },
+      products: {
+        ..._settings.general.products,
+        ...(patch.general?.products ?? {}),
+      },
     },
   });
 

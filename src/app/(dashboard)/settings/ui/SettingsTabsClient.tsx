@@ -5,7 +5,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   User,
   IdCard,
-  FileText,
+  LayoutTemplate,
   Settings2,
   Truck,
   Percent,
@@ -17,7 +17,7 @@ import {
 
 import ProfileTab from "./tabs/ProfileTab";
 import KycTab from "./tabs/KycTab";
-import PagesTab from "./tabs/PagesTab";
+import SetupSiteTab from "./tabs/SetupSiteTab";
 import GeneralTab from "./tabs/GeneralTab";
 import ShippingTab from "./tabs/ShippingTab";
 import TaxTab from "./tabs/TaxTab";
@@ -29,7 +29,7 @@ import ShipmentFulfillmentTab from "./tabs/ShipmentFulfillmentTab";
 type TabId =
   | "profile"
   | "kyc"
-  | "pages"
+  | "setupSite"
   | "general"
   | "shipping"
   | "tax"
@@ -49,7 +49,7 @@ type TabDef = {
 const TAB_COMPONENTS: Record<TabId, React.ReactNode> = {
   profile: <ProfileTab />,
   kyc: <KycTab />,
-  pages: <PagesTab />,
+  setupSite: <SetupSiteTab />,
   general: <GeneralTab />,
   shipping: <ShippingTab />,
   tax: <TaxTab />,
@@ -63,7 +63,7 @@ const TABS: TabDef[] = [
   {
     id: "profile",
     label: "Profile",
-    description: "Personal info, business details & logo.",
+    description: "Personal info, business details, logo and social links.",
     icon: User,
   },
   {
@@ -73,40 +73,41 @@ const TABS: TabDef[] = [
     icon: IdCard,
   },
   {
-    id: "pages",
-    label: "Pages",
-    description: "Home, Shop, Cart, Checkout & legal pages.",
-    icon: FileText,
+    id: "setupSite",
+    label: "Setup Site",
+    shortLabel: "Setup Site",
+    description: "Branding, banner, contact info, about and policy inputs.",
+    icon: LayoutTemplate,
   },
   {
     id: "general",
     label: "General",
-    description: "Currency, measurements & basic Woo settings.",
+    description: "Currency, measurements and basic Woo settings.",
     icon: Settings2,
   },
   {
     id: "shipping",
     label: "Shipping Charge",
     shortLabel: "Shipping",
-    description: "Zones, methods & weight-based shipping rules.",
+    description: "Zones, methods and weight-based shipping rules.",
     icon: Truck,
   },
   {
     id: "tax",
     label: "Tax",
-    description: "GST slabs, display options & invoice tax.",
+    description: "GST slabs, display options and invoice tax.",
     icon: Percent,
   },
   {
     id: "payments",
     label: "Payments",
-    description: "UPI, Easebuzz, bank transfer & COD options.",
+    description: "UPI, Easebuzz, bank transfer and COD options.",
     icon: CreditCard,
   },
   {
     id: "account",
     label: "Account",
-    description: "Account details, contact info and login security.",
+    description: "Account details, plan info and login security.",
     icon: Building2,
   },
   {
@@ -119,7 +120,7 @@ const TABS: TabDef[] = [
     id: "shipmentFulfillment",
     label: "Shipment Fulfillment",
     shortLabel: "Fulfillment",
-    description: "Courier details, tracking updates & order completion.",
+    description: "Courier details, tracking updates and order completion.",
     icon: PackageSearch,
   },
 ];
@@ -129,7 +130,14 @@ export default function SettingsTabsClient() {
   const router = useRouter();
   const pathname = usePathname();
 
-  const activeId = (sp.get("tab") as TabId) || "profile";
+  const rawTab = sp.get("tab");
+const activeId: TabId =
+  rawTab === "pages"
+    ? "setupSite"
+    : TABS.some((t) => t.id === rawTab)
+    ? (rawTab as TabId)
+    : "profile";
+
   const activeTab = TABS.find((t) => t.id === activeId) ?? TABS[0];
 
   function setTab(id: TabId) {
@@ -146,7 +154,7 @@ export default function SettingsTabsClient() {
             Settings
           </h1>
           <p className="text-sm text-slate-600">
-            Manage your store profile, payments, shipping, taxes and more.
+            Manage your store profile, site setup, payments, shipping, taxes and more.
           </p>
         </div>
       </div>

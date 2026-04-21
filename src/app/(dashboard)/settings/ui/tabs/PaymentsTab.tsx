@@ -36,7 +36,7 @@ const DEFAULT_VALUES: PaymentsFormValues = {
     time_min: "",
     notes: "",
     qr_src: "",
-    mobile_button_enabled: true,
+    require_screenshot: true,
   },
   bank: {
     enabled: false,
@@ -71,7 +71,7 @@ export default function PaymentsTab() {
 
   const paymentsEnabled = watch("general.enabled");
   const upiEnabled = watch("upi.enabled");
-  const mobileButtonEnabled = watch("upi.mobile_button_enabled");
+  const requireScreenshot = watch("upi.require_screenshot");
 
   useEffect(() => {
     let cancelled = false;
@@ -119,9 +119,11 @@ export default function PaymentsTab() {
             time_min: data.upi?.time_min || "",
             notes: data.upi?.notes || "",
             qr_src: data.upi?.qr_src || "",
-            mobile_button_enabled:
-              data.upi?.mobile_button_enabled !== undefined
-                ? !!data.upi.mobile_button_enabled
+            require_screenshot:
+              data.upi?.require_screenshot !== undefined
+                ? !!data.upi.require_screenshot
+                : data.upi?.screenshot_upload !== undefined
+                ? !!data.upi.screenshot_upload
                 : true,
           },
           bank: {
@@ -170,10 +172,18 @@ export default function PaymentsTab() {
       setError(null);
       setSuccess(null);
 
+      const payload: PaymentsFormValues = {
+        ...values,
+        upi: {
+          ...values.upi,
+          require_screenshot: !!values.upi.require_screenshot,
+        },
+      };
+
       const res = await fetch("/api/payments/settings", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(values),
+        body: JSON.stringify(payload),
       });
 
       const data = await res.json().catch(() => ({}));
@@ -358,9 +368,9 @@ export default function PaymentsTab() {
                           UPI (Manual confirmation)
                         </div>
                         <p className="text-[11px] text-slate-500">
-                          On mobile, customers can open a UPI app directly. On
-                          desktop, QR can be shown for scan and pay. You verify
-                          the payment manually.
+                          Show UPI number / UPI ID / QR at checkout. Customer
+                          enters transaction number and you verify payment
+                          manually.
                         </p>
                       </div>
                     </label>
@@ -374,13 +384,13 @@ export default function PaymentsTab() {
                       <div className="flex items-start justify-between gap-3">
                         <div className="pr-3">
                           <div className="text-xs font-semibold text-slate-900">
-                            Mobile UPI button
+                            Screenshot proof on thank-you page
                           </div>
                           <p className="mt-1 text-[11px] leading-5 text-slate-600">
-                            When enabled, mobile customers will see a{" "}
-                            <span className="font-medium">Pay via UPI App</span>{" "}
-                            button on the thank-you page. Desktop customers can
-                            continue to scan the QR code.
+                            When enabled, customers must upload payment
+                            screenshot on the thank-you page. When disabled,
+                            normal Woo thank-you page will load and you verify
+                            only by transaction number in order details.
                           </p>
                         </div>
 
@@ -388,21 +398,21 @@ export default function PaymentsTab() {
                           type="button"
                           onClick={() =>
                             methods.setValue(
-                              "upi.mobile_button_enabled",
-                              !mobileButtonEnabled,
+                              "upi.require_screenshot",
+                              !requireScreenshot,
                               { shouldDirty: true }
                             )
                           }
                           className={`relative flex h-6 w-11 shrink-0 items-center rounded-full border transition-colors ${
-                            mobileButtonEnabled
+                            requireScreenshot
                               ? "border-emerald-500 bg-emerald-500/90"
                               : "border-slate-300 bg-slate-200"
                           }`}
-                          aria-pressed={mobileButtonEnabled}
+                          aria-pressed={requireScreenshot}
                         >
                           <span
                             className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${
-                              mobileButtonEnabled
+                              requireScreenshot
                                 ? "translate-x-[18px]"
                                 : "translate-x-[2px]"
                             }`}
@@ -412,12 +422,12 @@ export default function PaymentsTab() {
 
                       <input
                         type="hidden"
-                        {...register("upi.mobile_button_enabled")}
+                        {...register("upi.require_screenshot")}
                       />
 
                       <div className="mt-3 rounded-lg border border-slate-200 bg-white px-3 py-2 text-[11px] text-slate-600">
-                        Mobile checkout: UPI button first, with optional QR
-                        fallback. Desktop checkout: show QR directly.
+                        ON: thank-you page shows screenshot upload block. OFF:
+                        native Woo thank-you page only.
                       </div>
                     </div>
                   )}

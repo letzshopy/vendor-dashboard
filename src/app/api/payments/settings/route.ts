@@ -5,7 +5,6 @@ import { getWpBaseUrl } from "@/lib/wpClient";
 const OPTION_KEY = "letz_payments_settings";
 
 // --- helpers to store UI state as a single JSON option via custom WP REST ---
-// We ignore `name` and always use the `letz_payments_settings` option.
 async function getOption(_name: string): Promise<any> {
   try {
     const wpBase = (await getWpBaseUrl()).replace(/\/$/, "");
@@ -48,7 +47,8 @@ type SaveBody = {
     time_min?: string;
     notes?: string;
     qr_src?: string;
-    mobile_button_enabled?: boolean;
+    require_screenshot?: boolean;
+    screenshot_upload?: boolean; // backward compatibility
   };
   bank?: {
     enabled?: boolean;
@@ -123,9 +123,11 @@ function normalizeBody(body: SaveBody): SaveBody {
       time_min: body?.upi?.time_min || "",
       notes: body?.upi?.notes || "",
       qr_src: body?.upi?.qr_src || "",
-      mobile_button_enabled:
-        body?.upi?.mobile_button_enabled !== undefined
-          ? !!body.upi.mobile_button_enabled
+      require_screenshot:
+        body?.upi?.require_screenshot !== undefined
+          ? !!body.upi.require_screenshot
+          : body?.upi?.screenshot_upload !== undefined
+          ? !!body.upi.screenshot_upload
           : true,
     },
     bank: {
@@ -151,7 +153,6 @@ function normalizeBody(body: SaveBody): SaveBody {
 export async function GET() {
   try {
     const state = await getOption(OPTION_KEY);
-
     const safe = normalizeBody((state || {}) as SaveBody);
     return NextResponse.json(safe);
   } catch (e: any) {

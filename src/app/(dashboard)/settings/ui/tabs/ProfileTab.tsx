@@ -11,11 +11,10 @@ type ProfileData = {
     address: string;
     logoUrl?: string;
   };
-  social: {
+    social: {
     instagram?: string;
     facebook?: string;
     youtube?: string;
-    whatsappLink?: string;
     whatsappNumber?: string;
     showWhatsAppIcon?: boolean;
   };
@@ -24,11 +23,10 @@ type ProfileData = {
 const EMPTY_PROFILE: ProfileData = {
   personal: { name: "", mobile: "", email: "", address: "" },
   business: { name: "", phone: "", email: "", address: "", logoUrl: "" },
-  social: {
+    social: {
     instagram: "",
     facebook: "",
     youtube: "",
-    whatsappLink: "",
     whatsappNumber: "",
     showWhatsAppIcon: false,
   },
@@ -49,7 +47,6 @@ export default function ProfileTab() {
     "placeholder:text-slate-500 shadow-sm " +
     "focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-600";
 
-  // Helper: check if API payload actually has any non-empty values
   const apiHasUsefulData = (s: any): boolean => {
     if (!s || typeof s !== "object") return false;
 
@@ -65,22 +62,20 @@ export default function ProfileTab() {
         b.phone ||
         b.email ||
         b.address ||
+        b.logoUrl ||
         so.instagram ||
         so.facebook ||
         so.youtube ||
-        so.whatsappLink ||
         so.whatsappNumber
     );
   };
 
-  // ---------- Load profile once ----------
   useEffect(() => {
     let cancelled = false;
 
     async function init() {
       let current: ProfileData | null = null;
 
-      // 1) Load from localStorage first and show it immediately
       if (typeof window !== "undefined") {
         const raw = window.localStorage.getItem(LS_KEY);
         if (raw) {
@@ -92,7 +87,7 @@ export default function ProfileTab() {
               social: { ...EMPTY_PROFILE.social, ...(parsed.social || {}) },
             };
           } catch {
-            // ignore parse errors, we'll fall back below
+            // ignore
           }
         }
       }
@@ -102,13 +97,12 @@ export default function ProfileTab() {
         setDirty(false);
       }
 
-      // 2) Fetch from API and override ONLY if API has actual data
       try {
         const res = await fetch("/api/settings/profile", { cache: "no-store" });
         if (!res.ok) return;
 
         const s = await res.json();
-        if (!apiHasUsefulData(s)) return; // <-- don't wipe LS if API is empty
+        if (!apiHasUsefulData(s)) return;
 
         const merged: ProfileData = {
           personal: { ...EMPTY_PROFILE.personal, ...(s.personal || {}) },
@@ -119,13 +113,13 @@ export default function ProfileTab() {
         if (!cancelled) {
           setData(merged);
           setDirty(false);
-          // Optional: also sync API snapshot back into localStorage
+
           if (typeof window !== "undefined") {
             window.localStorage.setItem(LS_KEY, JSON.stringify(merged));
           }
         }
       } catch {
-        // ignore API failures; user still sees localStorage data
+        // ignore
       }
     }
 
@@ -136,7 +130,6 @@ export default function ProfileTab() {
     };
   }, []);
 
-  // ---------- Warn on browser refresh/close if dirty ----------
   useEffect(() => {
     if (!dirty) return;
 
@@ -184,8 +177,6 @@ export default function ProfileTab() {
     if (!data) return;
     setSaving(true);
 
-    // Always keep a local snapshot so data survives refresh,
-    // even if the API call fails for now.
     if (typeof window !== "undefined") {
       window.localStorage.setItem(LS_KEY, JSON.stringify(data));
     }
@@ -205,7 +196,7 @@ export default function ProfileTab() {
       window.scrollTo({ top: 0, behavior: "smooth" });
       setSaveBanner("Profile settings saved successfully.");
       setTimeout(() => setSaveBanner(null), 5000);
-    } catch (e) {
+    } catch {
       setSaveBanner("Saved locally, but server could not be updated. Please try again.");
       setTimeout(() => setSaveBanner(null), 6000);
     } finally {
@@ -214,15 +205,13 @@ export default function ProfileTab() {
   };
 
   return (
-    <div className="space-y-6">
-      {/* BIG success / error bar */}
+    <div className="space-y-6 p-4 md:p-5">
       {saveBanner && (
         <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm text-emerald-800 shadow-sm">
           {saveBanner}
         </div>
       )}
 
-      {/* Personal */}
       <section className="rounded-xl border border-slate-200 bg-white/80 px-4 py-4 shadow-sm">
         <h3 className="mb-1 text-sm font-semibold text-slate-900">Personal</h3>
         <p className="mb-4 text-xs text-slate-500">
@@ -259,24 +248,25 @@ export default function ProfileTab() {
         />
       </section>
 
-      {/* Business */}
       <section className="rounded-xl border border-slate-200 bg-white/80 px-4 py-4 shadow-sm">
-        <h3 className="mb-1 text-sm font-semibold text-slate-900">Business</h3>
+        <h3 className="mb-1 text-sm font-semibold text-slate-900">
+          Brand &amp; business identity
+        </h3>
         <p className="mb-4 text-xs text-slate-500">
-          These details appear on your invoices, emails and storefront footer.
+          These details are used for invoices, emails, store branding and footer/contact sync.
         </p>
 
         <div className="grid items-start gap-4 md:grid-cols-[minmax(0,2fr)_minmax(0,1.4fr)]">
           <div className="space-y-3">
             <input
               className={inputClass}
-              placeholder="Business name"
+              placeholder="Business / store name"
               value={data.business.name ?? ""}
               onChange={(e) => markDirtyChange("business.name", e.target.value)}
             />
             <input
               className={inputClass}
-              placeholder="Business phone"
+              placeholder="Business phone / WhatsApp number"
               value={data.business.phone ?? ""}
               onChange={(e) => markDirtyChange("business.phone", e.target.value)}
             />
@@ -288,18 +278,17 @@ export default function ProfileTab() {
             />
             <textarea
               className={inputClass}
-              rows={3}
-              placeholder="Business address (shown on invoices)"
+              rows={4}
+              placeholder="Business address"
               value={data.business.address ?? ""}
               onChange={(e) => markDirtyChange("business.address", e.target.value)}
             />
           </div>
 
-          {/* Logo upload */}
           <div className="rounded-lg border border-dashed border-slate-300 bg-slate-50/70 p-4">
             <div className="mb-2 text-sm font-semibold text-slate-900">Logo</div>
             <p className="mb-3 text-xs text-slate-500">
-              This logo is used on invoices, emails and (optionally) your store header.
+              This logo is used in invoices, emails and your store header/footer branding.
             </p>
 
             {data.business.logoUrl ? (
@@ -347,19 +336,19 @@ export default function ProfileTab() {
             />
 
             <p className="mt-2 text-[11px] text-slate-500">
-              Recommended: PNG/JPG, square, up to 1&nbsp;MB.
+              Recommended: PNG/JPG, square logo, up to 1 MB.
             </p>
           </div>
         </div>
       </section>
 
-      {/* Social */}
+            {/* Social */}
       <section className="rounded-xl border border-slate-200 bg-white/80 px-4 py-4 shadow-sm">
         <h3 className="mb-1 text-sm font-semibold text-slate-900">
           Social &amp; WhatsApp
         </h3>
         <p className="mb-4 text-xs text-slate-500">
-          Add links that appear in your store footer and customer emails.
+          Add links that appear in your storefront top bar and communication areas.
         </p>
 
         <div className="grid gap-3 md:grid-cols-2">
@@ -383,24 +372,16 @@ export default function ProfileTab() {
           />
           <input
             className={inputClass}
-            placeholder="WhatsApp deep link (optional)"
-            value={data.social.whatsappLink ?? ""}
-            onChange={(e) =>
-              markDirtyChange("social.whatsappLink", e.target.value)
-            }
-          />
-        </div>
-
-        <div className="mt-3 grid gap-3 md:grid-cols-2">
-          <input
-            className={inputClass}
-            placeholder="WhatsApp number"
+            placeholder="Customer support WhatsApp number"
             value={data.social.whatsappNumber ?? ""}
             onChange={(e) =>
               markDirtyChange("social.whatsappNumber", e.target.value)
             }
           />
-          <label className="mt-2 inline-flex items-center gap-2 text-xs text-slate-700 md:mt-0">
+        </div>
+
+        <div className="mt-3">
+          <label className="inline-flex items-center gap-2 text-xs text-slate-700">
             <input
               type="checkbox"
               className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
@@ -409,7 +390,7 @@ export default function ProfileTab() {
                 markDirtyChange("social.showWhatsAppIcon", e.target.checked)
               }
             />
-            Show WhatsApp icon on store footer
+            Show floating WhatsApp button on storefront
           </label>
         </div>
       </section>

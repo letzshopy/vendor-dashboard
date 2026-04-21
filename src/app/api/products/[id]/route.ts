@@ -1,10 +1,15 @@
-// src/app/api/products/[id]/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { getWooClient } from "@/lib/woo";
 
 type RouteContext = {
   params: Promise<{ id: string }>;
 };
+
+function getMetaValue(metaData: any[], key: string) {
+  if (!Array.isArray(metaData)) return "";
+  const row = metaData.find((m) => m?.key === key);
+  return row?.value ? String(row.value) : "";
+}
 
 export async function GET(_req: NextRequest, context: RouteContext) {
   try {
@@ -18,6 +23,7 @@ export async function GET(_req: NextRequest, context: RouteContext) {
       id: data.id,
       name: data.name,
       sku: data.sku,
+      color: getMetaValue(data?.meta_data, "_ls_color"),
       type: data.type,
       status: data.status,
       permalink: data.permalink,

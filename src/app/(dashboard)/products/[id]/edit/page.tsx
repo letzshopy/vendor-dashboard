@@ -15,6 +15,7 @@ type Prod = {
   name: string;
   type: ProductType | string;
   sku?: string;
+  color?: string;
   status?: "draft" | "publish";
   catalog_visibility?: "visible" | "catalog" | "search" | "hidden";
   short_description?: string;
@@ -130,6 +131,7 @@ export default function EditProductPage({
 
   const [title, setTitle] = useState("");
   const [sku, setSku] = useState("");
+  const [color, setColor] = useState("");
   const [status, setStatus] = useState<"draft" | "publish">("publish");
   const [visibility, setVisibility] = useState<
     "visible" | "catalog" | "search" | "hidden"
@@ -206,6 +208,7 @@ export default function EditProductPage({
           setPtype((prod.type as ProductType) ?? "simple");
           setTitle(prod.name || "");
           setSku(prod.sku || "");
+          setColor(prod.color || "");
           setStatus(prod.status || "draft");
           setVisibility(prod.catalog_visibility || "visible");
           setShortDesc(prod.short_description || "");
@@ -405,6 +408,7 @@ export default function EditProductPage({
         type: ptype,
         name: title,
         sku: sku || undefined,
+        color: color.trim(),
         status,
         catalog_visibility: visibility,
         short_description: shortDesc,
@@ -650,6 +654,16 @@ export default function EditProductPage({
                     className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs shadow-inner focus:border-violet-400 focus:outline-none"
                     value={sku}
                     onChange={(e) => setSku(e.target.value)}
+                  />
+                </div>
+
+                <div>
+                  <ReqLabel>Color</ReqLabel>
+                  <input
+                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs shadow-inner focus:border-violet-400 focus:outline-none"
+                    value={color}
+                    onChange={(e) => setColor(e.target.value)}
+                    placeholder="e.g. Pink, Navy Blue, Maroon"
                   />
                 </div>
 
