@@ -2,8 +2,6 @@
 
 import { useEffect, useMemo, useState } from "react";
 import {
-  ChevronDown,
-  FolderTree,
   Link2,
   Loader2,
   MenuSquare,
@@ -26,7 +24,8 @@ type MenuKey = "primary" | "footer_discover" | "footer_info";
 
 type MenuDef = {
   key: MenuKey;
-  label: string;
+  label: string; // UI label
+  wpName: string; // actual WP menu name
   also: string[];
   loadMode: "menu_id" | "location";
   saveMode: "menu_id" | "location";
@@ -36,6 +35,7 @@ const MENUS: MenuDef[] = [
   {
     key: "primary",
     label: "Primary Menu",
+    wpName: "Main Menu",
     also: ["Off-Canvas Menu"],
     loadMode: "menu_id",
     saveMode: "location",
@@ -43,6 +43,7 @@ const MENUS: MenuDef[] = [
   {
     key: "footer_discover",
     label: "Footer - Discover",
+    wpName: "Footer Menu",
     also: [],
     loadMode: "menu_id",
     saveMode: "menu_id",
@@ -50,13 +51,14 @@ const MENUS: MenuDef[] = [
   {
     key: "footer_info",
     label: "Footer - Information",
+    wpName: "Top Menu",
     also: [],
     loadMode: "menu_id",
     saveMode: "menu_id",
   },
 ];
 
-const STORAGE_KEY = (k: MenuKey) => `ls_menu_${k}_v5`;
+const STORAGE_KEY = (k: MenuKey) => `ls_menu_${k}_v6`;
 const uid = () => Math.random().toString(36).slice(2, 9);
 
 type Path = number[];
@@ -277,47 +279,71 @@ export default function MenuLayoutPage() {
     setMsg(null);
     setSuccess(null);
 
-    let url = "";
-
     try {
+      let res: Response | null = null;
+      let data: any = null;
+
+      const tryFetch = async (url: string) => {
+        const r = await fetch(url, { cache: "no-store" });
+        const j = await r.json();
+        return { r, j };
+      };
+
       if (def.loadMode === "menu_id") {
-        const id = menuMap[def.label];
+        const id = menuMap[def.wpName];
 
         if (id) {
-          url = `/api/menu/sync?menu_id=${id}&menu_name=${encodeURIComponent(
-            def.label
-          )}&location_label=${encodeURIComponent(def.label)}`;
-        } else if (def.key === "primary") {
-          url = `/api/menu/sync?location=${encodeURIComponent(
-            def.key
-          )}&menu_name=${encodeURIComponent(def.label)}&location_label=${encodeURIComponent(
-            def.label
-          )}`;
-        } else {
+          const first = await tryFetch(
+            `/api/menu/sync?menu_id=${id}&menu_name=${encodeURIComponent(
+  def.wpName
+)}&location_label=${encodeURIComponent(def.wpName)}`
+          );
+          res = first.r;
+          data = first.j;
+        }
+
+        const shouldFallbackToLocation =
+          def.key === "primary" &&
+          (!res ||
+            !res.ok ||
+            ((data?.items?.length ?? 0) === 0 &&
+              typeof data?.note === "string" &&
+              data.note.toLowerCase().includes("not found")));
+
+        if (shouldFallbackToLocation) {
+          const second = await tryFetch(
+            `/api/menu/sync?location=${encodeURIComponent(
+  def.key
+)}&menu_name=${encodeURIComponent(def.wpName)}&location_label=${encodeURIComponent(
+  def.wpName
+)}`
+          );
+          res = second.r;
+          data = second.j;
+        }
+
+        if (!res && def.key !== "primary") {
           setItems([]);
           notify(`Couldn't load “${def.label}” (menu ID not found).`);
           return;
         }
       } else {
-        url = `/api/menu/sync?location=${encodeURIComponent(
-          def.key
-        )}&menu_name=${encodeURIComponent(def.label)}&location_label=${encodeURIComponent(
-          def.label
-        )}`;
+        const direct = await tryFetch(
+          `/api/menu/sync?location=${encodeURIComponent(def.key)}`
+        );
+        res = direct.r;
+        data = direct.j;
       }
 
-      const res = await fetch(url, { cache: "no-store" });
-      const data = await res.json();
-
-      if (res.ok) {
-        const list = toLocalTree(data.items || []);
+      if (res?.ok) {
+        const list = toLocalTree(data?.items || []);
         setItems(list);
 
         if (typeof window !== "undefined") {
           localStorage.setItem(STORAGE_KEY(def.key), JSON.stringify(list));
         }
 
-        if ((data.items || []).length === 0) {
+        if ((data?.items || []).length === 0) {
           notify(`Loaded “${def.label}”, but it currently has no items.`);
         } else {
           ok(`Loaded “${def.label}”.`);
@@ -327,6 +353,7 @@ export default function MenuLayoutPage() {
           typeof window !== "undefined"
             ? localStorage.getItem(STORAGE_KEY(def.key))
             : null;
+
         setItems(raw ? JSON.parse(raw) : []);
         notify(
           data?.error ||
@@ -338,6 +365,7 @@ export default function MenuLayoutPage() {
         typeof window !== "undefined"
           ? localStorage.getItem(STORAGE_KEY(def.key))
           : null;
+
       setItems(raw ? JSON.parse(raw) : []);
       notify(
         e?.message ||
@@ -375,17 +403,17 @@ export default function MenuLayoutPage() {
 
     try {
       const body: any = {
-        items: toWire(items),
-        location_label: def.label,
-        also_location_labels: def.also,
-      };
+  items: toWire(items),
+  location_label: def.wpName,
+  also_location_labels: def.also,
+};
 
       if (def.saveMode === "location") {
         body.location = def.key;
       } else {
-        const id = menuMap[def.label];
+        const id = menuMap[def.wpName];
         if (!id) {
-          notify(`Cannot save — missing menu ID for “${def.label}”.`);
+          notify(`Cannot save — missing menu ID for “${def.wpName}”.`);
           return;
         }
         body.menu_id = id;
@@ -676,7 +704,6 @@ export default function MenuLayoutPage() {
       )}
 
       <div className="mt-4 grid grid-cols-1 gap-4 xl:grid-cols-[360px_minmax(0,1fr)]">
-        {/* LEFT */}
         <section className="overflow-hidden rounded-[26px] border border-slate-200/80 bg-white shadow-[0_10px_30px_rgba(15,23,42,0.05)]">
           <div className="border-b border-slate-100 bg-gradient-to-r from-[#faf7ff] via-white to-[#f4fbff] px-4 py-4 md:px-5">
             <h2 className="text-[17px] font-semibold tracking-tight text-slate-900">
@@ -776,7 +803,6 @@ export default function MenuLayoutPage() {
           </div>
         </section>
 
-        {/* RIGHT */}
         <section className="space-y-4">
           <div className="overflow-hidden rounded-[26px] border border-slate-200/80 bg-white shadow-[0_10px_30px_rgba(15,23,42,0.05)]">
             <div className="border-b border-slate-100 bg-gradient-to-r from-[#faf7ff] via-white to-[#f4fbff] px-4 py-4 md:px-5">
