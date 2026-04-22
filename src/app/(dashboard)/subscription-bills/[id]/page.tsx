@@ -38,10 +38,8 @@ export default async function SubscriptionInvoiceDetailPage({
   }
 
   return (
-    <main className="min-h-screen bg-gradient-to-b from-[#f7f3ff] via-[#f8fbff] to-white print:bg-white">
-      <div className="mx-auto max-w-4xl px-4 py-6">
-        <InvoiceDetailClient invoice={invoice} />
-      </div>
+    <main className="mx-auto max-w-5xl px-3 pb-28 pt-3 md:px-4 md:pb-8 md:pt-5 print:bg-white">
+      <InvoiceDetailClient invoice={invoice} />
     </main>
   );
 }
