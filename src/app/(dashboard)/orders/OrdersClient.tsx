@@ -2,7 +2,12 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { ChevronLeft, ChevronRight, MoreVertical, Package2, Search } from "lucide-react";
+import {
+  ChevronLeft,
+  ChevronRight,
+  MoreVertical,
+  Package2,
+} from "lucide-react";
 import { WCOrder, statusPillClass } from "@/lib/order-utils";
 import OrdersExportButton from "./ui/OrdersExportButton";
 import { UPIVerificationInline } from "./UPIVerificationInline";
@@ -43,9 +48,9 @@ function ActionMenu({
       <button
         type="button"
         onClick={() => setOpen((s) => !s)}
-        className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:border-violet-300 hover:text-violet-700"
+        className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:border-violet-300 hover:text-violet-700"
       >
-        <MoreVertical className="h-4 w-4" />
+        <MoreVertical className="h-4.5 w-4.5" />
       </button>
 
       {open && (
@@ -83,55 +88,25 @@ export default function OrdersClient({
 
   const [rowsPerPage, setRowsPerPage] = useState(25);
   const [page, setPage] = useState(1);
-  const [query, setQuery] = useState("");
 
-  const filteredOrders = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return orders;
-
-    return orders.filter((o) => {
-      const idStr = String(o.id || "");
-      const orderNo = String(o.number || o.id || "").toLowerCase();
-      const customer = `${o.billing?.first_name || ""} ${o.billing?.last_name || ""}`.toLowerCase();
-      const email = (o.billing?.email || "").toLowerCase();
-      const phone = (o.billing?.phone || "").toLowerCase();
-
-      if (
-        idStr.includes(q) ||
-        orderNo.includes(q) ||
-        customer.includes(q) ||
-        email.includes(q) ||
-        phone.includes(q)
-      ) {
-        return true;
-      }
-
-      return (o.line_items || []).some(
-        (li) =>
-          (li.name || "").toLowerCase().includes(q) ||
-          (li.sku || "").toLowerCase().includes(q)
-      );
-    });
-  }, [orders, query]);
-
-  const allIds = useMemo(() => filteredOrders.map((o) => o.id), [filteredOrders]);
+  const allIds = useMemo(() => orders.map((o) => o.id), [orders]);
   const allSelected = selected.length > 0 && selected.length === allIds.length;
 
   const pageCount = useMemo(
-    () => Math.max(1, Math.ceil((filteredOrders.length || 0) / rowsPerPage)),
-    [filteredOrders.length, rowsPerPage]
+    () => Math.max(1, Math.ceil((orders.length || 0) / rowsPerPage)),
+    [orders.length, rowsPerPage]
   );
 
   const currentPage = Math.min(page, pageCount);
 
   const paginatedOrders = useMemo(() => {
     const start = (currentPage - 1) * rowsPerPage;
-    return filteredOrders.slice(start, start + rowsPerPage);
-  }, [filteredOrders, currentPage, rowsPerPage]);
+    return orders.slice(start, start + rowsPerPage);
+  }, [orders, currentPage, rowsPerPage]);
 
   useEffect(() => {
     setPage(1);
-  }, [rowsPerPage, filteredOrders.length, query]);
+  }, [rowsPerPage, orders.length]);
 
   function toggleAll(checked: boolean) {
     setSelected(checked ? allIds : []);
@@ -200,7 +175,7 @@ export default function OrdersClient({
     location.reload();
   }
 
-  const total = filteredOrders.length;
+  const total = orders.length;
   const startIndex = total === 0 ? 0 : (currentPage - 1) * rowsPerPage + 1;
   const endIndex = total === 0 ? 0 : Math.min(currentPage * rowsPerPage, total);
 
@@ -209,56 +184,46 @@ export default function OrdersClient({
       <section className="overflow-hidden rounded-[26px] border border-slate-200/80 bg-white shadow-[0_10px_30px_rgba(15,23,42,0.05)]">
         <div className="border-b border-slate-100 bg-gradient-to-r from-white via-[#faf7ff] to-[#f4fbff] px-4 py-4">
           <div className="flex items-center justify-between gap-3">
-            <h2 className="text-[16px] font-semibold text-slate-900">Order list</h2>
+            <h2 className="text-[16px] font-semibold text-slate-900">
+              Order list
+            </h2>
             <div className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">
-              {filteredOrders.length} orders
+              {orders.length} orders
             </div>
           </div>
 
-          <div className="mt-3 space-y-3">
-            <div className="flex items-center gap-2 rounded-[22px] border border-slate-200 bg-slate-50 px-3 py-2.5 shadow-sm">
-              <Search className="h-4 w-4 text-slate-400" />
-              <input
-                className="w-full bg-transparent text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none"
-                placeholder="Search order #, customer, phone, email, SKU, product"
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-              />
-            </div>
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <select
+              value={action}
+              onChange={(e) => setAction(e.target.value)}
+              className="h-11 min-w-[180px] rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-700 shadow-sm focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-200"
+            >
+              <option value="">Bulk actions…</option>
+              <option value="trash">Move to trash</option>
+              <option value="status:processing">Change status → Processing</option>
+              <option value="status:completed">Change status → Completed</option>
+              <option value="status:on-hold">Change status → On hold</option>
+              <option value="status:cancelled">Change status → Cancelled</option>
+            </select>
 
-            <div className="flex flex-wrap items-center gap-2">
-              <select
-                value={action}
-                onChange={(e) => setAction(e.target.value)}
-                className="h-11 min-w-[180px] rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-700 shadow-sm focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-200"
-              >
-                <option value="">Bulk actions…</option>
-                <option value="trash">Move to trash</option>
-                <option value="status:processing">Change status → Processing</option>
-                <option value="status:completed">Change status → Completed</option>
-                <option value="status:on-hold">Change status → On hold</option>
-                <option value="status:cancelled">Change status → Cancelled</option>
-              </select>
+            <button
+              onClick={applyBulk}
+              className="inline-flex h-11 items-center justify-center rounded-2xl bg-violet-600 px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-violet-700"
+            >
+              Apply
+            </button>
 
-              <button
-                onClick={applyBulk}
-                className="inline-flex h-11 items-center justify-center rounded-2xl bg-violet-600 px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-violet-700"
-              >
-                Apply
-              </button>
+            <button
+              onClick={printPackSlips}
+              className="inline-flex h-11 items-center justify-center rounded-2xl border border-slate-200 bg-white px-5 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50"
+            >
+              Print Pack Slips
+            </button>
 
-              <button
-                onClick={printPackSlips}
-                className="inline-flex h-11 items-center justify-center rounded-2xl border border-slate-200 bg-white px-5 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50"
-              >
-                Print Pack Slips
-              </button>
+            <OrdersExportButton categories={categories} />
 
-              <OrdersExportButton categories={categories} />
-
-              <div className="ml-auto rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">
-                {selected.length} selected
-              </div>
+            <div className="ml-auto rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">
+              {selected.length} selected
             </div>
           </div>
         </div>
@@ -270,8 +235,13 @@ export default function OrdersClient({
               {paginatedOrders.map((o) => {
                 const first = o.line_items?.[0];
                 const img = first?.image?.src || "";
-                const customerName = `${o.billing?.first_name || ""} ${o.billing?.last_name || ""}`.trim() || "Customer";
-                const shipment = extractShipmentFromMeta((o as any).meta_data || []);
+                const customerName =
+                  `${o.billing?.first_name || ""} ${
+                    o.billing?.last_name || ""
+                  }`.trim() || "Customer";
+                const shipment = extractShipmentFromMeta(
+                  (o as any).meta_data || []
+                );
                 const hasShipment = !!(shipment.awb || shipment.courier);
 
                 return (
@@ -280,7 +250,7 @@ export default function OrdersClient({
                     className="rounded-[20px] border border-slate-200 bg-white px-3 py-3 shadow-sm"
                   >
                     <div className="flex items-start gap-3">
-                      <div className="pt-2">
+                      <div className="pt-3">
                         <input
                           type="checkbox"
                           checked={selected.includes(o.id)}
@@ -292,10 +262,10 @@ export default function OrdersClient({
                         <img
                           src={img}
                           alt=""
-                          className="h-14 w-14 shrink-0 rounded-2xl border border-slate-100 object-cover"
+                          className="h-16 w-16 shrink-0 rounded-2xl border border-slate-100 object-cover"
                         />
                       ) : (
-                        <div className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl border border-dashed border-slate-200 bg-slate-50 text-[10px] text-slate-400">
+                        <div className="grid h-16 w-16 shrink-0 place-items-center rounded-2xl border border-dashed border-slate-200 bg-slate-50 text-[10px] text-slate-400">
                           No image
                         </div>
                       )}
@@ -305,11 +275,11 @@ export default function OrdersClient({
                           <div className="min-w-0">
                             <Link
                               href={`/orders/${o.id}`}
-                              className="block truncate text-sm font-semibold text-slate-900"
+                              className="block truncate text-[15px] font-semibold text-slate-900"
                             >
                               #{o.number || o.id}
                             </Link>
-                            <div className="mt-0.5 truncate text-sm font-medium text-slate-700">
+                            <div className="mt-0.5 truncate text-[14px] font-medium text-slate-700">
                               {customerName}
                             </div>
                           </div>
@@ -321,12 +291,12 @@ export default function OrdersClient({
                           <span className={statusPillClass(o.status)}>
                             {String(o.status || "").replace("_", " ")}
                           </span>
-                          <span className="text-sm font-semibold text-slate-900">
+                          <span className="text-[15px] font-semibold text-slate-900">
                             ₹{o.total}
                           </span>
                         </div>
 
-                        <div className="mt-2 text-sm text-slate-600">
+                        <div className="mt-2 text-[14px] text-slate-600">
                           {(first?.name || "No product") +
                             (first?.sku ? ` (${first.sku})` : "")}
                         </div>
@@ -389,7 +359,9 @@ export default function OrdersClient({
             <tbody>
               {paginatedOrders.map((o) => {
                 const first = o.line_items?.[0];
-                const shipment = extractShipmentFromMeta((o as any).meta_data || []);
+                const shipment = extractShipmentFromMeta(
+                  (o as any).meta_data || []
+                );
                 const hasShipment = !!(shipment.awb || shipment.courier);
 
                 return (
@@ -408,7 +380,7 @@ export default function OrdersClient({
                     <td className="px-4 py-4">
                       <Link
                         href={`/orders/${o.id}`}
-                        className="font-semibold text-indigo-700 hover:underline"
+                        className="text-[15px] font-semibold text-indigo-700 hover:underline"
                       >
                         #{o.number || o.id}
                       </Link>
@@ -458,7 +430,7 @@ export default function OrdersClient({
                       <UPIVerificationInline order={o as any} />
                     </td>
 
-                    <td className="px-4 py-4 font-semibold text-slate-900">
+                    <td className="px-4 py-4 text-[15px] font-semibold text-slate-900">
                       ₹{o.total}
                     </td>
 
@@ -484,7 +456,7 @@ export default function OrdersClient({
           </table>
         </div>
 
-        {filteredOrders.length > 0 && (
+        {orders.length > 0 && (
           <div className="flex flex-col gap-3 border-t border-slate-100 bg-white px-4 py-4 text-xs text-slate-600 md:flex-row md:items-center md:justify-between md:px-5">
             <div>
               Showing <span className="font-semibold">{startIndex}</span> –{" "}
