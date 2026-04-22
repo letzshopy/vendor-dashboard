@@ -1,9 +1,8 @@
-// src/app/products/trash/page.tsx
 import Link from "next/link";
 import { getWooClient } from "@/lib/woo";
 import TrashClient from "./TrashClient";
+import { ArrowLeft, Trash2 } from "lucide-react";
 
-// ---- Types ----
 type P = {
   id: number;
   name: string;
@@ -15,16 +14,14 @@ type P = {
   catalog_visibility?: "visible" | "catalog" | "search" | "hidden";
 };
 
-// Always fetch fresh list
 export const dynamic = "force-dynamic";
 
-// Fetch trashed products from WooCommerce
 async function getTrashed(): Promise<P[]> {
   try {
     const woo = await getWooClient();
 
     const PER_PAGE = 100;
-    const MAX_PAGES = 10; // safety cap (1000 trashed products)
+    const MAX_PAGES = 10;
     const all: P[] = [];
 
     let page = 1;
@@ -58,25 +55,37 @@ export default async function TrashPage() {
   const items = await getTrashed();
 
   return (
-    <main className="mx-auto max-w-6xl px-4 py-6 md:px-6">
-      {/* Header card */}
-      <div className="mb-5 flex items-center justify-between gap-3 rounded-2xl bg-gradient-to-r from-rose-50 via-amber-50 to-sky-50 px-5 py-4">
-        <div>
-          <h1 className="text-xl font-semibold text-slate-900">Trash Bin</h1>
-          <p className="mt-1 text-sm text-slate-600">
-            View products moved to trash. Restore items or permanently delete
-            them to keep your catalog clean.
-          </p>
+    <main className="mx-auto max-w-7xl px-3 pb-28 pt-3 md:px-4 md:pb-8 md:pt-5">
+      <div className="rounded-[30px] border border-white/80 bg-gradient-to-br from-white via-[#fff7f7] to-[#eef7ff] p-4 shadow-[0_14px_40px_rgba(15,23,42,0.06)] md:p-5">
+        <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+          <div className="min-w-0">
+            <div className="inline-flex items-center gap-2 rounded-full bg-rose-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-rose-700">
+              <Trash2 className="h-3.5 w-3.5" />
+              Trash Bin
+            </div>
+
+            <h1 className="mt-3 text-[28px] font-semibold tracking-tight text-slate-900 md:text-[34px]">
+              Deleted products
+            </h1>
+
+            <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-500">
+              Restore products back to your catalog or permanently remove them.
+            </p>
+          </div>
+
+          <Link
+            href="/products"
+            className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-slate-50"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Back to Products
+          </Link>
         </div>
-        <Link
-          href="/products"
-          className="rounded-full border border-slate-200 bg-white px-4 py-1.5 text-xs font-medium text-slate-800 shadow-sm hover:bg-slate-50"
-        >
-          Back to Products
-        </Link>
       </div>
 
-      <TrashClient initial={items} />
+      <div className="mt-4">
+        <TrashClient initial={items} />
+      </div>
     </main>
   );
 }
