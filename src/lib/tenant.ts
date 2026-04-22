@@ -1,5 +1,4 @@
 // src/lib/tenant.ts
-import { cookies } from "next/headers";
 
 export const AUTH_COOKIE = process.env.AUTH_COOKIE_NAME || "ls_vendor_auth";
 export const TENANT_COOKIE = process.env.TENANT_COOKIE_NAME || "ls_tenant";
@@ -139,6 +138,7 @@ function parseSignedAuthCookie(raw: string): Tenant | null {
 }
 
 export async function getTenantFromCookies(): Promise<Tenant | null> {
+  const { cookies } = await import("next/headers");
   const cookieStore = await cookies();
 
   const rawTenant = cookieStore.get(TENANT_COOKIE)?.value || "";

@@ -2,6 +2,7 @@ import { WCOrder } from "@/lib/order-utils";
 import { getWooClient } from "@/lib/woo";
 import OrdersLocalController from "./OrdersLocalController";
 import Link from "next/link";
+import { ClipboardList, Plus } from "lucide-react";
 
 type Category = { id: number; name: string; parent: number };
 
@@ -105,31 +106,35 @@ export default async function OrdersPage() {
   }).format(Math.round(metrics.revenue || 0))}`;
 
   return (
-    <main className="mx-auto max-w-6xl px-4 py-6 md:px-6 space-y-5">
-      <div className="rounded-2xl bg-gradient-to-r from-sky-50 via-indigo-50 to-rose-50 px-5 py-5 shadow-sm">
-        {/* top row */}
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <h1 className="text-xl font-semibold text-slate-900 md:text-2xl">
+    <main className="mx-auto max-w-7xl px-3 pb-28 pt-3 md:px-4 md:pb-8 md:pt-5">
+      <div className="rounded-[30px] border border-white/80 bg-gradient-to-br from-white via-[#f7f8ff] to-[#eef7ff] p-4 shadow-[0_14px_40px_rgba(15,23,42,0.06)] md:p-5">
+        <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+          <div className="min-w-0">
+            <div className="inline-flex items-center gap-2 rounded-full bg-indigo-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-indigo-700">
+              <ClipboardList className="h-3.5 w-3.5" />
+              Orders
+            </div>
+
+            <h1 className="mt-3 text-[28px] font-semibold tracking-tight text-slate-900 md:text-[34px]">
               All Orders
             </h1>
-            <p className="mt-2 max-w-xl text-sm text-slate-600">
-              Track payments, shipment updates and statuses for every order in
-              your store.
+
+            <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-500">
+              Track customers, payments, shipment updates and order progress.
             </p>
           </div>
 
           <Link
-  href="/orders/new"
-  className="inline-flex h-11 items-center justify-center rounded-xl bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 sm:mt-1"
->
-  + Create Order
-</Link>
+            href="/orders/new"
+            className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-indigo-600 px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700"
+          >
+            <Plus className="h-4 w-4" />
+            Create Order
+          </Link>
         </div>
 
-        {/* metrics row */}
-        <div className="mt-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
-          <div className="rounded-2xl bg-white/85 px-4 py-3 shadow-sm">
+        <div className="mt-5 grid grid-cols-2 gap-3 xl:grid-cols-5">
+          <div className="rounded-[22px] bg-white/90 px-4 py-3 shadow-sm">
             <div className="text-[11px] uppercase tracking-wide text-slate-500">
               Total Orders
             </div>
@@ -138,25 +143,34 @@ export default async function OrdersPage() {
             </div>
           </div>
 
-          <div className="rounded-2xl bg-emerald-50 px-4 py-3 shadow-sm">
-            <div className="text-[11px] uppercase tracking-wide text-emerald-600">
+          <div className="rounded-[22px] bg-emerald-50 px-4 py-3 shadow-sm">
+            <div className="text-[11px] uppercase tracking-wide text-emerald-700">
               Completed
             </div>
-            <div className="mt-1 text-2xl font-semibold text-emerald-700">
+            <div className="mt-1 text-2xl font-semibold text-emerald-800">
               {metrics.completed}
             </div>
           </div>
 
-          <div className="rounded-2xl bg-amber-50 px-4 py-3 shadow-sm">
+          <div className="rounded-[22px] bg-amber-50 px-4 py-3 shadow-sm">
             <div className="text-[11px] uppercase tracking-wide text-amber-700">
-              Pending / On Hold
+              Pending / Hold
             </div>
             <div className="mt-1 text-2xl font-semibold text-amber-800">
               {metrics.pending + metrics.onHold}
             </div>
           </div>
 
-          <div className="rounded-2xl bg-violet-50 px-4 py-3 shadow-sm">
+          <div className="rounded-[22px] bg-sky-50 px-4 py-3 shadow-sm">
+            <div className="text-[11px] uppercase tracking-wide text-sky-700">
+              Processing
+            </div>
+            <div className="mt-1 text-2xl font-semibold text-sky-800">
+              {metrics.processing}
+            </div>
+          </div>
+
+          <div className="rounded-[22px] bg-violet-50 px-4 py-3 shadow-sm">
             <div className="text-[11px] uppercase tracking-wide text-violet-700">
               Revenue
             </div>
@@ -167,7 +181,9 @@ export default async function OrdersPage() {
         </div>
       </div>
 
-      <OrdersLocalController initial={orders} categories={categories} />
+      <div className="mt-4">
+        <OrdersLocalController initial={orders} categories={categories} />
+      </div>
     </main>
   );
 }

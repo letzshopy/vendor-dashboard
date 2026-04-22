@@ -1,12 +1,26 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import type { WCOrder } from "@/lib/order-utils";
 import { statusPillClass } from "@/lib/order-utils";
 import {
   extractShipmentFromMeta,
   mergeShipmentMeta,
 } from "@/lib/shipment-meta";
+import {
+  ArrowLeft,
+  Check,
+  FileText,
+  Loader2,
+  MapPin,
+  Package2,
+  Pencil,
+  Search,
+  Truck,
+  User,
+  X,
+} from "lucide-react";
 
 type Address = {
   first_name?: string;
@@ -99,6 +113,133 @@ function formatShipmentDate(value?: string | null) {
 function toNumberPrice(v: string | number | null | undefined) {
   const n = Number(v || 0);
   return Number.isFinite(n) ? n : 0;
+}
+
+function SectionCard({
+  title,
+  hint,
+  icon: Icon,
+  children,
+  right,
+}: {
+  title: string;
+  hint?: string;
+  icon: React.ComponentType<{ className?: string }>;
+  children: React.ReactNode;
+  right?: React.ReactNode;
+}) {
+  return (
+    <section className="overflow-hidden rounded-[26px] border border-slate-200/80 bg-white shadow-[0_10px_30px_rgba(15,23,42,0.05)]">
+      <div className="border-b border-slate-100 bg-gradient-to-r from-[#faf7ff] via-white to-[#f4fbff] px-4 py-4 md:px-5">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex items-start gap-3">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-100 to-fuchsia-50 text-violet-700 shadow-sm">
+              <Icon className="h-5 w-5" />
+            </div>
+            <div>
+              <h2 className="text-[17px] font-semibold tracking-tight text-slate-900">
+                {title}
+              </h2>
+              {hint ? (
+                <p className="mt-1 text-xs leading-5 text-slate-500">{hint}</p>
+              ) : null}
+            </div>
+          </div>
+          {right ? <div className="shrink-0">{right}</div> : null}
+        </div>
+      </div>
+      <div className="p-4 md:p-5">{children}</div>
+    </section>
+  );
+}
+
+function FieldLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <label className="mb-1.5 block text-[12px] font-semibold uppercase tracking-[0.08em] text-slate-500">
+      {children}
+    </label>
+  );
+}
+
+function MobileField(props: React.InputHTMLAttributes<HTMLInputElement>) {
+  return (
+    <input
+      {...props}
+      className={[
+        "h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-900 shadow-sm transition",
+        "placeholder:text-slate-400 focus:border-violet-400 focus:outline-none focus:ring-4 focus:ring-violet-100",
+        props.className || "",
+      ].join(" ")}
+    />
+  );
+}
+
+function MobileSelect(props: React.SelectHTMLAttributes<HTMLSelectElement>) {
+  return (
+    <select
+      {...props}
+      className={[
+        "h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-900 shadow-sm transition",
+        "focus:border-violet-400 focus:outline-none focus:ring-4 focus:ring-violet-100",
+        props.className || "",
+      ].join(" ")}
+    />
+  );
+}
+
+function MobileTextarea(
+  props: React.TextareaHTMLAttributes<HTMLTextAreaElement>
+) {
+  return (
+    <textarea
+      {...props}
+      className={[
+        "w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 shadow-sm transition",
+        "placeholder:text-slate-400 focus:border-violet-400 focus:outline-none focus:ring-4 focus:ring-violet-100",
+        props.className || "",
+      ].join(" ")}
+    />
+  );
+}
+
+function SummaryRow({
+  label,
+  value,
+  strong = false,
+}: {
+  label: string;
+  value: React.ReactNode;
+  strong?: boolean;
+}) {
+  return (
+    <div
+      className={`flex items-center justify-between gap-3 ${
+        strong ? "text-base font-semibold text-slate-900" : "text-sm text-slate-600"
+      }`}
+    >
+      <span>{label}</span>
+      <span className="text-right">{value}</span>
+    </div>
+  );
+}
+
+function AddressView({ data }: { data: Address }) {
+  const fullName = `${data.first_name || ""} ${data.last_name || ""}`.trim();
+
+  return (
+    <div className="space-y-2 text-sm text-slate-700">
+      <div className="font-semibold text-slate-900">{fullName || "—"}</div>
+      {data.company && <div>{data.company}</div>}
+      {data.address_1 && <div>{data.address_1}</div>}
+      {data.address_2 && <div>{data.address_2}</div>}
+      <div>
+        {[data.city, data.state, data.postcode].filter(Boolean).join(", ") || "—"}
+      </div>
+      {data.country && <div>{data.country}</div>}
+      {data.phone && <div className="text-xs text-slate-500">📞 {data.phone}</div>}
+      {data.email && <div className="text-xs text-slate-500">✉️ {data.email}</div>}
+    </div>
+  );
 }
 
 export default function OrderDetailClient({ initialOrder }: Props) {
@@ -332,10 +473,7 @@ export default function OrderDetailClient({ initialOrder }: Props) {
     const pickedPrice =
       toNumberPrice(product.price) || toNumberPrice(product.regular_price);
 
-    const pickedImg =
-      product.image?.src ||
-      product.images?.[0]?.src ||
-      "";
+    const pickedImg = product.image?.src || product.images?.[0]?.src || "";
 
     updateItem(idx, {
       product_id: product.id,
@@ -459,174 +597,195 @@ export default function OrderDetailClient({ initialOrder }: Props) {
   const taxTotal = Number(order.total_tax || 0);
   const discountTotal = Number(order.discount_total || 0);
   const grandTotal =
-    Number(order.total || 0) ||
-    subtotal + shippingTotal + taxTotal - discountTotal;
+    Number(order.total || 0) || subtotal + shippingTotal + taxTotal - discountTotal;
 
   const billingView = editMode ? billingDraft : order.billing || {};
   const shippingView = editMode
     ? shippingDraft
     : order.shipping || order.billing || {};
 
+  const visibleDraftItems = editMode
+    ? itemsDraft.filter((i) => !i.removed)
+    : [];
+
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-        <div>
-          <div className="text-xs uppercase tracking-wide text-slate-400">
-            Order
+    <div className="space-y-4">
+      <div className="rounded-[30px] border border-white/80 bg-gradient-to-br from-white via-[#f7f8ff] to-[#eef7ff] p-4 shadow-[0_14px_40px_rgba(15,23,42,0.06)] md:p-5">
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+            <div className="min-w-0">
+              <Link
+                href="/orders"
+                className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-slate-50"
+              >
+                <ArrowLeft className="h-3.5 w-3.5" />
+                Back to Orders
+              </Link>
+
+              <div className="mt-3 text-xs uppercase tracking-[0.16em] text-slate-400">
+                Order
+              </div>
+
+              <div className="mt-1 flex flex-wrap items-center gap-2">
+                <h1 className="text-[28px] font-semibold tracking-tight text-slate-900 md:text-[34px]">
+                  #{order.number || order.id}
+                </h1>
+                <span className={statusPillClass(order.status)}>
+                  {order.status.replace("_", " ")}
+                </span>
+              </div>
+
+              <p className="mt-1 text-sm text-slate-500">
+                Placed on{" "}
+                <span className="font-medium text-slate-700">
+                  {formatNiceDate(order.date_created_gmt)}
+                </span>
+              </p>
+              <p className="mt-0.5 text-sm text-slate-500">
+                Payment method: {order.payment_method_title || "-"}
+              </p>
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={handleCreateInvoice}
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50"
+              >
+                <FileText className="h-4 w-4" />
+                Create Invoice
+              </button>
+
+              <button
+                type="button"
+                onClick={() => (editMode ? cancelEdit() : enterEditMode())}
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50"
+              >
+                <Pencil className="h-4 w-4" />
+                {editMode ? "Cancel Edit" : "Edit Order"}
+              </button>
+            </div>
           </div>
-          <h1 className="text-2xl md:text-3xl font-semibold text-slate-900">
-            #{order.number || order.id}
-          </h1>
-          <p className="mt-1 text-xs md:text-sm text-slate-500">
-            Placed on{" "}
-            <span className="font-medium">
-              {formatNiceDate(order.date_created_gmt)}
-            </span>
-          </p>
-          <p className="mt-0.5 text-xs text-slate-500">
-            Payment method: {order.payment_method_title || "-"}
-          </p>
-        </div>
 
-        <div className="flex flex-wrap gap-3 items-center justify-start md:justify-end">
-          <button
-            type="button"
-            onClick={handleCreateInvoice}
-            className="rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 shadow-sm"
-          >
-            Create PDF Invoice
-          </button>
+          <div className="grid gap-3 md:grid-cols-[1fr_auto] md:items-center">
+            <div className="grid gap-3 sm:grid-cols-3">
+              <div className="rounded-[22px] bg-white/85 px-4 py-3 shadow-sm">
+                <div className="text-[11px] uppercase tracking-wide text-slate-500">
+                  Customer
+                </div>
+                <div className="mt-1 text-sm font-semibold text-slate-900">
+                  {`${order.billing?.first_name || ""} ${
+                    order.billing?.last_name || ""
+                  }`.trim() || "Guest customer"}
+                </div>
+              </div>
 
-          <button
-            type="button"
-            onClick={() => (editMode ? cancelEdit() : enterEditMode())}
-            className="rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 shadow-sm"
-          >
-            {editMode ? "Cancel edit" : "Edit order"}
-          </button>
+              <div className="rounded-[22px] bg-white/85 px-4 py-3 shadow-sm">
+                <div className="text-[11px] uppercase tracking-wide text-slate-500">
+                  Items
+                </div>
+                <div className="mt-1 text-sm font-semibold text-slate-900">
+                  {itemCount} pcs
+                </div>
+              </div>
 
-          <div className="flex flex-wrap items-center gap-2 bg-white rounded-full px-3 py-1.5 shadow-sm border border-slate-200">
-            <span className={statusPillClass(order.status)}>
-              {order.status.replace("_", " ")}
-            </span>
-            <span className="text-xs text-slate-400">→</span>
-            <select
-              className="text-xs md:text-sm border-none bg-transparent focus:outline-none focus:ring-0"
-              value={status}
-              onChange={(e) => setStatus(e.currentTarget.value)}
-            >
-              <option value="pending">Pending payment</option>
-              <option value="processing">Processing</option>
-              <option value="on-hold">On hold</option>
-              <option value="completed">Completed</option>
-              <option value="cancelled">Cancelled</option>
-              <option value="refunded">Refunded</option>
-              <option value="failed">Failed</option>
-            </select>
-            <button
-              type="button"
-              onClick={handleStatusUpdate}
-              disabled={savingStatus}
-              className="rounded-full bg-blue-600 text-white text-xs md:text-sm px-3 py-1.5 font-medium hover:bg-blue-700 disabled:opacity-60"
-            >
-              {savingStatus ? "Updating…" : "Update"}
-            </button>
+              <div className="rounded-[22px] bg-white/85 px-4 py-3 shadow-sm">
+                <div className="text-[11px] uppercase tracking-wide text-slate-500">
+                  Total
+                </div>
+                <div className="mt-1 text-sm font-semibold text-slate-900">
+                  ₹{grandTotal.toFixed(2)}
+                </div>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2 rounded-[22px] border border-slate-200 bg-white px-3 py-2 shadow-sm">
+              <span className={statusPillClass(order.status)}>
+                {order.status.replace("_", " ")}
+              </span>
+              <span className="text-xs text-slate-400">→</span>
+              <MobileSelect
+                className="h-10 min-w-[160px] border-none bg-transparent px-2 shadow-none focus:ring-0"
+                value={status}
+                onChange={(e) => setStatus(e.currentTarget.value)}
+              >
+                <option value="pending">Pending payment</option>
+                <option value="processing">Processing</option>
+                <option value="on-hold">On hold</option>
+                <option value="completed">Completed</option>
+                <option value="cancelled">Cancelled</option>
+                <option value="refunded">Refunded</option>
+                <option value="failed">Failed</option>
+              </MobileSelect>
+              <button
+                type="button"
+                onClick={handleStatusUpdate}
+                disabled={savingStatus}
+                className="inline-flex h-10 items-center justify-center rounded-full bg-blue-600 px-4 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60"
+              >
+                {savingStatus ? "Updating…" : "Update"}
+              </button>
+            </div>
           </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-4 flex flex-col gap-3">
-          <div className="flex items-center justify-between gap-2">
-            <div>
-              <div className="text-xs uppercase tracking-wide text-slate-400">
-                Billing
-              </div>
-              {!editMode ? (
-                <div className="font-semibold text-slate-900">
-                  {billingView.first_name} {billingView.last_name}
-                </div>
-              ) : (
-                <div className="flex gap-2 mt-1">
-                  <input
-                    className="border rounded px-2 py-1 text-xs flex-1"
-                    placeholder="First name"
-                    value={billingView.first_name || ""}
-                    onChange={(e) =>
-                      updateAddress("billing", "first_name", e.target.value)
-                    }
-                  />
-                  <input
-                    className="border rounded px-2 py-1 text-xs flex-1"
-                    placeholder="Last name"
-                    value={billingView.last_name || ""}
-                    onChange={(e) =>
-                      updateAddress("billing", "last_name", e.target.value)
-                    }
-                  />
-                </div>
-              )}
-            </div>
-          </div>
-
+      <div className="grid gap-4 xl:grid-cols-3">
+        <SectionCard title="Billing" hint="Billing contact and address" icon={User}>
           {!editMode ? (
-            <div className="text-sm text-slate-700 space-y-1">
-              {billingView.address_1 && <div>{billingView.address_1}</div>}
-              {billingView.address_2 && <div>{billingView.address_2}</div>}
-              <div>
-                {[billingView.city, billingView.state, billingView.postcode]
-                  .filter(Boolean)
-                  .join(", ")}
-              </div>
-              {billingView.country && <div>{billingView.country}</div>}
-              {billingView.phone && (
-                <div className="text-xs text-slate-500">
-                  📞 {billingView.phone}
-                </div>
-              )}
-              {billingView.email && (
-                <div className="text-xs text-slate-500">
-                  ✉️ {billingView.email}
-                </div>
-              )}
-            </div>
+            <AddressView data={billingView} />
           ) : (
-            <div className="text-xs text-slate-700 space-y-1 mt-2">
-              <input
-                className="border rounded px-2 py-1 w-full"
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <MobileField
+                  placeholder="First name"
+                  value={billingView.first_name || ""}
+                  onChange={(e) =>
+                    updateAddress("billing", "first_name", e.target.value)
+                  }
+                />
+                <MobileField
+                  placeholder="Last name"
+                  value={billingView.last_name || ""}
+                  onChange={(e) =>
+                    updateAddress("billing", "last_name", e.target.value)
+                  }
+                />
+              </div>
+
+              <MobileField
+                placeholder="Company"
+                value={billingView.company || ""}
+                onChange={(e) =>
+                  updateAddress("billing", "company", e.target.value)
+                }
+              />
+              <MobileField
                 placeholder="Address line 1"
                 value={billingView.address_1 || ""}
                 onChange={(e) =>
                   updateAddress("billing", "address_1", e.target.value)
                 }
               />
-              <input
-                className="border rounded px-2 py-1 w-full"
+              <MobileField
                 placeholder="Address line 2"
                 value={billingView.address_2 || ""}
                 onChange={(e) =>
                   updateAddress("billing", "address_2", e.target.value)
                 }
               />
-              <div className="grid grid-cols-3 gap-2">
-                <input
-                  className="border rounded px-2 py-1"
+              <div className="grid grid-cols-3 gap-3">
+                <MobileField
                   placeholder="City"
                   value={billingView.city || ""}
-                  onChange={(e) =>
-                    updateAddress("billing", "city", e.target.value)
-                  }
+                  onChange={(e) => updateAddress("billing", "city", e.target.value)}
                 />
-                <input
-                  className="border rounded px-2 py-1"
+                <MobileField
                   placeholder="State"
                   value={billingView.state || ""}
-                  onChange={(e) =>
-                    updateAddress("billing", "state", e.target.value)
-                  }
+                  onChange={(e) => updateAddress("billing", "state", e.target.value)}
                 />
-                <input
-                  className="border rounded px-2 py-1"
+                <MobileField
                   placeholder="Pincode"
                   value={billingView.postcode || ""}
                   onChange={(e) =>
@@ -634,121 +793,86 @@ export default function OrderDetailClient({ initialOrder }: Props) {
                   }
                 />
               </div>
-              <input
-                className="border rounded px-2 py-1 w-full"
+              <MobileField
                 placeholder="Country"
                 value={billingView.country || ""}
                 onChange={(e) =>
                   updateAddress("billing", "country", e.target.value)
                 }
               />
-              <input
-                className="border rounded px-2 py-1 w-full"
+              <MobileField
                 placeholder="Phone"
                 value={billingView.phone || ""}
-                onChange={(e) =>
-                  updateAddress("billing", "phone", e.target.value)
-                }
+                onChange={(e) => updateAddress("billing", "phone", e.target.value)}
               />
-              <input
-                className="border rounded px-2 py-1 w-full"
+              <MobileField
                 placeholder="Email"
                 value={billingView.email || ""}
-                onChange={(e) =>
-                  updateAddress("billing", "email", e.target.value)
-                }
+                onChange={(e) => updateAddress("billing", "email", e.target.value)}
               />
             </div>
           )}
-        </div>
+        </SectionCard>
 
-        <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-4 flex flex-col gap-3">
-          <div className="flex items-center justify-between gap-2">
-            <div>
-              <div className="text-xs uppercase tracking-wide text-slate-400">
-                Shipping
-              </div>
-              {!editMode ? (
-                <div className="font-semibold text-slate-900">
-                  {shippingView.first_name} {shippingView.last_name}
-                </div>
-              ) : (
-                <div className="flex gap-2 mt-1">
-                  <input
-                    className="border rounded px-2 py-1 text-xs flex-1"
-                    placeholder="First name"
-                    value={shippingView.first_name || ""}
-                    onChange={(e) =>
-                      updateAddress("shipping", "first_name", e.target.value)
-                    }
-                  />
-                  <input
-                    className="border rounded px-2 py-1 text-xs flex-1"
-                    placeholder="Last name"
-                    value={shippingView.last_name || ""}
-                    onChange={(e) =>
-                      updateAddress("shipping", "last_name", e.target.value)
-                    }
-                  />
-                </div>
-              )}
-            </div>
-          </div>
-
+        <SectionCard
+          title="Shipping"
+          hint="Delivery contact and address"
+          icon={MapPin}
+        >
           {!editMode ? (
-            <div className="text-sm text-slate-700 space-y-1">
-              {shippingView.address_1 && <div>{shippingView.address_1}</div>}
-              {shippingView.address_2 && <div>{shippingView.address_2}</div>}
-              <div>
-                {[shippingView.city, shippingView.state, shippingView.postcode]
-                  .filter(Boolean)
-                  .join(", ")}
-              </div>
-              {shippingView.country && <div>{shippingView.country}</div>}
-              {(shippingView.phone || shippingView.email) && (
-                <div className="space-y-0.5 text-xs text-slate-500">
-                  {shippingView.phone && <>📞 {shippingView.phone}</>}
-                  {shippingView.email && <div>✉️ {shippingView.email}</div>}
-                </div>
-              )}
-            </div>
+            <AddressView data={shippingView} />
           ) : (
-            <div className="text-xs text-slate-700 space-y-1 mt-2">
-              <input
-                className="border rounded px-2 py-1 w-full"
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <MobileField
+                  placeholder="First name"
+                  value={shippingView.first_name || ""}
+                  onChange={(e) =>
+                    updateAddress("shipping", "first_name", e.target.value)
+                  }
+                />
+                <MobileField
+                  placeholder="Last name"
+                  value={shippingView.last_name || ""}
+                  onChange={(e) =>
+                    updateAddress("shipping", "last_name", e.target.value)
+                  }
+                />
+              </div>
+
+              <MobileField
+                placeholder="Company"
+                value={shippingView.company || ""}
+                onChange={(e) =>
+                  updateAddress("shipping", "company", e.target.value)
+                }
+              />
+              <MobileField
                 placeholder="Address line 1"
                 value={shippingView.address_1 || ""}
                 onChange={(e) =>
                   updateAddress("shipping", "address_1", e.target.value)
                 }
               />
-              <input
-                className="border rounded px-2 py-1 w-full"
+              <MobileField
                 placeholder="Address line 2"
                 value={shippingView.address_2 || ""}
                 onChange={(e) =>
                   updateAddress("shipping", "address_2", e.target.value)
                 }
               />
-              <div className="grid grid-cols-3 gap-2">
-                <input
-                  className="border rounded px-2 py-1"
+              <div className="grid grid-cols-3 gap-3">
+                <MobileField
                   placeholder="City"
                   value={shippingView.city || ""}
-                  onChange={(e) =>
-                    updateAddress("shipping", "city", e.target.value)
-                  }
+                  onChange={(e) => updateAddress("shipping", "city", e.target.value)}
                 />
-                <input
-                  className="border rounded px-2 py-1"
+                <MobileField
                   placeholder="State"
                   value={shippingView.state || ""}
-                  onChange={(e) =>
-                    updateAddress("shipping", "state", e.target.value)
-                  }
+                  onChange={(e) => updateAddress("shipping", "state", e.target.value)}
                 />
-                <input
-                  className="border rounded px-2 py-1"
+                <MobileField
                   placeholder="Pincode"
                   value={shippingView.postcode || ""}
                   onChange={(e) =>
@@ -756,89 +880,81 @@ export default function OrderDetailClient({ initialOrder }: Props) {
                   }
                 />
               </div>
-              <input
-                className="border rounded px-2 py-1 w-full"
+              <MobileField
                 placeholder="Country"
                 value={shippingView.country || ""}
                 onChange={(e) =>
                   updateAddress("shipping", "country", e.target.value)
                 }
               />
-              <input
-                className="border rounded px-2 py-1 w-full"
+              <MobileField
                 placeholder="Phone"
                 value={shippingView.phone || ""}
-                onChange={(e) =>
-                  updateAddress("shipping", "phone", e.target.value)
-                }
+                onChange={(e) => updateAddress("shipping", "phone", e.target.value)}
               />
-              <input
-                className="border rounded px-2 py-1 w-full"
+              <MobileField
                 placeholder="Email"
                 value={shippingView.email || ""}
-                onChange={(e) =>
-                  updateAddress("shipping", "email", e.target.value)
-                }
+                onChange={(e) => updateAddress("shipping", "email", e.target.value)}
               />
             </div>
           )}
-        </div>
+        </SectionCard>
 
-        <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-4 flex flex-col gap-3">
-          <div className="flex items-center justify-between gap-2">
-            <div>
-              <div className="text-xs uppercase tracking-wide text-slate-400">
-                Shipment Details
-              </div>
-              {!editMode ? (
-                <div className="font-semibold text-slate-900">
-                  {shipment.courier || "Not specified"}
-                </div>
-              ) : (
-                <input
-                  className="border rounded px-2 py-1 text-xs w-full mt-1"
-                  placeholder="Courier name"
-                  value={shipmentDraft.courier}
-                  onChange={(e) =>
-                    setShipmentDraft((prev) => ({
-                      ...prev,
-                      courier: e.target.value,
-                    }))
-                  }
-                />
-              )}
-            </div>
-          </div>
-
+        <SectionCard
+          title="Shipment"
+          hint="Courier, tracking and shipment progress"
+          icon={Truck}
+        >
           {!editMode ? (
-            <div className="text-sm text-slate-700 space-y-1">
+            <div className="space-y-2 text-sm text-slate-700">
               <div>
-                <span className="text-xs font-medium text-slate-500">Mode:</span>{" "}
+                <span className="text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">
+                  Courier:
+                </span>{" "}
+                <span className="font-medium text-slate-900">
+                  {shipment.courier || "Not specified"}
+                </span>
+              </div>
+              <div>
+                <span className="text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">
+                  Mode:
+                </span>{" "}
                 {shipment.mode || "Not specified"}
               </div>
               <div>
-                <span className="text-xs font-medium text-slate-500">
+                <span className="text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">
                   Tracking:
                 </span>{" "}
                 {shipment.awb || "—"}
               </div>
               <div>
-                <span className="text-xs font-medium text-slate-500">
+                <span className="text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">
                   Status:
                 </span>{" "}
                 {shipment.status || "Not set"}
               </div>
               <div>
-                <span className="text-xs font-medium text-slate-500">
+                <span className="text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">
                   Shipped on:
                 </span>{" "}
                 {formatShipmentDate(displayedShippedDate)}
               </div>
             </div>
           ) : (
-            <div className="text-xs text-slate-700 space-y-2 mt-2">
-              <select
-                className="border rounded px-2 py-1 w-full"
+            <div className="space-y-3">
+              <MobileField
+                placeholder="Courier name"
+                value={shipmentDraft.courier}
+                onChange={(e) =>
+                  setShipmentDraft((prev) => ({
+                    ...prev,
+                    courier: e.target.value,
+                  }))
+                }
+              />
+
+              <MobileSelect
                 value={shipmentDraft.mode}
                 onChange={(e) =>
                   setShipmentDraft((prev) => ({
@@ -850,9 +966,9 @@ export default function OrderDetailClient({ initialOrder }: Props) {
                 <option value="">Select mode</option>
                 <option value="shift">Shift</option>
                 <option value="self">Self</option>
-              </select>
-              <input
-                className="border rounded px-2 py-1 w-full"
+              </MobileSelect>
+
+              <MobileField
                 placeholder="Tracking number"
                 value={shipmentDraft.awb}
                 onChange={(e) =>
@@ -862,8 +978,8 @@ export default function OrderDetailClient({ initialOrder }: Props) {
                   }))
                 }
               />
-              <select
-                className="border rounded px-2 py-1 w-full"
+
+              <MobileSelect
                 value={shipmentDraft.status}
                 onChange={(e) =>
                   setShipmentDraft((prev) => ({
@@ -878,10 +994,10 @@ export default function OrderDetailClient({ initialOrder }: Props) {
                 <option value="shipped">Shipped</option>
                 <option value="delivered">Delivered</option>
                 <option value="returned">Returned</option>
-              </select>
-              <input
+              </MobileSelect>
+
+              <MobileField
                 type="date"
-                className="border rounded px-2 py-1 w-full"
                 value={shipmentDraft.shippedDate}
                 onChange={(e) =>
                   setShipmentDraft((prev) => ({
@@ -892,46 +1008,29 @@ export default function OrderDetailClient({ initialOrder }: Props) {
               />
             </div>
           )}
-
-          <div className="mt-2 text-[11px] text-slate-400">
-            {editMode
-              ? "You can update courier, tracking, shipment status, and shipped date here."
-              : "For bulk updates, use Sales → Shipment Details."}
-          </div>
-        </div>
+        </SectionCard>
       </div>
 
-      <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-4 md:p-5">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2 mb-4">
-          <div>
-            <div className="text-xs uppercase tracking-wide text-slate-400">
-              Items
-            </div>
-            <div className="font-semibold text-slate-900">
-              {(editMode
-                ? itemsDraft.filter((i) => !i.removed)
-                : order.line_items || []).length}{" "}
-              line item
-              {((editMode
-                ? itemsDraft.filter((i) => !i.removed)
-                : order.line_items || []).length === 1
-                ? ""
-                : "s")}{" "}
-              · {itemCount} pcs
-            </div>
-          </div>
-
-          {editMode && (
+      <SectionCard
+        title="Items"
+        hint="Order products and quantities"
+        icon={Package2}
+        right={
+          editMode ? (
             <button
               type="button"
               onClick={addNewItem}
-              className="rounded-full border border-slate-300 bg-white px-4 py-2 text-xs md:text-sm font-medium text-slate-700 hover:bg-slate-50 shadow-sm"
+              className="inline-flex h-10 items-center justify-center rounded-full border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50"
             >
-              + Add line item
+              + Add item
             </button>
-          )}
-        </div>
-
+          ) : (
+            <div className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">
+              {itemCount} pcs
+            </div>
+          )
+        }
+      >
         {!editMode ? (
           <div className="space-y-3">
             {(order.line_items || []).map((li: any) => {
@@ -939,50 +1038,64 @@ export default function OrderDetailClient({ initialOrder }: Props) {
               return (
                 <div
                   key={li.id}
-                  className="grid grid-cols-[64px_minmax(0,2fr)_minmax(0,1fr)_80px_100px] gap-3 items-center border border-slate-100 rounded-lg px-3 py-2"
+                  className="rounded-[22px] border border-slate-200 bg-slate-50/50 p-3"
                 >
-                  <button
-                    type="button"
-                    className="h-14 w-14 rounded-lg overflow-hidden bg-slate-50 border border-slate-100 flex items-center justify-center"
-                    onClick={() => {
-                      if (!imgSrc) return;
-                      setPreviewSrc(imgSrc);
-                      setPreviewTitle(li.name || "");
-                    }}
-                  >
-                    {imgSrc ? (
-                      <img
-                        src={imgSrc}
-                        alt={li.name || ""}
-                        className="h-full w-full object-cover"
-                      />
-                    ) : (
-                      <span className="text-xs text-slate-400">No image</span>
-                    )}
-                  </button>
+                  <div className="flex items-start gap-3">
+                    <button
+                      type="button"
+                      className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-slate-200 bg-white"
+                      onClick={() => {
+                        if (!imgSrc) return;
+                        setPreviewSrc(imgSrc);
+                        setPreviewTitle(li.name || "");
+                      }}
+                    >
+                      {imgSrc ? (
+                        <img
+                          src={imgSrc}
+                          alt={li.name || ""}
+                          className="h-full w-full object-cover"
+                        />
+                      ) : (
+                        <span className="text-[10px] text-slate-400">No image</span>
+                      )}
+                    </button>
 
-                  <div className="min-w-0">
-                    <div className="text-sm font-medium text-slate-900 truncate">
-                      {li.name}
+                    <div className="min-w-0 flex-1">
+                      <div className="text-sm font-semibold text-slate-900">
+                        {li.name}
+                      </div>
+                      <div className="mt-0.5 text-xs text-slate-500">
+                        {li.sku ? `SKU: ${li.sku}` : "No SKU"}
+                      </div>
+
+                      <div className="mt-3 grid grid-cols-3 gap-2">
+                        <div className="rounded-[16px] bg-white px-3 py-2">
+                          <div className="text-[10px] uppercase tracking-[0.08em] text-slate-400">
+                            Qty
+                          </div>
+                          <div className="mt-1 text-sm font-semibold text-slate-900">
+                            {li.quantity}
+                          </div>
+                        </div>
+                        <div className="rounded-[16px] bg-white px-3 py-2">
+                          <div className="text-[10px] uppercase tracking-[0.08em] text-slate-400">
+                            Price
+                          </div>
+                          <div className="mt-1 text-sm font-semibold text-slate-900">
+                            ₹{li.price}
+                          </div>
+                        </div>
+                        <div className="rounded-[16px] bg-white px-3 py-2">
+                          <div className="text-[10px] uppercase tracking-[0.08em] text-slate-400">
+                            Total
+                          </div>
+                          <div className="mt-1 text-sm font-semibold text-slate-900">
+                            ₹{li.total}
+                          </div>
+                        </div>
+                      </div>
                     </div>
-                    <div className="text-xs text-slate-500">
-                      {li.sku ? `SKU: ${li.sku}` : ""}
-                    </div>
-                  </div>
-
-                  <div className="text-sm text-slate-700">
-                    <div className="text-xs text-slate-400">Quantity</div>
-                    <div className="font-medium">{li.quantity}</div>
-                  </div>
-
-                  <div className="text-right text-sm text-slate-700">
-                    <div className="text-xs text-slate-400">Price</div>
-                    <div>₹{li.price}</div>
-                  </div>
-
-                  <div className="text-right text-sm text-slate-900 font-semibold">
-                    <div className="text-xs text-slate-400">Line total</div>
-                    <div>₹{li.total}</div>
                   </div>
                 </div>
               );
@@ -990,8 +1103,8 @@ export default function OrderDetailClient({ initialOrder }: Props) {
           </div>
         ) : (
           <div className="space-y-3">
-            {itemsDraft.map((li, idx) => {
-              if (li.removed) return null;
+            {visibleDraftItems.map((li, visibleIdx) => {
+              const idx = itemsDraft.findIndex((x) => x === li);
               const imgSrc = li.image?.src;
               const lineTotal =
                 (Number(li.price) || 0) * (Number(li.quantity) || 0);
@@ -1001,241 +1114,278 @@ export default function OrderDetailClient({ initialOrder }: Props) {
 
               return (
                 <div
-                  key={li.id ?? `new-${idx}`}
-                  className="grid grid-cols-[64px_minmax(0,2fr)_minmax(0,1fr)_90px_90px_40px] gap-3 items-center border border-slate-100 rounded-lg px-3 py-2"
+                  key={li.id ?? `new-${visibleIdx}`}
+                  className="rounded-[22px] border border-slate-200 bg-slate-50/50 p-3"
                 >
-                  <button
-                    type="button"
-                    className="h-14 w-14 rounded-lg overflow-hidden bg-slate-50 border border-slate-100 flex items-center justify-center"
-                    onClick={() => {
-                      if (!imgSrc) return;
-                      setPreviewSrc(imgSrc);
-                      setPreviewTitle(li.name || "");
-                    }}
-                  >
-                    {imgSrc ? (
-                      <img
-                        src={imgSrc}
-                        alt={li.name || ""}
-                        className="h-full w-full object-cover"
-                      />
-                    ) : (
-                      <span className="text-xs text-slate-400">No image</span>
-                    )}
-                  </button>
-
-                  <div className="min-w-0 space-y-1">
-                    <div className="relative">
-                      <input
-                        className="border rounded px-2 py-1 w-full text-xs"
-                        placeholder="Search product by name or SKU"
-                        value={li.name}
-                        onFocus={() => startProductSearch(idx, li.name || "")}
-                        onChange={(e) => {
-                          const value = e.target.value;
-                          updateItem(idx, {
-                            name: value,
-                            product_id: undefined,
-                          });
-                          startProductSearch(idx, value);
-                        }}
-                        onBlur={() => {
-                          setTimeout(() => {
-                            setProductSearchIndex((current) =>
-                              current === idx ? null : current
-                            );
-                          }, 180);
-                        }}
-                      />
-
-                      {dropdownOpen && (
-                        <div className="absolute z-30 mt-1 max-h-64 w-full overflow-auto rounded-xl border border-slate-200 bg-white shadow-xl">
-                          {productSearchLoading ? (
-                            <div className="px-3 py-2 text-xs text-slate-500">
-                              Searching products...
-                            </div>
-                          ) : (
-                            <>
-                              {productSearchResults.map((p) => {
-                                const pImg =
-                                  p.image?.src || p.images?.[0]?.src || "";
-                                const pPrice =
-                                  toNumberPrice(p.price) ||
-                                  toNumberPrice(p.regular_price);
-
-                                return (
-                                  <button
-                                    key={p.id}
-                                    type="button"
-                                    className="flex w-full items-center gap-3 px-3 py-2 text-left hover:bg-slate-50"
-                                    onMouseDown={(e) => e.preventDefault()}
-                                    onClick={() => selectProductForRow(idx, p)}
-                                  >
-                                    <div className="h-10 w-10 shrink-0 overflow-hidden rounded-lg border border-slate-100 bg-slate-50 flex items-center justify-center">
-                                      {pImg ? (
-                                        <img
-                                          src={pImg}
-                                          alt={p.name}
-                                          className="h-full w-full object-cover"
-                                        />
-                                      ) : (
-                                        <span className="text-[10px] text-slate-400">
-                                          No img
-                                        </span>
-                                      )}
-                                    </div>
-
-                                    <div className="min-w-0 flex-1">
-                                      <div className="truncate text-xs font-medium text-slate-900">
-                                        {p.name}
-                                      </div>
-                                      <div className="truncate text-[11px] text-slate-500">
-                                        {p.sku ? `SKU: ${p.sku}` : "No SKU"}
-                                        {pPrice > 0 ? ` • ₹${pPrice}` : ""}
-                                      </div>
-                                    </div>
-                                  </button>
-                                );
-                              })}
-
-                              {!productSearchResults.length && (
-                                <div className="px-3 py-2 text-xs text-slate-500">
-                                  No matching products found.
-                                </div>
-                              )}
-                            </>
-                          )}
-                        </div>
+                  <div className="flex items-start gap-3">
+                    <button
+                      type="button"
+                      className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-slate-200 bg-white"
+                      onClick={() => {
+                        if (!imgSrc) return;
+                        setPreviewSrc(imgSrc);
+                        setPreviewTitle(li.name || "");
+                      }}
+                    >
+                      {imgSrc ? (
+                        <img
+                          src={imgSrc}
+                          alt={li.name || ""}
+                          className="h-full w-full object-cover"
+                        />
+                      ) : (
+                        <span className="text-[10px] text-slate-400">No image</span>
                       )}
+                    </button>
+
+                    <div className="min-w-0 flex-1 space-y-3">
+                      <div className="relative">
+                        <FieldLabel>Product</FieldLabel>
+                        <MobileField
+                          placeholder="Search product by name or SKU"
+                          value={li.name}
+                          onFocus={() => startProductSearch(idx, li.name || "")}
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            updateItem(idx, {
+                              name: value,
+                              product_id: undefined,
+                            });
+                            startProductSearch(idx, value);
+                          }}
+                          onBlur={() => {
+                            setTimeout(() => {
+                              setProductSearchIndex((current) =>
+                                current === idx ? null : current
+                              );
+                            }, 180);
+                          }}
+                        />
+
+                        {dropdownOpen && (
+                          <div className="absolute z-30 mt-2 max-h-64 w-full overflow-auto rounded-2xl border border-slate-200 bg-white shadow-xl">
+                            {productSearchLoading ? (
+                              <div className="flex items-center gap-2 px-3 py-3 text-sm text-slate-500">
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                                Searching products...
+                              </div>
+                            ) : (
+                              <>
+                                {productSearchResults.map((p) => {
+                                  const pImg =
+                                    p.image?.src || p.images?.[0]?.src || "";
+                                  const pPrice =
+                                    toNumberPrice(p.price) ||
+                                    toNumberPrice(p.regular_price);
+
+                                  return (
+                                    <button
+                                      key={p.id}
+                                      type="button"
+                                      className="flex w-full items-center gap-3 px-3 py-3 text-left hover:bg-slate-50"
+                                      onMouseDown={(e) => e.preventDefault()}
+                                      onClick={() => selectProductForRow(idx, p)}
+                                    >
+                                      <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-slate-100 bg-slate-50">
+                                        {pImg ? (
+                                          <img
+                                            src={pImg}
+                                            alt={p.name}
+                                            className="h-full w-full object-cover"
+                                          />
+                                        ) : (
+                                          <Search className="h-4 w-4 text-slate-300" />
+                                        )}
+                                      </div>
+
+                                      <div className="min-w-0 flex-1">
+                                        <div className="truncate text-sm font-medium text-slate-900">
+                                          {p.name}
+                                        </div>
+                                        <div className="truncate text-xs text-slate-500">
+                                          {p.sku ? `SKU: ${p.sku}` : "No SKU"}
+                                          {pPrice > 0 ? ` • ₹${pPrice}` : ""}
+                                        </div>
+                                      </div>
+                                    </button>
+                                  );
+                                })}
+
+                                {!productSearchResults.length && (
+                                  <div className="px-3 py-3 text-sm text-slate-500">
+                                    No matching products found.
+                                  </div>
+                                )}
+                              </>
+                            )}
+                          </div>
+                        )}
+                      </div>
+
+                      <FieldLabel>SKU</FieldLabel>
+                      <MobileField
+                        placeholder="SKU (optional)"
+                        value={li.sku || ""}
+                        onChange={(e) => updateItem(idx, { sku: e.target.value })}
+                      />
+
+                      <div className="grid grid-cols-3 gap-3">
+                        <div>
+                          <FieldLabel>Qty</FieldLabel>
+                          <MobileField
+                            type="number"
+                            min={1}
+                            value={li.quantity}
+                            onChange={(e) =>
+                              updateItem(idx, {
+                                quantity: Number(e.target.value) || 1,
+                              })
+                            }
+                          />
+                        </div>
+
+                        <div>
+                          <FieldLabel>Price</FieldLabel>
+                          <MobileField
+                            type="number"
+                            step="0.01"
+                            value={li.price}
+                            onChange={(e) =>
+                              updateItem(idx, {
+                                price: Number(e.target.value) || 0,
+                              })
+                            }
+                          />
+                        </div>
+
+                        <div>
+                          <FieldLabel>Line total</FieldLabel>
+                          <div className="flex h-11 items-center rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-900 shadow-sm">
+                            ₹{lineTotal.toFixed(2)}
+                          </div>
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        className="inline-flex h-10 items-center justify-center rounded-full border border-rose-200 bg-rose-50 px-4 text-sm font-semibold text-rose-600 hover:bg-rose-100"
+                        onClick={() => removeItem(idx)}
+                      >
+                        Remove item
+                      </button>
                     </div>
-
-                    <input
-                      className="border rounded px-2 py-1 w-full text-xs"
-                      placeholder="SKU (optional)"
-                      value={li.sku || ""}
-                      onChange={(e) =>
-                        updateItem(idx, { sku: e.target.value })
-                      }
-                    />
                   </div>
-
-                  <div className="text-sm text-slate-700">
-                    <div className="text-xs text-slate-400 mb-1">Qty</div>
-                    <input
-                      type="number"
-                      min={1}
-                      className="border rounded px-2 py-1 w-16 text-right text-sm"
-                      value={li.quantity}
-                      onChange={(e) =>
-                        updateItem(idx, {
-                          quantity: Number(e.target.value) || 1,
-                        })
-                      }
-                    />
-                  </div>
-
-                  <div className="text-sm text-slate-700 text-right">
-                    <div className="text-xs text-slate-400 mb-1">Price</div>
-                    <input
-                      type="number"
-                      step="0.01"
-                      className="border rounded px-2 py-1 w-20 text-right text-sm"
-                      value={li.price}
-                      onChange={(e) =>
-                        updateItem(idx, {
-                          price: Number(e.target.value) || 0,
-                        })
-                      }
-                    />
-                  </div>
-
-                  <div className="text-right text-sm text-slate-900 font-semibold">
-                    <div className="text-xs text-slate-400 mb-1">Line total</div>
-                    <div>₹{lineTotal.toFixed(2)}</div>
-                  </div>
-
-                  <button
-                    type="button"
-                    className="text-xs text-red-500 hover:text-red-600"
-                    onClick={() => removeItem(idx)}
-                    title="Remove line item"
-                  >
-                    ✕
-                  </button>
                 </div>
               );
             })}
           </div>
         )}
+      </SectionCard>
 
-        <div className="mt-6 flex flex-col md:flex-row md:justify-between gap-4">
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_340px]">
+        <div>
           {editMode && (
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={handleSaveOrder}
-                disabled={savingOrder}
-                className="rounded-full bg-emerald-600 text-white px-4 py-2 text-sm font-medium hover:bg-emerald-700 disabled:opacity-60"
-              >
-                {savingOrder ? "Saving…" : "Save order changes"}
-              </button>
-              <button
-                type="button"
-                onClick={cancelEdit}
-                className="text-xs text-slate-500 hover:underline"
-              >
-                Cancel (discard changes)
-              </button>
-            </div>
-          )}
+            <SectionCard
+              title="Save changes"
+              hint="Review edits before saving this order"
+              icon={Check}
+            >
+              <div className="flex flex-wrap items-center gap-3">
+                <button
+                  type="button"
+                  onClick={handleSaveOrder}
+                  disabled={savingOrder}
+                  className="inline-flex h-11 items-center justify-center rounded-2xl bg-emerald-600 px-5 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-60"
+                >
+                  {savingOrder ? "Saving…" : "Save order changes"}
+                </button>
 
-          <div className="w-full md:w-80 border-t border-slate-100 pt-4 space-y-1 text-sm md:ml-auto">
-            <div className="flex justify-between text-slate-600">
-              <span>Subtotal</span>
-              <span>₹{subtotal.toFixed(2)}</span>
-            </div>
-            {discountTotal > 0 && (
-              <div className="flex justify-between text-slate-600">
-                <span>Discount</span>
-                <span>- ₹{discountTotal.toFixed(2)}</span>
+                <button
+                  type="button"
+                  onClick={cancelEdit}
+                  className="inline-flex h-11 items-center justify-center rounded-2xl border border-slate-300 bg-white px-5 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                >
+                  Cancel
+                </button>
               </div>
+            </SectionCard>
+          )}
+        </div>
+
+        <SectionCard
+          title="Order summary"
+          hint="Final amount breakdown"
+          icon={FileText}
+        >
+          <div className="space-y-3">
+            <SummaryRow label="Subtotal" value={`₹${subtotal.toFixed(2)}`} />
+
+            {discountTotal > 0 && (
+              <SummaryRow
+                label="Discount"
+                value={`- ₹${discountTotal.toFixed(2)}`}
+              />
             )}
-            <div className="flex justify-between text-slate-600">
-              <span>Shipping</span>
-              <span>₹{shippingTotal.toFixed(2)}</span>
-            </div>
-            <div className="flex justify-between text-slate-600">
-              <span>Tax</span>
-              <span>₹{taxTotal.toFixed(2)}</span>
-            </div>
-            <div className="flex justify-between pt-2 border-t border-slate-100 font-semibold text-slate-900">
-              <span>Total</span>
-              <span>₹{grandTotal.toFixed(2)}</span>
+
+            <SummaryRow label="Shipping" value={`₹${shippingTotal.toFixed(2)}`} />
+            <SummaryRow label="Tax" value={`₹${taxTotal.toFixed(2)}`} />
+
+            <div className="border-t border-slate-100 pt-3">
+              <SummaryRow
+                label="Total"
+                value={`₹${grandTotal.toFixed(2)}`}
+                strong
+              />
             </div>
           </div>
-        </div>
+        </SectionCard>
       </div>
 
       {previewSrc && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-[90vw] max-h-[90vh] p-3 flex flex-col gap-3">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="flex max-h-[90vh] w-full max-w-3xl flex-col gap-3 rounded-[24px] bg-white p-3 shadow-2xl">
             <div className="flex items-center justify-between gap-2">
-              <div className="text-sm font-medium text-slate-800 truncate">
+              <div className="truncate text-sm font-medium text-slate-800">
                 {previewTitle || "Product image"}
               </div>
               <button
                 type="button"
-                className="h-8 w-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-700"
+                className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 text-slate-700 hover:bg-slate-200"
                 onClick={() => setPreviewSrc(null)}
               >
-                ✕
+                <X className="h-4 w-4" />
               </button>
             </div>
+
             <img
               src={previewSrc}
               alt={previewTitle}
-              className="max-h-[70vh] mx-auto object-contain rounded-lg"
+              className="mx-auto max-h-[70vh] rounded-xl object-contain"
             />
+          </div>
+        </div>
+      )}
+
+      {editMode && (
+        <div className="sticky bottom-3 z-40 -mx-1 md:hidden">
+          <div className="rounded-[26px] border border-slate-200/90 bg-white/92 p-3 shadow-[0_20px_50px_rgba(15,23,42,0.12)] backdrop-blur">
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={cancelEdit}
+                className="inline-flex h-11 items-center justify-center rounded-2xl border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveOrder}
+                disabled={savingOrder}
+                className="inline-flex h-11 items-center justify-center rounded-2xl bg-emerald-600 px-4 text-sm font-semibold text-white disabled:opacity-60"
+              >
+                {savingOrder ? "Saving…" : "Save"}
+              </button>
+            </div>
           </div>
         </div>
       )}

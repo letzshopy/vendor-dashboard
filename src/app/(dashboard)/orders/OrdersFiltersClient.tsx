@@ -3,6 +3,7 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState, useCallback } from "react";
 import { ORDER_STATUSES, STATUS_LABEL } from "@/lib/order-utils";
+import { Search, SlidersHorizontal } from "lucide-react";
 
 type Props = {
   initial: { status: string; date_from: string; date_to: string; s: string };
@@ -67,16 +68,18 @@ export default function OrdersFiltersClient({ initial }: Props) {
   }, [router, status, dateFrom, dateTo]);
 
   return (
-    <div className="flex flex-col gap-3 md:flex-row">
-      {/* Filters */}
-      <div className="flex-1 rounded-2xl border border-slate-100 bg-white p-3 shadow-sm">
-        <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
-          Filters
+    <div className="grid gap-3 xl:grid-cols-[1fr_1.1fr]">
+      <div className="overflow-hidden rounded-[26px] border border-slate-200/80 bg-white shadow-[0_10px_30px_rgba(15,23,42,0.05)]">
+        <div className="border-b border-slate-100 bg-gradient-to-r from-white via-[#faf7ff] to-[#f4fbff] px-4 py-4">
+          <div className="flex items-center gap-2">
+            <SlidersHorizontal className="h-4 w-4 text-violet-600" />
+            <h2 className="text-[16px] font-semibold text-slate-900">Filters</h2>
+          </div>
         </div>
 
-        <div className="grid grid-cols-1 gap-2 md:grid-cols-5">
+        <div className="grid gap-3 p-4 md:grid-cols-4">
           <select
-            className="rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-800 focus:border-violet-400 focus:outline-none focus:ring-1 focus:ring-violet-300"
+            className="h-11 rounded-2xl border border-slate-200 px-4 text-sm text-slate-800 focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-200"
             value={status}
             onChange={(e) => setStatus(e.currentTarget.value)}
           >
@@ -90,66 +93,72 @@ export default function OrdersFiltersClient({ initial }: Props) {
 
           <input
             type="date"
-            className="rounded-xl border border-slate-200 px-3 py-2 text-sm focus:border-violet-400 focus:outline-none focus:ring-1 focus:ring-violet-300"
+            className="h-11 rounded-2xl border border-slate-200 px-4 text-sm focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-200"
             value={dateFrom}
             onChange={(e) => setDateFrom(e.currentTarget.value)}
           />
 
           <input
             type="date"
-            className="rounded-xl border border-slate-200 px-3 py-2 text-sm focus:border-violet-400 focus:outline-none focus:ring-1 focus:ring-violet-300"
+            className="h-11 rounded-2xl border border-slate-200 px-4 text-sm focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-200"
             value={dateTo}
             onChange={(e) => setDateTo(e.currentTarget.value)}
           />
 
-          <button
-            type="button"
-            onClick={applyFilters}
-            className="rounded-xl border border-slate-200 bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-800"
-          >
-            Apply
-          </button>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={applyFilters}
+              className="inline-flex h-11 flex-1 items-center justify-center rounded-2xl bg-slate-900 px-4 text-sm font-semibold text-white hover:bg-slate-800"
+            >
+              Apply
+            </button>
 
-          <button
-            type="button"
-            onClick={clearFilters}
-            className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100"
-          >
-            Clear
-          </button>
+            <button
+              type="button"
+              onClick={clearFilters}
+              className="inline-flex h-11 items-center justify-center rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+            >
+              Clear
+            </button>
+          </div>
         </div>
       </div>
 
-      {/* Search */}
-      <div className="w-full rounded-2xl border border-slate-100 bg-white p-3 shadow-sm md:w-[480px]">
-        <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
-          Search
+      <div className="overflow-hidden rounded-[26px] border border-slate-200/80 bg-white shadow-[0_10px_30px_rgba(15,23,42,0.05)]">
+        <div className="border-b border-slate-100 bg-gradient-to-r from-white via-[#faf7ff] to-[#f4fbff] px-4 py-4">
+          <div className="flex items-center gap-2">
+            <Search className="h-4 w-4 text-violet-600" />
+            <h2 className="text-[16px] font-semibold text-slate-900">Search</h2>
+          </div>
         </div>
 
-        <div className="flex gap-2">
+        <div className="flex flex-col gap-3 p-4 sm:flex-row">
           <input
-            className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:border-violet-400 focus:outline-none focus:ring-1 focus:ring-violet-300"
+            className="h-11 w-full rounded-2xl border border-slate-200 px-4 text-sm focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-200"
             placeholder="Search # / name / email / phone / SKU / product"
             value={s}
             onChange={(e) => setS(e.currentTarget.value)}
             onKeyDown={(e) => e.key === "Enter" && applySearch()}
           />
 
-          <button
-            type="button"
-            className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm hover:bg-slate-100"
-            onClick={applySearch}
-          >
-            Search
-          </button>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              className="inline-flex h-11 items-center justify-center rounded-2xl bg-slate-900 px-4 text-sm font-semibold text-white hover:bg-slate-800"
+              onClick={applySearch}
+            >
+              Search
+            </button>
 
-          <button
-            type="button"
-            className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
-            onClick={clearSearch}
-          >
-            Clear
-          </button>
+            <button
+              type="button"
+              className="inline-flex h-11 items-center justify-center rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+              onClick={clearSearch}
+            >
+              Clear
+            </button>
+          </div>
         </div>
       </div>
     </div>

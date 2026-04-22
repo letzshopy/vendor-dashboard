@@ -19,7 +19,6 @@ export default async function OrderPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  // ✅ Next 15 style: await params
   const { id } = await params;
 
   const orderId = Number(id);
@@ -35,7 +34,7 @@ export default async function OrderPage({
   }
 
   return (
-    <main className="p-6 max-w-6xl xl:max-w-7xl mx-auto">
+    <main className="mx-auto max-w-7xl px-3 pb-28 pt-3 md:px-4 md:pb-8 md:pt-5">
       <OrderDetailClient initialOrder={order as any} />
     </main>
   );

@@ -6,10 +6,6 @@ function normalizeBase(url: string) {
   return String(url || "").trim().replace(/\/+$/, "");
 }
 
-/**
- * Build Basic auth header from env.
- * Prefer WP_AUTH (base64 user:app_password). Fallback to WP_USER + WP_APP_PASSWORD.
- */
 export function wpAuthHeader() {
   const token = process.env.WP_AUTH;
   if (token) return { Authorization: `Basic ${token}` };
@@ -22,24 +18,15 @@ export function wpAuthHeader() {
   if (!pass) missing.push("WP_APP_PASSWORD");
 
   if (missing.length) {
-    throw new Error(`Missing WP auth env. Provide WP_AUTH or ${missing.join(", ")}`);
+    throw new Error(
+      `Missing WP auth env. Provide WP_AUTH or ${missing.join(", ")}`
+    );
   }
 
   const auth = Buffer.from(`${user}:${pass}`).toString("base64");
   return { Authorization: `Basic ${auth}` };
 }
 
-/**
- * Vendor store WP base URL
- * Priority:
- * 1) tenant cookie store_url
- * 2) WP_URL
- * 3) SITE_URL
- *
- * IMPORTANT:
- * - Never use MASTER_WP_URL here
- * - For vendor APIs, tenant cookie should win always
- */
 export async function getWpBaseUrl(): Promise<string> {
   const tenant = await getTenantFromCookies();
 
@@ -52,13 +39,11 @@ export async function getWpBaseUrl(): Promise<string> {
     return normalizeBase(fallback);
   }
 
-  throw new Error("Missing vendor WP base URL (tenant cookie / WP_URL / SITE_URL)");
+  throw new Error(
+    "Missing vendor WP base URL (tenant cookie / WP_URL / SITE_URL)"
+  );
 }
 
-/**
- * Master registry WP base URL (letzshopy.in)
- * Use ONLY for master/platform APIs.
- */
 export function getMasterWpBaseUrl(): string {
   const base =
     process.env.MASTER_WP_URL ||
@@ -76,9 +61,6 @@ export function getMasterWpBaseUrl(): string {
   return normalizeBase(base);
 }
 
-/**
- * WP REST client for current tenant
- */
 export async function getWpClient(): Promise<AxiosInstance> {
   const base = await getWpBaseUrl();
 
@@ -89,9 +71,6 @@ export async function getWpClient(): Promise<AxiosInstance> {
   });
 }
 
-/**
- * WP REST client for MASTER registry site
- */
 export function getMasterWpClient(): AxiosInstance {
   const base = getMasterWpBaseUrl();
 

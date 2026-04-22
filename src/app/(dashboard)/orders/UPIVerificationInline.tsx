@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import type { WCOrder } from "@/lib/order-utils";
+import { CheckCircle2, Loader2, ShieldCheck, X } from "lucide-react";
 
 type Props = {
   order: WCOrder & {
@@ -29,9 +30,10 @@ export function UPIVerificationInline({ order }: Props) {
   const screenshotUrl = getMeta(order, "_letz_upi_screenshot_url");
   const screenshotId = getMeta(order, "_letz_upi_screenshot_id");
   const requireScreenshotMeta = getMeta(order, "_letz_upi_require_screenshot");
-  const requiresScreenshot = requireScreenshotMeta === undefined
-    ? true
-    : isTruthyMeta(requireScreenshotMeta);
+  const requiresScreenshot =
+    requireScreenshotMeta === undefined
+      ? true
+      : isTruthyMeta(requireScreenshotMeta);
 
   const [loading, setLoading] = useState(false);
   const [showShot, setShowShot] = useState(false);
@@ -67,76 +69,88 @@ export function UPIVerificationInline({ order }: Props) {
   };
 
   const statusBadge = isOnHold ? (
-    <span className="inline-flex items-center rounded-full bg-amber-100 text-amber-700 px-2 py-0.5 text-[10px] font-medium">
+    <span className="inline-flex items-center rounded-full bg-amber-100 px-2.5 py-1 text-[10px] font-semibold text-amber-700">
       Pending verify
     </span>
   ) : (
-    <span className="inline-flex items-center rounded-full bg-emerald-100 text-emerald-700 px-2 py-0.5 text-[10px] font-medium">
+    <span className="inline-flex items-center rounded-full bg-emerald-100 px-2.5 py-1 text-[10px] font-semibold text-emerald-700">
       Verified ({order.status})
     </span>
   );
 
   return (
     <>
-      <div className="mt-1 w-full">
-        <div className="rounded-2xl border border-slate-200 bg-indigo-50/60 px-3 py-2 text-xs text-slate-800 flex gap-2 items-start">
-          <div className="h-8 w-8 rounded-full bg-slate-900 text-white flex items-center justify-center text-xs shrink-0">
-            ₹
+      <div className="rounded-[18px] border border-slate-200 bg-indigo-50/60 p-3">
+        <div className="flex items-start gap-3">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-900 text-white">
+            <ShieldCheck className="h-4 w-4" />
           </div>
 
-          <div className="flex-1 space-y-1 min-w-0">
-            <div className="flex items-center justify-between gap-2">
-              <div className="text-[11px] font-semibold text-slate-900">
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500">
                 UPI Payment
               </div>
               {statusBadge}
             </div>
 
             {txn && (
-              <div className="text-[11px] leading-snug">
-                <span className="font-medium">Txn:&nbsp;</span>
+              <div className="mt-1 text-[11px] leading-snug text-slate-700">
+                <span className="font-semibold">Txn:</span>{" "}
                 <span className="break-all">{txn}</span>
               </div>
             )}
 
-            {requiresScreenshot ? (
-              screenshotUrl ? (
-                <button
-                  type="button"
-                  className="text-[11px] text-indigo-700 underline"
-                  onClick={() => setShowShot(true)}
-                >
-                  View payment screenshot
-                </button>
-              ) : screenshotId ? (
-                <div className="text-[11px] text-amber-700">
-                  Screenshot uploaded (open order in Woo admin to view).
-                </div>
+            <div className="mt-2 space-y-1">
+              {requiresScreenshot ? (
+                screenshotUrl ? (
+                  <button
+                    type="button"
+                    className="text-[11px] font-medium text-indigo-700 underline"
+                    onClick={() => setShowShot(true)}
+                  >
+                    View payment screenshot
+                  </button>
+                ) : screenshotId ? (
+                  <div className="text-[11px] text-amber-700">
+                    Screenshot uploaded. Open order in Woo admin to view.
+                  </div>
+                ) : (
+                  <div className="text-[11px] text-amber-700">
+                    Screenshot not uploaded yet.
+                  </div>
+                )
               ) : (
-                <div className="text-[11px] text-amber-700">
-                  Screenshot not uploaded yet.
+                <div className="text-[11px] text-slate-600">
+                  Screenshot proof disabled for this order.
                 </div>
-              )
-            ) : (
-              <div className="text-[11px] text-slate-600">
-                Screenshot proof disabled for this order. Verify using transaction number.
-              </div>
-            )}
+              )}
 
-            {!isOnHold && (
-              <div className="text-[11px] text-emerald-700">
-                Payment already verified ({order.status}).
-              </div>
-            )}
+              {!isOnHold && (
+                <div className="text-[11px] text-emerald-700">
+                  Payment already verified.
+                </div>
+              )}
+            </div>
 
             {isOnHold && (
               <button
                 type="button"
                 onClick={handleVerify}
                 disabled={loading}
-                className="mt-1 inline-flex items-center justify-center rounded-full border border-slate-300 bg-white px-3 py-1 text-[11px] font-medium hover:bg-slate-50 disabled:opacity-60"
+                className="mt-3 inline-flex h-9 items-center justify-center gap-2 rounded-full border border-slate-300 bg-white px-4 text-[11px] font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60"
               >
-                {loading ? "Verifying..." : "Verify & Confirm Payment"}
+                {loading ? (
+                  <>
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    Verifying...
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle2 className="h-3.5 w-3.5" />
+                    Verify Payment
+                  </>
+                )}
               </button>
             )}
           </div>
@@ -145,30 +159,30 @@ export function UPIVerificationInline({ order }: Props) {
 
       {showShot && screenshotUrl && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
           onClick={() => setShowShot(false)}
         >
           <div
-            className="bg-white rounded-lg shadow-xl max-w-[90vw] max-h-[90vh] p-2 flex flex-col"
+            className="flex max-h-[90vh] w-full max-w-3xl flex-col rounded-[24px] bg-white p-3 shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex justify-between items-center mb-2">
-              <div className="text-xs font-semibold text-slate-700">
+            <div className="mb-2 flex items-center justify-between">
+              <div className="text-sm font-semibold text-slate-800">
                 Payment Screenshot
               </div>
               <button
-                className="h-7 w-7 rounded-full hover:bg-slate-100 text-sm"
+                className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-slate-100"
                 onClick={() => setShowShot(false)}
               >
-                ✕
+                <X className="h-4 w-4" />
               </button>
             </div>
-            <div className="flex-1 overflow-auto flex items-center justify-center">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
+
+            <div className="flex flex-1 items-center justify-center overflow-auto rounded-[18px] bg-slate-50 p-2">
               <img
                 src={screenshotUrl}
                 alt="UPI payment screenshot"
-                className="max-h-[80vh] max-w-[80vw] object-contain"
+                className="max-h-[80vh] max-w-full object-contain"
               />
             </div>
           </div>

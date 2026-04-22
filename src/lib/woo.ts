@@ -7,10 +7,8 @@ function normalizeBase(url: string) {
 }
 
 export async function getWooClient(): Promise<AxiosInstance> {
-  // ✅ First preference: tenant cookie (SaaS)
   const tenant = await getTenantFromCookies();
 
-  // ✅ Tenant fallback must be TEMPLATE url only (NOT master)
   const storeUrl =
     tenant?.store_url ||
     process.env.WP_URL ||
