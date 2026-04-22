@@ -1,6 +1,16 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import {
+  ChevronDown,
+  FolderTree,
+  Link2,
+  Loader2,
+  MenuSquare,
+  Plus,
+  RefreshCcw,
+  Save,
+} from "lucide-react";
 
 /** TYPES */
 type MenuItem = {
@@ -18,7 +28,8 @@ type MenuDef = {
   key: MenuKey;
   label: string;
   also: string[];
-  mode: "location" | "menu_id";
+  loadMode: "menu_id" | "location";
+  saveMode: "menu_id" | "location";
 };
 
 const MENUS: MenuDef[] = [
@@ -26,23 +37,26 @@ const MENUS: MenuDef[] = [
     key: "primary",
     label: "Primary Menu",
     also: ["Off-Canvas Menu"],
-    mode: "location",
+    loadMode: "menu_id",
+    saveMode: "location",
   },
   {
     key: "footer_discover",
     label: "Footer - Discover",
     also: [],
-    mode: "menu_id",
+    loadMode: "menu_id",
+    saveMode: "menu_id",
   },
   {
     key: "footer_info",
     label: "Footer - Information",
     also: [],
-    mode: "menu_id",
+    loadMode: "menu_id",
+    saveMode: "menu_id",
   },
 ];
 
-const STORAGE_KEY = (k: MenuKey) => `ls_menu_${k}_v4`;
+const STORAGE_KEY = (k: MenuKey) => `ls_menu_${k}_v5`;
 const uid = () => Math.random().toString(36).slice(2, 9);
 
 type Path = number[];
@@ -100,11 +114,17 @@ export default function MenuLayoutPage() {
     []
   );
   const [custom, setCustom] = useState({ title: "", url: "" });
+
   const [syncing, setSyncing] = useState(false);
+  const [loadingMenu, setLoadingMenu] = useState(false);
+  const [bootLoading, setBootLoading] = useState(true);
 
   const [msg, setMsg] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-  const [menuMap, setMenuMap] = useState<Record<string, number>>({}); // WP menu name -> id
+  const [menuMap, setMenuMap] = useState<Record<string, number>>({});
+
+  const [selectedPageId, setSelectedPageId] = useState("");
+  const [selectedCatId, setSelectedCatId] = useState("");
 
   const currentDef = useMemo(
     () => MENUS.find((m) => m.key === menuKey)!,
@@ -116,8 +136,6 @@ export default function MenuLayoutPage() {
     [pages]
   );
 
-  /** notifications */
-
   function notify(t: string) {
     setSuccess(null);
     setMsg(t);
@@ -126,7 +144,7 @@ export default function MenuLayoutPage() {
     }
     setTimeout(() => {
       setMsg((cur) => (cur === t ? null : cur));
-    }, 4000);
+    }, 3500);
   }
 
   function ok(t: string) {
@@ -137,10 +155,8 @@ export default function MenuLayoutPage() {
     }
     setTimeout(() => {
       setSuccess((cur) => (cur === t ? null : cur));
-    }, 4000);
+    }, 3500);
   }
-
-  /** helpers */
 
   function normalizeUrl(url: string) {
     try {
@@ -163,7 +179,6 @@ export default function MenuLayoutPage() {
     }
   }
 
-  /** classify item by URL/title */
   function classifyType(url?: string, title?: string): MenuItem["type"] {
     const u = normalizeUrl(url || "");
     const t = (title || "").toLowerCase();
@@ -187,7 +202,7 @@ export default function MenuLayoutPage() {
       const path = new URL(u, "http://x").pathname;
       if (known.includes(path)) return "page";
     } catch {
-      /* ignore */
+      // ignore
     }
 
     if (
@@ -222,65 +237,91 @@ export default function MenuLayoutPage() {
   const slugify = (s: string) =>
     s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
 
-  /** initial data (cats, pages, menu ids) */
-
   useEffect(() => {
-    fetch("/api/taxonomies/categories")
-      .then((r) => r.json())
-      .then((d) =>
-        setCats((d.items || []).map((x: any) => ({ id: x.id, name: x.name })))
-      )
-      .catch(() => {});
+    async function boot() {
+      try {
+        const [catsRes, pagesRes, menusRes] = await Promise.all([
+          fetch("/api/taxonomies/categories"),
+          fetch("/api/wp/pages"),
+          fetch("/api/menu/menus"),
+        ]);
 
-    fetch("/api/wp/pages")
-      .then((r) => r.json())
-      .then((d) => setPages(d.items || []))
-      .catch(() => {});
+        const catsJson = await catsRes.json().catch(() => ({ items: [] }));
+        const pagesJson = await pagesRes.json().catch(() => ({ items: [] }));
+        const menusJson = await menusRes.json().catch(() => ({ menus: [] }));
 
-    fetch("/api/menu/menus")
-      .then((r) => r.json())
-      .then((d) => {
+        setCats(
+          (catsJson.items || []).map((x: any) => ({ id: x.id, name: x.name }))
+        );
+        setPages(pagesJson.items || []);
+
         const map: Record<string, number> = {};
-        for (const m of d.menus || []) map[m.name] = m.id;
+        for (const m of menusJson.menus || []) map[m.name] = m.id;
         setMenuMap(map);
-      })
-      .catch(() => {});
+      } finally {
+        setBootLoading(false);
+      }
+    }
+
+    boot();
   }, []);
 
-  /** reclassify after pages arrive */
   useEffect(() => {
     if (items.length === 0) return;
     setItems((prev) => deepClone(prev).map(reclassifyTree));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pageUrlSet.size]);
 
-  /** load by location or menu_id */
-
   async function loadMenu(def: MenuDef) {
+    setLoadingMenu(true);
+    setMsg(null);
+    setSuccess(null);
+
     let url = "";
 
-    if (def.mode === "location") {
-      url = `/api/menu/sync?location=${encodeURIComponent(def.key)}`;
-    } else {
-      const id = menuMap[def.label];
-      if (!id) {
-        setItems([]);
-        notify(`Couldn't load “${def.label}” (menu ID not found).`);
-        return;
-      }
-      url = `/api/menu/sync?menu_id=${id}`;
-    }
-
     try {
+      if (def.loadMode === "menu_id") {
+        const id = menuMap[def.label];
+
+        if (id) {
+          url = `/api/menu/sync?menu_id=${id}&menu_name=${encodeURIComponent(
+            def.label
+          )}&location_label=${encodeURIComponent(def.label)}`;
+        } else if (def.key === "primary") {
+          url = `/api/menu/sync?location=${encodeURIComponent(
+            def.key
+          )}&menu_name=${encodeURIComponent(def.label)}&location_label=${encodeURIComponent(
+            def.label
+          )}`;
+        } else {
+          setItems([]);
+          notify(`Couldn't load “${def.label}” (menu ID not found).`);
+          return;
+        }
+      } else {
+        url = `/api/menu/sync?location=${encodeURIComponent(
+          def.key
+        )}&menu_name=${encodeURIComponent(def.label)}&location_label=${encodeURIComponent(
+          def.label
+        )}`;
+      }
+
       const res = await fetch(url, { cache: "no-store" });
       const data = await res.json();
+
       if (res.ok) {
         const list = toLocalTree(data.items || []);
         setItems(list);
+
         if (typeof window !== "undefined") {
           localStorage.setItem(STORAGE_KEY(def.key), JSON.stringify(list));
         }
-        notify(`Loaded “${def.label}”.`);
+
+        if ((data.items || []).length === 0) {
+          notify(`Loaded “${def.label}”, but it currently has no items.`);
+        } else {
+          ok(`Loaded “${def.label}”.`);
+        }
       } else {
         const raw =
           typeof window !== "undefined"
@@ -302,18 +343,17 @@ export default function MenuLayoutPage() {
         e?.message ||
           `Couldn't reach the saved data. Showing last saved copy from this dashboard.`
       );
+    } finally {
+      setLoadingMenu(false);
     }
   }
 
-  /** load when switching */
-
   useEffect(() => {
+    if (bootLoading) return;
     const def = MENUS.find((m) => m.key === menuKey)!;
     loadMenu(def);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [menuKey, menuMap]);
-
-  /** save & sync */
+  }, [menuKey, menuMap, bootLoading]);
 
   async function saveAndSync() {
     const def = MENUS.find((m) => m.key === menuKey)!;
@@ -340,13 +380,12 @@ export default function MenuLayoutPage() {
         also_location_labels: def.also,
       };
 
-      if (def.mode === "location") {
+      if (def.saveMode === "location") {
         body.location = def.key;
       } else {
         const id = menuMap[def.label];
         if (!id) {
           notify(`Cannot save — missing menu ID for “${def.label}”.`);
-          setSyncing(false);
           return;
         }
         body.menu_id = id;
@@ -360,6 +399,7 @@ export default function MenuLayoutPage() {
 
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error || "Sync failed");
+
       ok("Menu saved.");
     } catch (e: any) {
       notify(e?.message || "Failed to save menu");
@@ -368,8 +408,6 @@ export default function MenuLayoutPage() {
     }
   }
 
-  /** adders */
-
   function addPageById(id: number) {
     const p = pages.find((x) => x.id === id);
     if (!p) return;
@@ -377,12 +415,14 @@ export default function MenuLayoutPage() {
       ...items,
       { id: uid(), type: "page", title: p.name, url: p.url, children: [] },
     ]);
+    setSelectedPageId("");
   }
 
   function addCategory(id: number) {
     const c = cats.find((x) => x.id === id);
     if (!c) return;
     const slug = slugify(c.name);
+
     setItems([
       ...items,
       {
@@ -394,6 +434,7 @@ export default function MenuLayoutPage() {
         children: [],
       },
     ]);
+    setSelectedCatId("");
   }
 
   function addCustom() {
@@ -410,8 +451,6 @@ export default function MenuLayoutPage() {
     ]);
     setCustom({ title: "", url: "" });
   }
-
-  /** reorder operations */
 
   function moveUp(path: Path) {
     const parentPath = path.slice(0, -1);
@@ -431,22 +470,24 @@ export default function MenuLayoutPage() {
   function indent(path: Path) {
     const parentPath = path.slice(0, -1);
     const idx = path[path.length - 1];
-    if (idx === 0) return; // can't indent first item
+    if (idx === 0) return;
+
     const prevSiblingPath = [...parentPath, idx - 1];
     const [without, node] = removeAtPath(items, path);
 
-    // walk to previous sibling
     let target: any = without;
     for (const i of prevSiblingPath) {
       target = target[i].children ?? (target[i].children = []);
     }
+
     const endIndex = (target as MenuItem[]).length;
     const inserted = insertAtPath(without, prevSiblingPath, endIndex, node);
     setItems(inserted);
   }
 
   function outdent(path: Path) {
-    if (path.length === 1) return; // already top-level
+    if (path.length === 1) return;
+
     const parentPath = path.slice(0, -1);
     const grandPath = parentPath.slice(0, -1);
     const parentIndexInGrand = parentPath[parentPath.length - 1];
@@ -460,8 +501,6 @@ export default function MenuLayoutPage() {
     const [next] = removeAtPath(items, path);
     setItems(next);
   }
-
-  /** row + tree */
 
   function Row({ item, path }: { item: MenuItem; path: Path }) {
     const parentPath = path.slice(0, -1);
@@ -485,22 +524,27 @@ export default function MenuLayoutPage() {
       "ml-2 rounded-full bg-slate-50 px-2 py-0.5 text-[11px] font-medium text-slate-500";
 
     return (
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm">
-        <div className="flex items-center gap-2">
-          <span className="select-none text-slate-300">⋮⋮</span>
-          <div className="font-medium text-slate-800">
-            {item.title}
+      <div className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white px-3 py-3 text-sm shadow-sm md:flex-row md:items-center md:justify-between">
+        <div className="min-w-0">
+          <div className="flex min-w-0 items-center gap-2">
+            <span className="select-none text-slate-300">⋮⋮</span>
+            <div className="truncate font-medium text-slate-800">{item.title}</div>
             <span className={typeBadge}>
               {item.type === "page"
                 ? "Page"
                 : item.type === "category"
-                ? "Product category"
-                : "Custom link"}
+                ? "Category"
+                : "Custom"}
             </span>
           </div>
+          {item.url && (
+            <div className="mt-1 truncate pl-6 text-xs text-slate-500">
+              {item.url}
+            </div>
+          )}
         </div>
 
-        <div className="flex items-center gap-1">
+        <div className="flex flex-wrap items-center gap-1.5">
           <button
             className={`${pill} ${ghost} ${disabled}`}
             title="Move up"
@@ -519,7 +563,7 @@ export default function MenuLayoutPage() {
           </button>
           <button
             className={`${pill} ${ghost} ${disabled}`}
-            title="Indent (make child of previous)"
+            title="Indent"
             onClick={() => indent(path)}
             disabled={!canIndent}
           >
@@ -527,7 +571,7 @@ export default function MenuLayoutPage() {
           </button>
           <button
             className={`${pill} ${ghost} ${disabled}`}
-            title="Outdent (lift one level up)"
+            title="Outdent"
             onClick={() => outdent(path)}
             disabled={!canOutdent}
           >
@@ -555,7 +599,7 @@ export default function MenuLayoutPage() {
     level?: number;
   }) {
     return (
-      <ul className={`space-y-2 ${level ? "ml-6" : ""}`}>
+      <ul className={`space-y-2 ${level ? "ml-4 md:ml-6" : ""}`}>
         {nodes.map((n, idx) => {
           const path = [...parentPath, idx];
           return (
@@ -571,49 +615,56 @@ export default function MenuLayoutPage() {
     );
   }
 
-  /** RENDER */
-
   return (
-    <main className="mx-auto max-w-6xl px-6 py-6">
-      {/* Header: select menu */}
-      <div className="mb-4 flex flex-col gap-3 rounded-2xl bg-gradient-to-r from-violet-50 via-sky-50 to-rose-50 px-4 py-4 md:flex-row md:items-center md:justify-between">
-        <div>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-violet-500">
-            Select menu to edit
-          </p>
-          <p className="mt-1 text-sm text-slate-600">
-            {currentDef.label}
-            {menuKey === "primary"
-              ? " — also controls the off-canvas mobile menu."
-              : " — footer menu for your store."}
-          </p>
+    <main className="mx-auto max-w-7xl px-3 py-3 md:px-4 md:py-5">
+      <div className="rounded-[30px] border border-white/80 bg-gradient-to-br from-white via-[#faf6ff] to-[#eef7ff] p-4 shadow-[0_14px_40px_rgba(15,23,42,0.06)] md:p-5">
+        <div className="inline-flex items-center gap-2 rounded-full bg-violet-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-violet-700">
+          <MenuSquare className="h-3.5 w-3.5" />
+          Menu Builder
         </div>
-        <div className="flex flex-wrap items-center gap-3">
-          <select
-            className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-800 shadow-sm"
-            value={menuKey}
-            onChange={(e) => setMenuKey(e.target.value as MenuKey)}
-          >
-            {MENUS.map((m) => (
-              <option key={m.key} value={m.key}>
-                {m.label}
-              </option>
-            ))}
-          </select>
-          <button
-            type="button"
-            className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 shadow-sm hover:border-violet-300 hover:bg-violet-50"
-            onClick={() => loadMenu(currentDef)}
-          >
-            Reload your menu
-          </button>
+
+        <div className="mt-3 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <div>
+            <h1 className="text-[28px] font-semibold tracking-tight text-slate-900 md:text-[34px]">
+              Menu Layout
+            </h1>
+            <p className="mt-1 text-sm leading-6 text-slate-500">
+              {currentDef.label}
+              {menuKey === "primary"
+                ? " also controls the mobile off-canvas menu."
+                : " is used for your footer navigation."}
+            </p>
+          </div>
+
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <select
+              className="h-12 rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-800 shadow-sm focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-100"
+              value={menuKey}
+              onChange={(e) => setMenuKey(e.target.value as MenuKey)}
+            >
+              {MENUS.map((m) => (
+                <option key={m.key} value={m.key}>
+                  {m.label}
+                </option>
+              ))}
+            </select>
+
+            <button
+              type="button"
+              className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 text-sm font-medium text-slate-700 shadow-sm hover:border-violet-300 hover:bg-violet-50"
+              onClick={() => loadMenu(currentDef)}
+              disabled={loadingMenu}
+            >
+              <RefreshCcw className="h-4 w-4" />
+              {loadingMenu ? "Loading..." : "Reload menu"}
+            </button>
+          </div>
         </div>
       </div>
 
-      {/* alerts */}
       {(success || msg) && (
         <div
-          className={`mb-4 flex items-center gap-3 rounded-xl border px-4 py-3 text-sm shadow-sm ${
+          className={`mt-4 flex items-center gap-3 rounded-2xl border px-4 py-3 text-sm shadow-sm ${
             success
               ? "border-emerald-200 bg-emerald-50 text-emerald-800"
               : "border-amber-200 bg-amber-50 text-amber-800"
@@ -624,190 +675,224 @@ export default function MenuLayoutPage() {
         </div>
       )}
 
-      {/* main grid */}
-      <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
-        {/* LEFT: add items */}
-        <section className="rounded-2xl border border-slate-100 bg-white/70 p-4 shadow-sm">
-          <h2 className="mb-1 text-sm font-semibold text-slate-900">
-            Add menu items
-          </h2>
-          <p className="mb-4 text-xs text-slate-500">
-            Quickly add pages, product categories, or custom links. Reorder on
-            the right.
-          </p>
-
-          {/* Pages */}
-          <div className="mb-4">
-            <div className="mb-1 text-xs font-medium text-slate-700">Pages</div>
-            <select
-              className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 shadow-sm focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-100"
-              defaultValue=""
-              onChange={(e) => {
-                const v = Number(e.target.value);
-                if (v) {
-                  addPageById(v);
-                  e.currentTarget.value = "";
-                }
-              }}
-            >
-              <option value="" disabled>
-                Select a page…
-              </option>
-              {pages.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name}
-                </option>
-              ))}
-            </select>
+      <div className="mt-4 grid grid-cols-1 gap-4 xl:grid-cols-[360px_minmax(0,1fr)]">
+        {/* LEFT */}
+        <section className="overflow-hidden rounded-[26px] border border-slate-200/80 bg-white shadow-[0_10px_30px_rgba(15,23,42,0.05)]">
+          <div className="border-b border-slate-100 bg-gradient-to-r from-[#faf7ff] via-white to-[#f4fbff] px-4 py-4 md:px-5">
+            <h2 className="text-[17px] font-semibold tracking-tight text-slate-900">
+              Add menu items
+            </h2>
+            <p className="mt-1 text-xs leading-5 text-slate-500">
+              Add pages, product categories, or custom links.
+            </p>
           </div>
 
-          {/* Categories */}
-          <div className="mb-4">
-            <div className="mb-1 text-xs font-medium text-slate-700">
-              Product categories
+          <div className="space-y-4 p-4 md:p-5">
+            <div>
+              <label className="mb-2 block text-[13px] font-semibold text-slate-700">
+                Pages
+              </label>
+              <div className="flex gap-2">
+                <select
+                  className="h-12 flex-1 rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-800 shadow-sm focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-100"
+                  value={selectedPageId}
+                  onChange={(e) => setSelectedPageId(e.target.value)}
+                >
+                  <option value="">Select a page…</option>
+                  {pages.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  onClick={() => selectedPageId && addPageById(Number(selectedPageId))}
+                  className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-violet-600 text-white shadow-sm hover:bg-violet-700"
+                >
+                  <Plus className="h-5 w-5" />
+                </button>
+              </div>
             </div>
-            <select
-              className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 shadow-sm focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-100"
-              defaultValue=""
-              onChange={(e) => {
-                const v = Number(e.target.value);
-                if (v) {
-                  addCategory(v);
-                  e.currentTarget.value = "";
-                }
-              }}
-            >
-              <option value="" disabled>
-                Select a category…
-              </option>
-              {cats.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
-          </div>
 
-          {/* Custom links */}
-          <div>
-            <div className="mb-1 text-xs font-medium text-slate-700">
-              Custom links
+            <div>
+              <label className="mb-2 block text-[13px] font-semibold text-slate-700">
+                Product categories
+              </label>
+              <div className="flex gap-2">
+                <select
+                  className="h-12 flex-1 rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-800 shadow-sm focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-100"
+                  value={selectedCatId}
+                  onChange={(e) => setSelectedCatId(e.target.value)}
+                >
+                  <option value="">Select a category…</option>
+                  {cats.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  onClick={() => selectedCatId && addCategory(Number(selectedCatId))}
+                  className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-violet-600 text-white shadow-sm hover:bg-violet-700"
+                >
+                  <Plus className="h-5 w-5" />
+                </button>
+              </div>
             </div>
-            <div className="space-y-2">
-              <input
-                className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 shadow-sm focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-100"
-                placeholder="URL (https://…)"
-                value={custom.url}
-                onChange={(e) => setCustom({ ...custom, url: e.target.value })}
-              />
-              <input
-                className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 shadow-sm focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-100"
-                placeholder="Link text"
-                value={custom.title}
-                onChange={(e) =>
-                  setCustom({ ...custom, title: e.target.value })
-                }
-              />
-              <button
-                type="button"
-                onClick={addCustom}
-                className="mt-1 inline-flex items-center justify-center rounded-full bg-slate-900 px-4 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-slate-800"
-              >
-                + Add to menu
-              </button>
+
+            <div>
+              <label className="mb-2 block text-[13px] font-semibold text-slate-700">
+                Custom link
+              </label>
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-2.5 shadow-sm">
+                  <Link2 className="h-4 w-4 text-slate-400" />
+                  <input
+                    className="w-full bg-transparent text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none"
+                    placeholder="URL (https://...)"
+                    value={custom.url}
+                    onChange={(e) => setCustom({ ...custom, url: e.target.value })}
+                  />
+                </div>
+
+                <input
+                  className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-800 shadow-sm focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-100"
+                  placeholder="Link text"
+                  value={custom.title}
+                  onChange={(e) => setCustom({ ...custom, title: e.target.value })}
+                />
+
+                <button
+                  type="button"
+                  onClick={addCustom}
+                  className="inline-flex h-11 items-center justify-center rounded-2xl bg-slate-900 px-5 text-sm font-semibold text-white shadow-sm hover:bg-slate-800"
+                >
+                  Add to menu
+                </button>
+              </div>
             </div>
           </div>
         </section>
 
-        {/* RIGHT: structure + settings */}
-        <section className="space-y-6 md:col-span-2">
-          {/* structure */}
-          <div className="rounded-2xl border border-slate-100 bg-white/70 p-4 shadow-sm">
-            <div className="mb-1 flex items-center justify-between">
-              <h2 className="text-sm font-semibold text-slate-900">
+        {/* RIGHT */}
+        <section className="space-y-4">
+          <div className="overflow-hidden rounded-[26px] border border-slate-200/80 bg-white shadow-[0_10px_30px_rgba(15,23,42,0.05)]">
+            <div className="border-b border-slate-100 bg-gradient-to-r from-[#faf7ff] via-white to-[#f4fbff] px-4 py-4 md:px-5">
+              <h2 className="text-[17px] font-semibold tracking-tight text-slate-900">
                 Menu structure
               </h2>
+              <p className="mt-1 text-xs leading-5 text-slate-500">
+                Use arrows to reorder and nest items.
+              </p>
             </div>
-            <p className="mb-3 text-xs text-slate-500">
-              Use the arrow controls to reorder and nest items. This keeps the
-              structure 100%.
-            </p>
 
-            {items.length === 0 && (
-              <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 px-4 py-6 text-center text-xs text-slate-500">
-                No items in this menu yet. Add pages, categories, or custom links
-                on the left.
-              </div>
-            )}
-
-            {items.length > 0 && (
-              <ul className="space-y-2">
-                {items.map((n, i) => (
-                  <li key={n.id}>
-                    <Row item={n} path={[i]} />
-                    {n.children && n.children.length > 0 && (
-                      <Tree nodes={n.children} parentPath={[i]} level={1} />
-                    )}
-                  </li>
-                ))}
-              </ul>
-            )}
+            <div className="p-4 md:p-5">
+              {loadingMenu ? (
+                <div className="flex min-h-[220px] items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50">
+                  <div className="flex flex-col items-center gap-3">
+                    <Loader2 className="h-8 w-8 animate-spin text-violet-600" />
+                    <div className="text-sm font-medium text-slate-600">
+                      Loading menu structure...
+                    </div>
+                  </div>
+                </div>
+              ) : items.length === 0 ? (
+                <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-10 text-center text-sm text-slate-500">
+                  No items in this menu yet. Add pages, categories, or custom links on
+                  the left.
+                </div>
+              ) : (
+                <ul className="space-y-2">
+                  {items.map((n, i) => (
+                    <li key={n.id}>
+                      <Row item={n} path={[i]} />
+                      {n.children && n.children.length > 0 && (
+                        <Tree nodes={n.children} parentPath={[i]} level={1} />
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
           </div>
 
-          {/* settings + save */}
-          <div className="rounded-2xl border border-slate-100 bg-white/70 p-4 shadow-sm">
-            <h2 className="mb-2 text-sm font-semibold text-slate-900">
-              Menu settings
-            </h2>
-            <p className="mb-3 text-xs text-slate-500">Display location:</p>
-
-            <div className="space-y-1 text-xs text-slate-700">
-              <label className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  readOnly
-                  checked={menuKey === "primary"}
-                />
-                <span>
-                  Primary Menu{" "}
-                  {menuKey === "primary"
-                    ? "(also controls off-canvas mobile menu)"
-                    : ""}
-                </span>
-              </label>
-              <label className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  readOnly
-                  checked={menuKey === "footer_discover"}
-                />
-                <span>Footer – Discover</span>
-              </label>
-              <label className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  readOnly
-                  checked={menuKey === "footer_info"}
-                />
-                <span>Footer – Information</span>
-              </label>
+          <div className="overflow-hidden rounded-[26px] border border-slate-200/80 bg-white shadow-[0_10px_30px_rgba(15,23,42,0.05)]">
+            <div className="border-b border-slate-100 bg-gradient-to-r from-[#faf7ff] via-white to-[#f4fbff] px-4 py-4 md:px-5">
+              <h2 className="text-[17px] font-semibold tracking-tight text-slate-900">
+                Menu settings
+              </h2>
+              <p className="mt-1 text-xs leading-5 text-slate-500">
+                Display location for this menu.
+              </p>
             </div>
 
-            <div className="mt-4 flex flex-col gap-1">
-              <button
-                onClick={saveAndSync}
-                disabled={syncing || items.length === 0}
-                className="inline-flex w-fit items-center justify-center rounded-full bg-violet-600 px-6 py-2 text-sm font-semibold text-white shadow-sm hover:bg-violet-700 disabled:opacity-50"
-              >
-                {syncing ? "Saving…" : "Save"}
-              </button>
-              <p className="text-xs text-slate-500">
-                Saving ...
-              </p>
+            <div className="p-4 md:p-5">
+              <div className="space-y-2 text-sm text-slate-700">
+                <label className="flex items-center gap-2">
+                  <input type="checkbox" readOnly checked={menuKey === "primary"} />
+                  <span>
+                    Primary Menu{" "}
+                    {menuKey === "primary"
+                      ? "(also controls off-canvas mobile menu)"
+                      : ""}
+                  </span>
+                </label>
+
+                <label className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    readOnly
+                    checked={menuKey === "footer_discover"}
+                  />
+                  <span>Footer – Discover</span>
+                </label>
+
+                <label className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    readOnly
+                    checked={menuKey === "footer_info"}
+                  />
+                  <span>Footer – Information</span>
+                </label>
+              </div>
+
+              <div className="mt-5">
+                <button
+                  onClick={saveAndSync}
+                  disabled={syncing || loadingMenu || items.length === 0}
+                  className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-violet-600 px-6 text-sm font-semibold text-white shadow-sm hover:bg-violet-700 disabled:opacity-50"
+                >
+                  {syncing ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      <Save className="h-4 w-4" />
+                      Save menu
+                    </>
+                  )}
+                </button>
+              </div>
             </div>
           </div>
         </section>
       </div>
+
+      {(bootLoading || syncing) && (
+        <div className="fixed inset-0 z-[220] flex items-center justify-center bg-white/45 backdrop-blur-[2px]">
+          <div className="flex flex-col items-center gap-3 rounded-3xl border border-slate-200 bg-white px-6 py-5 shadow-xl">
+            <Loader2 className="h-8 w-8 animate-spin text-violet-600" />
+            <div className="text-sm font-medium text-slate-600">
+              {bootLoading ? "Loading menu builder..." : "Saving menu..."}
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }
