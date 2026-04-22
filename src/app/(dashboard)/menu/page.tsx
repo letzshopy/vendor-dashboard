@@ -315,160 +315,129 @@ export default function MenuLayoutPage() {
   }
 
   function Row({
-    item,
-    level,
-    index,
-    siblingCount,
-    parentId,
-  }: {
-    item: MenuItemNode;
-    level: number;
-    index: number;
-    siblingCount: number;
-    parentId: string | null;
-  }) {
-    const moveTargets: MoveTarget[] = flattenMoveTargets(items, item.id);
-    const canAddChild = level < 2;
+  item,
+  level,
+  index,
+  siblingCount,
+  parentId,
+}: {
+  item: MenuItemNode;
+  level: number;
+  index: number;
+  siblingCount: number;
+  parentId: string | null;
+}) {
+  const moveTargets: MoveTarget[] = flattenMoveTargets(items, item.id);
 
-    return (
-      <div className="space-y-2">
-        <div
-          className={[
-            "rounded-[22px] border border-slate-200 bg-white p-3 shadow-sm",
-            level === 0 ? "" : "relative",
-          ].join(" ")}
-          style={{ marginLeft: level * 20 }}
-        >
-          {level > 0 && (
-            <div className="absolute -left-3 top-0 bottom-0 w-px bg-slate-200" />
-          )}
+  return (
+    <div className="space-y-3">
+      <div
+        className={[
+          "rounded-[22px] border border-slate-200 bg-white p-3 shadow-sm",
+          level === 0 ? "" : "relative",
+        ].join(" ")}
+        style={{
+          marginLeft: level * 42,
+        }}
+      >
+        {level > 0 && (
+          <>
+            <div className="absolute -left-5 top-0 bottom-0 w-px bg-slate-300" />
+            <div className="absolute -left-5 top-7 h-px w-5 bg-slate-300" />
+          </>
+        )}
 
-          <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
-            <div className="min-w-0 flex-1">
-              <div className="flex flex-wrap items-center gap-2">
-                <div className="truncate text-sm font-semibold text-slate-900">
-                  {item.title}
-                </div>
-                <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-600">
-                  {item.type === "page"
-                    ? "Page"
-                    : item.type === "category"
-                    ? "Category"
-                    : "Custom"}
-                </span>
-                {item.children?.length > 0 && (
-                  <span className="rounded-full bg-violet-50 px-2 py-0.5 text-[11px] font-semibold text-violet-700">
-                    {item.children.length} sub-items
-                  </span>
-                )}
+        <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+          <div className="min-w-0 flex-1">
+            <div className="flex min-w-0 items-center gap-2">
+              <div className="truncate text-sm font-semibold text-slate-900">
+                {item.title}
               </div>
 
-              {item.url && (
-                <div className="mt-1 truncate text-xs text-slate-500">
-                  {item.url}
-                </div>
+              {item.children?.length > 0 && (
+                <span className="rounded-full bg-violet-50 px-2 py-0.5 text-[11px] font-semibold text-violet-700">
+                  {item.children.length} sub-items
+                </span>
               )}
             </div>
+          </div>
 
-            <div className="grid gap-2 sm:grid-cols-2 xl:w-[460px]">
-              <select
-                value={parentId || ""}
-                onChange={(e) =>
+          <div className="grid gap-2 sm:grid-cols-[minmax(0,220px)_auto] xl:w-[420px]">
+            <select
+              value={parentId || ""}
+              onChange={(e) =>
+                setItems((prev) =>
+                  moveNode(prev, item.id, e.target.value || null)
+                )
+              }
+              className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-700 shadow-sm focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-100"
+            >
+              {moveTargets.map((t) => (
+                <option key={t.id ?? "root"} value={t.id ?? ""}>
+                  {`${"— ".repeat(t.depth)}${t.label}`}
+                </option>
+              ))}
+            </select>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                disabled={index === 0}
+                onClick={() =>
                   setItems((prev) =>
-                    moveNode(prev, item.id, e.target.value || null)
+                    reorderWithinParent(prev, parentId, index, "up")
                   )
                 }
-                className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-700 shadow-sm focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-100"
+                className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 disabled:opacity-40"
               >
-                {moveTargets.map((t) => (
-                  <option key={t.id ?? "root"} value={t.id ?? ""}>
-                    {`${"— ".repeat(t.depth)}${t.label}`}
-                  </option>
-                ))}
-              </select>
+                Up
+              </button>
 
-              <div className="flex flex-wrap items-center gap-2">
-                <button
-                  type="button"
-                  disabled={index === 0}
-                  onClick={() =>
-                    setItems((prev) =>
-                      reorderWithinParent(prev, parentId, index, "up")
-                    )
-                  }
-                  className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 disabled:opacity-40"
-                >
-                  Up
-                </button>
+              <button
+                type="button"
+                disabled={index === siblingCount - 1}
+                onClick={() =>
+                  setItems((prev) =>
+                    reorderWithinParent(prev, parentId, index, "down")
+                  )
+                }
+                className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 disabled:opacity-40"
+              >
+                Down
+              </button>
 
-                <button
-                  type="button"
-                  disabled={index === siblingCount - 1}
-                  onClick={() =>
-                    setItems((prev) =>
-                      reorderWithinParent(prev, parentId, index, "down")
-                    )
-                  }
-                  className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 disabled:opacity-40"
-                >
-                  Down
-                </button>
-
-                {canAddChild && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const childTitle = window.prompt("Child item title");
-                      if (!childTitle?.trim()) return;
-                      setItems((prev) =>
-                        insertNodeUnderParent(prev, item.id, {
-                          id: uid(),
-                          type: "custom",
-                          title: childTitle.trim(),
-                          url: "",
-                          children: [],
-                        })
-                      );
-                    }}
-                    className="rounded-full bg-violet-600 px-3 py-1.5 text-xs font-semibold text-white"
-                  >
-                    Add Child
-                  </button>
-                )}
-
-                <button
-                  type="button"
-                  onClick={() =>
-                    setItems((prev) => removeNodeById(prev, item.id).next)
-                  }
-                  className="inline-flex items-center gap-1 rounded-full border border-rose-200 bg-rose-50 px-3 py-1.5 text-xs font-medium text-rose-600"
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                  Delete
-                </button>
-              </div>
+              <button
+                type="button"
+                onClick={() =>
+                  setItems((prev) => removeNodeById(prev, item.id).next)
+                }
+                className="inline-flex items-center gap-1 rounded-full border border-rose-200 bg-rose-50 px-3 py-1.5 text-xs font-medium text-rose-600"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+                Delete
+              </button>
             </div>
           </div>
         </div>
-
-        {item.children?.length > 0 && (
-          <div className="space-y-2">
-            {item.children.map((child, childIndex) => (
-              <Row
-                key={child.id}
-                item={child}
-                level={level + 1}
-                index={childIndex}
-                siblingCount={item.children.length}
-                parentId={item.id}
-              />
-            ))}
-          </div>
-        )}
       </div>
-    );
-  }
 
+      {item.children?.length > 0 && (
+        <div className="space-y-3">
+          {item.children.map((child, childIndex) => (
+            <Row
+              key={child.id}
+              item={child}
+              level={level + 1}
+              index={childIndex}
+              siblingCount={item.children.length}
+              parentId={item.id}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
   return (
     <main className="mx-auto max-w-7xl px-3 py-3 md:px-4 md:py-5">
       <div className="rounded-[30px] border border-white/80 bg-gradient-to-br from-white via-[#faf6ff] to-[#eef7ff] p-4 shadow-[0_14px_40px_rgba(15,23,42,0.06)] md:p-5">
