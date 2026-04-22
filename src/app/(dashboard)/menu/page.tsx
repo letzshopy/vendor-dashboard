@@ -262,55 +262,50 @@ export default function MenuLayoutPage() {
     }
   }
 
-  function classifyType(url?: string): MenuItem["type"] {
-    const u = normalizeUrl(url || "");
+  function classifyType(
+  url?: string,
+  title?: string,
+  refId?: number,
+  sourceType?: string
+): MenuItem["type"] {
+  const u = normalizeUrl(url || "");
+  const s = (sourceType || "").toLowerCase();
 
-    if (/\/product-category\/|\/category\//.test(u)) {
-      return "category";
-    }
+  // 1) Trust explicit source type first
+  if (s.includes("category") || s.includes("product_cat")) return "category";
+  if (s.includes("page")) return "page";
+  if (s.includes("custom")) return "custom";
 
-    if (pageUrlSet.has(u)) {
-      return "page";
-    }
-
-    const knownPagePaths = new Set([
-      "/",
-      "/shop",
-      "/about",
-      "/contact",
-      "/cart",
-      "/checkout",
-      "/my-account",
-      "/privacy-policy",
-      "/terms",
-      "/terms-and-conditions",
-      "/refund-and-returns-policy",
-    ]);
-
-    if (knownPagePaths.has(u)) {
-      return "page";
-    }
-
-    return "custom";
+  // 2) Category URL patterns
+  if (/\/product-category\/|product_cat|\/category\//i.test(u)) {
+    return "category";
   }
+
+  // 3) If it matches a known WP page URL exactly, mark as page
+  if (pageUrlSet.has(u)) return "page";
+
+  // 4) If it came with refId but not matching page URL, don't force page
+  //    Let unknown linked items remain custom unless clearly category
+  return "custom";
+}
 
   function toLocalTree(nodes: any[]): MenuItem[] {
-    return (nodes || []).map((n: any) => ({
-      id: uid(),
-      type: classifyType(n.url),
-      title: n.title,
-      url: n.url,
-      children: n.children ? toLocalTree(n.children) : [],
-    }));
-  }
-
+  return (nodes || []).map((n: any) => ({
+    id: uid(),
+    type: classifyType(n.url, n.title, n.refId, n.type),
+    title: n.title,
+    url: n.url,
+    refId: n.refId,
+    children: n.children ? toLocalTree(n.children) : [],
+  }));
+}
   function reclassifyTree(n: MenuItem): MenuItem {
-    return {
-      ...n,
-      type: classifyType(n.url),
-      children: n.children?.map(reclassifyTree) || [],
-    };
-  }
+  return {
+    ...n,
+    type: classifyType(n.url, n.title, n.refId, n.type),
+    children: n.children?.map(reclassifyTree) || [],
+  };
+}
 
   const slugify = (s: string) =>
     s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
