@@ -226,7 +226,7 @@ export default function MenuLevelPage() {
       }
 
       if (res?.ok) {
-        const local = toLocalTree(data?.items || [], pageUrlSet);
+        const local = toLocalTree(data?.items || []);
         setItems(local);
         localStorage.setItem(STORAGE_KEY(currentDef.key), JSON.stringify(local));
       } else {
