@@ -336,9 +336,7 @@ export default function MenuLayoutPage() {
           "rounded-[22px] border border-slate-200 bg-white p-3 shadow-sm",
           level === 0 ? "" : "relative",
         ].join(" ")}
-        style={{
-          marginLeft: level * 42,
-        }}
+        style={{ marginLeft: level * 42 }}
       >
         {level > 0 && (
           <>
@@ -349,10 +347,18 @@ export default function MenuLayoutPage() {
 
         <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
           <div className="min-w-0 flex-1">
-            <div className="flex min-w-0 items-center gap-2">
+            <div className="flex min-w-0 flex-wrap items-center gap-2">
               <div className="truncate text-sm font-semibold text-slate-900">
                 {item.title}
               </div>
+
+              <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-600">
+                {item.type === "page"
+                  ? "Page"
+                  : item.type === "category"
+                  ? "Category"
+                  : "Custom"}
+              </span>
 
               {item.children?.length > 0 && (
                 <span className="rounded-full bg-violet-50 px-2 py-0.5 text-[11px] font-semibold text-violet-700">
