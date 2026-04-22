@@ -242,53 +242,64 @@ export default function MenuLayoutPage() {
   }
 
   function normalizeUrl(url: string) {
-    try {
-      const u = new URL(url, "http://fake");
-      let p = u.pathname || "/";
-      if (p.length > 1) p = p.replace(/\/+$/, "");
-      return p === "" ? "/" : p;
-    } catch {
-      let p = url || "/";
-      if (!p.startsWith("/")) {
-        try {
-          const u = new URL(p);
-          p = u.pathname || "/";
-        } catch {
-          // ignore
-        }
-      }
-      if (p.length > 1) p = p.replace(/\/+$/, "");
-      return p === "" ? "/" : p;
-    }
+  const raw = (url || "").trim();
+
+  // keep empty/hash/javascript links from turning into "/"
+  if (!raw || raw === "#" || raw.startsWith("#") || raw.startsWith("javascript:")) {
+    return raw;
   }
 
-  function classifyType(
+  try {
+    const u = new URL(raw, "http://fake");
+    let p = u.pathname || "/";
+    if (p.length > 1) p = p.replace(/\/+$/, "");
+    return p === "" ? "/" : p;
+  } catch {
+    let p = raw;
+    if (!p.startsWith("/")) {
+      try {
+        const u = new URL(p);
+        p = u.pathname || "/";
+      } catch {
+        return raw;
+      }
+    }
+    if (p.length > 1) p = p.replace(/\/+$/, "");
+    return p === "" ? "/" : p;
+  }
+}
+
+function classifyType(
   url?: string,
   title?: string,
   refId?: number,
   sourceType?: string
 ): MenuItem["type"] {
-  const u = normalizeUrl(url || "");
+  const raw = (url || "").trim();
+  const u = normalizeUrl(raw);
   const s = (sourceType || "").toLowerCase();
 
-  // 1) Trust explicit source type first
+  // 1) explicit WP/source type wins
   if (s.includes("category") || s.includes("product_cat")) return "category";
   if (s.includes("page")) return "page";
   if (s.includes("custom")) return "custom";
 
-  // 2) Category URL patterns
+  // 2) hash / anchor / js / blank links are custom links
+  if (!raw || raw === "#" || raw.startsWith("#") || raw.startsWith("javascript:")) {
+    return "custom";
+  }
+
+  // 3) category URL patterns
   if (/\/product-category\/|product_cat|\/category\//i.test(u)) {
     return "category";
   }
 
-  // 3) If it matches a known WP page URL exactly, mark as page
+  // 4) exact known page URL match only
   if (pageUrlSet.has(u)) return "page";
 
-  // 4) If it came with refId but not matching page URL, don't force page
-  //    Let unknown linked items remain custom unless clearly category
+  // 5) fallback
   return "custom";
 }
-
   function toLocalTree(nodes: any[]): MenuItem[] {
   return (nodes || []).map((n: any) => ({
     id: uid(),
