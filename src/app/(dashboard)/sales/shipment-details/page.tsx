@@ -1,8 +1,7 @@
-// src/app/sales/shipment-details/page.tsx
-
 import ShipmentDetailsBulkTable from "./ShipmentDetailsBulkTable";
 import { getWooClient } from "@/lib/woo";
 import type { WCOrder } from "@/lib/order-utils";
+import { Truck } from "lucide-react";
 
 async function loadAllOrders(): Promise<WCOrder[]> {
   const woo = await getWooClient();
@@ -32,7 +31,6 @@ async function loadAllOrders(): Promise<WCOrder[]> {
   return all;
 }
 
-// just for header display – table still does its own filtering
 const FINAL_STATUSES = new Set([
   "completed",
   "cancelled",
@@ -50,37 +48,32 @@ export default async function ShipmentDetailsPage() {
   }).length;
 
   return (
-    <main className="min-h-screen bg-gradient-to-b from-[#f7f3ff] via-[#f8fbff] to-white">
-      <div className="max-w-6xl mx-auto px-4 py-6 space-y-5">
-        {/* Page header card */}
-        <div className="bg-white/80 backdrop-blur rounded-2xl shadow-sm border border-slate-100 px-5 py-4 flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h1 className="text-2xl font-semibold text-slate-900">
+    <main className="mx-auto max-w-7xl px-3 pb-28 pt-3 md:px-4 md:pb-8 md:pt-5">
+      <div className="rounded-[30px] border border-white/80 bg-gradient-to-br from-white via-[#f7f8ff] to-[#eef7ff] p-4 shadow-[0_14px_40px_rgba(15,23,42,0.06)] md:p-5">
+        <div className="flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <div className="inline-flex items-center gap-2 rounded-full bg-sky-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-sky-700">
+              <Truck className="h-3.5 w-3.5" />
+              Shipment Details
+            </div>
+
+            <h1 className="mt-3 text-[24px] font-semibold tracking-tight text-slate-900 md:text-[30px]">
               Shipment Details
             </h1>
-            <p className="mt-1 text-sm text-slate-500 max-w-xl">
-              Review all <span className="font-medium">open orders</span>, add{" "}
-              <span className="font-medium">Tracking Number</span> and{" "}
-              <span className="font-medium">Courier Name</span>, then save to
-              mark them as{" "}
-              <span className="font-medium text-emerald-700">Completed</span> .
-            </p>
           </div>
 
-          <div className="flex flex-col items-start md:items-end gap-1 text-xs text-slate-500">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-50 text-indigo-700 font-medium">
-              <span className="h-2 w-2 rounded-full bg-indigo-500" />
-              {openCount} open order{openCount === 1 ? "" : "s"} need shipment
-              details
+          <div className="shrink-0 rounded-[20px] bg-white/90 px-4 py-3 text-right shadow-sm">
+            <div className="text-[11px] uppercase tracking-wide text-slate-500">
+              Open Orders
             </div>
-            <span className="text-[11px]">
-              Showing latest orders across all statuses (table filters only open
-              ones).
-            </span>
+            <div className="mt-1 text-xl font-semibold text-slate-900">
+              {openCount}
+            </div>
           </div>
         </div>
+      </div>
 
-        {/* Main table card */}
+      <div className="mt-4">
         <ShipmentDetailsBulkTable initialOrders={orders} />
       </div>
     </main>
