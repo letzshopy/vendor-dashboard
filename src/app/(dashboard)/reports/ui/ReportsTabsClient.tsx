@@ -10,7 +10,6 @@ type Tab = "orders" | "customers" | "stock";
 export default function ReportsTabsClient() {
   const [tab, setTab] = useState<Tab>("orders");
 
-  // keep tab in URL (?rt=orders|customers|stock)
   useEffect(() => {
     const url = new URL(window.location.href);
     const current = (url.searchParams.get("rt") || "orders") as Tab;
@@ -26,43 +25,41 @@ export default function ReportsTabsClient() {
 
   return (
     <div className="space-y-4">
-      {/* main tabs */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="inline-flex rounded-full bg-slate-100 p-1">
-          <button
-            onClick={() => select("orders")}
-            className={`px-3 py-1.5 text-xs sm:text-sm rounded-full transition ${
-              tab === "orders"
-                ? "bg-white shadow-sm text-slate-900"
-                : "text-slate-500 hover:text-slate-800"
-            }`}
-          >
-            Orders
-          </button>
-          <button
-            onClick={() => select("customers")}
-            className={`px-3 py-1.5 text-xs sm:text-sm rounded-full transition ${
-              tab === "customers"
-                ? "bg-white shadow-sm text-slate-900"
-                : "text-slate-500 hover:text-slate-800"
-            }`}
-          >
-            Customers
-          </button>
-          <button
-            onClick={() => select("stock")}
-            className={`px-3 py-1.5 text-xs sm:text-sm rounded-full transition ${
-              tab === "stock"
-                ? "bg-white shadow-sm text-slate-900"
-                : "text-slate-500 hover:text-slate-800"
-            }`}
-          >
-            Stock
-          </button>
-        </div>
+      <div className="flex flex-wrap items-center gap-2 rounded-[22px] bg-slate-100 p-1.5 w-fit">
+        <button
+          onClick={() => select("orders")}
+          className={`rounded-[18px] px-4 py-2 text-xs font-semibold transition sm:text-sm ${
+            tab === "orders"
+              ? "bg-white text-slate-900 shadow-sm"
+              : "text-slate-500 hover:text-slate-800"
+          }`}
+        >
+          Orders
+        </button>
+
+        <button
+          onClick={() => select("customers")}
+          className={`rounded-[18px] px-4 py-2 text-xs font-semibold transition sm:text-sm ${
+            tab === "customers"
+              ? "bg-white text-slate-900 shadow-sm"
+              : "text-slate-500 hover:text-slate-800"
+          }`}
+        >
+          Customers
+        </button>
+
+        <button
+          onClick={() => select("stock")}
+          className={`rounded-[18px] px-4 py-2 text-xs font-semibold transition sm:text-sm ${
+            tab === "stock"
+              ? "bg-white text-slate-900 shadow-sm"
+              : "text-slate-500 hover:text-slate-800"
+          }`}
+        >
+          Stock
+        </button>
       </div>
 
-      {/* views */}
       {tab === "orders" && <OrdersReportClient />}
       {tab === "customers" && <CustomersReportClient />}
       {tab === "stock" && <StockReportClient />}

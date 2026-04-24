@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
 
-// Lazy-load Recharts on client
 const ResponsiveContainer = dynamic(
   () => import("recharts").then((m) => m.ResponsiveContainer),
   { ssr: false }
@@ -22,10 +21,9 @@ const XAxis = dynamic(() => import("recharts").then((m) => m.XAxis), {
 const YAxis = dynamic(() => import("recharts").then((m) => m.YAxis), {
   ssr: false,
 });
-const Tooltip = dynamic(
-  () => import("recharts").then((m) => m.Tooltip),
-  { ssr: false }
-);
+const Tooltip = dynamic(() => import("recharts").then((m) => m.Tooltip), {
+  ssr: false,
+});
 const CartesianGrid = dynamic(
   () => import("recharts").then((m) => m.CartesianGrid),
   { ssr: false }
@@ -38,11 +36,10 @@ const Bar = dynamic(() => import("recharts").then((m) => m.Bar), {
   ssr: false,
 });
 
-// simple palette (Tailwind-ish)
 const COLORS = {
-  line: "#6366F1", // indigo-500
-  bar: "#60A5FA", // sky-400
-  grid: "#E5E7EB", // gray-200
+  line: "#6366F1",
+  bar: "#60A5FA",
+  grid: "#E5E7EB",
 };
 
 function formatINR(n?: number) {
@@ -50,23 +47,20 @@ function formatINR(n?: number) {
   return `₹${num.toFixed(2)}`;
 }
 
+type OrdersTab = "date" | "product" | "category";
+
 export default function OrdersReportClient() {
-  const [tab, setTab] = useState<"date" | "product" | "category">("date");
+  const [tab, setTab] = useState<OrdersTab>("date");
   const params = useSearchParams();
   const router = useRouter();
 
-  const [dateFrom, setDateFrom] = useState<string>(
-    String(params.get("rf") || "")
-  );
-  const [dateTo, setDateTo] = useState<string>(String(params.get("rt") || ""));
-  const [status, setStatus] = useState<string>(
-    String(params.get("rs") || "all")
-  );
+  const [dateFrom, setDateFrom] = useState<string>(String(params.get("rf") || ""));
+  const [dateTo, setDateTo] = useState<string>(String(params.get("rtf") || ""));
+  const [status, setStatus] = useState<string>(String(params.get("rs") || "all"));
 
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState<any>(null);
 
-  // --------- data fetch helpers
   async function fetchReport(opts: { rf: string; rt: string; rs: string }) {
     setLoading(true);
     try {
@@ -75,6 +69,7 @@ export default function OrdersReportClient() {
         date_to: opts.rt,
         status: opts.rs,
       });
+
       const path =
         tab === "date"
           ? "/api/reports/orders/sales-by-date"
@@ -91,8 +86,10 @@ export default function OrdersReportClient() {
       const keep = new URLSearchParams(window.location.search);
       if (opts.rf) keep.set("rf", opts.rf);
       else keep.delete("rf");
-      if (opts.rt) keep.set("rt", opts.rt);
-      else keep.delete("rt");
+
+      if (opts.rt) keep.set("rtf", opts.rt);
+      else keep.delete("rtf");
+
       keep.set("rs", opts.rs || "all");
       router.replace(`/reports?${keep.toString()}`);
     } finally {
@@ -104,7 +101,6 @@ export default function OrdersReportClient() {
     await fetchReport({ rf: dateFrom, rt: dateTo, rs: status });
   }
 
-  // --------- Reset + auto-load when sub-tab changes
   useEffect(() => {
     const defaults = { rf: "", rt: "", rs: "all" };
     setStatus(defaults.rs);
@@ -114,16 +110,14 @@ export default function OrdersReportClient() {
 
     const url = new URL(window.location.href);
     url.searchParams.delete("rf");
-    url.searchParams.delete("rt");
+    url.searchParams.delete("rtf");
     url.searchParams.set("rs", "all");
     window.history.replaceState({}, "", url.toString());
 
-    // auto fetch with defaults
     fetchReport(defaults);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab]);
 
-  // --------- chart series
   const dateSeries = useMemo(
     () =>
       tab === "date" && data?.rows
@@ -151,22 +145,17 @@ export default function OrdersReportClient() {
 
   return (
     <section className="space-y-4">
-      {/* Title + subtabs */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="text-xl font-semibold text-slate-900">Orders</h2>
-          <p className="mt-1 text-xs text-slate-500 max-w-lg">
-            Filter by status and date range, then explore sales by date,
-            product, or category.
-          </p>
         </div>
 
         <div className="inline-flex items-center rounded-full bg-slate-100 p-1">
           <button
             onClick={() => setTab("date")}
-            className={`px-3 py-1.5 text-xs sm:text-sm rounded-full transition ${
+            className={`rounded-full px-3 py-1.5 text-xs transition sm:text-sm ${
               tab === "date"
-                ? "bg-white shadow-sm text-slate-900"
+                ? "bg-white text-slate-900 shadow-sm"
                 : "text-slate-500 hover:text-slate-800"
             }`}
           >
@@ -174,9 +163,9 @@ export default function OrdersReportClient() {
           </button>
           <button
             onClick={() => setTab("product")}
-            className={`px-3 py-1.5 text-xs sm:text-sm rounded-full transition ${
+            className={`rounded-full px-3 py-1.5 text-xs transition sm:text-sm ${
               tab === "product"
-                ? "bg-white shadow-sm text-slate-900"
+                ? "bg-white text-slate-900 shadow-sm"
                 : "text-slate-500 hover:text-slate-800"
             }`}
           >
@@ -184,9 +173,9 @@ export default function OrdersReportClient() {
           </button>
           <button
             onClick={() => setTab("category")}
-            className={`px-3 py-1.5 text-xs sm:text-sm rounded-full transition ${
+            className={`rounded-full px-3 py-1.5 text-xs transition sm:text-sm ${
               tab === "category"
-                ? "bg-white shadow-sm text-slate-900"
+                ? "bg-white text-slate-900 shadow-sm"
                 : "text-slate-500 hover:text-slate-800"
             }`}
           >
@@ -195,16 +184,13 @@ export default function OrdersReportClient() {
         </div>
       </div>
 
-      {/* Filter row */}
-      <div className="flex flex-wrap items-end gap-3 rounded-xl border border-slate-100 bg-slate-50/80 px-3 py-3">
+      <div className="flex flex-wrap items-end gap-3 rounded-[22px] border border-slate-200 bg-slate-50/80 px-3 py-3">
         <div className="flex flex-col gap-1">
-          <span className="text-[11px] font-medium text-slate-500">
-            Status
-          </span>
+          <span className="text-[11px] font-medium text-slate-500">Status</span>
           <select
             value={status}
             onChange={(e) => setStatus(e.target.value)}
-            className="h-9 rounded-lg border border-slate-200 bg-white px-2 text-xs sm:text-sm text-slate-800 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+            className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-xs text-slate-800 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 sm:text-sm"
           >
             <option value="all">All statuses</option>
             <option value="processing">Processing</option>
@@ -222,7 +208,7 @@ export default function OrdersReportClient() {
             type="date"
             value={dateFrom}
             onChange={(e) => setDateFrom(e.target.value)}
-            className="h-9 rounded-lg border border-slate-200 bg-white px-2 text-xs sm:text-sm text-slate-800 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+            className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-xs text-slate-800 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 sm:text-sm"
           />
         </div>
 
@@ -232,65 +218,40 @@ export default function OrdersReportClient() {
             type="date"
             value={dateTo}
             onChange={(e) => setDateTo(e.target.value)}
-            className="h-9 rounded-lg border border-slate-200 bg-white px-2 text-xs sm:text-sm text-slate-800 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+            className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-xs text-slate-800 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 sm:text-sm"
           />
         </div>
 
         <button
           onClick={run}
-          className="ml-auto inline-flex items-center justify-center rounded-lg bg-blue-600 px-4 h-9 text-xs sm:text-sm font-semibold text-white shadow-sm hover:bg-blue-700 disabled:opacity-60"
+          className="ml-auto inline-flex h-10 items-center justify-center rounded-xl bg-blue-600 px-4 text-xs font-semibold text-white shadow-sm hover:bg-blue-700 disabled:opacity-60 sm:text-sm"
         >
-          {loading ? "Loading…" : "Go"}
+          {loading ? "Loading..." : "Go"}
         </button>
       </div>
 
-      {/* Results */}
       {tab === "date" && data && (
         <div className="space-y-4">
-          {/* Metrics */}
-          <div className="grid gap-3 sm:grid-cols-5">
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
             <Metric label="Gross sales" value={formatINR(data?.totals?.gross)} />
-            <Metric
-              label="Orders placed"
-              value={String(data?.totals?.orders ?? 0)}
-            />
-            <Metric
-              label="Items purchased"
-              value={String(data?.totals?.items ?? 0)}
-            />
-            <Metric
-              label="Shipping charged"
-              value={formatINR(data?.totals?.shipping)}
-            />
-            <Metric
-              label="Refunds"
-              value={formatINR(data?.totals?.refunds)}
-            />
+            <Metric label="Orders placed" value={String(data?.totals?.orders ?? 0)} />
+            <Metric label="Items purchased" value={String(data?.totals?.items ?? 0)} />
+            <Metric label="Shipping charged" value={formatINR(data?.totals?.shipping)} />
+            <Metric label="Refunds" value={formatINR(data?.totals?.refunds)} />
           </div>
 
-          {/* Line chart */}
           {dateSeries.length > 0 && (
-            <div className="rounded-2xl border border-slate-100 bg-white shadow-sm p-3 sm:p-4">
-              <div className="text-sm font-medium text-slate-900 mb-2">
+            <div className="rounded-[22px] border border-slate-200 bg-white p-3 shadow-sm sm:p-4">
+              <div className="mb-2 text-sm font-medium text-slate-900">
                 Gross sales over time
               </div>
               <div className="h-64">
                 <ResponsiveContainer width="100%" height="100%">
-                  <LineChart
-                    data={dateSeries}
-                    margin={{ top: 5, right: 10, left: 0, bottom: 0 }}
-                  >
-                    <CartesianGrid
-                      stroke={COLORS.grid}
-                      strokeDasharray="3 3"
-                    />
+                  <LineChart data={dateSeries} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
+                    <CartesianGrid stroke={COLORS.grid} strokeDasharray="3 3" />
                     <XAxis dataKey="date" />
                     <YAxis />
-                    <Tooltip
-                      formatter={(v: any, n) =>
-                        n === "gross" ? formatINR(v) : v
-                      }
-                    />
+                    <Tooltip formatter={(v: any, n) => (n === "gross" ? formatINR(v) : v)} />
                     <Line
                       type="monotone"
                       dataKey="gross"
@@ -304,8 +265,7 @@ export default function OrdersReportClient() {
             </div>
           )}
 
-          {/* Table */}
-          <div className="rounded-2xl border border-slate-100 bg-white shadow-sm overflow-x-auto">
+          <div className="overflow-x-auto rounded-[22px] border border-slate-200 bg-white shadow-sm">
             <table className="w-full table-fixed text-sm">
               <colgroup>
                 <col className="w-2/12" />
@@ -328,26 +288,17 @@ export default function OrdersReportClient() {
               <tbody>
                 {data.rows.map((r: any) => (
                   <tr key={r.date} className="border-t border-slate-100">
-                    <td className="p-2" suppressHydrationWarning>
-                      {r.date}
-                    </td>
+                    <td className="p-2">{r.date}</td>
                     <td className="p-2 text-right">{r.orders}</td>
                     <td className="p-2 text-right">{r.items}</td>
                     <td className="p-2 text-right">{formatINR(r.gross)}</td>
-                    <td className="p-2 text-right">
-                      {formatINR(r.shipping)}
-                    </td>
-                    <td className="p-2 text-right">
-                      {formatINR(r.refunds)}
-                    </td>
+                    <td className="p-2 text-right">{formatINR(r.shipping)}</td>
+                    <td className="p-2 text-right">{formatINR(r.refunds)}</td>
                   </tr>
                 ))}
                 {data.rows.length === 0 && (
                   <tr>
-                    <td
-                      colSpan={6}
-                      className="p-4 text-center text-slate-500"
-                    >
+                    <td colSpan={6} className="p-4 text-center text-slate-500">
                       No data for this range.
                     </td>
                   </tr>
@@ -360,29 +311,18 @@ export default function OrdersReportClient() {
 
       {tab !== "date" && data && (
         <>
-          {/* Bar chart */}
           {barSeries.length > 0 && (
-            <div className="rounded-2xl border border-slate-100 bg-white shadow-sm p-3 sm:p-4 mb-3">
-              <div className="text-sm font-medium text-slate-900 mb-2">
-                {tab === "product"
-                  ? "Top products by sales"
-                  : "Sales by category"}
+            <div className="mb-3 rounded-[22px] border border-slate-200 bg-white p-3 shadow-sm sm:p-4">
+              <div className="mb-2 text-sm font-medium text-slate-900">
+                {tab === "product" ? "Top products by sales" : "Sales by category"}
               </div>
               <div className="h-64">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart
                     data={barSeries.slice(0, 12)}
-                    margin={{
-                      top: 5,
-                      right: 10,
-                      left: 0,
-                      bottom: 30,
-                    }}
+                    margin={{ top: 5, right: 10, left: 0, bottom: 30 }}
                   >
-                    <CartesianGrid
-                      stroke={COLORS.grid}
-                      strokeDasharray="3 3"
-                    />
+                    <CartesianGrid stroke={COLORS.grid} strokeDasharray="3 3" />
                     <XAxis
                       dataKey="label"
                       angle={-25}
@@ -391,11 +331,7 @@ export default function OrdersReportClient() {
                       height={50}
                     />
                     <YAxis />
-                    <Tooltip
-                      formatter={(v: any, n) =>
-                        n === "total" ? formatINR(v) : v
-                      }
-                    />
+                    <Tooltip formatter={(v: any, n) => (n === "total" ? formatINR(v) : v)} />
                     <Bar dataKey="total" fill={COLORS.bar} />
                   </BarChart>
                 </ResponsiveContainer>
@@ -403,8 +339,7 @@ export default function OrdersReportClient() {
             </div>
           )}
 
-          {/* Table */}
-          <div className="rounded-2xl border border-slate-100 bg-white shadow-sm overflow-x-auto">
+          <div className="overflow-x-auto rounded-[22px] border border-slate-200 bg-white shadow-sm">
             <table className="w-full table-fixed text-sm">
               <colgroup>
                 <col className="w-8/12" />
@@ -421,29 +356,19 @@ export default function OrdersReportClient() {
                 </tr>
               </thead>
               <tbody>
-                {data.rows.map((r: any) => (
+                {data.rows.map((r: any, idx: number) => (
                   <tr
-                    key={
-                      (tab === "product" ? r.product_id : r.category) ||
-                      Math.random()
-                    }
+                    key={(tab === "product" ? r.product_id : r.category) || idx}
                     className="border-t border-slate-100"
                   >
-                    <td className="p-2">
-                      {tab === "product" ? r.name : r.category}
-                    </td>
+                    <td className="p-2">{tab === "product" ? r.name : r.category}</td>
                     <td className="p-2 text-right">{r.qty}</td>
-                    <td className="p-2 text-right">
-                      {formatINR(r.total)}
-                    </td>
+                    <td className="p-2 text-right">{formatINR(r.total)}</td>
                   </tr>
                 ))}
                 {data.rows.length === 0 && (
                   <tr>
-                    <td
-                      colSpan={3}
-                      className="p-4 text-center text-slate-500"
-                    >
+                    <td colSpan={3} className="p-4 text-center text-slate-500">
                       No data for this range.
                     </td>
                   </tr>
@@ -453,12 +378,8 @@ export default function OrdersReportClient() {
                 <tfoot>
                   <tr className="border-t border-slate-100 font-medium">
                     <td className="p-2 text-right">Totals</td>
-                    <td className="p-2 text-right">
-                      {data?.totals?.qty ?? 0}
-                    </td>
-                    <td className="p-2 text-right">
-                      {formatINR(data?.totals?.total)}
-                    </td>
+                    <td className="p-2 text-right">{data?.totals?.qty ?? 0}</td>
+                    <td className="p-2 text-right">{formatINR(data?.totals?.total)}</td>
                   </tr>
                 </tfoot>
               )}
@@ -472,11 +393,11 @@ export default function OrdersReportClient() {
 
 function Metric({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-xl border border-slate-100 bg-white shadow-sm px-3 py-3 sm:px-4">
+    <div className="rounded-[22px] border border-slate-200 bg-white px-4 py-4 shadow-sm">
       <div className="text-[11px] font-medium uppercase tracking-wide text-slate-500">
         {label}
       </div>
-      <div className="mt-1 text-lg font-semibold text-slate-900">{value}</div>
+      <div className="mt-2 text-lg font-semibold text-slate-900">{value}</div>
     </div>
   );
 }
