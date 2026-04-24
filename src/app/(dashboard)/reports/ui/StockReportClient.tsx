@@ -2,7 +2,13 @@
 
 import { useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
-import { AlertTriangle, Boxes, PackageCheck, PackageX } from "lucide-react";
+import {
+  AlertTriangle,
+  Boxes,
+  PackageCheck,
+  PackageX,
+  Warehouse,
+} from "lucide-react";
 
 const ResponsiveContainer = dynamic(
   () => import("recharts").then((m) => m.ResponsiveContainer),
@@ -34,30 +40,51 @@ const COLORS = {
   grid: "#E5E7EB",
 };
 
-type StockRow = {
+type StockApiRow = {
   id: number;
   name: string;
-  sku?: string;
-  stock_status?: string;
-  stock_quantity?: number | null;
-  manage_stock?: boolean;
+  parent: number | null;
+  stock_status: string;
+  stock_quantity: number | null;
 };
 
+type StockSummary = {
+  low: StockApiRow[];
+  out: StockApiRow[];
+  most: StockApiRow[];
+};
+
+function shortLabel(text: string, max = 14) {
+  if (!text) return "—";
+  return text.length > max ? `${text.slice(0, max)}...` : text;
+}
+
 export default function StockReportClient() {
-  const [rows, setRows] = useState<StockRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [data, setData] = useState<StockSummary>({
+    low: [],
+    out: [],
+    most: [],
+  });
 
   useEffect(() => {
     (async () => {
       try {
-        const res = await fetch("/api/products/all", { cache: "no-store" });
-        const json = await res.json().catch(() => ({}));
-        const list = Array.isArray(json?.data)
-          ? json.data
-          : Array.isArray(json)
-          ? json
-          : [];
-        setRows(list);
+        const [lowRes, outRes, mostRes] = await Promise.all([
+          fetch("/api/reports/stock/low", { cache: "no-store" }),
+          fetch("/api/reports/stock/out", { cache: "no-store" }),
+          fetch("/api/reports/stock/most", { cache: "no-store" }),
+        ]);
+
+        const lowJson = await lowRes.json().catch(() => ({}));
+        const outJson = await outRes.json().catch(() => ({}));
+        const mostJson = await mostRes.json().catch(() => ({}));
+
+        setData({
+          low: Array.isArray(lowJson?.items) ? lowJson.items : [],
+          out: Array.isArray(outJson?.items) ? outJson.items : [],
+          most: Array.isArray(mostJson?.items) ? mostJson.items : [],
+        });
       } finally {
         setLoading(false);
       }
@@ -65,45 +92,24 @@ export default function StockReportClient() {
   }, []);
 
   const metrics = useMemo(() => {
-    let total = 0;
-    let inStock = 0;
-    let outOfStock = 0;
-    let lowStock = 0;
-
-    rows.forEach((r) => {
-      total += 1;
-
-      const qty =
-        typeof r.stock_quantity === "number" ? r.stock_quantity : null;
-      const status = String(r.stock_status || "").toLowerCase();
-
-      if (status === "instock") inStock += 1;
-      if (status === "outofstock") outOfStock += 1;
-      if (qty !== null && qty > 0 && qty <= 5) lowStock += 1;
-    });
+    const total = data.most.length;
+    const inStock = data.most.filter(
+      (r) => String(r.stock_status || "").toLowerCase() === "instock"
+    ).length;
+    const outOfStock = data.out.length;
+    const lowStock = data.low.length;
 
     return { total, inStock, outOfStock, lowStock };
-  }, [rows]);
-
-  const topLowStock = useMemo(() => {
-    return rows
-      .filter(
-        (r) =>
-          typeof r.stock_quantity === "number" &&
-          r.stock_quantity >= 0 &&
-          r.stock_quantity <= 10
-      )
-      .sort((a, b) => (a.stock_quantity ?? 0) - (b.stock_quantity ?? 0))
-      .slice(0, 12);
-  }, [rows]);
+  }, [data]);
 
   const chartData = useMemo(
     () =>
-      topLowStock.map((r) => ({
-        label: r.name.length > 18 ? `${r.name.slice(0, 18)}...` : r.name,
+      data.low.slice(0, 8).map((r) => ({
+        label: shortLabel(r.name),
+        fullLabel: r.name,
         qty: Number(r.stock_quantity || 0),
       })),
-    [topLowStock]
+    [data.low]
   );
 
   return (
@@ -112,7 +118,7 @@ export default function StockReportClient() {
         <h2 className="text-xl font-semibold text-slate-900">Stock</h2>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         <Metric
           icon={<Boxes className="h-4 w-4" />}
           label="Total products"
@@ -138,81 +144,123 @@ export default function StockReportClient() {
 
       {chartData.length > 0 && (
         <div className="rounded-[22px] border border-slate-200 bg-white p-3 shadow-sm sm:p-4">
-          <div className="mb-2 text-sm font-medium text-slate-900">
+          <div className="mb-3 text-sm font-semibold text-slate-900">
             Low stock products
           </div>
-          <div className="h-64">
+          <div className="h-60 sm:h-72">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart
-                data={chartData}
-                margin={{ top: 5, right: 10, left: 0, bottom: 30 }}
-              >
+              <BarChart data={chartData} margin={{ top: 5, right: 10, left: 0, bottom: 18 }}>
                 <CartesianGrid stroke={COLORS.grid} strokeDasharray="3 3" />
-                <XAxis
-                  dataKey="label"
-                  angle={-25}
-                  textAnchor="end"
-                  interval={0}
-                  height={50}
+                <XAxis dataKey="label" tick={{ fontSize: 11 }} interval={0} />
+                <YAxis tick={{ fontSize: 11 }} />
+                <Tooltip
+                  formatter={(v: any, _n: any, item: any) => [
+                    v,
+                    item?.payload?.fullLabel || "Qty",
+                  ]}
                 />
-                <YAxis />
-                <Tooltip />
-                <Bar dataKey="qty" fill={COLORS.bar} />
+                <Bar dataKey="qty" fill={COLORS.bar} radius={[6, 6, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
         </div>
       )}
 
-      <div className="overflow-x-auto rounded-[22px] border border-slate-200 bg-white shadow-sm">
-        <table className="w-full table-fixed text-sm">
-          <colgroup>
-            <col className="w-6/12" />
-            <col className="w-2/12" />
-            <col className="w-2/12" />
-            <col className="w-2/12" />
-          </colgroup>
-          <thead className="bg-slate-50 text-slate-600">
-            <tr>
-              <th className="p-2 text-left">Product</th>
-              <th className="p-2 text-left">SKU</th>
-              <th className="p-2 text-right">Qty</th>
-              <th className="p-2 text-left">Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            {topLowStock.map((r) => (
-              <tr key={r.id} className="border-t border-slate-100">
-                <td className="p-2 text-slate-900">{r.name}</td>
-                <td className="p-2 text-slate-600">{r.sku || "—"}</td>
-                <td className="p-2 text-right font-medium text-slate-900">
-                  {typeof r.stock_quantity === "number" ? r.stock_quantity : "—"}
-                </td>
-                <td className="p-2">
-                  <span
-                    className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-medium capitalize ${
-                      String(r.stock_status || "").toLowerCase() === "instock"
-                        ? "bg-emerald-50 text-emerald-700"
-                        : String(r.stock_status || "").toLowerCase() === "outofstock"
-                        ? "bg-rose-50 text-rose-700"
-                        : "bg-slate-100 text-slate-700"
-                    }`}
-                  >
-                    {r.stock_status || "—"}
-                  </span>
-                </td>
-              </tr>
-            ))}
+      <div className="overflow-hidden rounded-[22px] border border-slate-200 bg-white shadow-sm">
+        <div className="border-b border-slate-100 px-4 py-3">
+          <div className="text-sm font-semibold text-slate-900">
+            Low stock list
+          </div>
+        </div>
 
-            {!loading && topLowStock.length === 0 && (
+        <div className="block md:hidden">
+          {data.low.length > 0 ? (
+            <div className="space-y-2 p-3">
+              {data.low.slice(0, 20).map((r) => (
+                <div
+                  key={r.id}
+                  className="rounded-2xl border border-slate-200 bg-slate-50/60 p-3"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="text-sm font-semibold text-slate-900">
+                        {r.name}
+                      </div>
+                      <div className="mt-1 text-xs text-slate-500">
+                        Product ID: {r.id}
+                      </div>
+                    </div>
+
+                    <span className="rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-medium text-amber-700">
+                      {r.stock_quantity ?? 0} qty
+                    </span>
+                  </div>
+
+                  <div className="mt-3 flex items-center gap-2">
+                    <Warehouse className="h-4 w-4 text-slate-500" />
+                    <span className="text-xs text-slate-600 capitalize">
+                      {r.stock_status || "—"}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            !loading && (
+              <div className="p-5 text-center text-sm text-slate-500">
+                No low stock products found.
+              </div>
+            )
+          )}
+        </div>
+
+        <div className="hidden overflow-x-auto md:block">
+          <table className="w-full table-fixed text-sm">
+            <colgroup>
+              <col className="w-7/12" />
+              <col className="w-2/12" />
+              <col className="w-3/12" />
+            </colgroup>
+            <thead className="bg-slate-50 text-slate-600">
               <tr>
-                <td colSpan={4} className="p-4 text-center text-slate-500">
-                  No stock data available.
-                </td>
+                <th className="p-3 text-left">Product</th>
+                <th className="p-3 text-right">Qty</th>
+                <th className="p-3 text-left">Status</th>
               </tr>
-            )}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {data.low.slice(0, 20).map((r) => (
+                <tr key={r.id} className="border-t border-slate-100">
+                  <td className="p-3 text-slate-900">{r.name}</td>
+                  <td className="p-3 text-right font-medium text-slate-900">
+                    {typeof r.stock_quantity === "number" ? r.stock_quantity : "—"}
+                  </td>
+                  <td className="p-3">
+                    <span
+                      className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-medium capitalize ${
+                        String(r.stock_status || "").toLowerCase() === "instock"
+                          ? "bg-emerald-50 text-emerald-700"
+                          : String(r.stock_status || "").toLowerCase() === "outofstock"
+                          ? "bg-rose-50 text-rose-700"
+                          : "bg-slate-100 text-slate-700"
+                      }`}
+                    >
+                      {r.stock_status || "—"}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+
+              {!loading && data.low.length === 0 && (
+                <tr>
+                  <td colSpan={3} className="p-4 text-center text-slate-500">
+                    No low stock products found.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       {loading && (

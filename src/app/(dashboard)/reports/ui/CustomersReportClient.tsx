@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Users, ShoppingBag, UserCheck } from "lucide-react";
+import { ShoppingBag, UserCheck, Users } from "lucide-react";
 
 type CustomersSummary = {
   registered: number;
@@ -33,7 +33,7 @@ export default function CustomersReportClient() {
         <h2 className="text-xl font-semibold text-slate-900">Customers</h2>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-3">
+      <div className="grid gap-3 md:grid-cols-3">
         <Metric
           icon={<UserCheck className="h-4 w-4" />}
           label="Registered customers"
@@ -50,6 +50,34 @@ export default function CustomersReportClient() {
           value={String(data?.totalOrders ?? 0)}
           accent
         />
+      </div>
+
+      <div className="rounded-[22px] border border-slate-200 bg-white shadow-sm">
+        <div className="border-b border-slate-100 px-4 py-3">
+          <div className="text-sm font-semibold text-slate-900">
+            Customer summary
+          </div>
+        </div>
+
+        <div className="p-3 md:p-4">
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            <InfoCard
+              title="Registered customers"
+              value={String(data?.registered ?? 0)}
+              note="Customers with account-based orders"
+            />
+            <InfoCard
+              title="Guest orders"
+              value={String(data?.guest ?? 0)}
+              note="Orders placed without registration"
+            />
+            <InfoCard
+              title="Total orders"
+              value={String(data?.totalOrders ?? 0)}
+              note="All customer orders counted together"
+            />
+          </div>
+        </div>
       </div>
 
       {loading && (
@@ -91,6 +119,24 @@ function Metric({
       </div>
 
       <div className="mt-3 text-2xl font-semibold text-slate-900">{value}</div>
+    </div>
+  );
+}
+
+function InfoCard({
+  title,
+  value,
+  note,
+}: {
+  title: string;
+  value: string;
+  note: string;
+}) {
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4">
+      <div className="text-sm font-semibold text-slate-900">{title}</div>
+      <div className="mt-2 text-2xl font-semibold text-slate-900">{value}</div>
+      <div className="mt-1 text-xs text-slate-500">{note}</div>
     </div>
   );
 }
