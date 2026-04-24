@@ -1,4 +1,4 @@
-// src/app/settings/page.tsx 
+// src/app/(dashboard)/settings/page.tsx 
 
 import SettingsTabsClient from "./ui/SettingsTabsClient"; 
 

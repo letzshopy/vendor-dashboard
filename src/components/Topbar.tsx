@@ -14,6 +14,7 @@ import {
   CreditCard,
   CheckCircle2,
   Store,
+  Settings2,
 } from "lucide-react";
 import { useDashboardSubscription } from "@/components/subscription/SubscriptionContext";
 
@@ -578,7 +579,14 @@ export default function Topbar({ onToggleSidebar }: TopbarProps) {
             >
               <Store className="h-4 w-4" />
             </a>
-
+            <Link
+  href="/settings"
+  className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-[#f5f3ff] text-[#27346D] shadow-sm transition hover:bg-[#ebe6ff]"
+  aria-label="Settings"
+  title="Settings"
+>
+  <Settings2 className="h-4 w-4" />
+</Link>
             <div className="relative z-[70]" ref={notifRef}>
               <button
                 type="button"

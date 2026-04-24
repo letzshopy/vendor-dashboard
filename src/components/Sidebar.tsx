@@ -91,25 +91,11 @@ const ALL_GROUPS: Group[] = [
     ],
   },
   {
-    key: "settings",
-    label: "Settings",
-    icon: Settings2,
-    items: [
-      { href: "/settings?tab=profile", label: "Setup Profile", ready: true },
-      { href: "/settings?tab=pages", label: "Store Pages", ready: true },
-      { href: "/settings?tab=general", label: "General Settings", ready: true },
-      { href: "/settings?tab=shipping", label: "Shipping Charge", ready: true },
-      { href: "/settings?tab=tax", label: "Tax", ready: true },
-      { href: "/settings?tab=payments", label: "Payments", ready: true },
-      { href: "/settings?tab=account", label: "Account", ready: true },
-      { href: "/settings?tab=coupons", label: "Coupons", ready: true },
-      {
-        href: "/settings?tab=shipmentFulfillment",
-        label: "Shipment Fulfillment",
-        ready: true,
-      },
-    ],
-  },
+  key: "settings",
+  label: "Settings",
+  icon: Settings2,
+  items: [{ href: "/settings", label: "Settings", ready: true }],
+},
 ];
 
 export default function Sidebar({
