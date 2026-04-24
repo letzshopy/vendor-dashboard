@@ -258,57 +258,24 @@ export default function OrdersReportClient() {
       {tab === "date" && data && (
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-3 xl:grid-cols-5">
-            <Metric
-              icon={<Wallet className="h-4 w-4" />}
-              label="Gross sales"
-              value={formatINR(data?.totals?.gross)}
-            />
-            <Metric
-              icon={<ShoppingCart className="h-4 w-4" />}
-              label="Orders"
-              value={String(data?.totals?.orders ?? 0)}
-            />
-            <Metric
-              icon={<Package2 className="h-4 w-4" />}
-              label="Items"
-              value={String(data?.totals?.items ?? 0)}
-            />
-            <Metric
-              icon={<Truck className="h-4 w-4" />}
-              label="Shipping"
-              value={formatINR(data?.totals?.shipping)}
-            />
-            <Metric
-              icon={<ChartColumn className="h-4 w-4" />}
-              label="Refunds"
-              value={formatINR(data?.totals?.refunds)}
-            />
+            <Metric icon={<Wallet className="h-4 w-4" />} label="Gross sales" value={formatINR(data?.totals?.gross)} />
+            <Metric icon={<ShoppingCart className="h-4 w-4" />} label="Orders" value={String(data?.totals?.orders ?? 0)} />
+            <Metric icon={<Package2 className="h-4 w-4" />} label="Items" value={String(data?.totals?.items ?? 0)} />
+            <Metric icon={<Truck className="h-4 w-4" />} label="Shipping" value={formatINR(data?.totals?.shipping)} />
+            <Metric icon={<ChartColumn className="h-4 w-4" />} label="Refunds" value={formatINR(data?.totals?.refunds)} />
           </div>
 
           {dateSeries.length > 0 && (
-            <div className="rounded-[22px] border border-slate-200 bg-white p-3 shadow-sm sm:p-4">
-              <div className="mb-3 text-sm font-semibold text-slate-900">
-                Gross sales trend
-              </div>
-              <div className="h-60 sm:h-72">
+            <div className="hidden rounded-[22px] border border-slate-200 bg-white p-3 shadow-sm sm:p-4 md:block">
+              <div className="mb-3 text-sm font-semibold text-slate-900">Gross sales trend</div>
+              <div className="h-72">
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={dateSeries} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
                     <CartesianGrid stroke={COLORS.grid} strokeDasharray="3 3" />
-                    <XAxis
-                      dataKey="date"
-                      tick={{ fontSize: 11 }}
-                      minTickGap={24}
-                    />
+                    <XAxis dataKey="date" tick={{ fontSize: 11 }} minTickGap={24} />
                     <YAxis tick={{ fontSize: 11 }} />
                     <Tooltip formatter={(v: any, n) => (n === "gross" ? formatINR(v) : v)} />
-                    <Line
-                      type="monotone"
-                      dataKey="gross"
-                      stroke={COLORS.line}
-                      strokeWidth={2}
-                      activeDot={{ r: 4 }}
-                      dot={false}
-                    />
+                    <Line type="monotone" dataKey="gross" stroke={COLORS.line} strokeWidth={2} activeDot={{ r: 4 }} dot={false} />
                   </LineChart>
                 </ResponsiveContainer>
               </div>
@@ -324,20 +291,13 @@ export default function OrdersReportClient() {
               {data.rows.length > 0 ? (
                 <div className="space-y-2 p-3">
                   {data.rows.map((r: any) => (
-                    <div
-                      key={r.date}
-                      className="rounded-2xl border border-slate-200 bg-slate-50/60 p-3"
-                    >
+                    <div key={r.date} className="rounded-2xl border border-slate-200 bg-slate-50/60 p-3">
                       <div className="flex items-center justify-between gap-3">
                         <div className="flex items-center gap-2">
                           <CalendarDays className="h-4 w-4 text-slate-500" />
-                          <div className="text-sm font-semibold text-slate-900">
-                            {r.date}
-                          </div>
+                          <div className="text-sm font-semibold text-slate-900">{r.date}</div>
                         </div>
-                        <div className="text-sm font-semibold text-slate-900">
-                          {formatINR(r.gross)}
-                        </div>
+                        <div className="text-sm font-semibold text-slate-900">{formatINR(r.gross)}</div>
                       </div>
 
                       <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
@@ -350,9 +310,7 @@ export default function OrdersReportClient() {
                   ))}
                 </div>
               ) : (
-                <div className="p-5 text-center text-sm text-slate-500">
-                  No data for this range.
-                </div>
+                <div className="p-5 text-center text-sm text-slate-500">No data for this range.</div>
               )}
             </div>
 
@@ -389,37 +347,40 @@ export default function OrdersReportClient() {
                   ))}
                   {data.rows.length === 0 && (
                     <tr>
-                      <td colSpan={6} className="p-4 text-center text-slate-500">
-                        No data for this range.
-                      </td>
+                      <td colSpan={6} className="p-4 text-center text-slate-500">No data for this range.</td>
                     </tr>
                   )}
                 </tbody>
               </table>
             </div>
           </div>
+
+          <MobileSummaryList
+            title="Top days by sales"
+            items={[...(data.rows || [])]
+              .sort((a: any, b: any) => Number(b.gross || 0) - Number(a.gross || 0))
+              .slice(0, 5)
+              .map((r: any) => ({
+                title: r.date,
+                value: formatINR(r.gross),
+                sub: `${r.orders} orders • ${r.items} items`,
+              }))}
+          />
         </div>
       )}
 
       {tab !== "date" && data && (
         <div className="space-y-4">
           {barSeries.length > 0 && (
-            <div className="rounded-[22px] border border-slate-200 bg-white p-3 shadow-sm sm:p-4">
+            <div className="hidden rounded-[22px] border border-slate-200 bg-white p-3 shadow-sm sm:p-4 md:block">
               <div className="mb-3 text-sm font-semibold text-slate-900">
                 {tab === "product" ? "Top products by sales" : "Sales by category"}
               </div>
-              <div className="h-60 sm:h-72">
+              <div className="h-72">
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart
-                    data={barSeries.slice(0, 8)}
-                    margin={{ top: 5, right: 10, left: 0, bottom: 18 }}
-                  >
+                  <BarChart data={barSeries.slice(0, 8)} margin={{ top: 5, right: 10, left: 0, bottom: 18 }}>
                     <CartesianGrid stroke={COLORS.grid} strokeDasharray="3 3" />
-                    <XAxis
-                      dataKey="label"
-                      tick={{ fontSize: 11 }}
-                      interval={0}
-                    />
+                    <XAxis dataKey="label" tick={{ fontSize: 11 }} interval={0} />
                     <YAxis tick={{ fontSize: 11 }} />
                     <Tooltip
                       formatter={(v: any, n: any, item: any) =>
@@ -454,10 +415,7 @@ export default function OrdersReportClient() {
                         key={(tab === "product" ? r.product_id : r.category) || idx}
                         className="rounded-2xl border border-slate-200 bg-slate-50/60 p-3"
                       >
-                        <div className="text-sm font-semibold text-slate-900">
-                          {label}
-                        </div>
-
+                        <div className="text-sm font-semibold text-slate-900">{label}</div>
                         <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
                           <MiniInfo label="Qty" value={String(r.qty || 0)} />
                           <MiniInfo label="Total" value={formatINR(r.total)} />
@@ -477,9 +435,7 @@ export default function OrdersReportClient() {
                   </div>
                 </div>
               ) : (
-                <div className="p-5 text-center text-sm text-slate-500">
-                  No data for this range.
-                </div>
+                <div className="p-5 text-center text-sm text-slate-500">No data for this range.</div>
               )}
             </div>
 
@@ -492,9 +448,7 @@ export default function OrdersReportClient() {
                 </colgroup>
                 <thead className="bg-slate-50 text-slate-600">
                   <tr>
-                    <th className="p-3 text-left">
-                      {tab === "product" ? "Product" : "Category"}
-                    </th>
+                    <th className="p-3 text-left">{tab === "product" ? "Product" : "Category"}</th>
                     <th className="p-3 text-right">Qty</th>
                     <th className="p-3 text-right">Total</th>
                   </tr>
@@ -505,18 +459,14 @@ export default function OrdersReportClient() {
                       key={(tab === "product" ? r.product_id : r.category) || idx}
                       className="border-t border-slate-100"
                     >
-                      <td className="p-3">
-                        {tab === "product" ? r.name : r.category}
-                      </td>
+                      <td className="p-3">{tab === "product" ? r.name : r.category}</td>
                       <td className="p-3 text-right">{r.qty}</td>
                       <td className="p-3 text-right">{formatINR(r.total)}</td>
                     </tr>
                   ))}
                   {data.rows.length === 0 && (
                     <tr>
-                      <td colSpan={3} className="p-4 text-center text-slate-500">
-                        No data for this range.
-                      </td>
+                      <td colSpan={3} className="p-4 text-center text-slate-500">No data for this range.</td>
                     </tr>
                   )}
                 </tbody>
@@ -532,6 +482,18 @@ export default function OrdersReportClient() {
               </table>
             </div>
           </div>
+
+          <MobileSummaryList
+            title={tab === "product" ? "Top products" : "Top categories"}
+            items={[...(data.rows || [])]
+              .sort((a: any, b: any) => Number(b.total || 0) - Number(a.total || 0))
+              .slice(0, 5)
+              .map((r: any) => ({
+                title: tab === "product" ? String(r.name || "—") : String(r.category || "—"),
+                value: formatINR(r.total),
+                sub: `${r.qty || 0} qty`,
+              }))}
+          />
         </div>
       )}
     </section>
@@ -551,9 +513,7 @@ function Metric({
     <div className="rounded-[22px] border border-slate-200 bg-white px-4 py-4 shadow-sm">
       <div className="flex items-center gap-2 text-slate-500">
         {icon}
-        <div className="text-[11px] font-medium uppercase tracking-wide">
-          {label}
-        </div>
+        <div className="text-[11px] font-medium uppercase tracking-wide">{label}</div>
       </div>
       <div className="mt-3 text-xl font-semibold text-slate-900">{value}</div>
     </div>
@@ -563,10 +523,40 @@ function Metric({
 function MiniInfo({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-xl bg-white px-3 py-2">
-      <div className="text-[11px] uppercase tracking-wide text-slate-500">
-        {label}
-      </div>
+      <div className="text-[11px] uppercase tracking-wide text-slate-500">{label}</div>
       <div className="mt-1 text-sm font-semibold text-slate-900">{value}</div>
+    </div>
+  );
+}
+
+function MobileSummaryList({
+  title,
+  items,
+}: {
+  title: string;
+  items: { title: string; value: string; sub?: string }[];
+}) {
+  if (!items.length) return null;
+
+  return (
+    <div className="rounded-[22px] border border-slate-200 bg-white shadow-sm md:hidden">
+      <div className="border-b border-slate-100 px-4 py-3">
+        <div className="text-sm font-semibold text-slate-900">{title}</div>
+      </div>
+
+      <div className="space-y-2 p-3">
+        {items.map((item, idx) => (
+          <div key={`${item.title}-${idx}`} className="rounded-2xl border border-slate-200 bg-slate-50/60 p-3">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <div className="text-sm font-semibold text-slate-900">{item.title}</div>
+                {item.sub ? <div className="mt-1 text-xs text-slate-500">{item.sub}</div> : null}
+              </div>
+              <div className="shrink-0 text-sm font-semibold text-slate-900">{item.value}</div>
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

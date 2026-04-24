@@ -54,7 +54,7 @@ type StockSummary = {
   most: StockApiRow[];
 };
 
-function shortLabel(text: string, max = 14) {
+function shortLabel(text: string, max = 12) {
   if (!text) return "—";
   return text.length > max ? `${text.slice(0, max)}...` : text;
 }
@@ -112,6 +112,14 @@ export default function StockReportClient() {
     [data.low]
   );
 
+  const topMostStock = useMemo(() => {
+    return [...data.most].slice(0, 5).map((r) => ({
+      title: r.name,
+      value: `${r.stock_quantity ?? 0} qty`,
+      sub: `Product ID: ${r.id}`,
+    }));
+  }, [data.most]);
+
   return (
     <section className="space-y-4">
       <div>
@@ -119,35 +127,18 @@ export default function StockReportClient() {
       </div>
 
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-        <Metric
-          icon={<Boxes className="h-4 w-4" />}
-          label="Total products"
-          value={String(metrics.total)}
-        />
-        <Metric
-          icon={<PackageCheck className="h-4 w-4" />}
-          label="In stock"
-          value={String(metrics.inStock)}
-        />
-        <Metric
-          icon={<PackageX className="h-4 w-4" />}
-          label="Out of stock"
-          value={String(metrics.outOfStock)}
-        />
-        <Metric
-          icon={<AlertTriangle className="h-4 w-4" />}
-          label="Low stock"
-          value={String(metrics.lowStock)}
-          accent
-        />
+        <Metric icon={<Boxes className="h-4 w-4" />} label="Total products" value={String(metrics.total)} />
+        <Metric icon={<PackageCheck className="h-4 w-4" />} label="In stock" value={String(metrics.inStock)} />
+        <Metric icon={<PackageX className="h-4 w-4" />} label="Out of stock" value={String(metrics.outOfStock)} />
+        <Metric icon={<AlertTriangle className="h-4 w-4" />} label="Low stock" value={String(metrics.lowStock)} accent />
       </div>
 
       {chartData.length > 0 && (
-        <div className="rounded-[22px] border border-slate-200 bg-white p-3 shadow-sm sm:p-4">
+        <div className="hidden rounded-[22px] border border-slate-200 bg-white p-3 shadow-sm sm:p-4 md:block">
           <div className="mb-3 text-sm font-semibold text-slate-900">
             Low stock products
           </div>
-          <div className="h-60 sm:h-72">
+          <div className="h-72">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={chartData} margin={{ top: 5, right: 10, left: 0, bottom: 18 }}>
                 <CartesianGrid stroke={COLORS.grid} strokeDasharray="3 3" />
@@ -168,27 +159,18 @@ export default function StockReportClient() {
 
       <div className="overflow-hidden rounded-[22px] border border-slate-200 bg-white shadow-sm">
         <div className="border-b border-slate-100 px-4 py-3">
-          <div className="text-sm font-semibold text-slate-900">
-            Low stock list
-          </div>
+          <div className="text-sm font-semibold text-slate-900">Low stock list</div>
         </div>
 
         <div className="block md:hidden">
           {data.low.length > 0 ? (
             <div className="space-y-2 p-3">
               {data.low.slice(0, 20).map((r) => (
-                <div
-                  key={r.id}
-                  className="rounded-2xl border border-slate-200 bg-slate-50/60 p-3"
-                >
+                <div key={r.id} className="rounded-2xl border border-slate-200 bg-slate-50/60 p-3">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <div className="text-sm font-semibold text-slate-900">
-                        {r.name}
-                      </div>
-                      <div className="mt-1 text-xs text-slate-500">
-                        Product ID: {r.id}
-                      </div>
+                      <div className="text-sm font-semibold text-slate-900">{r.name}</div>
+                      <div className="mt-1 text-xs text-slate-500">Product ID: {r.id}</div>
                     </div>
 
                     <span className="rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-medium text-amber-700">
@@ -198,19 +180,13 @@ export default function StockReportClient() {
 
                   <div className="mt-3 flex items-center gap-2">
                     <Warehouse className="h-4 w-4 text-slate-500" />
-                    <span className="text-xs text-slate-600 capitalize">
-                      {r.stock_status || "—"}
-                    </span>
+                    <span className="text-xs text-slate-600 capitalize">{r.stock_status || "—"}</span>
                   </div>
                 </div>
               ))}
             </div>
           ) : (
-            !loading && (
-              <div className="p-5 text-center text-sm text-slate-500">
-                No low stock products found.
-              </div>
-            )
+            !loading && <div className="p-5 text-center text-sm text-slate-500">No low stock products found.</div>
           )}
         </div>
 
@@ -263,6 +239,8 @@ export default function StockReportClient() {
         </div>
       </div>
 
+      <MobileSummaryList title="Highest stock items" items={topMostStock} />
+
       {loading && (
         <div className="flex items-center gap-2 text-xs text-slate-500">
           <span className="inline-block h-2 w-2 rounded-full bg-blue-400 animate-pulse" />
@@ -296,12 +274,42 @@ function Metric({
 
       <div className="flex items-center gap-2 text-slate-500">
         {icon}
-        <div className="text-[11px] font-medium uppercase tracking-wide">
-          {label}
-        </div>
+        <div className="text-[11px] font-medium uppercase tracking-wide">{label}</div>
       </div>
 
       <div className="mt-3 text-2xl font-semibold text-slate-900">{value}</div>
+    </div>
+  );
+}
+
+function MobileSummaryList({
+  title,
+  items,
+}: {
+  title: string;
+  items: { title: string; value: string; sub?: string }[];
+}) {
+  if (!items.length) return null;
+
+  return (
+    <div className="rounded-[22px] border border-slate-200 bg-white shadow-sm md:hidden">
+      <div className="border-b border-slate-100 px-4 py-3">
+        <div className="text-sm font-semibold text-slate-900">{title}</div>
+      </div>
+
+      <div className="space-y-2 p-3">
+        {items.map((item, idx) => (
+          <div key={`${item.title}-${idx}`} className="rounded-2xl border border-slate-200 bg-slate-50/60 p-3">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <div className="text-sm font-semibold text-slate-900">{item.title}</div>
+                {item.sub ? <div className="mt-1 text-xs text-slate-500">{item.sub}</div> : null}
+              </div>
+              <div className="shrink-0 text-sm font-semibold text-slate-900">{item.value}</div>
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
