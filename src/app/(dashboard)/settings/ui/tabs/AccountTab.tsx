@@ -1,7 +1,20 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Eye, EyeOff } from "lucide-react";
+import {
+  Eye,
+  EyeOff,
+  ShieldCheck,
+  UserRound,
+  Mail,
+  Phone,
+  Store,
+  KeyRound,
+  Save,
+  CheckCircle2,
+  AlertCircle,
+  BadgeInfo,
+} from "lucide-react";
 import type { AccountSettings } from "@/types/account";
 
 const emptySettings: AccountSettings = {
@@ -20,6 +33,62 @@ const emptySettings: AccountSettings = {
   },
 };
 
+const inputClass =
+  "h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-900 " +
+  "placeholder:text-slate-400 shadow-sm transition focus:border-indigo-400 focus:outline-none focus:ring-4 focus:ring-indigo-100";
+
+function SectionCard({
+  icon,
+  title,
+  description,
+  children,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  description: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="overflow-hidden rounded-[26px] border border-slate-200 bg-white shadow-sm">
+      <div className="border-b border-slate-100 bg-gradient-to-r from-white via-slate-50 to-indigo-50/40 px-4 py-4 md:px-5">
+        <div className="flex items-start gap-3">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600">
+            {icon}
+          </div>
+          <div>
+            <h3 className="text-base font-semibold text-slate-900">{title}</h3>
+            <p className="mt-1 text-xs leading-5 text-slate-500 md:text-sm">
+              {description}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div className="space-y-4 p-4 md:p-5">{children}</div>
+    </section>
+  );
+}
+
+function Field({
+  label,
+  hint,
+  children,
+}: {
+  label: string;
+  hint?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div>
+      <label className="mb-2 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+        {label}
+      </label>
+      {children}
+      {hint ? <p className="mt-2 text-xs text-slate-500">{hint}</p> : null}
+    </div>
+  );
+}
+
 export default function AccountTab() {
   const [settings, setSettings] = useState<AccountSettings>(emptySettings);
   const [loading, setLoading] = useState(true);
@@ -27,18 +96,15 @@ export default function AccountTab() {
   const [error, setError] = useState<string | null>(null);
   const [savedMsg, setSavedMsg] = useState<string | null>(null);
 
-  // change-password local state
   const [pwNew, setPwNew] = useState("");
   const [pwConfirm, setPwConfirm] = useState("");
   const [pwSaving, setPwSaving] = useState(false);
   const [pwMsg, setPwMsg] = useState<string | null>(null);
   const [pwError, setPwError] = useState<string | null>(null);
 
-  // password visibility
   const [showPwNew, setShowPwNew] = useState(false);
   const [showPwConfirm, setShowPwConfirm] = useState(false);
 
-  // Load from /api/account/settings
   useEffect(() => {
     let cancelled = false;
 
@@ -113,6 +179,7 @@ export default function AccountTab() {
       setSavedMsg("Account settings saved.");
       setSettings(payload);
       window.scrollTo({ top: 0, behavior: "smooth" });
+      setTimeout(() => setSavedMsg(null), 3500);
     } catch (e: any) {
       console.error(e);
       setError(e?.message || "Failed to save.");
@@ -155,6 +222,7 @@ export default function AccountTab() {
       setPwConfirm("");
       setShowPwNew(false);
       setShowPwConfirm(false);
+      setTimeout(() => setPwMsg(null), 3500);
     } catch (e: any) {
       console.error(e);
       setPwError(e?.message || "Failed to update password.");
@@ -165,276 +233,293 @@ export default function AccountTab() {
 
   const s = settings;
 
+  if (loading) {
+    return (
+      <div className="p-4 md:p-5">
+        <div className="rounded-[24px] border border-slate-200 bg-white p-5 text-sm text-slate-500 shadow-sm">
+          Loading account details...
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="max-w-4xl space-y-6">
-      <header className="space-y-2">
-        <div className="flex items-center justify-between gap-3">
+    <div className="space-y-4 p-3 md:space-y-5 md:p-5">
+      {savedMsg && (
+        <div className="pointer-events-none fixed left-0 right-0 top-[72px] z-40 flex justify-center">
+          <div className="pointer-events-auto rounded-full bg-emerald-500 px-4 py-1.5 text-sm font-medium text-white shadow-lg">
+            {savedMsg}
+          </div>
+        </div>
+      )}
+
+      <div className="rounded-[24px] border border-slate-200 bg-white p-4 shadow-sm">
+        <div className="flex items-start gap-3">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600">
+            <ShieldCheck className="h-5 w-5" />
+          </div>
           <div>
-            <h2 className="text-xl font-semibold text-slate-900">Account</h2>
-            <p className="text-xs text-slate-500">
-              View your LetzShopy account details and login security.
+            <div className="text-base font-semibold text-slate-900">
+              Account & Security
+            </div>
+            <div className="mt-1 text-xs text-slate-500 md:text-sm">
+              View your store account details, update contact information and
+              manage dashboard login security.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {error && (
+        <div className="rounded-[20px] border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800 shadow-sm">
+          {error}
+        </div>
+      )}
+
+      <SectionCard
+        icon={<Store className="h-5 w-5" />}
+        title="Account overview"
+        description="Basic store account details managed by the LetzShopy team."
+      >
+        <div className="grid gap-4 md:grid-cols-3">
+          <Field
+            label="Account ID"
+            hint="Generated when your store is created."
+          >
+            <input
+              className={`${inputClass} bg-slate-50 text-slate-700`}
+              value={s.overview.account_id}
+              disabled
+            />
+          </Field>
+
+          <Field label="Store URL">
+            <input
+              className={`${inputClass} bg-slate-50 text-slate-700`}
+              value={s.overview.store_url}
+              disabled
+            />
+          </Field>
+
+          <Field label="Created on">
+            <input
+              type="date"
+              className={`${inputClass} bg-slate-50 text-slate-700`}
+              value={s.overview.created_on || ""}
+              disabled
+            />
+          </Field>
+        </div>
+      </SectionCard>
+
+      <SectionCard
+        icon={<UserRound className="h-5 w-5" />}
+        title="Contact person"
+        description="These details are used for LetzShopy communication and support contact."
+      >
+        <div className="grid gap-4 md:grid-cols-3">
+          <Field label="Contact name">
+            <div className="relative">
+              <UserRound className="pointer-events-none absolute left-4 top-3.5 h-4 w-4 text-slate-400" />
+              <input
+                className={`${inputClass} pl-11`}
+                value={s.contact.contact_name}
+                onChange={(e) =>
+                  setSettings((prev) => ({
+                    ...prev,
+                    contact: {
+                      ...prev.contact,
+                      contact_name: e.target.value,
+                    },
+                  }))
+                }
+                placeholder="Enter contact name"
+              />
+            </div>
+          </Field>
+
+          <Field label="Contact email">
+            <div className="relative">
+              <Mail className="pointer-events-none absolute left-4 top-3.5 h-4 w-4 text-slate-400" />
+              <input
+                type="email"
+                className={`${inputClass} pl-11`}
+                value={s.contact.contact_email}
+                onChange={(e) =>
+                  setSettings((prev) => ({
+                    ...prev,
+                    contact: {
+                      ...prev.contact,
+                      contact_email: e.target.value,
+                    },
+                  }))
+                }
+                placeholder="Enter contact email"
+              />
+            </div>
+          </Field>
+
+          <Field label="Contact mobile / WhatsApp">
+            <div className="relative">
+              <Phone className="pointer-events-none absolute left-4 top-3.5 h-4 w-4 text-slate-400" />
+              <input
+                className={`${inputClass} pl-11`}
+                value={s.contact.contact_mobile}
+                onChange={(e) =>
+                  setSettings((prev) => ({
+                    ...prev,
+                    contact: {
+                      ...prev.contact,
+                      contact_mobile: e.target.value,
+                    },
+                  }))
+                }
+                placeholder="Enter mobile number"
+              />
+            </div>
+          </Field>
+        </div>
+      </SectionCard>
+
+      <SectionCard
+        icon={<KeyRound className="h-5 w-5" />}
+        title="Access & security"
+        description="Manage login email and update your dashboard password."
+      >
+        <div className="grid gap-4 md:grid-cols-2">
+          <Field
+            label="Login email"
+            hint="This will stay in sync with your dashboard user email."
+          >
+            <div className="relative">
+              <Mail className="pointer-events-none absolute left-4 top-3.5 h-4 w-4 text-slate-400" />
+              <input
+                type="email"
+                className={`${inputClass} pl-11`}
+                value={s.security.login_email}
+                onChange={(e) =>
+                  setSettings((prev) => ({
+                    ...prev,
+                    security: {
+                      ...prev.security,
+                      login_email: e.target.value,
+                    },
+                  }))
+                }
+                placeholder="Login email"
+              />
+            </div>
+          </Field>
+        </div>
+
+        <div className="rounded-[22px] border border-slate-200 bg-slate-50/70 p-4">
+          <div className="mb-4">
+            <div className="text-sm font-semibold text-slate-900">
+              Change password
+            </div>
+            <p className="mt-1 text-xs text-slate-500">
+              Use at least 8 characters for a stronger dashboard password.
             </p>
           </div>
 
-          <button
-            type="button"
-            onClick={handleSave}
-            disabled={loading || saving}
-            className="inline-flex items-center rounded-lg bg-indigo-600 px-4 py-2 text-xs font-medium text-white shadow-sm hover:bg-indigo-700 disabled:opacity-60"
-          >
-            {saving ? "Saving…" : "Save changes"}
-          </button>
-        </div>
-
-        {error && (
-          <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-800">
-            {error}
-          </div>
-        )}
-
-        {savedMsg && (
-          <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-800">
-            {savedMsg}
-          </div>
-        )}
-      </header>
-
-      {loading ? (
-        <div className="rounded-2xl border border-slate-200 bg-white/80 p-4 text-sm text-slate-600 shadow-sm">
-          Loading account details…
-        </div>
-      ) : (
-        <>
-          <section className="space-y-4 rounded-2xl border border-slate-200 bg-white/80 p-4 shadow-sm">
-            <div className="space-y-1">
-              <h3 className="text-sm font-semibold text-slate-900">
-                Account overview
-              </h3>
-              <p className="text-[11px] text-slate-500">
-                Basic account ID and store URL. These are set by the LetzShopy
-                team.
-              </p>
-            </div>
-
-            <div className="grid gap-4 md:grid-cols-3">
-              <div>
-                <label className="mb-1 block text-[11px] font-medium text-slate-600">
-                  Account ID
-                </label>
+          <div className="grid gap-4 md:grid-cols-2">
+            <Field label="New password">
+              <div className="relative">
                 <input
-                  className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-800"
-                  value={s.overview.account_id}
-                  disabled
+                  type={showPwNew ? "text" : "password"}
+                  className={`${inputClass} pr-11`}
+                  value={pwNew}
+                  onChange={(e) => setPwNew(e.target.value)}
+                  placeholder="Enter new password"
                 />
-                <p className="mt-1 text-[10px] text-slate-500">
-                  Generated when we create your store (e.g. LS-00023).
-                </p>
-              </div>
-
-              <div>
-                <label className="mb-1 block text-[11px] font-medium text-slate-600">
-                  Store URL
-                </label>
-                <input
-                  className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-800"
-                  value={s.overview.store_url}
-                  disabled
-                />
-              </div>
-
-              <div>
-                <label className="mb-1 block text-[11px] font-medium text-slate-600">
-                  Created on
-                </label>
-                <input
-                  type="date"
-                  className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-800"
-                  value={s.overview.created_on || ""}
-                  disabled
-                />
-              </div>
-            </div>
-
-            <div className="space-y-3 border-t border-slate-100 pt-3">
-              <h4 className="text-xs font-semibold text-slate-800">
-                Contact person
-              </h4>
-
-              <div className="grid gap-4 md:grid-cols-3">
-                <div>
-                  <label className="mb-1 block text-[11px] font-medium text-slate-600">
-                    Contact name
-                  </label>
-                  <input
-                    className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-800 focus:bg-white"
-                    value={s.contact.contact_name}
-                    onChange={(e) =>
-                      setSettings((prev) => ({
-                        ...prev,
-                        contact: {
-                          ...prev.contact,
-                          contact_name: e.target.value,
-                        },
-                      }))
-                    }
-                  />
-                </div>
-
-                <div>
-                  <label className="mb-1 block text-[11px] font-medium text-slate-600">
-                    Contact email
-                  </label>
-                  <input
-                    type="email"
-                    className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-800 focus:bg-white"
-                    value={s.contact.contact_email}
-                    onChange={(e) =>
-                      setSettings((prev) => ({
-                        ...prev,
-                        contact: {
-                          ...prev.contact,
-                          contact_email: e.target.value,
-                        },
-                      }))
-                    }
-                  />
-                </div>
-
-                <div>
-                  <label className="mb-1 block text-[11px] font-medium text-slate-600">
-                    Contact mobile / WhatsApp
-                  </label>
-                  <input
-                    className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-800 focus:bg-white"
-                    value={s.contact.contact_mobile}
-                    onChange={(e) =>
-                      setSettings((prev) => ({
-                        ...prev,
-                        contact: {
-                          ...prev.contact,
-                          contact_mobile: e.target.value,
-                        },
-                      }))
-                    }
-                  />
-                </div>
-              </div>
-            </div>
-          </section>
-
-          <section className="mb-6 space-y-4 rounded-2xl border border-slate-200 bg-white/80 p-4 shadow-sm">
-            <div className="space-y-1">
-              <h3 className="text-sm font-semibold text-slate-900">
-                Access & security
-              </h3>
-              <p className="text-[11px] text-slate-500">
-                Update your dashboard login email and password.
-              </p>
-            </div>
-
-            <div className="grid gap-4 md:grid-cols-2">
-              <div>
-                <label className="mb-1 block text-[11px] font-medium text-slate-600">
-                  Login email for this dashboard
-                </label>
-                <input
-                  type="email"
-                  className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-800 focus:bg-white"
-                  value={s.security.login_email}
-                  onChange={(e) =>
-                    setSettings((prev) => ({
-                      ...prev,
-                      security: {
-                        ...prev.security,
-                        login_email: e.target.value,
-                      },
-                    }))
-                  }
-                />
-                <p className="mt-1 text-[10px] text-slate-500">
-                  This will be kept in sync with your user email on
-                  the server.
-                </p>
-              </div>
-            </div>
-
-            <div className="space-y-3 border-t border-slate-100 pt-3">
-              <h4 className="text-xs font-semibold text-slate-800">
-                Change password
-              </h4>
-
-              <div className="grid gap-4 md:grid-cols-2">
-                <div>
-                  <label className="mb-1 block text-[11px] font-medium text-slate-600">
-                    New password
-                  </label>
-                  <div className="relative">
-                    <input
-                      type={showPwNew ? "text" : "password"}
-                      className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 pr-10 text-xs text-slate-800 focus:bg-white"
-                      value={pwNew}
-                      onChange={(e) => setPwNew(e.target.value)}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPwNew((prev) => !prev)}
-                      className="absolute inset-y-0 right-0 flex items-center px-3 text-slate-500 hover:text-slate-700"
-                      aria-label={showPwNew ? "Hide password" : "Show password"}
-                    >
-                      {showPwNew ? <EyeOff size={16} /> : <Eye size={16} />}
-                    </button>
-                  </div>
-                </div>
-
-                <div>
-                  <label className="mb-1 block text-[11px] font-medium text-slate-600">
-                    Confirm new password
-                  </label>
-                  <div className="relative">
-                    <input
-                      type={showPwConfirm ? "text" : "password"}
-                      className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 pr-10 text-xs text-slate-800 focus:bg-white"
-                      value={pwConfirm}
-                      onChange={(e) => setPwConfirm(e.target.value)}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPwConfirm((prev) => !prev)}
-                      className="absolute inset-y-0 right-0 flex items-center px-3 text-slate-500 hover:text-slate-700"
-                      aria-label={showPwConfirm ? "Hide password" : "Show password"}
-                    >
-                      {showPwConfirm ? <EyeOff size={16} /> : <Eye size={16} />}
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex flex-wrap items-center gap-3">
                 <button
                   type="button"
-                  onClick={handleChangePassword}
-                  disabled={pwSaving}
-                  className="inline-flex items-center rounded-lg bg-slate-900 px-3 py-1.5 text-[11px] font-medium text-white shadow-sm hover:bg-black disabled:opacity-60"
+                  onClick={() => setShowPwNew((prev) => !prev)}
+                  className="absolute inset-y-0 right-0 flex items-center px-4 text-slate-500 hover:text-slate-700"
+                  aria-label={showPwNew ? "Hide password" : "Show password"}
                 >
-                  {pwSaving ? "Updating…" : "Update password"}
+                  {showPwNew ? <EyeOff size={16} /> : <Eye size={16} />}
                 </button>
-
-                {pwError && (
-                  <span className="text-[11px] text-rose-600">{pwError}</span>
-                )}
-
-                {pwMsg && (
-                  <span className="text-[11px] text-emerald-600">{pwMsg}</span>
-                )}
               </div>
+            </Field>
 
-              <p className="text-[10px] text-slate-500">
-                This updates your LetzShopy dashboard password.
-              </p>
+            <Field label="Confirm new password">
+              <div className="relative">
+                <input
+                  type={showPwConfirm ? "text" : "password"}
+                  className={`${inputClass} pr-11`}
+                  value={pwConfirm}
+                  onChange={(e) => setPwConfirm(e.target.value)}
+                  placeholder="Re-enter new password"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPwConfirm((prev) => !prev)}
+                  className="absolute inset-y-0 right-0 flex items-center px-4 text-slate-500 hover:text-slate-700"
+                  aria-label={showPwConfirm ? "Hide password" : "Show password"}
+                >
+                  {showPwConfirm ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
+            </Field>
+          </div>
+
+          <div className="mt-4 flex flex-wrap items-center gap-3">
+            <button
+              type="button"
+              onClick={handleChangePassword}
+              disabled={pwSaving}
+              className="inline-flex h-11 items-center justify-center rounded-2xl bg-slate-900 px-5 text-sm font-semibold text-white shadow-sm hover:bg-black disabled:opacity-60"
+            >
+              {pwSaving ? "Updating..." : "Update password"}
+            </button>
+
+            {pwError && (
+              <span className="inline-flex items-center gap-1 text-sm text-rose-600">
+                <AlertCircle className="h-4 w-4" />
+                {pwError}
+              </span>
+            )}
+
+            {pwMsg && (
+              <span className="inline-flex items-center gap-1 text-sm text-emerald-600">
+                <CheckCircle2 className="h-4 w-4" />
+                {pwMsg}
+              </span>
+            )}
+          </div>
+
+          <p className="mt-3 text-xs text-slate-500">
+            This updates your LetzShopy dashboard login password.
+          </p>
+        </div>
+      </SectionCard>
+
+      <div className="sticky bottom-3 z-10 md:bottom-4">
+        <div className="rounded-[24px] border border-slate-200 bg-white/95 p-3 shadow-lg backdrop-blur">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="min-w-0">
+              <div className="text-sm font-semibold text-slate-900">
+                Save account changes
+              </div>
+              <div className="mt-1 text-xs text-slate-500">
+                Save updated contact and login email information to your
+                dashboard account.
+              </div>
             </div>
-          </section>
-        </>
-      )}
+
+            <button
+              type="button"
+              onClick={handleSave}
+              disabled={loading || saving}
+              className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-indigo-600 px-5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700 disabled:opacity-60"
+            >
+              <Save className="h-4 w-4" />
+              {saving ? "Saving..." : "Save changes"}
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
