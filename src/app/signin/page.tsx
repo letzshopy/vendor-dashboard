@@ -137,9 +137,7 @@ export default function SigninPage() {
                         alt="LetzShopy"
                         className="h-12 w-auto object-contain"
                       />
-                      <p className="mt-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-[#31418a]">
-                        Your online store, simplified
-                      </p>
+                      
                     </div>
                   </div>
                 </div>
