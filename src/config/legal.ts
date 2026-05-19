@@ -1,6 +1,7 @@
 export const LEGAL = {
   entityName: "LetzShopy Technologies Private Limited",
   supportEmail: "support@letzshopy.in",
-  jurisdiction: "India",
+  jurisdiction: "Bengaluru, Karnataka",
   governingLaw: "Laws of India",
+  address: "Sy no. 25/3, Flat no 309, Shilpitha Royal Oak, Kodigehalli main road, Kodigehalli, Bangalore - 560067, India",
 };
