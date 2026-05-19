@@ -1,29 +1,33 @@
-// src/app/layout.tsx
-import type { Metadata, Viewport } from "next";
+import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { Suspense } from "react";
 
 import LookupGuard from "./_debug/lookup-guard";
 import LookupMuzzle from "./_debug/lookup-muzzle";
-import PWARegister from "@/components/pwa/PWARegister";
 
 export const metadata: Metadata = {
   title: "LetzShopy Vendor Dashboard",
   description: "LetzShopy vendor admin dashboard",
-  applicationName: "LetzShopy Vendor",
+  applicationName: "LetzShopy",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "LetzShopy Vendor",
+    title: "LetzShopy",
   },
   formatDetection: {
     telephone: false,
   },
-};
-
-export const viewport: Viewport = {
-  themeColor: "#27346D",
+  icons: {
+    icon: [
+      { url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/icons/icon-512.png", sizes: "512x512", type: "image/png" },
+    ],
+    apple: [
+      { url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
+    ],
+    shortcut: ["/icons/icon-192.png"],
+  },
 };
 
 export const dynamic = "force-dynamic";
@@ -54,8 +58,6 @@ export default function RootLayout({
             <LookupMuzzle />
           </>
         )}
-
-        <PWARegister />
 
         <Suspense
           fallback={
