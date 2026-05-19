@@ -1,18 +1,31 @@
 // src/app/layout.tsx
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { Suspense } from "react";
 
 import LookupGuard from "./_debug/lookup-guard";
 import LookupMuzzle from "./_debug/lookup-muzzle";
+import PWARegister from "@/components/pwa/PWARegister";
 
-export const metadata = {
+export const metadata: Metadata = {
   title: "LetzShopy Vendor Dashboard",
   description: "LetzShopy vendor admin dashboard",
+  applicationName: "LetzShopy Vendor",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "LetzShopy Vendor",
+  },
+  formatDetection: {
+    telephone: false,
+  },
 };
 
-// Keep dashboard dynamic
+export const viewport: Viewport = {
+  themeColor: "#27346D",
+};
+
 export const dynamic = "force-dynamic";
 
 const geistSans = Geist({
@@ -41,6 +54,8 @@ export default function RootLayout({
             <LookupMuzzle />
           </>
         )}
+
+        <PWARegister />
 
         <Suspense
           fallback={
