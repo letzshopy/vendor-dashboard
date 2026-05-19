@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import RenewalNotice from "@/components/subscription/RenewalNotice";
 import { useDashboardSubscription } from "@/components/subscription/SubscriptionContext";
+import InstallAppCard from "@/components/pwa/InstallAppCard";
 import {
   ArrowRight,
   Boxes,
@@ -184,6 +185,10 @@ export default function DashboardPage() {
           />
         </section>
       )}
+
+      <section>
+        <InstallAppCard />
+      </section>
 
       <section className="grid grid-cols-2 gap-3 xl:grid-cols-4">
         {quickHighlights.map((item) => (
