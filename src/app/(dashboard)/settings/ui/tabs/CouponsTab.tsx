@@ -1,7 +1,19 @@
-// src/app/settings/ui/tabs/CouponsTab.tsx
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import {
+  BadgePercent,
+  CalendarDays,
+  CircleAlert,
+  PencilLine,
+  Plus,
+  Tag,
+  TicketPercent,
+  Trash2,
+  X,
+  CheckCircle2,
+  ReceiptText,
+} from "lucide-react";
 
 export interface WCCoupon {
   id: number;
@@ -54,7 +66,78 @@ function statusLabel(c: WCCoupon) {
   return "Active";
 }
 
+function discountTypeLabel(type: string) {
+  if (type === "percent") return "Percentage";
+  if (type === "fixed_cart") return "Fixed cart";
+  if (type === "fixed_product") return "Fixed product";
+  return type;
+}
+
+function statusClasses(status: string) {
+  if (status === "Active") {
+    return "bg-emerald-50 text-emerald-700 border-emerald-200";
+  }
+  if (status === "Expired") {
+    return "bg-amber-50 text-amber-700 border-amber-200";
+  }
+  return "bg-slate-100 text-slate-600 border-slate-200";
+}
+
 type Banner = { type: "success" | "error"; message: string } | null;
+
+const inputClass =
+  "h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-900 " +
+  "placeholder:text-slate-400 shadow-sm transition focus:border-indigo-400 focus:outline-none focus:ring-4 focus:ring-indigo-100";
+
+const textareaClass =
+  "w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 " +
+  "placeholder:text-slate-400 shadow-sm transition focus:border-indigo-400 focus:outline-none focus:ring-4 focus:ring-indigo-100";
+
+function Field({
+  label,
+  hint,
+  children,
+}: {
+  label: string;
+  hint?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div>
+      <label className="mb-2 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+        {label}
+      </label>
+      {children}
+      {hint ? <p className="mt-2 text-xs text-slate-500">{hint}</p> : null}
+    </div>
+  );
+}
+
+function SummaryCard({
+  icon,
+  label,
+  value,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: string | number;
+}) {
+  return (
+    <div className="rounded-[22px] border border-slate-200 bg-white p-4 shadow-sm">
+      <div className="flex items-center gap-2 text-slate-500">
+        <div className="flex h-9 w-9 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600">
+          {icon}
+        </div>
+        <div className="text-xs font-semibold uppercase tracking-wide">
+          {label}
+        </div>
+      </div>
+      <div className="mt-3 text-2xl font-semibold tracking-tight text-slate-900">
+        {value}
+      </div>
+    </div>
+  );
+}
 
 export default function CouponsTab() {
   const [loading, setLoading] = useState(true);
@@ -69,6 +152,7 @@ export default function CouponsTab() {
 
   useEffect(() => {
     let cancelled = false;
+
     async function load() {
       setLoading(true);
       setError(null);
@@ -89,11 +173,22 @@ export default function CouponsTab() {
         if (!cancelled) setLoading(false);
       }
     }
+
     load();
     return () => {
       cancelled = true;
     };
   }, []);
+
+  const stats = useMemo(() => {
+    const active = coupons.filter((c) => statusLabel(c) === "Active").length;
+    const expired = coupons.filter((c) => statusLabel(c) === "Expired").length;
+    return {
+      total: coupons.length,
+      active,
+      expired,
+    };
+  }, [coupons]);
 
   function openCreate() {
     setForm(emptyForm());
@@ -120,7 +215,6 @@ export default function CouponsTab() {
 
   function closeForm() {
     setForm(null);
-    setBanner(null);
   }
 
   async function handleSave(e: React.FormEvent) {
@@ -138,6 +232,7 @@ export default function CouponsTab() {
 
     setSaving(true);
     setBanner(null);
+
     try {
       const payload = {
         code: form.code.trim(),
@@ -188,11 +283,11 @@ export default function CouponsTab() {
         return [saved, ...prev];
       });
 
+      setForm(null);
       setBanner({
         type: "success",
         message: editing ? "Coupon updated." : "Coupon created.",
       });
-      closeForm();
       window.scrollTo({ top: 0, behavior: "smooth" });
     } catch (err: any) {
       console.error(err);
@@ -206,6 +301,7 @@ export default function CouponsTab() {
   async function handleDelete(id: number) {
     if (!confirm("Delete this coupon? This cannot be undone.")) return;
     setBanner(null);
+
     try {
       const res = await fetch(`/api/coupons/${id}`, { method: "DELETE" });
       const j = await res.json().catch(() => ({}));
@@ -217,6 +313,7 @@ export default function CouponsTab() {
         window.scrollTo({ top: 0, behavior: "smooth" });
         return;
       }
+
       setCoupons((prev) => prev.filter((c) => c.id !== id));
       setBanner({ type: "success", message: "Coupon deleted." });
       window.scrollTo({ top: 0, behavior: "smooth" });
@@ -228,81 +325,114 @@ export default function CouponsTab() {
   }
 
   return (
-    <div className="space-y-5 max-w-5xl">
-      {/* Header */}
-      <div className="flex items-center justify-between gap-3">
-        <div className="space-y-1">
-          <h2 className="text-xl font-semibold text-slate-900">Coupons</h2>
-          <p className="text-[11px] text-slate-500">
-            Create simple discount codes for your store. These are standard
-            coupons and apply directly at checkout.
-          </p>
+    <div className="space-y-4 p-3 md:space-y-5 md:p-5">
+      <div className="rounded-[24px] border border-slate-200 bg-white p-4 shadow-sm">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex min-w-0 items-start gap-3">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600">
+              <TicketPercent className="h-5 w-5" />
+            </div>
+            <div className="min-w-0">
+              <h2 className="text-lg font-semibold text-slate-900 md:text-xl">
+                Coupons
+              </h2>
+              <p className="mt-1 text-xs leading-5 text-slate-500 md:text-sm">
+                Create and manage discount codes for your store checkout.
+              </p>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={openCreate}
+            className="inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-2xl bg-indigo-600 px-4 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700"
+          >
+            <Plus className="h-4 w-4" />
+            <span className="hidden sm:inline">Add coupon</span>
+            <span className="sm:hidden">Add</span>
+          </button>
         </div>
-        <button
-          type="button"
-          onClick={openCreate}
-          className="inline-flex items-center rounded-lg bg-indigo-600 px-4 py-2 text-xs font-medium text-white shadow-sm hover:bg-indigo-700"
-        >
-          + Add coupon
-        </button>
       </div>
 
-      {/* Banner */}
       {banner && (
         <div
-          className={`rounded-lg border px-3 py-2 text-xs ${
+          className={`rounded-[20px] border px-4 py-3 text-sm shadow-sm ${
             banner.type === "success"
               ? "border-emerald-200 bg-emerald-50 text-emerald-800"
               : "border-rose-200 bg-rose-50 text-rose-800"
           }`}
         >
-          {banner.message}
+          <div className="flex items-start gap-2">
+            {banner.type === "success" ? (
+              <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
+            ) : (
+              <CircleAlert className="mt-0.5 h-4 w-4 shrink-0" />
+            )}
+            <span>{banner.message}</span>
+          </div>
         </div>
       )}
 
-      {/* Create / Edit form */}
+      <div className="grid gap-3 sm:grid-cols-3">
+        <SummaryCard
+          icon={<ReceiptText className="h-4 w-4" />}
+          label="Total coupons"
+          value={stats.total}
+        />
+        <SummaryCard
+          icon={<CheckCircle2 className="h-4 w-4" />}
+          label="Active"
+          value={stats.active}
+        />
+        <SummaryCard
+          icon={<CalendarDays className="h-4 w-4" />}
+          label="Expired"
+          value={stats.expired}
+        />
+      </div>
+
       {form && (
-        <div className="rounded-2xl border border-slate-200 bg-white/80 p-4 shadow-sm space-y-4">
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <h3 className="text-sm font-semibold text-slate-900">
-                {editing ? "Edit coupon" : "New coupon"}
-              </h3>
-              <p className="text-[11px] text-slate-500">
-                Set a code, discount type and optional minimum order amount.
-              </p>
+        <section className="overflow-hidden rounded-[26px] border border-slate-200 bg-white shadow-sm">
+          <div className="border-b border-slate-100 bg-gradient-to-r from-white via-slate-50 to-indigo-50/40 px-4 py-4 md:px-5">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h3 className="text-base font-semibold text-slate-900">
+                  {editing ? "Edit coupon" : "New coupon"}
+                </h3>
+                <p className="mt-1 text-xs text-slate-500 md:text-sm">
+                  Set coupon code, discount type and usage rules.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={closeForm}
+                className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 hover:bg-slate-50 hover:text-slate-700"
+              >
+                <X className="h-4 w-4" />
+              </button>
             </div>
-            <button
-              type="button"
-              onClick={closeForm}
-              className="text-[11px] text-slate-500 hover:text-slate-700"
-            >
-              Cancel
-            </button>
           </div>
 
-          <form onSubmit={handleSave} className="space-y-4">
-            {/* top row */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <div>
-                <label className="block text-[11px] font-medium text-slate-600 mb-1">
-                  Coupon code
-                </label>
-                <input
-                  className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs uppercase tracking-wide focus:bg-white"
-                  value={form.code}
-                  onChange={(e) =>
-                    setForm((f) => f && { ...f, code: e.target.value })
-                  }
-                  placeholder="WELCOME10"
-                />
-              </div>
-              <div>
-                <label className="block text-[11px] font-medium text-slate-600 mb-1">
-                  Discount type
-                </label>
+          <form onSubmit={handleSave} className="space-y-4 p-4 md:p-5">
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+              <Field label="Coupon code">
+                <div className="relative">
+                  <Tag className="pointer-events-none absolute left-4 top-3.5 h-4 w-4 text-slate-400" />
+                  <input
+                    className={`${inputClass} pl-11 uppercase tracking-wide`}
+                    value={form.code}
+                    onChange={(e) =>
+                      setForm((f) => f && { ...f, code: e.target.value })
+                    }
+                    placeholder="WELCOME10"
+                  />
+                </div>
+              </Field>
+
+              <Field label="Discount type">
                 <select
-                  className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs focus:bg-white"
+                  className={inputClass}
                   value={form.discount_type}
                   onChange={(e) =>
                     setForm(
@@ -319,43 +449,41 @@ export default function CouponsTab() {
                   <option value="fixed_cart">Fixed cart discount (₹)</option>
                   <option value="fixed_product">Fixed product discount (₹)</option>
                 </select>
-              </div>
-              <div>
-                <label className="block text-[11px] font-medium text-slate-600 mb-1">
-                  Discount amount
-                </label>
-                <input
-                  className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs focus:bg-white"
-                  value={form.amount}
-                  onChange={(e) =>
-                    setForm((f) => f && { ...f, amount: e.target.value })
-                  }
-                  placeholder="10"
-                />
-              </div>
-              <div>
-                <label className="block text-[11px] font-medium text-slate-600 mb-1">
-                  Expiry date (optional)
-                </label>
+              </Field>
+
+              <Field label="Discount amount">
+                <div className="relative">
+                  <BadgePercent className="pointer-events-none absolute left-4 top-3.5 h-4 w-4 text-slate-400" />
+                  <input
+                    className={`${inputClass} pl-11`}
+                    value={form.amount}
+                    onChange={(e) =>
+                      setForm((f) => f && { ...f, amount: e.target.value })
+                    }
+                    placeholder="10"
+                  />
+                </div>
+              </Field>
+
+              <Field label="Expiry date">
                 <input
                   type="date"
-                  className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs focus:bg-white"
+                  className={inputClass}
                   value={form.date_expires}
                   onChange={(e) =>
                     setForm((f) => f && { ...f, date_expires: e.target.value })
                   }
                 />
-              </div>
+              </Field>
             </div>
 
-            {/* second row */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div>
-                <label className="block text-[11px] font-medium text-slate-600 mb-1">
-                  Minimum order amount (₹)
-                </label>
+            <div className="grid gap-4 md:grid-cols-2">
+              <Field
+                label="Minimum order amount"
+                hint="Leave blank if there is no minimum cart value."
+              >
                 <input
-                  className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs focus:bg-white"
+                  className={inputClass}
                   value={form.minimum_amount}
                   onChange={(e) =>
                     setForm(
@@ -364,191 +492,251 @@ export default function CouponsTab() {
                   }
                   placeholder="0"
                 />
-                <p className="mt-1 text-[10px] text-slate-500">
-                  Leave blank for no minimum.
-                </p>
-              </div>
-              <div>
-                <label className="block text-[11px] font-medium text-slate-600 mb-1">
-                  Usage limit (optional)
-                </label>
+              </Field>
+
+              <Field
+                label="Usage limit"
+                hint="Total number of times this coupon can be used."
+              >
                 <input
-                  className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs focus:bg-white"
+                  className={inputClass}
                   value={form.usage_limit}
                   onChange={(e) =>
                     setForm((f) => f && { ...f, usage_limit: e.target.value })
                   }
                   placeholder="e.g. 50"
                 />
-                <p className="mt-1 text-[10px] text-slate-500">
-                  Total number of times this coupon can be used.
-                </p>
-              </div>
+              </Field>
             </div>
 
-            {/* description */}
-            <div>
-              <label className="block text-[11px] font-medium text-slate-600 mb-1">
-                Internal note / description
-              </label>
+            <Field label="Internal note / description">
               <textarea
-                className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs min-h-[70px] focus:bg-white"
+                className={textareaClass}
+                rows={4}
                 value={form.description}
                 onChange={(e) =>
                   setForm((f) => f && { ...f, description: e.target.value })
                 }
-                placeholder="E.g. Diwali 10% sitewide, not for resellers"
+                placeholder="Example: Festival offer, reseller orders excluded"
               />
-            </div>
+            </Field>
 
-            <div className="flex justify-end gap-2 pt-1">
+            <div className="flex flex-col-reverse gap-3 border-t border-slate-100 pt-4 sm:flex-row sm:justify-end">
               <button
                 type="button"
                 onClick={closeForm}
-                className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50"
+                className="inline-flex h-11 items-center justify-center rounded-2xl border border-slate-200 bg-white px-5 text-sm font-semibold text-slate-700 hover:bg-slate-50"
                 disabled={saving}
               >
                 Cancel
               </button>
               <button
                 type="submit"
-                className="inline-flex items-center rounded-lg bg-slate-900 px-4 py-1.5 text-xs font-medium text-white shadow-sm hover:bg-black disabled:opacity-60"
+                className="inline-flex h-11 items-center justify-center rounded-2xl bg-slate-900 px-5 text-sm font-semibold text-white shadow-sm hover:bg-black disabled:opacity-60"
                 disabled={saving}
               >
                 {saving
-                  ? "Saving…"
+                  ? "Saving..."
                   : editing
                   ? "Update coupon"
                   : "Create coupon"}
               </button>
             </div>
           </form>
-        </div>
+        </section>
       )}
 
-      {/* Coupons list */}
-      <div className="rounded-2xl border border-slate-200 bg-white/80 shadow-sm overflow-hidden">
-        <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
-          <div className="text-xs font-semibold text-slate-800">
-            Existing coupon codes
-          </div>
-          <div className="text-[11px] text-slate-500">
-            {coupons.length} coupon{coupons.length === 1 ? "" : "s"}
+      <section className="overflow-hidden rounded-[26px] border border-slate-200 bg-white shadow-sm">
+        <div className="border-b border-slate-100 bg-gradient-to-r from-white via-slate-50 to-indigo-50/30 px-4 py-4 md:px-5">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <h3 className="text-base font-semibold text-slate-900">
+                Existing coupon codes
+              </h3>
+              <p className="mt-1 text-xs text-slate-500 md:text-sm">
+                View and manage all store discount codes.
+              </p>
+            </div>
+
+            <div className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-medium text-slate-600">
+              {coupons.length} coupon{coupons.length === 1 ? "" : "s"}
+            </div>
           </div>
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-xs">
-            <thead className="bg-slate-50 text-slate-600">
-              <tr className="border-b border-slate-100">
-                <th className="px-3 py-2 text-left font-medium">Code</th>
-                <th className="px-3 py-2 text-left font-medium">Type</th>
-                <th className="px-3 py-2 text-left font-medium">Amount</th>
-                <th className="px-3 py-2 text-left font-medium">Usage</th>
-                <th className="px-3 py-2 text-left font-medium">Expires</th>
-                <th className="px-3 py-2 text-left font-medium">Status</th>
-                <th className="px-3 py-2 text-left font-medium w-32">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {loading && (
-                <tr>
-                  <td
-                    colSpan={7}
-                    className="px-4 py-5 text-center text-slate-500"
+        <div className="p-3 md:p-5">
+          {loading && (
+            <div className="rounded-[22px] border border-slate-200 bg-slate-50 px-4 py-6 text-center text-sm text-slate-500">
+              Loading coupons...
+            </div>
+          )}
+
+          {!loading && error && (
+            <div className="rounded-[22px] border border-rose-200 bg-rose-50 px-4 py-6 text-center text-sm text-rose-700">
+              {error}
+            </div>
+          )}
+
+          {!loading && !error && coupons.length === 0 && (
+            <div className="rounded-[22px] border border-dashed border-slate-300 bg-slate-50 px-4 py-8 text-center">
+              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-white text-slate-400 shadow-sm">
+                <TicketPercent className="h-5 w-5" />
+              </div>
+              <div className="mt-3 text-sm font-semibold text-slate-900">
+                No coupons yet
+              </div>
+              <p className="mt-1 text-sm text-slate-500">
+                Create your first discount code to start offering checkout
+                promotions.
+              </p>
+              <button
+                type="button"
+                onClick={openCreate}
+                className="mt-4 inline-flex h-11 items-center justify-center rounded-2xl bg-indigo-600 px-5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700"
+              >
+                Add coupon
+              </button>
+            </div>
+          )}
+
+          {!loading && !error && coupons.length > 0 && (
+            <div className="space-y-3">
+              {coupons.map((c) => {
+                const status = statusLabel(c);
+
+                return (
+                  <div
+                    key={c.id}
+                    className="rounded-[22px] border border-slate-200 bg-white p-4 shadow-sm transition hover:shadow-md"
                   >
-                    Loading coupons…
-                  </td>
-                </tr>
-              )}
-              {!loading && error && (
-                <tr>
-                  <td
-                    colSpan={7}
-                    className="px-4 py-5 text-center text-rose-600"
-                  >
-                    {error}
-                  </td>
-                </tr>
-              )}
-              {!loading &&
-                !error &&
-                coupons.map((c, idx) => {
-                  const status = statusLabel(c);
-                  return (
-                    <tr
-                      key={c.id}
-                      className={`border-t border-slate-100 ${
-                        idx % 2 === 1 ? "bg-slate-50/40" : "bg-white"
-                      }`}
-                    >
-                      <td className="px-3 py-2 font-mono text-[11px] uppercase">
-                        {c.code}
-                      </td>
-                      <td className="px-3 py-2">
-                        {c.discount_type === "percent"
-                          ? "Percent"
-                          : c.discount_type === "fixed_cart"
-                          ? "Fixed cart"
-                          : c.discount_type === "fixed_product"
-                          ? "Fixed product"
-                          : c.discount_type}
-                      </td>
-                      <td className="px-3 py-2">{c.amount}</td>
-                      <td className="px-3 py-2">{usageSummary(c)}</td>
-                      <td className="px-3 py-2">
-                        {c.date_expires ? c.date_expires.slice(0, 10) : "—"}
-                      </td>
-                      <td className="px-3 py-2">
-                        <span
-                          className={`inline-flex items-center rounded-full px-2 py-[2px] text-[10px] font-medium ${
-                            status === "Active"
-                              ? "bg-emerald-50 text-emerald-700"
-                              : status === "Expired"
-                              ? "bg-amber-50 text-amber-700"
-                              : "bg-slate-100 text-slate-600"
-                          }`}
-                        >
-                          {status}
-                        </span>
-                      </td>
-                      <td className="px-3 py-2">
-                        <div className="flex gap-2">
-                          <button
-                            type="button"
-                            className="text-[11px] text-indigo-600 hover:underline"
-                            onClick={() => openEdit(c)}
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="rounded-xl bg-slate-900 px-3 py-1 font-mono text-sm font-semibold uppercase tracking-wide text-white">
+                            {c.code}
+                          </span>
+                          <span
+                            className={`inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-medium ${statusClasses(
+                              status
+                            )}`}
                           >
-                            Edit
-                          </button>
-                          <button
-                            type="button"
-                            className="text-[11px] text-rose-600 hover:underline"
-                            onClick={() => handleDelete(c.id)}
-                          >
-                            Delete
-                          </button>
+                            {status}
+                          </span>
                         </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              {!loading && !error && coupons.length === 0 && (
-                <tr>
-                  <td
-                    colSpan={7}
-                    className="px-4 py-5 text-center text-slate-500"
-                  >
-                    No coupons yet. Click{" "}
-                    <span className="font-medium">“Add coupon”</span> to create
-                    your first code.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+
+                        <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+                          <div className="rounded-2xl bg-slate-50 px-3 py-2">
+                            <div className="text-[11px] font-medium uppercase tracking-wide text-slate-500">
+                              Type
+                            </div>
+                            <div className="mt-1 text-sm font-semibold text-slate-900">
+                              {discountTypeLabel(c.discount_type)}
+                            </div>
+                          </div>
+
+                          <div className="rounded-2xl bg-slate-50 px-3 py-2">
+                            <div className="text-[11px] font-medium uppercase tracking-wide text-slate-500">
+                              Amount
+                            </div>
+                            <div className="mt-1 text-sm font-semibold text-slate-900">
+                              {c.amount || "—"}
+                            </div>
+                          </div>
+
+                          <div className="rounded-2xl bg-slate-50 px-3 py-2">
+                            <div className="text-[11px] font-medium uppercase tracking-wide text-slate-500">
+                              Usage
+                            </div>
+                            <div className="mt-1 text-sm font-semibold text-slate-900">
+                              {usageSummary(c)}
+                            </div>
+                          </div>
+
+                          <div className="rounded-2xl bg-slate-50 px-3 py-2">
+                            <div className="text-[11px] font-medium uppercase tracking-wide text-slate-500">
+                              Expires
+                            </div>
+                            <div className="mt-1 text-sm font-semibold text-slate-900">
+                              {c.date_expires ? c.date_expires.slice(0, 10) : "—"}
+                            </div>
+                          </div>
+                        </div>
+
+                        {(c.minimum_amount || c.description) && (
+                          <div className="mt-3 space-y-2">
+                            {c.minimum_amount ? (
+                              <div className="text-xs text-slate-600">
+                                <span className="font-medium text-slate-800">
+                                  Minimum order:
+                                </span>{" "}
+                                ₹{c.minimum_amount}
+                              </div>
+                            ) : null}
+
+                            {c.description ? (
+                              <p className="text-sm leading-6 text-slate-500">
+                                {c.description}
+                              </p>
+                            ) : null}
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="hidden shrink-0 items-center gap-2 sm:flex">
+                        <button
+                          type="button"
+                          onClick={() => openEdit(c)}
+                          className="inline-flex h-10 items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                        >
+                          <PencilLine className="h-4 w-4" />
+                          Edit
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => handleDelete(c.id)}
+                          className="inline-flex h-10 items-center justify-center gap-2 rounded-2xl border border-rose-200 bg-rose-50 px-4 text-sm font-semibold text-rose-700 hover:bg-rose-100"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="mt-4 flex gap-2 sm:hidden">
+                      <button
+                        type="button"
+                        onClick={() => openEdit(c)}
+                        className="inline-flex h-11 flex-1 items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                      >
+                        <PencilLine className="h-4 w-4" />
+                        Edit
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => handleDelete(c.id)}
+                        className="inline-flex h-11 flex-1 items-center justify-center gap-2 rounded-2xl border border-rose-200 bg-rose-50 px-4 text-sm font-semibold text-rose-700 hover:bg-rose-100"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </section>
+
+      <div className="rounded-[22px] border border-indigo-100 bg-indigo-50/70 px-4 py-3">
+        <div className="flex items-start gap-2">
+          <BadgeInfo className="mt-0.5 h-4 w-4 shrink-0 text-indigo-600" />
+          <p className="text-xs leading-5 text-indigo-800">
+            These are standard WooCommerce coupons. Customers can apply them at
+            checkout using the coupon code.
+          </p>
         </div>
       </div>
     </div>
