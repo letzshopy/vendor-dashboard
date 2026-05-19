@@ -792,10 +792,7 @@ export default function ShippingTab() {
             ))}
           </div>
 
-          <span className={smallBadge}>
-            Shipping classes & zones sync to store
-          </span>
-        </div>
+          </div>
 
         {hydrating && (
           <div className="rounded-[20px] border border-slate-200 bg-slate-50/70 px-4 py-3 text-xs text-slate-500">
@@ -906,8 +903,7 @@ export default function ShippingTab() {
           <SectionCard
             icon={<Weight className="h-5 w-5" />}
             title="Weight-based shipping – all categories"
-            description="Define zones and weight slabs that apply across your store."
-          >
+                      >
             <div className={hydrating ? "pointer-events-none opacity-60" : ""}>
               <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                 <label className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50/70 px-4 py-3 text-sm text-slate-800">
@@ -1088,14 +1084,7 @@ export default function ShippingTab() {
         <div className="sticky bottom-3 z-10 md:bottom-4">
           <div className="rounded-[24px] border border-slate-200 bg-white/95 p-3 shadow-lg backdrop-blur">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div className="min-w-0">
-                <div className="text-sm font-semibold text-slate-900">
-                  Shipping setup
-                </div>
-                <div className="mt-1 text-xs text-slate-500">
-                  Save and sync shipping classes, zones and rates to your store.
-                </div>
-              </div>
+              
 
               <button
                 type="button"
