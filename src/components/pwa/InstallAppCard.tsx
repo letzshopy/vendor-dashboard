@@ -102,11 +102,7 @@ export default function InstallAppCard() {
               Install LetzShopy App
             </h3>
 
-            <p className="mt-1 text-sm text-slate-600">
-              Add your dashboard to your device for faster access.
-            </p>
-
-            <div className="mt-4 flex flex-col items-stretch gap-2 sm:flex-row sm:items-center">
+                        <div className="mt-4 flex flex-col items-stretch gap-2 sm:flex-row sm:items-center">
               <button
                 type="button"
                 onClick={handleInstall}
@@ -121,11 +117,7 @@ export default function InstallAppCard() {
                 {installing ? "Installing..." : "Install App"}
               </button>
 
-              <p className="text-xs text-slate-500 sm:text-sm">
-                {canInstall
-                  ? "Opens like an app on mobile and desktop."
-                  : "Install option will appear when supported by your browser."}
-              </p>
+              
             </div>
           </div>
         </div>
