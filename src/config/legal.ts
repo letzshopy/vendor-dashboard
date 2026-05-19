@@ -1,5 +1,5 @@
 export const LEGAL = {
-  entityName: "LetzShopy Technologies Private Limited",
+  entityName: "LetzShopy",
   supportEmail: "support@letzshopy.in",
   jurisdiction: "Bengaluru, Karnataka",
   governingLaw: "Laws of India",
