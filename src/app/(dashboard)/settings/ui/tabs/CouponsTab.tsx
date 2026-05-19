@@ -13,6 +13,7 @@ import {
   X,
   CheckCircle2,
   ReceiptText,
+  BadgeInfo,
 } from "lucide-react";
 
 export interface WCCoupon {
