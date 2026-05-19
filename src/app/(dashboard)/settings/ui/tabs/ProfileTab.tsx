@@ -247,10 +247,7 @@ export default function ProfileTab() {
             </div>
             <div>
               <h3 className="text-base font-semibold text-slate-900">Personal</h3>
-              <p className="mt-1 text-xs leading-5 text-slate-500 md:text-sm">
-                Owner or contact person details used for internal communication.
-              </p>
-            </div>
+                          </div>
           </div>
         </div>
 
@@ -306,10 +303,7 @@ export default function ProfileTab() {
               <h3 className="text-base font-semibold text-slate-900">
                 Brand &amp; business identity
               </h3>
-              <p className="mt-1 text-xs leading-5 text-slate-500 md:text-sm">
-                Used for invoices, store branding, contact details and business communication.
-              </p>
-            </div>
+                          </div>
           </div>
         </div>
 
@@ -451,10 +445,7 @@ export default function ProfileTab() {
               <h3 className="text-base font-semibold text-slate-900">
                 Social &amp; WhatsApp
               </h3>
-              <p className="mt-1 text-xs leading-5 text-slate-500 md:text-sm">
-                Social links and WhatsApp details shown in storefront and support areas.
-              </p>
-            </div>
+                          </div>
           </div>
         </div>
 
@@ -529,9 +520,7 @@ export default function ProfileTab() {
               <div className="text-sm font-semibold text-slate-900">
                 {dirty ? "Unsaved changes" : "All changes saved"}
               </div>
-              <div className="mt-1 text-xs text-slate-500">
-                Save your latest profile, branding and social information.
-              </div>
+              
             </div>
 
             <button

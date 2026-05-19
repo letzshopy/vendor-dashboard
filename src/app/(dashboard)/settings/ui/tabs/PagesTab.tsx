@@ -2,6 +2,20 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import ImageUploader from "@/components/ImageUploader";
+import {
+  CheckCircle2,
+  FileText,
+  Globe2,
+  Home,
+  ImageIcon,
+  Mail,
+  MapPin,
+  MessageCircle,
+  Save,
+  ShieldCheck,
+  Sparkles,
+  Store,
+} from "lucide-react";
 
 type SaleSectionMode = "auto" | "manual";
 
@@ -76,22 +90,14 @@ const EMPTY_FORM: PagesForm = {
 };
 
 const inputClass =
-  "w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm " +
-  "text-slate-900 placeholder:text-slate-500 shadow-sm " +
-  "focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-600";
+  "h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm " +
+  "text-slate-900 placeholder:text-slate-400 shadow-sm transition " +
+  "focus:border-indigo-400 focus:outline-none focus:ring-4 focus:ring-indigo-100";
 
 const textareaClass =
-  "w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm " +
-  "text-slate-900 placeholder:text-slate-500 shadow-sm " +
-  "focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-600";
-
-const primaryBtnClass =
-  "inline-flex items-center justify-center rounded-lg bg-indigo-600 px-4 py-2 " +
-  "text-sm font-medium text-white shadow-sm hover:bg-indigo-700 disabled:opacity-60";
-
-const secondaryBtnClass =
-  "inline-flex items-center justify-center rounded-lg border border-slate-300 bg-white px-3 py-1.5 " +
-  "text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50";
+  "w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm " +
+  "text-slate-900 placeholder:text-slate-400 shadow-sm transition resize-none " +
+  "focus:border-indigo-400 focus:outline-none focus:ring-4 focus:ring-indigo-100";
 
 function deepMergePages(data: any): PagesForm {
   return {
@@ -105,6 +111,55 @@ function deepMergePages(data: any): PagesForm {
     },
     legal: { ...EMPTY_FORM.legal, ...(data?.legal || {}) },
   };
+}
+
+function SectionCard({
+  icon,
+  title,
+  description,
+  children,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  description: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="overflow-hidden rounded-[26px] border border-slate-200 bg-white shadow-sm">
+      <div className="border-b border-slate-100 bg-gradient-to-r from-white via-slate-50 to-indigo-50/40 px-4 py-4 md:px-5">
+        <div className="flex items-start gap-3">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600">
+            {icon}
+          </div>
+          <div>
+            <h3 className="text-base font-semibold text-slate-900">{title}</h3>
+            <p className="mt-1 text-xs leading-5 text-slate-500 md:text-sm">
+              {description}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div className="space-y-4 p-4 md:p-5">{children}</div>
+    </section>
+  );
+}
+
+function Field({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div>
+      <label className="mb-2 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+        {label}
+      </label>
+      {children}
+    </div>
+  );
 }
 
 export default function PagesTab() {
@@ -197,139 +252,152 @@ export default function PagesTab() {
   }
 
   if (!loaded) {
-    return <div className="p-4 text-sm text-slate-500">Loading…</div>;
+    return (
+      <div className="p-4 md:p-5">
+        <div className="rounded-[24px] border border-slate-200 bg-white p-5 text-sm text-slate-500 shadow-sm">
+          Loading...
+        </div>
+      </div>
+    );
   }
 
   return (
     <>
       {banner === "saved" && (
-        <div className="fixed left-0 right-0 top-[72px] z-40 flex justify-center pointer-events-none">
+        <div className="pointer-events-none fixed left-0 right-0 top-[72px] z-40 flex justify-center">
           <div className="pointer-events-auto rounded-full bg-emerald-500 px-4 py-1.5 text-sm font-medium text-white shadow-lg">
             Store Pages saved successfully
           </div>
         </div>
       )}
 
-      <section className="space-y-6 p-4 md:p-6">
-        <header className="space-y-1">
-          <h3 className="text-sm font-semibold text-slate-900">Store pages</h3>
-          <p className="text-xs text-slate-500">
-            Control the content shown on your storefront pages like Home, About,
-            Contact and policy pages.
-          </p>
-        </header>
-
-        <div className="rounded-xl border border-slate-200 bg-white/80 p-4 md:p-5">
-          <h4 className="text-sm font-semibold text-slate-900">Home hero</h4>
-          <p className="mb-4 text-[11px] text-slate-500">
-            Banner image and wording shown at the top of the Home page.
-          </p>
-
-          <div className="space-y-4">
+      <div className="space-y-4 p-3 md:space-y-5 md:p-5">
+        <div className="rounded-[24px] border border-slate-200 bg-white p-4 shadow-sm">
+          <div className="flex items-start gap-3">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600">
+              <Store className="h-5 w-5" />
+            </div>
             <div>
-              <div className="mb-1 text-xs font-medium text-slate-700">
-                Banner image
+              <div className="text-base font-semibold text-slate-900">
+                Store pages
               </div>
+              <div className="mt-1 text-xs text-slate-500 md:text-sm">
+                Manage the content shown on Home, About, Contact and policy
+                pages.
+              </div>
+            </div>
+          </div>
+        </div>
 
-              {form.home.bannerImageUrl ? (
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
-                  <div className="rounded-lg border border-slate-200 bg-slate-50 p-1">
-                    <img
-                      src={form.home.bannerImageUrl}
-                      alt="Home banner"
-                      className="h-24 w-44 rounded-md object-cover"
-                    />
-                  </div>
-
-                  <div className="space-y-2 text-xs text-slate-500">
-                    <p>Preview of your current home banner.</p>
-                    <button
-                      type="button"
-                      className={secondaryBtnClass}
-                      onClick={() => update("home.bannerImageUrl", "")}
-                    >
-                      Change banner
-                    </button>
-                    <p className="text-[11px]">
-                      Recommended ~1600×500px JPG/PNG.
-                    </p>
-                  </div>
+        <SectionCard
+          icon={<Home className="h-5 w-5" />}
+          title="Home hero"
+          description="Banner image and hero text shown at the top of the home page."
+        >
+          <Field label="Banner image">
+            {form.home.bannerImageUrl ? (
+              <div className="space-y-4">
+                <div className="overflow-hidden rounded-[22px] border border-slate-200 bg-slate-50">
+                  <img
+                    src={form.home.bannerImageUrl}
+                    alt="Home banner"
+                    className="h-40 w-full object-cover sm:h-48"
+                  />
                 </div>
-              ) : (
-                <div className="space-y-2">
+
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    className="inline-flex h-11 items-center justify-center rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50"
+                    onClick={() => update("home.bannerImageUrl", "")}
+                  >
+                    Change banner
+                  </button>
+                  <span className="text-xs text-slate-500">
+                    Recommended ~1600×500px JPG/PNG
+                  </span>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <div className="rounded-[22px] border border-dashed border-slate-300 bg-slate-50/70 p-4">
                   <ImageUploader
                     onUploaded={(url) =>
                       update("home.bannerImageUrl", url ?? "")
                     }
                   />
-                  <p className="text-[11px] text-slate-500">
-                    Recommended ~1600×500px JPG/PNG. Use a clean, wide visual.
-                  </p>
                 </div>
-              )}
-            </div>
+                <p className="text-xs text-slate-500">
+                  Recommended ~1600×500px JPG/PNG. Use a clean, wide visual.
+                </p>
+              </div>
+            )}
+          </Field>
 
-            <div className="grid gap-3">
+          <div className="grid gap-4">
+            <Field label="Hero heading">
               <input
                 className={inputClass}
                 placeholder="Hero heading"
                 value={form.home.heroHeading}
                 onChange={(e) => update("home.heroHeading", e.target.value)}
               />
+            </Field>
+
+            <Field label="Hero subheading">
               <textarea
-                rows={3}
+                rows={4}
                 className={textareaClass}
                 placeholder="Hero subheading"
                 value={form.home.heroSubheading}
                 onChange={(e) => update("home.heroSubheading", e.target.value)}
               />
-            </div>
+            </Field>
           </div>
-        </div>
+        </SectionCard>
 
-        <div className="rounded-xl border border-slate-200 bg-white/80 p-4 md:p-5">
-          <h4 className="text-sm font-semibold text-slate-900">Sale section</h4>
-          <p className="mb-4 text-[11px] text-slate-500">
-            Decide how the homepage sale section should behave.
-          </p>
-
+        <SectionCard
+          icon={<Sparkles className="h-5 w-5" />}
+          title="Sale section"
+          description="Choose how the home page sale section should appear."
+        >
           <div className="space-y-3">
-            <label className="flex items-start gap-3 rounded-lg border border-slate-200 px-3 py-3">
+            <label className="flex items-start gap-3 rounded-[22px] border border-slate-200 bg-slate-50/70 px-4 py-4">
               <input
                 type="radio"
                 name="saleSectionMode"
                 checked={form.sections.saleSectionMode === "auto"}
                 onChange={() => update("sections.saleSectionMode", "auto")}
-                className="mt-0.5"
+                className="mt-1"
               />
               <div>
-                <div className="text-sm font-medium text-slate-900">
+                <div className="text-sm font-semibold text-slate-900">
                   Auto show based on sale products
                 </div>
-                <div className="text-xs text-slate-500">
-                  Best option. Show the section only when sale products exist.
+                <div className="mt-1 text-xs leading-5 text-slate-500">
+                  Best option. Show this section only when sale products exist.
                 </div>
               </div>
             </label>
 
-            <label className="flex items-start gap-3 rounded-lg border border-slate-200 px-3 py-3">
+            <label className="flex items-start gap-3 rounded-[22px] border border-slate-200 bg-slate-50/70 px-4 py-4">
               <input
                 type="radio"
                 name="saleSectionMode"
                 checked={form.sections.saleSectionMode === "manual"}
                 onChange={() => update("sections.saleSectionMode", "manual")}
-                className="mt-0.5"
+                className="mt-1"
               />
               <div className="w-full">
-                <div className="text-sm font-medium text-slate-900">
+                <div className="text-sm font-semibold text-slate-900">
                   Manual control
                 </div>
-                <div className="text-xs text-slate-500">
-                  Enable or disable this section manually.
+                <div className="mt-1 text-xs leading-5 text-slate-500">
+                  Enable or disable the sale section manually.
                 </div>
 
                 {form.sections.saleSectionMode === "manual" && (
-                  <label className="mt-3 inline-flex items-center gap-2 text-xs text-slate-700">
+                  <label className="mt-4 flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700">
                     <input
                       type="checkbox"
                       checked={form.sections.saleSectionManualEnabled}
@@ -340,79 +408,95 @@ export default function PagesTab() {
                         )
                       }
                     />
-                    Show sale section on storefront
+                    <span>Show sale section on storefront</span>
                   </label>
                 )}
               </div>
             </label>
           </div>
-        </div>
+        </SectionCard>
 
-        <div className="rounded-xl border border-slate-200 bg-white/80 p-4 md:p-5">
-          <h4 className="text-sm font-semibold text-slate-900">About Us</h4>
-          <p className="mb-4 text-[11px] text-slate-500">
-            Content shown on the About page.
-          </p>
-
-          <textarea
-            rows={8}
-            className={textareaClass}
-            placeholder="Write about your brand in 2–4 short paragraphs…"
-            value={form.about.content}
-            onChange={(e) => update("about.content", e.target.value)}
-          />
-        </div>
-
-        <div className="rounded-xl border border-slate-200 bg-white/80 p-4 md:p-5">
-          <h4 className="text-sm font-semibold text-slate-900">Contact page</h4>
-          <p className="mb-4 text-[11px] text-slate-500">
-            Storefront contact details shown in Contact page and optionally footer.
-          </p>
-
-          <div className="grid gap-3 md:grid-cols-2">
+        <SectionCard
+          icon={<FileText className="h-5 w-5" />}
+          title="About Us"
+          description="Content shown on the About page."
+        >
+          <Field label="About content">
             <textarea
-              rows={4}
+              rows={9}
               className={textareaClass}
-              placeholder="Storefront address"
-              value={form.contact.address}
-              onChange={(e) => update("contact.address", e.target.value)}
+              placeholder="Write about your brand in 2–4 short paragraphs..."
+              value={form.about.content}
+              onChange={(e) => update("about.content", e.target.value)}
             />
-            <div className="space-y-3">
-              <input
-                className={inputClass}
-                placeholder="Contact email"
-                value={form.contact.email}
-                onChange={(e) => update("contact.email", e.target.value)}
+          </Field>
+        </SectionCard>
+
+        <SectionCard
+          icon={<Globe2 className="h-5 w-5" />}
+          title="Contact page"
+          description="Storefront contact details shown on the Contact page."
+        >
+          <div className="grid gap-4 md:grid-cols-2">
+            <Field label="Storefront address">
+              <textarea
+                rows={5}
+                className={textareaClass}
+                placeholder="Storefront address"
+                value={form.contact.address}
+                onChange={(e) => update("contact.address", e.target.value)}
               />
-              <input
-                className={inputClass}
-                placeholder="Contact phone"
-                value={form.contact.phone}
-                onChange={(e) => update("contact.phone", e.target.value)}
-              />
-              <input
-                className={inputClass}
-                placeholder="WhatsApp number"
-                value={form.contact.whatsappNumber}
-                onChange={(e) =>
-                  update("contact.whatsappNumber", e.target.value)
-                }
-              />
+            </Field>
+
+            <div className="space-y-4">
+              <Field label="Contact email">
+                <div className="relative">
+                  <Mail className="pointer-events-none absolute left-4 top-3.5 h-4 w-4 text-slate-400" />
+                  <input
+                    className="h-11 w-full rounded-2xl border border-slate-200 bg-white pl-11 pr-4 text-sm text-slate-900 placeholder:text-slate-400 shadow-sm transition focus:border-indigo-400 focus:outline-none focus:ring-4 focus:ring-indigo-100"
+                    placeholder="Contact email"
+                    value={form.contact.email}
+                    onChange={(e) => update("contact.email", e.target.value)}
+                  />
+                </div>
+              </Field>
+
+              <Field label="Contact phone">
+                <div className="relative">
+                  <MessageCircle className="pointer-events-none absolute left-4 top-3.5 h-4 w-4 text-slate-400" />
+                  <input
+                    className="h-11 w-full rounded-2xl border border-slate-200 bg-white pl-11 pr-4 text-sm text-slate-900 placeholder:text-slate-400 shadow-sm transition focus:border-indigo-400 focus:outline-none focus:ring-4 focus:ring-indigo-100"
+                    placeholder="Contact phone"
+                    value={form.contact.phone}
+                    onChange={(e) => update("contact.phone", e.target.value)}
+                  />
+                </div>
+              </Field>
+
+              <Field label="WhatsApp number">
+                <div className="relative">
+                  <MapPin className="pointer-events-none absolute left-4 top-3.5 h-4 w-4 text-slate-400" />
+                  <input
+                    className="h-11 w-full rounded-2xl border border-slate-200 bg-white pl-11 pr-4 text-sm text-slate-900 placeholder:text-slate-400 shadow-sm transition focus:border-indigo-400 focus:outline-none focus:ring-4 focus:ring-indigo-100"
+                    placeholder="WhatsApp number"
+                    value={form.contact.whatsappNumber}
+                    onChange={(e) =>
+                      update("contact.whatsappNumber", e.target.value)
+                    }
+                  />
+                </div>
+              </Field>
             </div>
           </div>
-        </div>
+        </SectionCard>
 
-        <div className="rounded-xl border border-slate-200 bg-white/80 p-4 md:p-5">
-          <h4 className="text-sm font-semibold text-slate-900">
-            Refund &amp; return policy input
-          </h4>
-          <p className="mb-4 text-[11px] text-slate-500">
-            Fill this once. Later we can generate the actual policy page content
-            from these answers.
-          </p>
-
-          <div className="grid gap-4 md:grid-cols-2">
-            <label className="inline-flex items-center gap-2 text-sm text-slate-700">
+        <SectionCard
+          icon={<ShieldCheck className="h-5 w-5" />}
+          title="Refund & return policy input"
+          description="Fill these details once. Policy page content can be generated later from these answers."
+        >
+          <div className="grid gap-3 md:grid-cols-2">
+            <label className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50/70 px-4 py-3 text-sm text-slate-700">
               <input
                 type="checkbox"
                 checked={form.refundReturns.acceptsReturns}
@@ -420,10 +504,10 @@ export default function PagesTab() {
                   update("refundReturns.acceptsReturns", e.target.checked)
                 }
               />
-              Accept returns
+              <span>Accept returns</span>
             </label>
 
-            <label className="inline-flex items-center gap-2 text-sm text-slate-700">
+            <label className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50/70 px-4 py-3 text-sm text-slate-700">
               <input
                 type="checkbox"
                 checked={form.refundReturns.exchangeAvailable}
@@ -431,82 +515,95 @@ export default function PagesTab() {
                   update("refundReturns.exchangeAvailable", e.target.checked)
                 }
               />
-              Exchange available
+              <span>Exchange available</span>
             </label>
-
-            <input
-              className={inputClass}
-              placeholder="Return window in days"
-              value={form.refundReturns.returnWindowDays}
-              onChange={(e) =>
-                update("refundReturns.returnWindowDays", e.target.value)
-              }
-            />
-
-            <input
-              className={inputClass}
-              placeholder="Refund processing time in days"
-              value={form.refundReturns.refundProcessingDays}
-              onChange={(e) =>
-                update("refundReturns.refundProcessingDays", e.target.value)
-              }
-            />
           </div>
-
-          <div className="mt-4 grid gap-3">
-            <textarea
-              rows={3}
-              className={textareaClass}
-              placeholder="Return conditions"
-              value={form.refundReturns.returnConditions}
-              onChange={(e) =>
-                update("refundReturns.returnConditions", e.target.value)
-              }
-            />
-            <textarea
-              rows={3}
-              className={textareaClass}
-              placeholder="Exchange conditions"
-              value={form.refundReturns.exchangeConditions}
-              onChange={(e) =>
-                update("refundReturns.exchangeConditions", e.target.value)
-              }
-            />
-            <textarea
-              rows={3}
-              className={textareaClass}
-              placeholder="Non-returnable items"
-              value={form.refundReturns.nonReturnableItems}
-              onChange={(e) =>
-                update("refundReturns.nonReturnableItems", e.target.value)
-              }
-            />
-            <input
-              className={inputClass}
-              placeholder="Support contact for returns/refunds"
-              value={form.refundReturns.supportContact}
-              onChange={(e) =>
-                update("refundReturns.supportContact", e.target.value)
-              }
-            />
-          </div>
-        </div>
-
-        <div className="rounded-xl border border-slate-200 bg-white/80 p-4 md:p-5">
-          <h4 className="text-sm font-semibold text-slate-900">
-            Legal pages preview
-          </h4>
-          <p className="mb-4 text-[11px] text-slate-500">
-            Terms &amp; Conditions and Privacy Policy can be generated later
-            based on store type and inputs. Read-only for now.
-          </p>
 
           <div className="grid gap-4 md:grid-cols-2">
-            <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
-              <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                Terms &amp; Conditions
+            <Field label="Return window in days">
+              <input
+                className={inputClass}
+                placeholder="Return window in days"
+                value={form.refundReturns.returnWindowDays}
+                onChange={(e) =>
+                  update("refundReturns.returnWindowDays", e.target.value)
+                }
+              />
+            </Field>
+
+            <Field label="Refund processing time in days">
+              <input
+                className={inputClass}
+                placeholder="Refund processing time in days"
+                value={form.refundReturns.refundProcessingDays}
+                onChange={(e) =>
+                  update("refundReturns.refundProcessingDays", e.target.value)
+                }
+              />
+            </Field>
+          </div>
+
+          <div className="grid gap-4">
+            <Field label="Return conditions">
+              <textarea
+                rows={4}
+                className={textareaClass}
+                placeholder="Return conditions"
+                value={form.refundReturns.returnConditions}
+                onChange={(e) =>
+                  update("refundReturns.returnConditions", e.target.value)
+                }
+              />
+            </Field>
+
+            <Field label="Exchange conditions">
+              <textarea
+                rows={4}
+                className={textareaClass}
+                placeholder="Exchange conditions"
+                value={form.refundReturns.exchangeConditions}
+                onChange={(e) =>
+                  update("refundReturns.exchangeConditions", e.target.value)
+                }
+              />
+            </Field>
+
+            <Field label="Non-returnable items">
+              <textarea
+                rows={4}
+                className={textareaClass}
+                placeholder="Non-returnable items"
+                value={form.refundReturns.nonReturnableItems}
+                onChange={(e) =>
+                  update("refundReturns.nonReturnableItems", e.target.value)
+                }
+              />
+            </Field>
+
+            <Field label="Support contact for returns / refunds">
+              <input
+                className={inputClass}
+                placeholder="Support contact"
+                value={form.refundReturns.supportContact}
+                onChange={(e) =>
+                  update("refundReturns.supportContact", e.target.value)
+                }
+              />
+            </Field>
+          </div>
+        </SectionCard>
+
+        <SectionCard
+          icon={<ShieldCheck className="h-5 w-5" />}
+          title="Legal pages preview"
+          description="Terms & Conditions and Privacy Policy can be generated later. Read-only for now."
+        >
+          <div className="grid gap-4 xl:grid-cols-2">
+            <div className="rounded-[22px] border border-slate-200 bg-slate-50/70 p-4">
+              <div className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Terms & Conditions
               </div>
-              <div className="min-h-[120px] text-sm text-slate-500">
+              <div className="min-h-[140px] text-sm text-slate-500">
                 {form.legal.termsGeneratedHtml ? (
                   <div
                     dangerouslySetInnerHTML={{
@@ -519,11 +616,11 @@ export default function PagesTab() {
               </div>
             </div>
 
-            <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
-              <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+            <div className="rounded-[22px] border border-slate-200 bg-slate-50/70 p-4">
+              <div className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-500">
                 Privacy Policy
               </div>
-              <div className="min-h-[120px] text-sm text-slate-500">
+              <div className="min-h-[140px] text-sm text-slate-500">
                 {form.legal.privacyGeneratedHtml ? (
                   <div
                     dangerouslySetInnerHTML={{
@@ -536,28 +633,46 @@ export default function PagesTab() {
               </div>
             </div>
           </div>
+        </SectionCard>
+
+        <div className="sticky bottom-3 z-10 md:bottom-4">
+          <div className="rounded-[24px] border border-slate-200 bg-white/95 p-3 shadow-lg backdrop-blur">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="min-w-0">
+                <div className="text-sm font-semibold text-slate-900">
+                  {isDirty ? "Unsaved changes" : "All changes saved"}
+                </div>
+                <div className="mt-1 text-xs text-slate-500">
+                  Save your latest storefront page content and settings.
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3">
+                {!isDirty && (
+                  <span className="hidden text-xs text-emerald-600 sm:inline">
+                    All changes saved
+                  </span>
+                )}
+
+                {isDirty && (
+                  <span className="hidden text-xs text-amber-600 sm:inline">
+                    You have unsaved changes
+                  </span>
+                )}
+
+                <button
+                  onClick={save}
+                  disabled={saving || !isDirty}
+                  className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-indigo-600 px-5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700 disabled:opacity-60"
+                >
+                  <Save className="h-4 w-4" />
+                  {saving ? "Saving..." : "Save changes"}
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
-
-        <div className="flex flex-wrap items-center gap-3">
-          <button
-            onClick={save}
-            disabled={saving || !isDirty}
-            className={primaryBtnClass}
-          >
-            {saving ? "Saving…" : "Save changes"}
-          </button>
-
-          {!isDirty && (
-            <span className="text-xs text-emerald-600">All changes saved.</span>
-          )}
-
-          {isDirty && (
-            <span className="text-xs text-amber-600">
-              You have unsaved changes.
-            </span>
-          )}
-        </div>
-      </section>
+      </div>
     </>
   );
 }

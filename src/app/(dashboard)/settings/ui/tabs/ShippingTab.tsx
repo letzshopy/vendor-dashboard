@@ -3,6 +3,16 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { INDIA_STATE_GROUPS, stateName } from "@/lib/indiaStates";
 import RegionsField from "./components/RegionsField";
+import {
+  CheckCircle2,
+  MapPinned,
+  Package,
+  Save,
+  Settings2,
+  ShieldCheck,
+  Truck,
+  Weight,
+} from "lucide-react";
 
 type Cat = { id: number; name: string; slug: string };
 type Slab = { uptoKg: number; price: number };
@@ -28,33 +38,48 @@ type Snapshot = {
   active: "free" | "all" | "cat";
 };
 
-const chipButton =
-  "inline-flex items-center justify-center rounded-full px-3 py-1.5 text-xs font-medium transition-colors";
-const pillTab =
-  "inline-flex items-center justify-center px-3.5 py-1.5 text-xs font-medium rounded-full border transition-colors";
-
-const smallBadge =
-  "inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[10px] font-medium text-slate-600";
-
 const inputClass =
-  "w-full rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs text-slate-900 placeholder:text-slate-500 " +
-  "shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-600";
+  "h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-900 " +
+  "placeholder:text-slate-400 shadow-sm transition focus:border-indigo-400 focus:outline-none focus:ring-4 focus:ring-indigo-100";
 
 const selectClass =
-  "w-full rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs text-slate-900 shadow-sm " +
-  "focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-600";
+  "h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-900 " +
+  "shadow-sm transition focus:border-indigo-400 focus:outline-none focus:ring-4 focus:ring-indigo-100";
 
-// ---------- Helpers ----------
+function SectionCard({
+  icon,
+  title,
+  description,
+  children,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  description: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="overflow-hidden rounded-[26px] border border-slate-200 bg-white shadow-sm">
+      <div className="border-b border-slate-100 bg-gradient-to-r from-white via-slate-50 to-indigo-50/40 px-4 py-4 md:px-5">
+        <div className="flex items-start gap-3">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600">
+            {icon}
+          </div>
+          <div>
+            <h3 className="text-base font-semibold text-slate-900">{title}</h3>
+            <p className="mt-1 text-xs leading-5 text-slate-500 md:text-sm">
+              {description}
+            </p>
+          </div>
+        </div>
+      </div>
 
-function safeSlug(s?: string) {
-  const base = (s || "").trim();
-  if (base)
-    return base
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-+|-+$/g, "");
-  return "undefined";
+      <div className="space-y-4 p-4 md:p-5">{children}</div>
+    </section>
+  );
 }
+
+const smallBadge =
+  "inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[10px] font-semibold text-slate-600";
 
 function loadLS(): Snapshot | null {
   if (typeof window === "undefined") return null;
@@ -83,12 +108,23 @@ function saveTab(t: Snapshot["active"]) {
   } catch {}
 }
 
+function safeSlug(s?: string) {
+  const base = (s || "").trim();
+  if (base)
+    return base
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "");
+  return "undefined";
+}
+
 function buildStops(step: 0.5 | 1, max: number): number[] {
   const out: number[] = [];
   const N = Math.round(max / step);
   for (let i = 1; i <= N; i++) out.push(Number((i * step).toFixed(2)));
   return out;
 }
+
 function humanRangeLabel(prev: number, upto: number, step: 0.5 | 1) {
   if (step === 1) {
     if (upto === 1) return "0 – 1 kg";
@@ -102,6 +138,7 @@ function humanRangeLabel(prev: number, upto: number, step: 0.5 | 1) {
     return `${from} – ${to} kg`;
   }
 }
+
 function syncSlabArray(z: Zone) {
   const stops = buildStops(z.step, z.max);
   z.slabs = stops.map((u) => {
@@ -117,8 +154,6 @@ function syncSlabArray(z: Zone) {
     return oo;
   });
 }
-
-// ---------- Zone editor (per zone card) ----------
 
 function ZoneEditor({
   z,
@@ -138,62 +173,63 @@ function ZoneEditor({
   const stops = useMemo(() => buildStops(z.step, z.max), [z.step, z.max]);
 
   return (
-    <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-4 md:p-5 space-y-4">
-      {/* Zone header row */}
-      <div className="grid gap-3 md:grid-cols-[minmax(0,1.3fr)_minmax(0,1.2fr)] items-start">
-        <div className="space-y-1.5">
-          <label className="block text-xs font-medium text-slate-700">
+    <div className="space-y-5 rounded-[24px] border border-slate-200 bg-slate-50/70 p-4 md:p-5">
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+        <div>
+          <label className="mb-2 block text-xs font-semibold uppercase tracking-wide text-slate-500">
             Zone name
           </label>
           <input
             className={inputClass}
             value={z.name}
             onChange={(e) => onChange({ ...z, name: e.target.value })}
-            placeholder="E.g. Across India, South Zone…"
+            placeholder="E.g. Across India, South Zone"
           />
         </div>
-        <div className="space-y-1.5">
-          <label className="block text-xs font-medium text-slate-700">
+
+        <div>
+          <label className="mb-2 block text-xs font-semibold uppercase tracking-wide text-slate-500">
             Regions (states)
           </label>
           <RegionsField
             value={z.regions}
             onChange={(codes) => onChange({ ...z, regions: codes })}
           />
-          <p className="text-[10px] text-slate-500 mt-0.5">
+          <p className="mt-2 text-xs text-slate-500">
             Leave empty to apply across all Indian states.
           </p>
         </div>
       </div>
 
-      {/* Weight step & max */}
-      <div className="grid gap-4 sm:grid-cols-2">
-        <div className="space-y-2 rounded-lg bg-white/70 p-3 border border-slate-200">
-          <div className="text-xs font-medium text-slate-800">
+      <div className="grid gap-4 md:grid-cols-2">
+        <div className="rounded-[20px] border border-slate-200 bg-white p-4 shadow-sm">
+          <div className="text-sm font-semibold text-slate-900">
             Weight step per slab
           </div>
-          <p className="text-[10px] text-slate-500 mb-1">
-            Decide whether you want slabs every 0.5 kg or every 1 kg.
+          <p className="mt-1 text-xs text-slate-500">
+            Choose whether slabs should increase every 0.5 kg or every 1 kg.
           </p>
-          <div className="flex gap-2">
+
+          <div className="mt-4 flex flex-wrap gap-2">
             <button
               type="button"
               onClick={() => onChange({ ...z, step: 1 })}
-              className={`${chipButton} ${
+              className={`inline-flex items-center rounded-full px-4 py-2 text-xs font-semibold transition ${
                 z.step === 1
                   ? "bg-indigo-600 text-white"
-                  : "bg-white text-slate-700 border border-slate-200 hover:bg-slate-50"
+                  : "border border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
               }`}
             >
               1 kg
             </button>
+
             <button
               type="button"
               onClick={() => onChange({ ...z, step: 0.5 })}
-              className={`${chipButton} ${
+              className={`inline-flex items-center rounded-full px-4 py-2 text-xs font-semibold transition ${
                 z.step === 0.5
                   ? "bg-indigo-600 text-white"
-                  : "bg-white text-slate-700 border border-slate-200 hover:bg-slate-50"
+                  : "border border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
               }`}
             >
               0.5 kg
@@ -201,124 +237,115 @@ function ZoneEditor({
           </div>
         </div>
 
-        <div className="space-y-1.5">
-          <label className="block text-xs font-medium text-slate-700">
+        <div className="rounded-[20px] border border-slate-200 bg-white p-4 shadow-sm">
+          <label className="mb-2 block text-xs font-semibold uppercase tracking-wide text-slate-500">
             Max weight (kg)
           </label>
-          <div className="flex items-center gap-2">
-            <input
-              type="number"
-              min={1}
-              className={`${inputClass} max-w-[120px]`}
-              value={z.max}
-              onChange={(e) =>
-                onChange({
-                  ...z,
-                  max: Math.max(1, Number(e.target.value || 1)),
-                })
-              }
-            />
-            <span className="text-[11px] text-slate-500">
-              Slabs will be auto-generated up to this weight.
-            </span>
-          </div>
+          <input
+            type="number"
+            min={1}
+            className={inputClass}
+            value={z.max}
+            onChange={(e) =>
+              onChange({
+                ...z,
+                max: Math.max(1, Number(e.target.value || 1)),
+              })
+            }
+          />
+          <p className="mt-2 text-xs text-slate-500">
+            Slabs will be auto-generated up to this maximum weight.
+          </p>
         </div>
       </div>
 
-      {/* Slabs section */}
-      <div className="grid gap-6 lg:grid-cols-2">
-        {/* All products */}
-        <div className="space-y-2 rounded-lg border border-slate-200 bg-white/80 p-3">
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="text-xs font-semibold text-slate-800">
-                Rates for all products
-              </div>
-              <p className="text-[10px] text-slate-500">
-                These apply when no category-specific override is defined.
-              </p>
+      <div className={`grid gap-5 ${showOverrides ? "xl:grid-cols-2" : ""}`}>
+        <div className="rounded-[20px] border border-slate-200 bg-white p-4 shadow-sm">
+          <div className="mb-3">
+            <div className="text-sm font-semibold text-slate-900">
+              Rates for all products
             </div>
+            <p className="mt-1 text-xs text-slate-500">
+              These apply when no category-specific override exists.
+            </p>
           </div>
 
-          <div className="mt-2 max-h-72 overflow-auto pr-1">
-            <div className="grid gap-2">
-              {stops.map((u, i) => {
-                const prev = i === 0 ? 0 : stops[i - 1];
-                const label = humanRangeLabel(prev, u, z.step);
-                const idx = z.slabs.findIndex(
-                  (s) => Number(s.uptoKg) === Number(u)
-                );
-                const price = idx > -1 ? z.slabs[idx].price : 0;
+          <div className="max-h-80 space-y-2 overflow-auto pr-1">
+            {stops.map((u, i) => {
+              const prev = i === 0 ? 0 : stops[i - 1];
+              const label = humanRangeLabel(prev, u, z.step);
+              const idx = z.slabs.findIndex(
+                (s) => Number(s.uptoKg) === Number(u)
+              );
+              const price = idx > -1 ? z.slabs[idx].price : 0;
 
-                return (
-                  <div
-                    key={u}
-                    className="flex items-center justify-between gap-3 text-xs"
-                  >
-                    <div className="flex-1 text-slate-700">{label}</div>
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-[10px] text-slate-500">₹</span>
-                      <input
-                        type="number"
-                        className={`${inputClass} w-24 text-right`}
-                        value={price}
-                        onChange={(e) => {
-                          const next = { ...z };
-                          next.slabs[idx] = {
-                            uptoKg: u,
-                            price: Number(e.target.value || 0),
-                          };
-                          onChange(next);
-                        }}
-                      />
-                    </div>
+              return (
+                <div
+                  key={u}
+                  className="flex items-center justify-between gap-3 rounded-2xl border border-slate-100 bg-slate-50/70 px-3 py-2"
+                >
+                  <div className="text-xs font-medium text-slate-700">
+                    {label}
                   </div>
-                );
-              })}
-            </div>
+
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-slate-500">₹</span>
+                    <input
+                      type="number"
+                      className="h-10 w-28 rounded-xl border border-slate-200 bg-white px-3 text-right text-sm text-slate-900 shadow-sm focus:border-indigo-400 focus:outline-none focus:ring-4 focus:ring-indigo-100"
+                      value={price}
+                      onChange={(e) => {
+                        const next = { ...z };
+                        next.slabs[idx] = {
+                          uptoKg: u,
+                          price: Number(e.target.value || 0),
+                        };
+                        onChange(next);
+                      }}
+                    />
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
 
-        {/* Category overrides */}
         {showOverrides && (
-          <div className="space-y-2 rounded-lg border border-slate-200 bg-white/80 p-3">
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="text-xs font-semibold text-slate-800">
-                  Per-category overrides
-                </div>
-                <p className="text-[10px] text-slate-500">
-                  Use different slabs for specific product categories.
-                </p>
+          <div className="rounded-[20px] border border-slate-200 bg-white p-4 shadow-sm">
+            <div className="mb-3">
+              <div className="text-sm font-semibold text-slate-900">
+                Per-category overrides
               </div>
+              <p className="mt-1 text-xs text-slate-500">
+                Use different slabs for selected product categories.
+              </p>
             </div>
 
             {z.overrides.length === 0 && (
-              <p className="mt-2 text-[11px] text-slate-500">
-                No category overrides added yet. Use the{" "}
-                <span className="font-medium">“Weight – specific categories”</span>{" "}
-                tab to add them.
-              </p>
+              <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50/70 px-4 py-6 text-center text-xs text-slate-500">
+                No category overrides added yet.
+              </div>
             )}
 
-            <div className="mt-2 space-y-3 max-h-72 overflow-auto pr-1">
+            <div className="max-h-80 space-y-3 overflow-auto pr-1">
               {z.overrides.map((o, oi) => (
                 <div
                   key={oi}
-                  className="rounded-lg border border-slate-200 bg-slate-50/80 p-2.5 space-y-2"
+                  className="rounded-[18px] border border-slate-200 bg-slate-50/70 p-3"
                 >
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="flex flex-col">
-                      <span className="text-xs font-semibold text-slate-800">
+                  <div className="mb-3 flex items-center justify-between gap-2">
+                    <div>
+                      <div className="text-sm font-semibold text-slate-900">
                         {o.cat.name}
-                      </span>
-                      <span className="text-[10px] text-slate-500">
+                      </div>
+                      <div className="text-[11px] text-slate-500">
                         Category-specific slabs
-                      </span>
+                      </div>
                     </div>
+
                     <button
                       type="button"
-                      className="text-[11px] text-rose-600 hover:underline"
+                      className="text-xs font-medium text-rose-600 hover:underline"
                       onClick={() => {
                         const next = {
                           ...z,
@@ -332,12 +359,10 @@ function ZoneEditor({
                     </button>
                   </div>
 
-                  <div className="grid gap-2">
+                  <div className="space-y-2">
                     {buildStops(z.step, z.max).map((u, i) => {
                       const prev =
-                        i === 0
-                          ? 0
-                          : buildStops(z.step, z.max)[i - 1];
+                        i === 0 ? 0 : buildStops(z.step, z.max)[i - 1];
                       const label = humanRangeLabel(prev, u, z.step);
                       const idx = o.slabs.findIndex(
                         (s) => Number(s.uptoKg) === Number(u)
@@ -347,18 +372,17 @@ function ZoneEditor({
                       return (
                         <div
                           key={u}
-                          className="flex items-center justify-between gap-3 text-xs"
+                          className="flex items-center justify-between gap-3 rounded-2xl border border-slate-100 bg-white px-3 py-2"
                         >
-                          <div className="flex-1 text-slate-700">
+                          <div className="text-xs font-medium text-slate-700">
                             {label}
                           </div>
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-[10px] text-slate-500">
-                              ₹
-                            </span>
+
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs text-slate-500">₹</span>
                             <input
                               type="number"
-                              className={`${inputClass} w-24 text-right`}
+                              className="h-10 w-28 rounded-xl border border-slate-200 bg-white px-3 text-right text-sm text-slate-900 shadow-sm focus:border-indigo-400 focus:outline-none focus:ring-4 focus:ring-indigo-100"
                               value={price}
                               onChange={(e) => {
                                 const next = { ...z };
@@ -368,9 +392,7 @@ function ZoneEditor({
                                     const arr = [...oo.slabs];
                                     arr[idx] = {
                                       uptoKg: u,
-                                      price: Number(
-                                        e.target.value || 0
-                                      ),
+                                      price: Number(e.target.value || 0),
                                     };
                                     return { ...oo, slabs: arr };
                                   }
@@ -393,13 +415,15 @@ function ZoneEditor({
   );
 }
 
-// ---------- Main tab component ----------
-
 export default function ShippingTab() {
   const [active, setActive] = useState<"free" | "all" | "cat">("free");
   const [busy, setBusy] = useState(false);
   const [hydrating, setHydrating] = useState(true);
   const [mounted, setMounted] = useState(false);
+
+  const [banner, setBanner] = useState<
+    null | { type: "success" | "error"; message: string }
+  >(null);
 
   useEffect(() => {
     setMounted(true);
@@ -413,12 +437,10 @@ export default function ShippingTab() {
       .catch(() => {});
   }, []);
 
-  // Free shipping
   const [freeEnabled, setFreeEnabled] = useState(false);
   const [freeScope, setFreeScope] = useState<"all" | "category">("all");
   const [freeCatIds, setFreeCatIds] = useState<number[]>([]);
 
-  // Weight — all categories
   const [allEnabled, setAllEnabled] = useState(false);
   const [zones, setZones] = useState<Zone[]>([
     {
@@ -431,11 +453,9 @@ export default function ShippingTab() {
     },
   ]);
 
-  // Weight — specific categories
   const [catEnabled, setCatEnabled] = useState(false);
   const [catPicked, setCatPicked] = useState<Cat | null>(null);
 
-  // Restore last tab + snapshot AFTER mount
   useEffect(() => {
     if (!mounted) return;
     const last = loadTab();
@@ -451,7 +471,6 @@ export default function ShippingTab() {
     }
   }, [mounted]);
 
-  // Persist active tab
   useEffect(() => {
     if (mounted) saveTab(active);
   }, [active, mounted]);
@@ -491,14 +510,15 @@ export default function ShippingTab() {
       return [...zs, z];
     });
   }
+
   function updateZone(i: number, next: Zone) {
     setZones((zs) => zs.map((z, idx) => (idx === i ? next : z)));
   }
+
   function removeZone(i: number) {
     setZones((zs) => zs.filter((_, idx) => idx !== i));
   }
 
-  // HYDRATE from WP (source of truth), then snapshot
   useEffect(() => {
     (async () => {
       try {
@@ -545,9 +565,7 @@ export default function ShippingTab() {
 
         setFreeEnabled(!!free.enabled);
         setFreeScope(free.scope === "category" ? "category" : "all");
-        setFreeCatIds(
-          Array.isArray(free.categories) ? free.categories : []
-        );
+        setFreeCatIds(Array.isArray(free.categories) ? free.categories : []);
 
         setAllEnabled(!!anyWeight);
         setZones(
@@ -566,15 +584,13 @@ export default function ShippingTab() {
         );
 
         setActive((prev) =>
-          prev ||
-          (free.enabled ? "free" : anyWeight ? "all" : "free")
+          prev || (free.enabled ? "free" : anyWeight ? "all" : "free")
         );
 
         saveLS({
           freeEnabled: !!free.enabled,
           freeScope: free.scope === "category" ? "category" : "all",
-          freeCatIds:
-            Array.isArray(free.categories) ? free.categories : [],
+          freeCatIds: Array.isArray(free.categories) ? free.categories : [],
           allEnabled: !!anyWeight,
           catEnabled,
           zones:
@@ -591,11 +607,10 @@ export default function ShippingTab() {
                   },
                 ],
           active:
-            loadTab() ??
-            (free.enabled ? "free" : anyWeight ? "all" : "free"),
+            loadTab() ?? (free.enabled ? "free" : anyWeight ? "all" : "free"),
         });
       } catch {
-        // fall back to LS / defaults
+        // ignore
       } finally {
         setHydrating(false);
       }
@@ -603,14 +618,12 @@ export default function ShippingTab() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Save & sync to WP
   async function saveAndSync() {
     setBusy(true);
+    setBanner(null);
+
     try {
-      const overrideMap = new Map<
-        string,
-        { name: string; slug: string }
-      >();
+      const overrideMap = new Map<string, { name: string; slug: string }>();
       zones.forEach((z) => {
         z.overrides.forEach((o) => {
           const cslug = safeSlug(o.cat.slug || o.cat.name);
@@ -684,16 +697,15 @@ export default function ShippingTab() {
       await postJSON("/api/shipping/sync-classes", {
         classes: classesArr,
       });
+
       const result = await postJSON("/api/shipping/sync", {
         classes: classesArr,
         zones: zonesPayload,
       });
+
       if (typeof result === "object" && result?.ok !== true) {
         throw new Error(
-          `Unexpected response: ${JSON.stringify(result).slice(
-            0,
-            220
-          )}`
+          `Unexpected response: ${JSON.stringify(result).slice(0, 220)}`
         );
       }
 
@@ -707,223 +719,228 @@ export default function ShippingTab() {
         active,
       });
 
-      alert("Shipping settings saved & synced ✅");
+      setBanner({
+        type: "success",
+        message: "Shipping settings saved & synced successfully.",
+      });
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      setTimeout(() => setBanner(null), 2600);
     } catch (e: any) {
-      alert(`Save failed: ${e?.message || e}`);
+      setBanner({
+        type: "error",
+        message: `Save failed: ${e?.message || e}`,
+      });
+      setTimeout(() => setBanner(null), 3800);
     } finally {
       setBusy(false);
     }
   }
 
   return (
-    <div className="space-y-5 max-w-5xl">
-      {/* Header */}
-      <header className="flex flex-col gap-1">
-        <h3 className="text-sm font-semibold text-slate-900">
-          Shipping charges
-        </h3>
-        <p className="text-xs text-slate-500">
-          Configure free shipping and weight-based charges by zone and
-          category. These settings are synced to your store.
-        </p>
-      </header>
-
-      {/* Mode tabs */}
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="inline-flex items-center gap-1 rounded-full bg-slate-100/70 p-1">
-          {[
-            { k: "free", label: "Free shipping" },
-            { k: "all", label: "Weight – all categories" },
-            { k: "cat", label: "Weight – specific categories" },
-          ].map((t) => (
-            <button
-              key={t.k}
-              type="button"
-              onClick={() => setActive(t.k as any)}
-              className={`${pillTab} ${
-                active === t.k
-                  ? "border-transparent bg-indigo-600 text-white"
-                  : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
-              }`}
-            >
-              {t.label}
-            </button>
-          ))}
-        </div>
-
-        <span className={smallBadge}>
-          Shipping classes &amp; zones will be created/updated on sync
-        </span>
-      </div>
-
-      {hydrating && (
-        <div className="text-[11px] text-slate-500">
-          Loading shipping configuration from store…
+    <>
+      {banner && (
+        <div className="pointer-events-none fixed left-0 right-0 top-[72px] z-40 flex justify-center">
+          <div
+            className={`pointer-events-auto rounded-full px-4 py-1.5 text-sm font-medium shadow-lg ${
+              banner.type === "success"
+                ? "bg-emerald-500 text-white"
+                : "bg-rose-500 text-white"
+            }`}
+          >
+            {banner.message}
+          </div>
         </div>
       )}
 
-      {/* Free shipping card */}
-      {active === "free" && (
-        <section
-          className={`rounded-xl border border-slate-200 bg-white/80 p-4 md:p-5 space-y-4 ${
-            hydrating ? "opacity-60 pointer-events-none" : ""
-          }`}
-        >
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <h4 className="text-sm font-semibold text-slate-900">
-                Free shipping
-              </h4>
-              <p className="text-[11px] text-slate-500">
-                Enable free shipping across the store or for specific
-                product categories.
-              </p>
+      <div className="space-y-4 p-3 md:space-y-5 md:p-5">
+        <div className="rounded-[24px] border border-slate-200 bg-white p-4 shadow-sm">
+          <div className="flex items-start gap-3">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600">
+              <Truck className="h-5 w-5" />
             </div>
-            <label className="inline-flex items-center gap-2 text-xs font-medium text-slate-800">
-              <input
-                type="checkbox"
-                className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
-                checked={freeEnabled}
-                onChange={(e) => setFreeEnabled(e.target.checked)}
-              />
-              Enable
-            </label>
+            <div>
+              <div className="text-base font-semibold text-slate-900">
+                Shipping charges
+              </div>
+              <div className="mt-1 text-xs text-slate-500 md:text-sm">
+                Configure free shipping and weight-based charges by zone and
+                category.
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div className="inline-flex w-full max-w-full flex-wrap items-center gap-2 rounded-[20px] border border-slate-200 bg-white p-2 shadow-sm">
+            {[
+              { k: "free", label: "Free shipping" },
+              { k: "all", label: "Weight – all categories" },
+              { k: "cat", label: "Weight – specific categories" },
+            ].map((t) => (
+              <button
+                key={t.k}
+                type="button"
+                onClick={() => setActive(t.k as any)}
+                className={`inline-flex items-center rounded-full px-4 py-2 text-xs font-semibold transition ${
+                  active === t.k
+                    ? "bg-indigo-600 text-white"
+                    : "border border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                }`}
+              >
+                {t.label}
+              </button>
+            ))}
           </div>
 
-          {freeEnabled && (
-            <div className="space-y-4">
-              <div className="space-y-1">
-                <div className="text-xs font-medium text-slate-700">
-                  Apply free shipping to
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setFreeScope("all")}
-                    className={`${chipButton} ${
-                      freeScope === "all"
-                        ? "bg-indigo-600 text-white"
-                        : "bg-white text-slate-700 border border-slate-200 hover:bg-slate-50"
-                    }`}
-                  >
-                    All products
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setFreeScope("category")}
-                    className={`${chipButton} ${
-                      freeScope === "category"
-                        ? "bg-indigo-600 text-white"
-                        : "bg-white text-slate-700 border border-slate-200 hover:bg-slate-50"
-                    }`}
-                  >
-                    Specific categories only
-                  </button>
-                </div>
-              </div>
+          <span className={smallBadge}>
+            Shipping classes & zones sync to store
+          </span>
+        </div>
 
-              {freeScope === "category" && (
-                <div className="space-y-2">
-                  <div className="text-xs font-medium text-slate-700">
-                    Select categories for free shipping
-                  </div>
-                  <div className="grid gap-2 sm:grid-cols-2 md:grid-cols-3">
-                    {cats.map((c) => {
-                      const on = freeCatIds.includes(c.id);
-                      return (
-                        <label
-                          key={c.id}
-                          className={`flex items-center gap-2 rounded-lg border px-2 py-1.5 text-xs ${
-                            on
-                              ? "border-indigo-500 bg-indigo-50 text-indigo-800"
-                              : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
-                          }`}
-                        >
-                          <input
-                            type="checkbox"
-                            className="h-3.5 w-3.5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
-                            checked={on}
-                            onChange={(e) => {
-                              setFreeCatIds((prev) => {
-                                const s = new Set(prev);
-                                if (e.target.checked) s.add(c.id);
-                                else s.delete(c.id);
-                                return Array.from(s);
-                              });
-                            }}
-                          />
-                          <span className="truncate">{c.name}</span>
-                        </label>
-                      );
-                    })}
-                  </div>
-                  <p className="text-[11px] text-slate-500">
-                    Only the selected categories will be free. Other
-                    categories will use weight-based charges (if enabled).
-                  </p>
-                </div>
-              )}
-            </div>
-          )}
+        {hydrating && (
+          <div className="rounded-[20px] border border-slate-200 bg-slate-50/70 px-4 py-3 text-xs text-slate-500">
+            Loading shipping configuration from store...
+          </div>
+        )}
 
-          {!freeEnabled && (
-            <p className="text-[11px] text-slate-500">
-              Turn this on to configure free shipping for your store.
-            </p>
-          )}
-        </section>
-      )}
-
-      {/* Weight – all categories */}
-      {active === "all" && (
-        <section
-          className={`space-y-4 ${
-            hydrating ? "opacity-60 pointer-events-none" : ""
-          }`}
-        >
-          <div className="rounded-xl border border-slate-200 bg-white/80 p-4 md:p-5 space-y-3">
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <h4 className="text-sm font-semibold text-slate-900">
-                  Weight-based shipping – all categories
-                </h4>
-                <p className="text-[11px] text-slate-500">
-                  Define zones and slabs that apply to all products in your
-                  store.
-                </p>
-              </div>
-              <label className="inline-flex items-center gap-2 text-xs font-medium text-slate-800">
+        {active === "free" && (
+          <SectionCard
+            icon={<ShieldCheck className="h-5 w-5" />}
+            title="Free shipping"
+            description="Enable free shipping for all products or only selected categories."
+          >
+            <div className={hydrating ? "pointer-events-none opacity-60" : ""}>
+              <label className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50/70 px-4 py-3 text-sm text-slate-800">
                 <input
                   type="checkbox"
                   className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
-                  checked={allEnabled}
-                  onChange={(e) => setAllEnabled(e.target.checked)}
+                  checked={freeEnabled}
+                  onChange={(e) => setFreeEnabled(e.target.checked)}
                 />
-                Enable
+                <span>Enable free shipping</span>
               </label>
-            </div>
 
-            {allEnabled ? (
-              <>
-                <div className="flex justify-end">
+              {freeEnabled ? (
+                <div className="mt-4 space-y-4">
+                  <div>
+                    <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                      Apply free shipping to
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setFreeScope("all")}
+                        className={`inline-flex items-center rounded-full px-4 py-2 text-xs font-semibold transition ${
+                          freeScope === "all"
+                            ? "bg-indigo-600 text-white"
+                            : "border border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                        }`}
+                      >
+                        All products
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setFreeScope("category")}
+                        className={`inline-flex items-center rounded-full px-4 py-2 text-xs font-semibold transition ${
+                          freeScope === "category"
+                            ? "bg-indigo-600 text-white"
+                            : "border border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                        }`}
+                      >
+                        Specific categories only
+                      </button>
+                    </div>
+                  </div>
+
+                  {freeScope === "category" && (
+                    <div>
+                      <div className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                        Select categories
+                      </div>
+                      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                        {cats.map((c) => {
+                          const on = freeCatIds.includes(c.id);
+                          return (
+                            <label
+                              key={c.id}
+                              className={`flex items-center gap-3 rounded-2xl border px-3 py-3 text-sm ${
+                                on
+                                  ? "border-indigo-500 bg-indigo-50 text-indigo-800"
+                                  : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                              }`}
+                            >
+                              <input
+                                type="checkbox"
+                                className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                                checked={on}
+                                onChange={(e) => {
+                                  setFreeCatIds((prev) => {
+                                    const s = new Set(prev);
+                                    if (e.target.checked) s.add(c.id);
+                                    else s.delete(c.id);
+                                    return Array.from(s);
+                                  });
+                                }}
+                              />
+                              <span className="truncate">{c.name}</span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                      <p className="mt-3 text-xs text-slate-500">
+                        Only selected categories will get free shipping.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <p className="mt-4 text-xs text-slate-500">
+                  Turn this on to configure free shipping for your store.
+                </p>
+              )}
+            </div>
+          </SectionCard>
+        )}
+
+        {active === "all" && (
+          <SectionCard
+            icon={<Weight className="h-5 w-5" />}
+            title="Weight-based shipping – all categories"
+            description="Define zones and weight slabs that apply across your store."
+          >
+            <div className={hydrating ? "pointer-events-none opacity-60" : ""}>
+              <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                <label className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50/70 px-4 py-3 text-sm text-slate-800">
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                    checked={allEnabled}
+                    onChange={(e) => setAllEnabled(e.target.checked)}
+                  />
+                  <span>Enable weight-based shipping for all categories</span>
+                </label>
+
+                {allEnabled && (
                   <button
                     type="button"
                     onClick={addZone}
-                    className="inline-flex items-center rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                    className="inline-flex items-center justify-center rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50"
                   >
                     + Add zone
                   </button>
-                </div>
+                )}
+              </div>
 
-                <div className="space-y-4">
+              {allEnabled ? (
+                <div className="mt-4 space-y-4">
                   {zones.map((z, idx) => (
                     <div
                       key={idx}
-                      className="rounded-xl border border-slate-200 bg-slate-50/70 overflow-hidden"
+                      className="overflow-hidden rounded-[24px] border border-slate-200 bg-slate-50/50"
                     >
-                      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 bg-slate-100/70 px-3 py-2.5 text-xs">
-                        <div className="flex items-center gap-2">
-                          <span className="font-semibold text-slate-900">
+                      <div className="flex flex-col gap-2 border-b border-slate-200 bg-white px-4 py-3 md:flex-row md:items-center md:justify-between">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="text-sm font-semibold text-slate-900">
                             {z.name || "Zone"}
                           </span>
                           <span className={smallBadge}>
@@ -932,7 +949,8 @@ export default function ShippingTab() {
                               : `${z.regions.length} state(s)`}
                           </span>
                         </div>
-                        <div className="flex items-center gap-2 text-[11px] text-slate-600">
+
+                        <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
                           <span>
                             {z.regions.length === 0
                               ? "Applies to all Indian states"
@@ -941,7 +959,7 @@ export default function ShippingTab() {
                           {idx > 0 && (
                             <button
                               type="button"
-                              className="text-rose-600 hover:underline"
+                              className="font-medium text-rose-600 hover:underline"
                               onClick={() => removeZone(idx)}
                             >
                               Delete
@@ -959,135 +977,139 @@ export default function ShippingTab() {
                     </div>
                   ))}
                 </div>
-              </>
-            ) : (
-              <p className="text-[11px] text-slate-500">
-                Turn this on to configure zones and weight slabs that apply
-                to all products.
-              </p>
-            )}
-          </div>
-        </section>
-      )}
-
-      {/* Weight – specific categories */}
-      {active === "cat" && (
-        <section
-          className={`space-y-4 ${
-            hydrating ? "opacity-60 pointer-events-none" : ""
-          }`}
-        >
-          <div className="rounded-xl border border-slate-200 bg-white/80 p-4 md:p-5 space-y-4">
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <h4 className="text-sm font-semibold text-slate-900">
-                  Weight-based shipping – specific categories
-                </h4>
-                <p className="text-[11px] text-slate-500">
-                  Add category-specific overrides on top of your zone slabs.
+              ) : (
+                <p className="mt-4 text-xs text-slate-500">
+                  Turn this on to configure zones and weight slabs for all
+                  products.
                 </p>
-              </div>
-              <label className="inline-flex items-center gap-2 text-xs font-medium text-slate-800">
+              )}
+            </div>
+          </SectionCard>
+        )}
+
+        {active === "cat" && (
+          <SectionCard
+            icon={<Settings2 className="h-5 w-5" />}
+            title="Weight-based shipping – specific categories"
+            description="Add category-wise overrides on top of your zone slabs."
+          >
+            <div className={hydrating ? "pointer-events-none opacity-60" : ""}>
+              <label className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50/70 px-4 py-3 text-sm text-slate-800">
                 <input
                   type="checkbox"
                   className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
                   checked={catEnabled}
                   onChange={(e) => setCatEnabled(e.target.checked)}
                 />
-                Enable
+                <span>Enable category-specific weight overrides</span>
               </label>
-            </div>
 
-            {catEnabled ? (
-              <>
-                <div className="flex flex-wrap items-end gap-3">
-                  <div className="space-y-1">
-                    <label className="block text-xs font-medium text-slate-700">
-                      Choose category
-                    </label>
-                    <select
-                      className={`${selectClass} max-w-xs`}
-                      value={catPicked?.id || ""}
-                      onChange={(e) => {
-                        const id = Number(e.target.value || "");
-                        setCatPicked(cats.find((c) => c.id === id) || null);
+              {catEnabled ? (
+                <div className="mt-4 space-y-4">
+                  <div className="grid gap-3 md:grid-cols-[minmax(0,280px)_auto] md:items-end">
+                    <div>
+                      <label className="mb-2 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                        Choose category
+                      </label>
+                      <select
+                        className={selectClass}
+                        value={catPicked?.id || ""}
+                        onChange={(e) => {
+                          const id = Number(e.target.value || "");
+                          setCatPicked(cats.find((c) => c.id === id) || null);
+                        }}
+                      >
+                        <option value="">— Select category —</option>
+                        {cats.map((c) => (
+                          <option key={c.id} value={c.id}>
+                            {c.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <button
+                      type="button"
+                      disabled={!catPicked}
+                      onClick={() => {
+                        if (catPicked) addCategoryMethod(catPicked);
                       }}
+                      className="inline-flex h-11 items-center justify-center rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50 disabled:opacity-50"
                     >
-                      <option value="">— Select category —</option>
-                      {cats.map((c) => (
-                        <option key={c.id} value={c.id}>
-                          {c.name}
-                        </option>
-                      ))}
-                    </select>
+                      + Add category override
+                    </button>
                   </div>
-                  <button
-                    type="button"
-                    disabled={!catPicked}
-                    onClick={() => {
-                      if (catPicked) addCategoryMethod(catPicked);
-                    }}
-                    className="inline-flex items-center rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
-                  >
-                    + Add category override
-                  </button>
-                </div>
 
-                <div className="space-y-4">
-                  {zones.map((z, idx) => (
-                    <div
-                      key={idx}
-                      className="rounded-xl border border-slate-200 bg-slate-50/70 overflow-hidden"
-                    >
-                      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 bg-slate-100/70 px-3 py-2.5 text-xs">
-                        <div className="flex items-center gap-2">
-                          <span className="font-semibold text-slate-900">
-                            {z.name || "Zone"}
-                          </span>
-                          <span className={smallBadge}>
-                            {z.regions.length === 0
-                              ? "All India"
-                              : `${z.regions.length} state(s)`}
+                  <div className="space-y-4">
+                    {zones.map((z, idx) => (
+                      <div
+                        key={idx}
+                        className="overflow-hidden rounded-[24px] border border-slate-200 bg-slate-50/50"
+                      >
+                        <div className="flex flex-col gap-2 border-b border-slate-200 bg-white px-4 py-3 md:flex-row md:items-center md:justify-between">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="text-sm font-semibold text-slate-900">
+                              {z.name || "Zone"}
+                            </span>
+                            <span className={smallBadge}>
+                              {z.regions.length === 0
+                                ? "All India"
+                                : `${z.regions.length} state(s)`}
+                            </span>
+                          </div>
+
+                          <span className="text-xs text-slate-500">
+                            Overrides apply only to selected categories inside
+                            this zone.
                           </span>
                         </div>
-                        <span className="text-[11px] text-slate-600">
-                          Overrides will apply only to selected categories
-                          inside this zone.
-                        </span>
-                      </div>
 
-                      <div className="p-3 md:p-4">
-                        <ZoneEditor
-                          z={z}
-                          onChange={(next) => updateZone(idx, next)}
-                          showOverrides
-                        />
+                        <div className="p-3 md:p-4">
+                          <ZoneEditor
+                            z={z}
+                            onChange={(next) => updateZone(idx, next)}
+                            showOverrides
+                          />
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
-              </>
-            ) : (
-              <p className="text-[11px] text-slate-500">
-                Turn this on to define different weight slabs for specific
-                categories like “Sarees”, “Bags”, etc.
-              </p>
-            )}
-          </div>
-        </section>
-      )}
+              ) : (
+                <p className="mt-4 text-xs text-slate-500">
+                  Turn this on to define different weight slabs for specific
+                  categories like Sarees, Bags or Accessories.
+                </p>
+              )}
+            </div>
+          </SectionCard>
+        )}
 
-      {/* Footer action */}
-      <div className="flex items-center justify-end gap-3 pt-1">
-        <button
-          type="button"
-          onClick={saveAndSync}
-          disabled={busy || hydrating}
-          className="inline-flex items-center rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 disabled:opacity-60"
-        >
-          {busy ? "Saving…" : "Save & Sync to Store"}
-        </button>
+        <div className="sticky bottom-3 z-10 md:bottom-4">
+          <div className="rounded-[24px] border border-slate-200 bg-white/95 p-3 shadow-lg backdrop-blur">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="min-w-0">
+                <div className="text-sm font-semibold text-slate-900">
+                  Shipping setup
+                </div>
+                <div className="mt-1 text-xs text-slate-500">
+                  Save and sync shipping classes, zones and rates to your store.
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={saveAndSync}
+                disabled={busy || hydrating}
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-indigo-600 px-5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700 disabled:opacity-60"
+              >
+                <Save className="h-4 w-4" />
+                {busy ? "Saving..." : "Save & Sync to Store"}
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
-    </div>
+    </>
   );
 }

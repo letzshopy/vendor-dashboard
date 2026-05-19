@@ -1,6 +1,20 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  Bell,
+  Boxes,
+  CheckCircle2,
+  DollarSign,
+  Package,
+  Printer,
+  Ruler,
+  Save,
+  Scale,
+  ShieldCheck,
+  Star,
+  Warehouse,
+} from "lucide-react";
 
 type ProductsGeneral = {
   currency: string;
@@ -15,33 +29,76 @@ type ProductsGeneral = {
   lowStockThreshold: number;
   hideOutOfStock: boolean;
   stockDisplayFormat: "no_amount" | "always" | "low_amount";
-  // NEW: pack slip options
   packslipReturnAddress: string;
   packslipShowReturn: boolean;
 };
 
 const inputClass =
-  "w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm " +
-  "text-slate-900 placeholder:text-slate-500 shadow-sm " +
-  "focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-600";
+  "h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm " +
+  "text-slate-900 placeholder:text-slate-400 shadow-sm transition " +
+  "focus:border-indigo-400 focus:outline-none focus:ring-4 focus:ring-indigo-100";
 
 const selectClass =
-  "w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm " +
-  "text-slate-900 shadow-sm focus:outline-none focus:ring-2 " +
-  "focus:ring-indigo-500 focus:border-indigo-600";
+  "h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm " +
+  "text-slate-900 shadow-sm transition focus:border-indigo-400 " +
+  "focus:outline-none focus:ring-4 focus:ring-indigo-100";
 
 const textareaClass =
-  "w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm " +
-  "text-slate-900 placeholder:text-slate-500 shadow-sm " +
-  "focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-600";
+  "w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm " +
+  "text-slate-900 placeholder:text-slate-400 shadow-sm transition resize-none " +
+  "focus:border-indigo-400 focus:outline-none focus:ring-4 focus:ring-indigo-100";
 
-const primaryBtnClass =
-  "inline-flex items-center justify-center rounded-lg bg-indigo-600 px-4 py-2 " +
-  "text-sm font-medium text-white shadow-sm hover:bg-indigo-700 disabled:opacity-60";
+function SectionCard({
+  icon,
+  title,
+  description,
+  children,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  description: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="overflow-hidden rounded-[26px] border border-slate-200 bg-white shadow-sm">
+      <div className="border-b border-slate-100 bg-gradient-to-r from-white via-slate-50 to-indigo-50/40 px-4 py-4 md:px-5">
+        <div className="flex items-start gap-3">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600">
+            {icon}
+          </div>
+          <div>
+            <h3 className="text-base font-semibold text-slate-900">{title}</h3>
+            <p className="mt-1 text-xs leading-5 text-slate-500 md:text-sm">
+              {description}
+            </p>
+          </div>
+        </div>
+      </div>
 
-const secondaryBtnClass =
-  "inline-flex items-center justify-center rounded-lg border border-slate-300 bg-white px-4 py-2 " +
-  "text-sm font-medium text-slate-800 shadow-sm hover:bg-slate-50 disabled:opacity-60";
+      <div className="space-y-4 p-4 md:p-5">{children}</div>
+    </section>
+  );
+}
+
+function Field({
+  label,
+  children,
+  error,
+}: {
+  label: string;
+  children: React.ReactNode;
+  error?: string;
+}) {
+  return (
+    <div>
+      <label className="mb-2 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+        {label}
+      </label>
+      {children}
+      {error ? <p className="mt-2 text-xs text-rose-600">{error}</p> : null}
+    </div>
+  );
+}
 
 export default function GeneralTab() {
   const [p, setP] = useState<ProductsGeneral | null>(null);
@@ -52,7 +109,10 @@ export default function GeneralTab() {
   const [syncing, setSyncing] = useState(false);
   const [err, setErr] = useState<Record<string, string>>({});
 
-  const [banner, setBanner] = useState<null | { type: "success" | "error"; message: string }>(null);
+  const [banner, setBanner] = useState<
+    null | { type: "success" | "error"; message: string }
+  >(null);
+
   const snapshotRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -90,12 +150,12 @@ export default function GeneralTab() {
   }, []);
 
   const currentSnap = useMemo(() => (p ? JSON.stringify(p) : null), [p]);
+
   const isDirty = useMemo(() => {
     if (!snapshotRef.current || !currentSnap) return false;
     return snapshotRef.current !== currentSnap;
   }, [currentSnap]);
 
-  // Warn on refresh / close
   useEffect(() => {
     const onBeforeUnload = (e: BeforeUnloadEvent) => {
       if (!isDirty) return;
@@ -108,7 +168,6 @@ export default function GeneralTab() {
     return () => window.removeEventListener("beforeunload", onBeforeUnload);
   }, [isDirty]);
 
-  // Warn on browser back
   useEffect(() => {
     const onPopState = (e: PopStateEvent) => {
       if (!isDirty) return;
@@ -124,22 +183,37 @@ export default function GeneralTab() {
     return () => window.removeEventListener("popstate", onPopState);
   }, [isDirty]);
 
-  if (loading) return <div className="text-sm text-slate-500">Loading…</div>;
-  if (loadErr) {
+  if (loading) {
     return (
-      <div className="text-sm text-red-600">
-        Failed to load: {loadErr}
-        <div className="mt-1 text-xs text-slate-500">
-          Make sure <code>src/app/api/settings/general/route.ts</code> exists and imports from{" "}
-          <code>@/lib/settingsStore</code>, and that <code>getSettings().general.products</code> has defaults.
+      <div className="p-4 md:p-5">
+        <div className="rounded-[24px] border border-slate-200 bg-white p-5 text-sm text-slate-500 shadow-sm">
+          Loading...
         </div>
       </div>
     );
   }
+
+  if (loadErr) {
+    return (
+      <div className="p-4 md:p-5">
+        <div className="rounded-[24px] border border-rose-200 bg-rose-50 p-5 text-sm text-rose-700 shadow-sm">
+          Failed to load: {loadErr}
+          <div className="mt-2 text-xs text-slate-500">
+            Make sure <code>src/app/api/settings/general/route.ts</code> exists
+            and imports from <code>@/lib/settingsStore</code>, and that{" "}
+            <code>getSettings().general.products</code> has defaults.
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (!p) return null;
 
-  const setField = <K extends keyof ProductsGeneral>(k: K, v: ProductsGeneral[K]) =>
-    setP({ ...p, [k]: v });
+  const setField = <K extends keyof ProductsGeneral>(
+    k: K,
+    v: ProductsGeneral[K]
+  ) => setP({ ...p, [k]: v });
 
   async function save(sync: boolean) {
     if (!p) return;
@@ -163,7 +237,8 @@ export default function GeneralTab() {
         }
         setBanner({
           type: "error",
-          message: "Could not save general settings. Please check the fields highlighted in red.",
+          message:
+            "Could not save general settings. Please check the highlighted fields.",
         });
         return;
       }
@@ -193,9 +268,8 @@ export default function GeneralTab() {
 
   return (
     <>
-      {/* Top banner */}
       {banner && (
-        <div className="fixed top-[72px] left-0 right-0 z-40 flex justify-center pointer-events-none">
+        <div className="pointer-events-none fixed left-0 right-0 top-[72px] z-40 flex justify-center">
           <div
             className={`pointer-events-auto rounded-full px-4 py-1.5 text-sm font-medium shadow-lg ${
               banner.type === "success"
@@ -208,36 +282,31 @@ export default function GeneralTab() {
         </div>
       )}
 
-      <div className="space-y-6 max-w-4xl">
-        {/* Intro */}
-        <header className="space-y-1">
-          <h3 className="text-sm font-semibold text-slate-900">
-            Store-wide product settings
-          </h3>
-          <p className="text-xs text-slate-500">
-            Control default currency, measurement units, reviews, stock behaviour and pack slip
-            return address for your store.
-          </p>
-        </header>
-
-        {/* Currency & Pricing */}
-        <section className="rounded-xl border border-slate-200 bg-white/80 p-4 md:p-5 space-y-4">
-          <div className="flex items-center justify-between gap-2">
+      <div className="space-y-4 p-3 md:space-y-5 md:p-5">
+        <div className="rounded-[24px] border border-slate-200 bg-white p-4 shadow-sm">
+          <div className="flex items-start gap-3">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600">
+              <Package className="h-5 w-5" />
+            </div>
             <div>
-              <h4 className="text-sm font-semibold text-slate-900">
-                Currency &amp; pricing
-              </h4>
-              <p className="text-[11px] text-slate-500">
-                These settings control how prices are displayed in your store.
-              </p>
+              <div className="text-base font-semibold text-slate-900">
+                Store-wide product settings
+              </div>
+              <div className="mt-1 text-xs text-slate-500 md:text-sm">
+                Control currency, measurement units, reviews, stock behaviour
+                and pack slip return address.
+              </div>
             </div>
           </div>
+        </div>
 
-          <div className="grid sm:grid-cols-2 gap-4">
-            <div>
-              <label className="mb-1 block text-xs font-medium text-slate-700">
-                Currency
-              </label>
+        <SectionCard
+          icon={<DollarSign className="h-5 w-5" />}
+          title="Currency & Pricing"
+          description="These settings control how product prices appear in your store."
+        >
+          <div className="grid gap-4 md:grid-cols-2">
+            <Field label="Currency">
               <select
                 className={selectClass}
                 value={p.currency}
@@ -247,12 +316,9 @@ export default function GeneralTab() {
                 <option value="USD">USD — US Dollar</option>
                 <option value="EUR">EUR — Euro</option>
               </select>
-            </div>
+            </Field>
 
-            <div>
-              <label className="mb-1 block text-xs font-medium text-slate-700">
-                Price decimals
-              </label>
+            <Field label="Price decimals" error={err.priceDecimals}>
               <input
                 type="number"
                 min={0}
@@ -266,29 +332,17 @@ export default function GeneralTab() {
                   )
                 }
               />
-              {err.priceDecimals && (
-                <p className="mt-1 text-xs text-rose-600">
-                  {err.priceDecimals}
-                </p>
-              )}
-            </div>
+            </Field>
           </div>
-        </section>
+        </SectionCard>
 
-        {/* Measurements */}
-        <section className="rounded-xl border border-slate-200 bg-white/80 p-4 md:p-5 space-y-4">
-          <div>
-            <h4 className="text-sm font-semibold text-slate-900">Measurements</h4>
-            <p className="text-[11px] text-slate-500">
-              Used for shipping weights and product dimensions.
-            </p>
-          </div>
-
-          <div className="grid sm:grid-cols-2 gap-4">
-            <div>
-              <label className="mb-1 block text-xs font-medium text-slate-700">
-                Weight unit
-              </label>
+        <SectionCard
+          icon={<Ruler className="h-5 w-5" />}
+          title="Measurements"
+          description="Used for product dimensions and shipping weight calculations."
+        >
+          <div className="grid gap-4 md:grid-cols-2">
+            <Field label="Weight unit">
               <select
                 className={selectClass}
                 value={p.weightUnit}
@@ -299,11 +353,9 @@ export default function GeneralTab() {
                 <option value="lb">lb</option>
                 <option value="oz">oz</option>
               </select>
-            </div>
-            <div>
-              <label className="mb-1 block text-xs font-medium text-slate-700">
-                Dimensions unit
-              </label>
+            </Field>
+
+            <Field label="Dimensions unit">
               <select
                 className={selectClass}
                 value={p.dimensionUnit}
@@ -317,131 +369,99 @@ export default function GeneralTab() {
                 <option value="in">in</option>
                 <option value="yd">yd</option>
               </select>
-            </div>
+            </Field>
           </div>
-        </section>
+        </SectionCard>
 
-        {/* Reviews */}
-        <section className="rounded-xl border border-slate-200 bg-white/80 p-4 md:p-5">
-          <div className="flex items-center justify-between gap-2">
-            <div>
-              <h4 className="text-sm font-semibold text-slate-900">Reviews</h4>
-              <p className="text-[11px] text-slate-500">
-                Control whether customers can leave product reviews.
-              </p>
-            </div>
-          </div>
-          <div className="mt-3">
-            <label className="inline-flex items-center gap-2 text-sm text-slate-800">
-              <input
-                type="checkbox"
-                className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
-                checked={p.reviewsEnabled}
-                onChange={(e) => setField("reviewsEnabled", e.target.checked)}
-              />
-              Enable product reviews
-            </label>
-          </div>
-        </section>
+        <SectionCard
+          icon={<Star className="h-5 w-5" />}
+          title="Reviews"
+          description="Choose whether customers can leave product reviews."
+        >
+          <label className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50/70 px-4 py-3 text-sm text-slate-800">
+            <input
+              type="checkbox"
+              className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+              checked={p.reviewsEnabled}
+              onChange={(e) => setField("reviewsEnabled", e.target.checked)}
+            />
+            <span>Enable product reviews</span>
+          </label>
+        </SectionCard>
 
-        {/* Inventory */}
-        <section className="rounded-xl border border-slate-200 bg-white/80 p-4 md:p-5 space-y-4">
-          <div>
-            <h4 className="text-sm font-semibold text-slate-900">Inventory</h4>
-            <p className="text-[11px] text-slate-500">
-              Automatic stock tracking and notification settings.
-            </p>
-          </div>
-
-          <label className="inline-flex items-center gap-2 text-sm text-slate-800">
+        <SectionCard
+          icon={<Warehouse className="h-5 w-5" />}
+          title="Inventory"
+          description="Automatic stock tracking, display settings and email alerts."
+        >
+          <label className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50/70 px-4 py-3 text-sm text-slate-800">
             <input
               type="checkbox"
               className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
               checked={p.manageStock}
               onChange={(e) => setField("manageStock", e.target.checked)}
             />
-            Enable stock management
+            <span>Enable stock management</span>
           </label>
 
-          <div className="grid sm:grid-cols-2 gap-4">
-            <label className="inline-flex items-center gap-2 text-sm text-slate-800">
+          <div className="grid gap-4 md:grid-cols-2">
+            <label className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50/70 px-4 py-3 text-sm text-slate-800">
               <input
                 type="checkbox"
                 className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
                 checked={p.notifyLowStock}
                 onChange={(e) => setField("notifyLowStock", e.target.checked)}
               />
-              Low-stock notification
+              <span>Low-stock notification</span>
             </label>
 
-            <label className="inline-flex items-center gap-2 text-sm text-slate-800">
+            <label className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50/70 px-4 py-3 text-sm text-slate-800">
               <input
                 type="checkbox"
                 className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
                 checked={p.notifyNoStock}
                 onChange={(e) => setField("notifyNoStock", e.target.checked)}
               />
-              Out-of-stock notification
+              <span>Out-of-stock notification</span>
             </label>
 
-            <div>
-              <label className="mb-1 block text-xs font-medium text-slate-700">
-                Notification recipient (email)
-              </label>
+            <Field
+              label="Notification recipient email"
+              error={err.stockEmailRecipient}
+            >
               <input
                 className={inputClass}
                 value={p.stockEmailRecipient}
-                onChange={(e) =>
-                  setField("stockEmailRecipient", e.target.value)
-                }
+                onChange={(e) => setField("stockEmailRecipient", e.target.value)}
                 placeholder="alerts@yourstore.com"
               />
-              {err.stockEmailRecipient && (
-                <p className="mt-1 text-xs text-rose-600">
-                  {err.stockEmailRecipient}
-                </p>
-              )}
-            </div>
+            </Field>
 
-            <div>
-              <label className="mb-1 block text-xs font-medium text-slate-700">
-                Low-stock threshold
-              </label>
+            <Field label="Low-stock threshold" error={err.lowStockThreshold}>
               <input
                 type="number"
                 min={0}
                 className={inputClass}
                 value={p.lowStockThreshold}
                 onChange={(e) =>
-                  setField(
-                    "lowStockThreshold",
-                    Math.max(0, Number(e.target.value))
-                  )
+                  setField("lowStockThreshold", Math.max(0, Number(e.target.value)))
                 }
               />
-              {err.lowStockThreshold && (
-                <p className="mt-1 text-xs text-rose-600">
-                  {err.lowStockThreshold}
-                </p>
-              )}
-            </div>
+            </Field>
           </div>
 
-          <div className="pt-3 border-t border-dashed border-slate-200 space-y-3">
-            <label className="inline-flex items-center gap-2 text-sm text-slate-800">
+          <div className="space-y-4 rounded-[22px] border border-dashed border-slate-200 bg-slate-50/50 p-4">
+            <label className="flex items-center gap-3 text-sm text-slate-800">
               <input
                 type="checkbox"
                 className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
                 checked={p.hideOutOfStock}
                 onChange={(e) => setField("hideOutOfStock", e.target.checked)}
               />
-              Hide out-of-stock products from catalog
+              <span>Hide out-of-stock products from catalog</span>
             </label>
 
-            <div>
-              <label className="mb-1 block text-xs font-medium text-slate-700">
-                Stock display format
-              </label>
+            <Field label="Stock display format">
               <select
                 className={selectClass}
                 value={p.stockDisplayFormat}
@@ -450,78 +470,80 @@ export default function GeneralTab() {
                 }
               >
                 <option value="no_amount">Never show quantity remaining</option>
-                <option value="always">
-                  Always show quantity (“2 in stock”)
-                </option>
+                <option value="always">Always show quantity (“2 in stock”)</option>
                 <option value="low_amount">
                   Only when low (“Only 2 left in stock”)
                 </option>
               </select>
-            </div>
+            </Field>
           </div>
-        </section>
+        </SectionCard>
 
-        {/* Pack slips */}
-        <section className="rounded-xl border border-slate-200 bg-white/80 p-4 md:p-5 space-y-4">
-          <div>
-            <h4 className="text-sm font-semibold text-slate-900">Pack slips</h4>
-            <p className="text-[11px] text-slate-500">
-              Control the From / Return address printed on your pack slips.
-            </p>
-          </div>
-
-          <div>
-            <label className="mb-1 block text-xs font-medium text-slate-700">
-              From / Return address
-            </label>
+        <SectionCard
+          icon={<Printer className="h-5 w-5" />}
+          title="Pack slips"
+          description="Control the From / Return address printed on your pack slips."
+        >
+          <Field label="From / Return address">
             <textarea
               className={textareaClass + " whitespace-pre-wrap"}
-              rows={3}
-              placeholder={`Your address`}
+              rows={4}
+              placeholder="Your address"
               value={p.packslipReturnAddress}
-              onChange={(e) =>
-                setField("packslipReturnAddress", e.target.value)
-              }
+              onChange={(e) => setField("packslipReturnAddress", e.target.value)}
             />
-            <p className="mt-1 text-[11px] text-slate-500">
-              This address is printed on the bottom of each pack slip as the
-              return / from address.
-            </p>
-          </div>
+          </Field>
 
-          <label className="inline-flex items-center gap-2 text-sm text-slate-800">
+          <p className="text-xs text-slate-500">
+            This address is printed on the bottom of each pack slip as the return
+            or from address.
+          </p>
+
+          <label className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50/70 px-4 py-3 text-sm text-slate-800">
             <input
               type="checkbox"
               className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
               checked={p.packslipShowReturn}
               onChange={(e) => setField("packslipShowReturn", e.target.checked)}
             />
-            Show return address on pack slips
+            <span>Show return address on pack slips</span>
           </label>
-        </section>
+        </SectionCard>
 
-        {/* Actions */}
-        <div className="flex flex-wrap items-center gap-3">
-          
-          <button
-            disabled={syncing}
-            onClick={() => save(true)}
-            className={secondaryBtnClass}
-            title="Save and push these settings to your store"
-          >
-            {syncing ? "Saving & syncing…" : "Save & Sync to Store"}
-          </button>
+        <div className="sticky bottom-3 z-10 md:bottom-4">
+          <div className="rounded-[24px] border border-slate-200 bg-white/95 p-3 shadow-lg backdrop-blur">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="min-w-0">
+                <div className="text-sm font-semibold text-slate-900">
+                  {isDirty ? "Unsaved changes" : "All changes saved"}
+                </div>
+                <div className="mt-1 text-xs text-slate-500">
+                  Save and optionally sync these settings to your store.
+                </div>
+              </div>
 
-          {!isDirty && (
-            <span className="text-xs text-emerald-600">
-              All changes saved.
-            </span>
-          )}
-          {isDirty && (
-            <span className="text-xs text-amber-600">
-              You have unsaved changes.
-            </span>
-          )}
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <button
+                  disabled={saving || syncing || !isDirty}
+                  onClick={() => save(false)}
+                  className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-800 shadow-sm hover:bg-slate-50 disabled:opacity-60"
+                >
+                  <Save className="h-4 w-4" />
+                  {saving ? "Saving..." : "Save changes"}
+                </button>
+
+                <button
+                  disabled={syncing}
+                  onClick={() => save(true)}
+                  className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-indigo-600 px-5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700 disabled:opacity-60"
+                  title="Save and push these settings to your store"
+                >
+                  <ShieldCheck className="h-4 w-4" />
+                  {syncing ? "Saving & syncing..." : "Save & Sync to Store"}
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </>

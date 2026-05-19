@@ -162,11 +162,7 @@ export default function SettingsTabsClient() {
           <h1 className="text-[28px] font-semibold tracking-tight text-slate-900">
             Settings
           </h1>
-          <p className="text-sm leading-6 text-slate-600">
-            Manage your store profile, site setup, payments, shipping, taxes and
-            more.
-          </p>
-        </div>
+         </div>
 
         {/* Mobile section switcher */}
         <div className="md:hidden">
