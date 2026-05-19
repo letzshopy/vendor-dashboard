@@ -2,18 +2,16 @@
 
 import { useEffect } from "react";
 
-export default function PWARegister() {
+export default function PwaRegister() {
   useEffect(() => {
     if (typeof window === "undefined") return;
     if (!("serviceWorker" in navigator)) return;
 
     const register = async () => {
       try {
-        await navigator.serviceWorker.register("/sw.js", {
-          scope: "/",
-        });
+        await navigator.serviceWorker.register("/sw.js", { scope: "/" });
       } catch (error) {
-        console.error("Service worker registration failed:", error);
+        console.warn("PWA service worker registration failed:", error);
       }
     };
 

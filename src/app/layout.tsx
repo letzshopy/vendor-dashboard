@@ -5,6 +5,7 @@ import { Suspense } from "react";
 
 import LookupGuard from "./_debug/lookup-guard";
 import LookupMuzzle from "./_debug/lookup-muzzle";
+import PwaRegister from "@/components/pwa/PwaRegister";
 
 export const metadata: Metadata = {
   title: "LetzShopy Vendor Dashboard",
@@ -52,6 +53,8 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased bg-slate-50 text-slate-900`}
       >
+        <PwaRegister />
+
         {process.env.NODE_ENV !== "production" && (
           <>
             <LookupGuard />

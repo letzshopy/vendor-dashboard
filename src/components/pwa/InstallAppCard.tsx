@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Download,
   Smartphone,
   MonitorSmartphone,
   CheckCircle2,
-  Info,
+  Share2,
+  X,
 } from "lucide-react";
 
 type BeforeInstallPromptEvent = Event & {
@@ -14,68 +15,60 @@ type BeforeInstallPromptEvent = Event & {
   userChoice: Promise<{ outcome: "accepted" | "dismissed"; platform: string }>;
 };
 
-function isIosSafari(): boolean {
-  if (typeof window === "undefined") return false;
-
-  const ua = window.navigator.userAgent.toLowerCase();
-  const isIos =
-    /iphone|ipad|ipod/.test(ua) ||
-    (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
-
-  const isSafari =
-    /safari/.test(ua) && !/crios|fxios|edgios|chrome|android/.test(ua);
-
-  return isIos && isSafari;
-}
-
-function isStandalone(): boolean {
-  if (typeof window === "undefined") return false;
-
-  return (
-    window.matchMedia("(display-mode: standalone)").matches ||
-    (window.navigator as Navigator & { standalone?: boolean }).standalone ===
-      true
-  );
-}
-
 export default function InstallAppCard() {
   const [deferredPrompt, setDeferredPrompt] =
     useState<BeforeInstallPromptEvent | null>(null);
-  const [installed, setInstalled] = useState(false);
-  const [installing, setInstalling] = useState(false);
+  const [isInstalled, setIsInstalled] = useState(false);
+  const [showIosHint, setShowIosHint] = useState(false);
   const [dismissed, setDismissed] = useState(false);
+  const [installing, setInstalling] = useState(false);
 
   useEffect(() => {
-    setInstalled(isStandalone());
+    if (typeof window === "undefined") return;
 
-    function handleBeforeInstallPrompt(e: Event) {
+    const savedDismiss = sessionStorage.getItem("letz_pwa_install_dismissed");
+    if (savedDismiss === "yes") {
+      setDismissed(true);
+    }
+
+    const isStandalone =
+      window.matchMedia("(display-mode: standalone)").matches ||
+      // @ts-expect-error ios safari
+      window.navigator.standalone === true;
+
+    setIsInstalled(isStandalone);
+
+    const ua = window.navigator.userAgent.toLowerCase();
+    const isIos = /iphone|ipad|ipod/.test(ua);
+    const isSafari =
+      /safari/.test(ua) && !/chrome|crios|fxios|edgios|android/.test(ua);
+
+    if (!isStandalone && isIos && isSafari) {
+      setShowIosHint(true);
+    }
+
+    const handleBeforeInstallPrompt = (e: Event) => {
       e.preventDefault();
       setDeferredPrompt(e as BeforeInstallPromptEvent);
-    }
+    };
 
-    function handleAppInstalled() {
-      setInstalled(true);
+    const handleAppInstalled = () => {
+      setIsInstalled(true);
       setDeferredPrompt(null);
-    }
+      setShowIosHint(false);
+    };
 
-    window.addEventListener(
-      "beforeinstallprompt",
-      handleBeforeInstallPrompt as EventListener
-    );
+    window.addEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
     window.addEventListener("appinstalled", handleAppInstalled);
 
     return () => {
       window.removeEventListener(
         "beforeinstallprompt",
-        handleBeforeInstallPrompt as EventListener
+        handleBeforeInstallPrompt
       );
       window.removeEventListener("appinstalled", handleAppInstalled);
     };
   }, []);
-
-  const iosMode = useMemo(() => isIosSafari(), []);
-  const canPrompt = !!deferredPrompt && !installed;
-  const showCard = !installed && (!dismissed || iosMode || canPrompt);
 
   async function handleInstall() {
     if (!deferredPrompt) return;
@@ -83,118 +76,98 @@ export default function InstallAppCard() {
     try {
       setInstalling(true);
       await deferredPrompt.prompt();
-      const result = await deferredPrompt.userChoice;
+      const choice = await deferredPrompt.userChoice;
 
-      if (result.outcome === "accepted") {
-        setInstalled(true);
-      } else {
-        setDismissed(true);
+      if (choice.outcome === "accepted") {
+        setDeferredPrompt(null);
       }
-    } catch (e) {
-      console.error("PWA install prompt failed:", e);
     } finally {
       setInstalling(false);
-      setDeferredPrompt(null);
     }
   }
 
-  if (installed) {
-    return (
-      <div className="rounded-[28px] border border-emerald-200 bg-gradient-to-br from-emerald-50 via-white to-teal-50 p-4 shadow-sm shadow-slate-200/60 md:p-5">
-        <div className="flex items-start gap-3">
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-emerald-500 text-white">
-            <CheckCircle2 className="h-5 w-5" />
-          </div>
-
-          <div className="min-w-0">
-            <h2 className="text-base font-semibold text-slate-900">
-              LetzShopy App installed
-            </h2>
-            <p className="mt-1 text-sm leading-6 text-slate-600">
-              Your dashboard is installed and can open like an app from your
-              home screen or desktop.
-            </p>
-          </div>
-        </div>
-      </div>
-    );
+  function handleDismiss() {
+    setDismissed(true);
+    if (typeof window !== "undefined") {
+      sessionStorage.setItem("letz_pwa_install_dismissed", "yes");
+    }
   }
 
-  if (!showCard) return null;
+  if (isInstalled || dismissed) return null;
 
   return (
-    <div className="rounded-[28px] border border-slate-200/70 bg-gradient-to-br from-[#eef2ff] via-white to-[#f4ecff] p-4 shadow-sm shadow-slate-200/60 md:p-5">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-        <div className="flex min-w-0 items-start gap-3">
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#4b5dff] text-white shadow-sm">
+    <div className="overflow-hidden rounded-[28px] border border-indigo-100 bg-gradient-to-br from-[#eef2ff] via-white to-[#f5ecff] shadow-sm shadow-slate-200/60">
+      <div className="flex items-start justify-between gap-3 p-4 md:p-5">
+        <div className="flex min-w-0 gap-3">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-[#4b5dff] to-[#8b5cff] text-white shadow-sm">
             <MonitorSmartphone className="h-5 w-5" />
           </div>
 
           <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-2">
-              <h2 className="text-base font-semibold text-slate-900">
-                Install LetzShopy App
-              </h2>
-              <span className="rounded-full bg-white px-2.5 py-1 text-[11px] font-medium text-[#6b46ff] shadow-sm">
-                Faster access
-              </span>
-            </div>
-
+            <h2 className="text-base font-semibold text-slate-900">
+              Install LetzShopy App
+            </h2>
             <p className="mt-1 text-sm leading-6 text-slate-600">
-              Add this dashboard to your phone or desktop for a cleaner
-              app-like experience with quicker access.
+              Add your vendor dashboard to the home screen for faster access and
+              an app-like experience.
             </p>
-
-            <div className="mt-3 flex flex-wrap gap-2">
-              <span className="inline-flex items-center gap-1 rounded-full bg-white px-3 py-1 text-[11px] text-slate-600 shadow-sm">
-                <Smartphone className="h-3.5 w-3.5" />
-                Mobile friendly
-              </span>
-              <span className="inline-flex items-center gap-1 rounded-full bg-white px-3 py-1 text-[11px] text-slate-600 shadow-sm">
-                <Download className="h-3.5 w-3.5" />
-                Home screen access
-              </span>
-            </div>
           </div>
         </div>
 
-        <div className="shrink-0">
-          {canPrompt ? (
-            <button
-              type="button"
-              onClick={handleInstall}
-              disabled={installing}
-              className="inline-flex items-center justify-center rounded-2xl bg-[#4b5dff] px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-[#3f50eb] disabled:opacity-60"
-            >
-              {installing ? "Installing…" : "Install App"}
-            </button>
-          ) : iosMode ? (
-            <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 shadow-sm">
-              <div className="flex items-start gap-2">
-                <Info className="mt-0.5 h-4 w-4 shrink-0 text-[#4b5dff]" />
-                <div>
-                  <div className="font-medium text-slate-900">
-                    Install on iPhone / iPad
-                  </div>
-                  <div className="mt-1 text-[13px] leading-5 text-slate-600">
-                    Tap <span className="font-medium">Share</span> in Safari,
-                    then choose{" "}
-                    <span className="font-medium">Add to Home Screen</span>.
-                  </div>
-                </div>
-              </div>
-            </div>
-          ) : (
-            <button
-              type="button"
-              onClick={() => setDismissed(true)}
-              className="inline-flex items-center justify-center rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50"
-            >
-              Dismiss
-            </button>
-          )}
-        </div>
+        <button
+          type="button"
+          onClick={handleDismiss}
+          className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-slate-400 hover:bg-white hover:text-slate-600"
+          aria-label="Dismiss"
+        >
+          <X className="h-4 w-4" />
+        </button>
       </div>
+
+      <div className="grid gap-3 border-t border-white/70 bg-white/50 p-4 md:grid-cols-[1fr_auto] md:items-center md:p-5">
+        <div className="grid gap-2 sm:grid-cols-3">
+          <Feature text="Quick dashboard access" />
+          <Feature text="Opens like an app" />
+          <Feature text="Useful on mobile and desktop" />
+        </div>
+
+        {deferredPrompt ? (
+          <button
+            type="button"
+            onClick={handleInstall}
+            disabled={installing}
+            className="inline-flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#4b5dff] to-[#8b5cff] px-4 py-3 text-sm font-medium text-white shadow-sm hover:opacity-95 disabled:opacity-60"
+          >
+            <Download className="h-4 w-4" />
+            {installing ? "Installing…" : "Install app"}
+          </button>
+        ) : showIosHint ? (
+          <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+            <div className="flex items-center gap-2 font-medium">
+              <Smartphone className="h-4 w-4" />
+              Install on iPhone / iPad
+            </div>
+            <p className="mt-1 text-xs leading-5 text-amber-800">
+              Tap <span className="font-semibold">Share</span>{" "}
+              <Share2 className="mx-1 inline h-3.5 w-3.5" />
+              then choose <span className="font-semibold">Add to Home Screen</span>.
+            </p>
+          </div>
+        ) : (
+          <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-xs text-slate-500">
+            Install option will appear when supported by your browser.
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function Feature({ text }: { text: string }) {
+  return (
+    <div className="flex items-center gap-2 rounded-2xl border border-slate-200/70 bg-white px-3 py-2 text-sm text-slate-700">
+      <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-500" />
+      <span>{text}</span>
     </div>
   );
 }
