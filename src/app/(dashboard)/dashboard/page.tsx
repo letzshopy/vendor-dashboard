@@ -797,7 +797,7 @@ function SupportCard() {
       </div>
 
       <p className="mt-4 text-xs leading-5 text-slate-500">
-        For urgent issues, you can also use the WhatsApp button in the bottom
+        For urgent issues, you can also use the WhatsApp icon in the bottom
         right corner.
       </p>
     </div>
