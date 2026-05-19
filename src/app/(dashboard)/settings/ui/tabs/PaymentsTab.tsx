@@ -1,12 +1,22 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   useForm,
   FormProvider,
   type SubmitHandler,
 } from "react-hook-form";
 import type { PaymentsFormValues } from "@/types/payments";
+import {
+  Banknote,
+  CreditCard,
+  Landmark,
+  Save,
+  Settings2,
+  Smartphone,
+  CheckCircle2,
+  AlertCircle,
+} from "lucide-react";
 
 import EasebuzzPanel from "@/app/(dashboard)/settings/ui/payments/EasebuzzPanel";
 import UPIPanel from "@/app/(dashboard)/settings/ui/payments/UPIPanel";
@@ -57,6 +67,71 @@ const DEFAULT_VALUES: PaymentsFormValues = {
   },
 };
 
+function SectionCard({
+  icon,
+  title,
+  description,
+  badge,
+  children,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  description: string;
+  badge?: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="overflow-hidden rounded-[26px] border border-slate-200 bg-white shadow-sm">
+      <div className="border-b border-slate-100 bg-gradient-to-r from-white via-slate-50 to-indigo-50/40 px-4 py-4 md:px-5">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex min-w-0 items-start gap-3">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600">
+              {icon}
+            </div>
+            <div className="min-w-0">
+              <h3 className="text-base font-semibold text-slate-900">{title}</h3>
+              <p className="mt-1 text-xs leading-5 text-slate-500 md:text-sm">
+                {description}
+              </p>
+            </div>
+          </div>
+
+          {badge ? <div className="shrink-0">{badge}</div> : null}
+        </div>
+      </div>
+
+      <div className="space-y-4 p-4 md:p-5">{children}</div>
+    </section>
+  );
+}
+
+function Toggle({
+  checked,
+  onChange,
+}: {
+  checked: boolean;
+  onChange: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onChange}
+      className={`relative flex h-7 w-12 items-center rounded-full border transition-colors ${
+        checked
+          ? "border-emerald-500 bg-emerald-500"
+          : "border-slate-300 bg-slate-200"
+      }`}
+      aria-pressed={checked}
+    >
+      <span
+        className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${
+          checked ? "translate-x-[25px]" : "translate-x-[2px]"
+        }`}
+      />
+    </button>
+  );
+}
+
 export default function PaymentsTab() {
   const methods = useForm<PaymentsFormValues>({
     defaultValues: DEFAULT_VALUES,
@@ -70,7 +145,10 @@ export default function PaymentsTab() {
   const [success, setSuccess] = useState<string | null>(null);
 
   const paymentsEnabled = watch("general.enabled");
+  const easebuzzEnabled = watch("easebuzz.enabled");
   const upiEnabled = watch("upi.enabled");
+  const bankEnabled = watch("bank.enabled");
+  const codEnabled = watch("cod.enabled");
   const requireScreenshot = watch("upi.require_screenshot");
 
   useEffect(() => {
@@ -166,6 +244,15 @@ export default function PaymentsTab() {
     };
   }, [reset]);
 
+  const enabledCount = useMemo(() => {
+    let count = 0;
+    if (easebuzzEnabled) count += 1;
+    if (upiEnabled) count += 1;
+    if (bankEnabled) count += 1;
+    if (codEnabled) count += 1;
+    return count;
+  }, [easebuzzEnabled, upiEnabled, bankEnabled, codEnabled]);
+
   const onSubmit: SubmitHandler<PaymentsFormValues> = async (values) => {
     try {
       setSaving(true);
@@ -194,6 +281,7 @@ export default function PaymentsTab() {
 
       setSuccess("Payment settings saved successfully.");
       window.scrollTo({ top: 0, behavior: "smooth" });
+      setTimeout(() => setSuccess(null), 3500);
     } catch (err: any) {
       setError(err?.message || "Failed to save payments settings");
       window.scrollTo({ top: 0, behavior: "smooth" });
@@ -205,93 +293,86 @@ export default function PaymentsTab() {
   return (
     <FormProvider {...methods}>
       <form onSubmit={handleSubmit(onSubmit)}>
-        <div className="max-w-4xl space-y-6">
-          <header className="space-y-2">
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <h2 className="text-xl font-semibold text-slate-900">
-                  Payments & Checkout
-                </h2>
-                <p className="text-xs text-slate-500">
-                  Configure online gateway, manual UPI, bank transfer and COD
-                  for your store.
-                </p>
-              </div>
-              <button
-                type="submit"
-                className="inline-flex items-center rounded-lg bg-indigo-600 px-4 py-2 text-xs font-medium text-white shadow-sm hover:bg-indigo-700 disabled:opacity-60"
-                disabled={saving || loading}
-              >
-                {saving ? "Saving…" : "Save changes"}
-              </button>
-            </div>
-
-            {error && (
-              <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-800">
-                {error}
-              </div>
-            )}
-            {success && (
-              <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-800">
+        <div className="space-y-4 p-3 md:space-y-5 md:p-5">
+          {success && (
+            <div className="pointer-events-none fixed left-0 right-0 top-[72px] z-40 flex justify-center">
+              <div className="pointer-events-auto rounded-full bg-emerald-500 px-4 py-1.5 text-sm font-medium text-white shadow-lg">
                 {success}
               </div>
-            )}
-          </header>
+            </div>
+          )}
+
+          <div className="rounded-[24px] border border-slate-200 bg-white p-4 shadow-sm">
+            <div className="flex items-start gap-3">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600">
+                <CreditCard className="h-5 w-5" />
+              </div>
+              <div className="min-w-0">
+                <div className="text-base font-semibold text-slate-900">
+                  Payments & Checkout
+                </div>
+                <div className="mt-1 text-xs text-slate-500 md:text-sm">
+                  Configure online gateway, manual UPI, bank transfer and COD
+                  for your store.
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {error && (
+            <div className="rounded-[20px] border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800 shadow-sm">
+              {error}
+            </div>
+          )}
 
           {loading ? (
-            <p className="text-sm text-slate-500">Loading payment settings…</p>
+            <div className="rounded-[24px] border border-slate-200 bg-white p-5 text-sm text-slate-500 shadow-sm">
+              Loading payment settings...
+            </div>
           ) : (
             <>
-              <section className="space-y-4 rounded-2xl border border-slate-200 bg-white/80 p-4 shadow-sm">
-                <div className="flex items-center justify-between gap-3">
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2">
-                      <h3 className="text-sm font-semibold text-slate-900">
-                        Payments
-                      </h3>
-                      <span className="rounded-full bg-slate-100 px-2 py-[2px] text-[10px] font-medium uppercase tracking-wide text-slate-500">
-                        Global
-                      </span>
+              <SectionCard
+                icon={<Settings2 className="h-5 w-5" />}
+                title="Global payment settings"
+                description="Control whether payments are enabled and which status should be used after successful payment."
+                badge={
+                  <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-slate-600">
+                    {enabledCount} active
+                  </span>
+                }
+              >
+                <div className="rounded-[20px] border border-slate-200 bg-slate-50/70 p-4">
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <div className="text-sm font-semibold text-slate-900">
+                        Accept payments
+                      </div>
+                      <p className="mt-1 text-xs text-slate-500">
+                        Turn this off to temporarily stop accepting payment
+                        methods at checkout.
+                      </p>
                     </div>
-                    <p className="text-[11px] text-slate-500">
-                      Turn this off to temporarily stop accepting online
-                      payments. You can still configure gateways below.
-                    </p>
-                  </div>
 
-                  <button
-                    type="button"
-                    onClick={() =>
-                      methods.setValue("general.enabled", !paymentsEnabled)
-                    }
-                    className={`relative flex h-6 w-11 items-center rounded-full border transition-colors ${
-                      paymentsEnabled
-                        ? "border-emerald-500 bg-emerald-500/90"
-                        : "border-slate-300 bg-slate-200"
-                    }`}
-                    aria-pressed={paymentsEnabled}
-                  >
-                    <span
-                      className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${
-                        paymentsEnabled
-                          ? "translate-x-[18px]"
-                          : "translate-x-[2px]"
-                      }`}
+                    <Toggle
+                      checked={paymentsEnabled}
+                      onChange={() =>
+                        methods.setValue("general.enabled", !paymentsEnabled)
+                      }
                     />
-                  </button>
+                  </div>
                 </div>
 
-                <div className="grid gap-4 pt-1 md:grid-cols-2">
-                  <div className="max-w-xs">
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="max-w-md">
                     <label
                       htmlFor="default_status"
-                      className="mb-1 block text-xs font-medium text-slate-700"
+                      className="mb-2 block text-xs font-semibold uppercase tracking-wide text-slate-500"
                     >
-                      Default order status on successful payment
+                      Default order status after successful payment
                     </label>
                     <select
                       id="default_status"
-                      className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-800 focus:border-indigo-400 focus:outline-none focus:ring-1 focus:ring-indigo-400"
+                      className="h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-900 shadow-sm transition focus:border-indigo-400 focus:outline-none focus:ring-4 focus:ring-indigo-100"
                       {...register("general.default_status")}
                     >
                       <option value="processing">
@@ -301,201 +382,216 @@ export default function PaymentsTab() {
                       <option value="pending">Pending payment</option>
                       <option value="completed">Completed</option>
                     </select>
-                    <p className="mt-1 text-[11px] text-slate-500">
-                      This is the status set when the gateway confirms a
-                      successful payment.
+                    <p className="mt-2 text-xs text-slate-500">
+                      This status is applied after confirmed successful payment.
                     </p>
                   </div>
                 </div>
 
                 {!paymentsEnabled && (
-                  <div className="rounded-lg border border-amber-100 bg-amber-50 px-3 py-2 text-[11px] text-amber-800">
-                    Payments are currently{" "}
-                    <span className="font-semibold">disabled</span>. Customers
-                    will see only offline/manual methods you enable at checkout.
+                  <div className="rounded-[20px] border border-amber-100 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                    Payments are currently disabled. You can still configure all
+                    methods below and enable them later.
                   </div>
                 )}
-              </section>
+              </SectionCard>
 
-              <section
-                className={`space-y-4 transition-opacity ${
-                  paymentsEnabled ? "" : "opacity-95"
-                }`}
+              <SectionCard
+                icon={<CreditCard className="h-5 w-5" />}
+                title="Easebuzz gateway"
+                description="Accept UPI, cards and netbanking with automatic payment confirmation."
+                badge={
+                  <span className="rounded-full bg-indigo-50 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-indigo-700">
+                    Recommended
+                  </span>
+                }
               >
-                <div className="space-y-3 rounded-2xl border border-slate-200 bg-white/80 p-4 shadow-sm">
-                  <div className="flex items-center justify-between gap-2">
-                    <label
-                      htmlFor="easebuzz_enabled"
-                      className="flex items-center gap-2"
-                    >
+                <div className="rounded-[20px] border border-slate-200 bg-slate-50/70 p-4">
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <div className="text-sm font-semibold text-slate-900">
+                        Enable Easebuzz
+                      </div>
+                      <p className="mt-1 text-xs text-slate-500">
+                        Best option for automatic payment success updates and a
+                        smoother customer checkout experience.
+                      </p>
+                    </div>
+
+                    <label className="mt-0.5 inline-flex items-center">
                       <input
                         id="easebuzz_enabled"
                         type="checkbox"
-                        className="h-3.5 w-3.5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                        className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
                         {...register("easebuzz.enabled")}
                       />
-                      <div className="space-y-0.5">
-                        <div className="text-sm font-semibold text-slate-900">
-                          Easebuzz (Online Gateway)
-                        </div>
-                        <p className="text-[11px] text-slate-500">
-                          Card / UPI / Netbanking with automatic order status
-                          updates via webhook.
-                        </p>
-                      </div>
                     </label>
-                    <span className="rounded-full bg-indigo-50 px-2 py-[2px] text-[10px] font-medium text-indigo-700">
-                      Recommended
-                    </span>
                   </div>
-                  <EasebuzzPanel />
                 </div>
 
-                <div className="space-y-3 rounded-2xl border border-slate-200 bg-white/80 p-4 shadow-sm">
-                  <div className="flex items-center justify-between gap-2">
-                    <label
-                      htmlFor="upi_enabled"
-                      className="flex items-center gap-2"
-                    >
+                <EasebuzzPanel />
+              </SectionCard>
+
+              <SectionCard
+                icon={<Smartphone className="h-5 w-5" />}
+                title="UPI manual payment"
+                description="Show UPI details or QR at checkout and verify payments manually."
+                badge={
+                  <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-emerald-700">
+                    No gateway charges
+                  </span>
+                }
+              >
+                <div className="rounded-[20px] border border-slate-200 bg-slate-50/70 p-4">
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <div className="text-sm font-semibold text-slate-900">
+                        Enable UPI
+                      </div>
+                      <p className="mt-1 text-xs text-slate-500">
+                        Customers pay using UPI and you verify the payment
+                        inside orders.
+                      </p>
+                    </div>
+
+                    <label className="mt-0.5 inline-flex items-center">
                       <input
                         id="upi_enabled"
                         type="checkbox"
-                        className="h-3.5 w-3.5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                        className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
                         {...register("upi.enabled")}
                       />
-                      <div className="space-y-0.5">
-                        <div className="text-sm font-semibold text-slate-900">
-                          UPI (Manual confirmation)
-                        </div>
-                        <p className="text-[11px] text-slate-500">
-                          Show UPI number / UPI ID / QR at checkout. Customer
-                          enters transaction number and you verify payment
-                          manually.
-                        </p>
-                      </div>
                     </label>
-                    <span className="rounded-full bg-slate-100 px-2 py-[2px] text-[10px] font-medium text-slate-600">
-                      No gateway charges
-                    </span>
                   </div>
-
-                  {upiEnabled && (
-                    <div className="rounded-xl border border-indigo-100 bg-indigo-50/70 p-3">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="pr-3">
-                          <div className="text-xs font-semibold text-slate-900">
-                            Screenshot proof on thank-you page
-                          </div>
-                          <p className="mt-1 text-[11px] leading-5 text-slate-600">
-                            When enabled, customers must upload payment
-                            screenshot on the thank-you page. When disabled,
-                            normal Woo thank-you page will load and you verify
-                            only by transaction number in order details.
-                          </p>
-                        </div>
-
-                        <button
-                          type="button"
-                          onClick={() =>
-                            methods.setValue(
-                              "upi.require_screenshot",
-                              !requireScreenshot,
-                              { shouldDirty: true }
-                            )
-                          }
-                          className={`relative flex h-6 w-11 shrink-0 items-center rounded-full border transition-colors ${
-                            requireScreenshot
-                              ? "border-emerald-500 bg-emerald-500/90"
-                              : "border-slate-300 bg-slate-200"
-                          }`}
-                          aria-pressed={requireScreenshot}
-                        >
-                          <span
-                            className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${
-                              requireScreenshot
-                                ? "translate-x-[18px]"
-                                : "translate-x-[2px]"
-                            }`}
-                          />
-                        </button>
-                      </div>
-
-                      <input
-                        type="hidden"
-                        {...register("upi.require_screenshot")}
-                      />
-
-                      <div className="mt-3 rounded-lg border border-slate-200 bg-white px-3 py-2 text-[11px] text-slate-600">
-                        ON: thank-you page shows screenshot upload block. OFF:
-                        native Woo thank-you page only.
-                      </div>
-                    </div>
-                  )}
-
-                  <UPIPanel />
                 </div>
 
-                <div className="space-y-3 rounded-2xl border border-slate-200 bg-white/80 p-4 shadow-sm">
-                  <div className="flex items-center justify-between gap-2">
-                    <label
-                      htmlFor="bank_enabled"
-                      className="flex items-center gap-2"
-                    >
+                {upiEnabled && (
+                  <div className="rounded-[22px] border border-indigo-100 bg-indigo-50/70 p-4">
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="min-w-0">
+                        <div className="text-sm font-semibold text-slate-900">
+                          Payment screenshot proof
+                        </div>
+                        <p className="mt-1 text-xs leading-5 text-slate-600">
+                          Enable this if you want customers to upload payment
+                          screenshot on the thank-you page before you verify the
+                          UPI payment.
+                        </p>
+                      </div>
+
+                      <Toggle
+                        checked={!!requireScreenshot}
+                        onChange={() =>
+                          methods.setValue(
+                            "upi.require_screenshot",
+                            !requireScreenshot,
+                            { shouldDirty: true }
+                          )
+                        }
+                      />
+                    </div>
+
+                    <input
+                      type="hidden"
+                      {...register("upi.require_screenshot")}
+                    />
+
+                    <div className="mt-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-xs text-slate-600">
+                      {requireScreenshot
+                        ? "Screenshot upload is ON. Customers will see a payment proof upload block."
+                        : "Screenshot upload is OFF. You will verify using transaction number only."}
+                    </div>
+                  </div>
+                )}
+
+                <UPIPanel />
+              </SectionCard>
+
+              <SectionCard
+                icon={<Landmark className="h-5 w-5" />}
+                title="Bank transfer"
+                description="Show bank account details so customers can transfer directly and you confirm manually."
+              >
+                <div className="rounded-[20px] border border-slate-200 bg-slate-50/70 p-4">
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <div className="text-sm font-semibold text-slate-900">
+                        Enable bank transfer
+                      </div>
+                      <p className="mt-1 text-xs text-slate-500">
+                        Useful for large orders or customers who prefer direct
+                        account transfer.
+                      </p>
+                    </div>
+
+                    <label className="mt-0.5 inline-flex items-center">
                       <input
                         id="bank_enabled"
                         type="checkbox"
-                        className="h-3.5 w-3.5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                        className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
                         {...register("bank.enabled")}
                       />
-                      <div className="space-y-0.5">
-                        <div className="text-sm font-semibold text-slate-900">
-                          Bank transfer
-                        </div>
-                        <p className="text-[11px] text-slate-500">
-                          Show account details for direct bank transfer. You
-                          confirm payments manually in your bank app.
-                        </p>
-                      </div>
                     </label>
                   </div>
-                  <BankTransferPanel />
                 </div>
 
-                <div className="space-y-3 rounded-2xl border border-slate-200 bg-white/80 p-4 shadow-sm">
-                  <div className="flex items-center justify-between gap-2">
-                    <label
-                      htmlFor="cod_enabled"
-                      className="flex items-center gap-2"
-                    >
+                <BankTransferPanel />
+              </SectionCard>
+
+              <SectionCard
+                icon={<Banknote className="h-5 w-5" />}
+                title="Cash on Delivery"
+                description="Allow customers to place an order and pay the courier at delivery."
+              >
+                <div className="rounded-[20px] border border-slate-200 bg-slate-50/70 p-4">
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <div className="text-sm font-semibold text-slate-900">
+                        Enable COD
+                      </div>
+                      <p className="mt-1 text-xs text-slate-500">
+                        Good for trust-building, but use only if your shipping
+                        flow supports cash collection.
+                      </p>
+                    </div>
+
+                    <label className="mt-0.5 inline-flex items-center">
                       <input
                         id="cod_enabled"
                         type="checkbox"
-                        className="h-3.5 w-3.5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                        className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
                         {...register("cod.enabled")}
                       />
-                      <div className="space-y-0.5">
-                        <div className="text-sm font-semibold text-slate-900">
-                          Cash on Delivery (COD)
-                        </div>
-                        <p className="text-[11px] text-slate-500">
-                          Allow customers to pay cash to courier on delivery.
-                          Configure any extra instructions below.
-                        </p>
-                      </div>
                     </label>
                   </div>
-                  <CODPanel />
                 </div>
-              </section>
 
-              <div className="flex justify-end pt-2">
-                <button
-                  type="submit"
-                  className="inline-flex items-center rounded-lg bg-indigo-600 px-4 py-2 text-xs font-medium text-white shadow-sm hover:bg-indigo-700 disabled:opacity-60"
-                  disabled={saving || loading}
-                >
-                  {saving ? "Saving…" : "Save changes"}
-                </button>
+                <CODPanel />
+              </SectionCard>
+
+              <div className="sticky bottom-3 z-10 md:bottom-4">
+                <div className="rounded-[24px] border border-slate-200 bg-white/95 p-3 shadow-lg backdrop-blur">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="min-w-0">
+                      <div className="text-sm font-semibold text-slate-900">
+                        Save payment configuration
+                      </div>
+                      <div className="mt-1 text-xs text-slate-500">
+                        Review the enabled methods and save to apply them to
+                        checkout.
+                      </div>
+                    </div>
+
+                    <button
+                      type="submit"
+                      className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-indigo-600 px-5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700 disabled:opacity-60"
+                      disabled={saving || loading}
+                    >
+                      <Save className="h-4 w-4" />
+                      {saving ? "Saving..." : "Save changes"}
+                    </button>
+                  </div>
+                </div>
               </div>
             </>
           )}
