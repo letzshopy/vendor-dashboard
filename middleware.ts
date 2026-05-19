@@ -7,10 +7,15 @@ const TENANT_COOKIE = process.env.TENANT_COOKIE_NAME || "ls_tenant";
 function isPublic(pathname: string) {
   return (
     pathname.startsWith("/api/") ||
-    pathname.startsWith("/_next") ||
+    pathname.startsWith("/_next/") ||
+    pathname.startsWith("/icons/") ||
     pathname === "/favicon.ico" ||
     pathname === "/robots.txt" ||
     pathname === "/sitemap.xml" ||
+    pathname === "/manifest.webmanifest" ||
+    pathname === "/sw.js" ||
+    pathname === "/apple-touch-icon.png" ||
+    pathname === "/apple-touch-icon-precomposed.png" ||
     pathname.startsWith("/signin")
   );
 }
@@ -127,7 +132,6 @@ export async function middleware(req: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  // Protect master routes strictly
   if (isMasterPath(pathname)) {
     if (role === "master_admin") {
       return NextResponse.next();
@@ -139,16 +143,10 @@ export async function middleware(req: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  // Always-allowed vendor routes
   if (isAlwaysAllowedAfterLogin(pathname)) {
     return NextResponse.next();
   }
 
-  // IMPORTANT:
-  // Do NOT auto-redirect non-master routes to /master just because ls_role says master_admin.
-  // That cookie can leak across windows/subdomains and wrongly hijack vendor dashboard navigation.
-
-  // 1) Manual master lock
   const locked = await getLockedFromMaster(req);
 
   if (locked) {
@@ -158,9 +156,6 @@ export async function middleware(req: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  // 2) Automatic subscription gate
-  // Allow dashboard for trial / inactive / pending_payment / payment_submitted / active / suspended.
-  // Block only when subscription is EXPIRED.
   const status = await getOnboardingStatus(req);
 
   if (status?.subscription_status === "expired") {
@@ -175,6 +170,6 @@ export async function middleware(req: NextRequest) {
 
 export const config = {
   matcher: [
-    "/((?!api|_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml).*)",
+    "/((?!api|_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml|manifest.webmanifest|sw.js|apple-touch-icon.png|apple-touch-icon-precomposed.png|icons/).*)",
   ],
 };
