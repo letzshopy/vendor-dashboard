@@ -336,18 +336,20 @@ export default function DashboardPage() {
 
 function WelcomePanel({ greeting }: { greeting: string }) {
   return (
-    <section className="overflow-hidden rounded-[30px] border border-white/70 bg-gradient-to-br from-white via-[#f8fbff] to-[#eef7ff] p-5 shadow-sm shadow-slate-200/70 md:p-6">
-      <div className="flex flex-col gap-3">
-        
+    <section className="px-1 pt-1">
+      <div className="flex flex-col gap-1">
+        <div className="inline-flex w-fit items-center gap-2 rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700">
+          <Sparkles className="h-3.5 w-3.5" />
+          Seller command center
+        </div>
 
-        <h1 className="text-2xl font-bold tracking-tight text-slate-950 md:text-3xl">
+        <h1 className="text-xl font-bold tracking-tight text-slate-950 md:text-2xl">
           {greeting}, welcome back to your store dashboard.
         </h1>
       </div>
     </section>
   );
 }
-
 function QuickActionsCard(props: {
   actions: {
     title: string;
