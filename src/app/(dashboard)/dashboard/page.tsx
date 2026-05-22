@@ -1,17 +1,28 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ComponentType } from "react";
 import RenewalNotice from "@/components/subscription/RenewalNotice";
 import { useDashboardSubscription } from "@/components/subscription/SubscriptionContext";
 import InstallAppCard from "@/components/pwa/InstallAppCard";
 import {
+  AlertTriangle,
   ArrowRight,
+  BarChart3,
   Boxes,
+  CheckCircle2,
   CircleCheckBig,
+  ClipboardList,
   Clock3,
+  Headphones,
   IndianRupee,
+  LifeBuoy,
   PackageCheck,
+  PackagePlus,
+  ReceiptText,
   ShoppingBag,
+  Sparkles,
+  Store,
+  Truck,
   Wallet,
 } from "lucide-react";
 
@@ -72,6 +83,13 @@ function formatDateShort(dateString: string): string {
     day: "2-digit",
     month: "short",
   });
+}
+
+function getGreeting() {
+  const hour = new Date().getHours();
+  if (hour < 12) return "Good morning";
+  if (hour < 17) return "Good afternoon";
+  return "Good evening";
 }
 
 export default function DashboardPage() {
@@ -141,6 +159,12 @@ export default function DashboardPage() {
     };
   }, []);
 
+  const totalProducts = productMetrics?.total ?? 0;
+  const inStock = productMetrics?.inStock ?? 0;
+  const outOfStock = productMetrics?.outOfStock ?? 0;
+  const pendingUpi = orderStats?.pendingOnHold ?? 0;
+  const processingOrders = orderStats?.statusLast30?.processing ?? 0;
+
   const quickHighlights = useMemo(
     () => [
       {
@@ -148,14 +172,18 @@ export default function DashboardPage() {
         value: formatMoney(orderStats?.todaySales ?? 0),
         note: "Created today",
         icon: Wallet,
-        gradient: "from-[#ff8fa2] via-[#ff7fae] to-[#ff6fb1]",
+        gradient: "from-[#ff7fae] via-[#ff6fb1] to-[#fb7185]",
+        actionLabel: "View orders",
+        href: "/orders",
       },
       {
         title: "This month's sales",
         value: formatMoney(orderStats?.monthSales ?? 0),
         note: "This month",
         icon: IndianRupee,
-        gradient: "from-[#5b8cff] via-[#5a74ff] to-[#6a5cff]",
+        gradient: "from-[#5b8cff] via-[#5a74ff] to-[#7c3aed]",
+        actionLabel: "Reports",
+        href: "/reports",
       },
       {
         title: "Orders",
@@ -163,17 +191,56 @@ export default function DashboardPage() {
         note: "Last 30 days",
         icon: ShoppingBag,
         gradient: "from-[#19c6b4] via-[#13b5cf] to-[#1aa4ff]",
+        actionLabel: "Manage",
+        href: "/orders",
       },
       {
         title: "Pending UPI",
         value: String(orderStats?.pendingOnHold ?? 0),
         note: "Needs review",
         icon: Clock3,
-        gradient: "from-[#ffb27a] via-[#ff9c78] to-[#ff7e8c]",
+        gradient: "from-[#ffb27a] via-[#ff9c78] to-[#ff6f91]",
+        actionLabel: "Review",
+        href: "/orders?payment=pending-upi",
       },
     ],
     [orderStats]
   );
+
+  const quickActions = [
+    {
+      title: "Add product",
+      text: "Create a new product listing",
+      href: "/products/add",
+      icon: PackagePlus,
+      color: "text-[#2563eb]",
+      bg: "bg-blue-50",
+    },
+    {
+      title: "Create order",
+      text: "Add a manual customer order",
+      href: "/orders/create",
+      icon: ClipboardList,
+      color: "text-[#0f766e]",
+      bg: "bg-teal-50",
+    },
+    {
+      title: "Print slips",
+      text: "Generate pack slips quickly",
+      href: "/orders",
+      icon: ReceiptText,
+      color: "text-[#9333ea]",
+      bg: "bg-purple-50",
+    },
+    {
+      title: "Shipments",
+      text: "Update courier and AWB",
+      href: "/orders",
+      icon: Truck,
+      color: "text-[#ea580c]",
+      bg: "bg-orange-50",
+    },
+  ];
 
   return (
     <div className="space-y-4 md:space-y-6">
@@ -185,6 +252,11 @@ export default function DashboardPage() {
           />
         </section>
       )}
+
+      <WelcomePanel
+        greeting={getGreeting()}
+        subscriptionStatus={subscription?.status}
+      />
 
       <section>
         <InstallAppCard />
@@ -201,8 +273,22 @@ export default function DashboardPage() {
             icon={item.icon}
             loading={orderLoading}
             error={orderErr}
+            actionLabel={item.actionLabel}
+            href={item.href}
           />
         ))}
+      </section>
+
+      <section className="grid gap-4 xl:grid-cols-[1.35fr_0.9fr]">
+        <QuickActionsCard actions={quickActions} />
+        <TodaysWorkCard
+          processingOrders={processingOrders}
+          pendingUpi={pendingUpi}
+          outOfStock={outOfStock}
+          setupPending={3}
+          orderLoading={orderLoading}
+          productLoading={productLoading}
+        />
       </section>
 
       <section className="grid gap-4 xl:grid-cols-[1.15fr_1fr]">
@@ -232,20 +318,277 @@ export default function DashboardPage() {
           revenue={orderStats?.revenueByWeek || []}
         />
 
-        <ChecklistCard />
-      </section>
-
-      <section className="grid gap-4 xl:grid-cols-[1.15fr_1fr]">
         <RecentOrdersCard
           loading={orderLoading}
           error={orderErr}
           orders={orderStats?.recentOrders || []}
         />
+      </section>
 
+      <section className="grid gap-4 xl:grid-cols-[1.15fr_1fr]">
+        <ChecklistCard />
         <SupportCard />
       </section>
+
+      <StoreHealthStrip
+        totalProducts={totalProducts}
+        inStock={inStock}
+        outOfStock={outOfStock}
+        pendingUpi={pendingUpi}
+      />
     </div>
   );
+}
+
+function WelcomePanel(props: {
+  greeting: string;
+  subscriptionStatus?: string | null;
+}) {
+  const { greeting, subscriptionStatus } = props;
+
+  return (
+    <section className="overflow-hidden rounded-[32px] border border-white/70 bg-gradient-to-br from-white via-[#f8fbff] to-[#eef7ff] p-4 shadow-sm shadow-slate-200/70 md:p-6">
+      <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+        <div className="max-w-2xl">
+          <div className="inline-flex items-center gap-2 rounded-full border border-blue-100 bg-white/80 px-3 py-1 text-xs font-semibold text-blue-700 shadow-sm">
+            <Sparkles className="h-3.5 w-3.5" />
+            Seller command center
+          </div>
+
+          <h1 className="mt-4 text-2xl font-bold tracking-tight text-slate-950 md:text-3xl">
+            {greeting}, manage your store with clarity.
+          </h1>
+
+          <p className="mt-2 text-sm leading-6 text-slate-600 md:text-base">
+            Track sales, process orders, review payments, update products and
+            manage daily store work from one clean LetzShopy dashboard.
+          </p>
+
+          <div className="mt-4 flex flex-wrap gap-2">
+            <StatusPill
+              label={
+                subscriptionStatus
+                  ? `Subscription: ${subscriptionStatus}`
+                  : "Subscription ready"
+              }
+              tone="green"
+            />
+            <StatusPill label="Store tools active" tone="blue" />
+            <StatusPill label="WhatsApp support enabled" tone="purple" />
+          </div>
+        </div>
+
+        <div className="flex flex-wrap gap-2 lg:justify-end">
+          <HeaderAction href="/products/add" icon={PackagePlus} label="Add Product" />
+          <HeaderAction href="/orders/create" icon={ClipboardList} label="Create Order" />
+          <HeaderAction href="/orders" icon={ReceiptText} label="Pack Slips" />
+          <HeaderAction href="/select-store" icon={Store} label="View Store" />
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function HeaderAction(props: {
+  href: string;
+  icon: ComponentType<{ className?: string }>;
+  label: string;
+}) {
+  const { href, icon: Icon, label } = props;
+
+  return (
+    <a
+      href={href}
+      className="inline-flex items-center gap-2 rounded-2xl border border-slate-200/80 bg-white px-3.5 py-2.5 text-sm font-semibold text-slate-700 shadow-sm shadow-slate-200/50 transition hover:-translate-y-0.5 hover:border-blue-200 hover:text-blue-700"
+    >
+      <Icon className="h-4 w-4" />
+      {label}
+    </a>
+  );
+}
+
+function StatusPill(props: {
+  label: string;
+  tone: "green" | "blue" | "purple";
+}) {
+  const toneClass =
+    props.tone === "green"
+      ? "border-emerald-100 bg-emerald-50 text-emerald-700"
+      : props.tone === "blue"
+        ? "border-blue-100 bg-blue-50 text-blue-700"
+        : "border-purple-100 bg-purple-50 text-purple-700";
+
+  return (
+    <span
+      className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold ${toneClass}`}
+    >
+      <span className="h-1.5 w-1.5 rounded-full bg-current" />
+      {props.label}
+    </span>
+  );
+}
+
+function QuickActionsCard(props: {
+  actions: {
+    title: string;
+    text: string;
+    href: string;
+    icon: ComponentType<{ className?: string }>;
+    color: string;
+    bg: string;
+  }[];
+}) {
+  return (
+    <div className="rounded-[30px] border border-slate-200/70 bg-white p-4 shadow-sm shadow-slate-200/60 md:p-5">
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <div>
+          <h2 className="text-base font-semibold text-slate-950">
+            Quick actions
+          </h2>
+          <p className="mt-1 text-xs text-slate-500">
+            Common tasks you can complete faster
+          </p>
+        </div>
+
+        <span className="rounded-full bg-blue-50 px-3 py-1 text-[11px] font-semibold text-blue-700">
+          Store tools
+        </span>
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        {props.actions.map((action) => {
+          const Icon = action.icon;
+
+          return (
+            <a
+              key={action.title}
+              href={action.href}
+              className="group rounded-3xl border border-slate-200/70 bg-slate-50/70 p-4 transition hover:-translate-y-0.5 hover:bg-white hover:shadow-lg hover:shadow-slate-200/70"
+            >
+              <div
+                className={`mb-4 flex h-11 w-11 items-center justify-center rounded-2xl ${action.bg} ${action.color}`}
+              >
+                <Icon className="h-5 w-5" />
+              </div>
+              <div className="flex items-center justify-between gap-2">
+                <h3 className="text-sm font-semibold text-slate-900">
+                  {action.title}
+                </h3>
+                <ArrowRight className="h-4 w-4 text-slate-300 transition group-hover:translate-x-0.5 group-hover:text-blue-600" />
+              </div>
+              <p className="mt-1.5 text-xs leading-5 text-slate-500">
+                {action.text}
+              </p>
+            </a>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function TodaysWorkCard(props: {
+  processingOrders: number;
+  pendingUpi: number;
+  outOfStock: number;
+  setupPending: number;
+  orderLoading: boolean;
+  productLoading: boolean;
+}) {
+  const items = [
+    {
+      label: "Orders to process",
+      value: props.processingOrders,
+      href: "/orders",
+      icon: PackageCheck,
+      tone: "blue",
+      loading: props.orderLoading,
+    },
+    {
+      label: "UPI reviews pending",
+      value: props.pendingUpi,
+      href: "/orders?payment=pending-upi",
+      icon: Wallet,
+      tone: "orange",
+      loading: props.orderLoading,
+    },
+    {
+      label: "Out of stock items",
+      value: props.outOfStock,
+      href: "/products",
+      icon: AlertTriangle,
+      tone: "rose",
+      loading: props.productLoading,
+    },
+    {
+      label: "Setup tasks left",
+      value: props.setupPending,
+      href: "/settings?tab=profile",
+      icon: CheckCircle2,
+      tone: "purple",
+      loading: false,
+    },
+  ];
+
+  return (
+    <div className="rounded-[30px] border border-slate-200/70 bg-gradient-to-br from-[#f7fbff] via-white to-[#f5f1ff] p-4 shadow-sm shadow-slate-200/60 md:p-5">
+      <div className="mb-4">
+        <h2 className="text-base font-semibold text-slate-950">
+          Today&apos;s work
+        </h2>
+        <p className="mt-1 text-xs text-slate-500">
+          A quick view of things needing attention
+        </p>
+      </div>
+
+      <div className="space-y-2.5">
+        {items.map((item) => {
+          const Icon = item.icon;
+
+          return (
+            <a
+              key={item.label}
+              href={item.href}
+              className="flex items-center justify-between gap-3 rounded-2xl border border-white/80 bg-white/80 px-3 py-3 shadow-sm shadow-slate-200/40 transition hover:bg-white"
+            >
+              <div className="flex min-w-0 items-center gap-3">
+                <span
+                  className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl ${getToneBg(
+                    item.tone
+                  )}`}
+                >
+                  <Icon className={`h-4.5 w-4.5 ${getToneText(item.tone)}`} />
+                </span>
+                <span className="truncate text-sm font-medium text-slate-700">
+                  {item.label}
+                </span>
+              </div>
+
+              <span className="rounded-full bg-slate-100 px-2.5 py-1 text-sm font-bold text-slate-900">
+                {item.loading ? "…" : item.value}
+              </span>
+            </a>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function getToneBg(tone: string) {
+  if (tone === "blue") return "bg-blue-50";
+  if (tone === "orange") return "bg-orange-50";
+  if (tone === "rose") return "bg-rose-50";
+  if (tone === "purple") return "bg-purple-50";
+  return "bg-slate-50";
+}
+
+function getToneText(tone: string) {
+  if (tone === "blue") return "text-blue-700";
+  if (tone === "orange") return "text-orange-600";
+  if (tone === "rose") return "text-rose-600";
+  if (tone === "purple") return "text-purple-700";
+  return "text-slate-600";
 }
 
 function SummaryCard(props: {
@@ -255,32 +598,54 @@ function SummaryCard(props: {
   gradient: string;
   loading?: boolean;
   error?: string | null;
-  icon: React.ComponentType<{ className?: string }>;
+  icon: ComponentType<{ className?: string }>;
+  actionLabel: string;
+  href: string;
 }) {
-  const { title, value, note, gradient, loading, error, icon: Icon } = props;
+  const {
+    title,
+    value,
+    note,
+    gradient,
+    loading,
+    error,
+    icon: Icon,
+    actionLabel,
+    href,
+  } = props;
 
   return (
-    <div className="group overflow-hidden rounded-[24px] border border-white/40 bg-white shadow-sm shadow-slate-200/70 transition hover:-translate-y-0.5">
-      <div className={`relative min-h-[138px] bg-gradient-to-br ${gradient}`}>
-        <div className="pointer-events-none absolute -right-8 -top-8 h-24 w-24 rounded-full bg-white/10" />
-        <div className="pointer-events-none absolute -bottom-10 -right-10 h-28 w-28 rounded-full bg-white/10" />
+    <div className="group overflow-hidden rounded-[28px] border border-white/50 bg-white shadow-sm shadow-slate-200/70 transition hover:-translate-y-0.5 hover:shadow-lg hover:shadow-slate-200/70">
+      <div className={`relative min-h-[150px] bg-gradient-to-br ${gradient}`}>
+        <div className="pointer-events-none absolute -right-8 -top-8 h-24 w-24 rounded-full bg-white/12" />
+        <div className="pointer-events-none absolute -bottom-10 -right-10 h-32 w-32 rounded-full bg-white/12" />
+        <div className="pointer-events-none absolute left-4 top-4 h-16 w-16 rounded-full bg-white/5 blur-xl" />
 
         <div className="relative flex h-full flex-col justify-between p-4">
           <div className="flex items-start justify-between gap-3">
-            <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-white/85 md:text-xs">
+            <div className="text-[11px] font-bold uppercase tracking-[0.15em] text-white/85 md:text-xs">
               {title}
             </div>
-            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white/16 text-white backdrop-blur">
+            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white/18 text-white backdrop-blur">
               <Icon className="h-4 w-4" />
             </div>
           </div>
 
           <div>
-            <div className="text-2xl font-semibold tracking-tight text-white md:text-3xl">
+            <div className="text-2xl font-bold tracking-tight text-white md:text-3xl">
               {loading ? "…" : error ? "--" : value}
             </div>
-            <div className="mt-1 text-[11px] text-white/85 md:text-xs">
-              {note}
+
+            <div className="mt-1 flex items-center justify-between gap-3">
+              <div className="text-[11px] text-white/85 md:text-xs">{note}</div>
+
+              <a
+                href={href}
+                className="inline-flex items-center gap-1 rounded-full bg-white/18 px-2.5 py-1 text-[11px] font-semibold text-white backdrop-blur transition hover:bg-white/25"
+              >
+                {actionLabel}
+                <ArrowRight className="h-3 w-3" />
+              </a>
             </div>
           </div>
         </div>
@@ -304,10 +669,10 @@ function ProductsOverviewCard(props: {
   const inStockPct = (inStock / chartTotal) * 100;
 
   return (
-    <div className="rounded-[28px] border border-slate-200/70 bg-white p-4 shadow-sm shadow-slate-200/60 md:p-5">
+    <div className="rounded-[30px] border border-slate-200/70 bg-white p-4 shadow-sm shadow-slate-200/60 md:p-5">
       <div className="mb-4 flex items-center justify-between gap-3">
         <div>
-          <h2 className="text-base font-semibold text-slate-900">
+          <h2 className="text-base font-semibold text-slate-950">
             Products overview
           </h2>
           <p className="mt-1 text-xs text-slate-500">
@@ -317,7 +682,7 @@ function ProductsOverviewCard(props: {
 
         <a
           href="/products"
-          className="inline-flex items-center gap-1 rounded-full bg-[#f3eeff] px-3 py-1.5 text-xs font-medium text-[#7a4cf0] hover:bg-[#ece4ff]"
+          className="inline-flex items-center gap-1 rounded-full bg-[#f3eeff] px-3 py-1.5 text-xs font-semibold text-[#7a4cf0] hover:bg-[#ece4ff]"
         >
           Manage
           <ArrowRight className="h-3.5 w-3.5" />
@@ -328,7 +693,7 @@ function ProductsOverviewCard(props: {
       {!loading && error && <ErrorBlock text={error} />}
 
       {!loading && !error && (
-        <div className="flex flex-col gap-4 md:flex-row md:items-center">
+        <div className="flex flex-col gap-5 md:flex-row md:items-center">
           <div className="flex justify-center md:w-[220px]">
             <DonutChart
               inStockPct={inStockPct}
@@ -369,9 +734,11 @@ function StatTile(props: {
 
   return (
     <div className="rounded-2xl border border-slate-200/70 bg-slate-50/70 p-3">
-      <div className="text-[11px] font-medium text-slate-500">{label}</div>
+      <div className="text-[11px] font-semibold text-slate-500">
+        {label}
+      </div>
       <div
-        className={`mt-2 inline-flex rounded-full px-2.5 py-1 text-sm font-semibold ${color}`}
+        className={`mt-2 inline-flex rounded-full px-2.5 py-1 text-sm font-bold ${color}`}
       >
         {value}
       </div>
@@ -416,8 +783,10 @@ function DonutChart(props: {
       </svg>
 
       <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-        <div className="text-[11px] font-medium text-slate-500">In stock</div>
-        <div className="text-xl font-semibold text-slate-900">
+        <div className="text-[11px] font-semibold text-slate-500">
+          In stock
+        </div>
+        <div className="text-xl font-bold text-slate-950">
           {inStock} / {inStock + outOfStock}
         </div>
       </div>
@@ -459,10 +828,10 @@ function OrdersStatusCard(props: {
   const total = rows.reduce((sum, s) => sum + s.value, 0) || 1;
 
   return (
-    <div className="rounded-[28px] border border-slate-200/70 bg-white p-4 shadow-sm shadow-slate-200/60 md:p-5">
+    <div className="rounded-[30px] border border-slate-200/70 bg-white p-4 shadow-sm shadow-slate-200/60 md:p-5">
       <div className="mb-4 flex items-center justify-between gap-3">
         <div>
-          <h2 className="text-base font-semibold text-slate-900">
+          <h2 className="text-base font-semibold text-slate-950">
             Orders by status
           </h2>
           <p className="mt-1 text-xs text-slate-500">Last 30 days overview</p>
@@ -470,7 +839,7 @@ function OrdersStatusCard(props: {
 
         <a
           href="/orders"
-          className="inline-flex items-center gap-1 rounded-full bg-[#f3eeff] px-3 py-1.5 text-xs font-medium text-[#7a4cf0] hover:bg-[#ece4ff]"
+          className="inline-flex items-center gap-1 rounded-full bg-[#f3eeff] px-3 py-1.5 text-xs font-semibold text-[#7a4cf0] hover:bg-[#ece4ff]"
         >
           View all
           <ArrowRight className="h-3.5 w-3.5" />
@@ -502,7 +871,7 @@ function OrdersStatusCard(props: {
                       {row.label}
                     </span>
                   </div>
-                  <span className="text-sm font-semibold text-slate-900">
+                  <span className="text-sm font-bold text-slate-950">
                     {row.value}
                   </span>
                 </div>
@@ -554,10 +923,10 @@ function ChecklistCard() {
   const doneCount = checklistItems.filter((i) => i.done).length;
 
   return (
-    <div className="rounded-[28px] border border-slate-200/70 bg-white p-4 shadow-sm shadow-slate-200/60 md:p-5">
+    <div className="rounded-[30px] border border-slate-200/70 bg-white p-4 shadow-sm shadow-slate-200/60 md:p-5">
       <div className="mb-4 flex items-center justify-between gap-3">
         <div>
-          <h2 className="text-base font-semibold text-slate-900">
+          <h2 className="text-base font-semibold text-slate-950">
             Getting started
           </h2>
           <p className="mt-1 text-xs text-slate-500">
@@ -565,7 +934,7 @@ function ChecklistCard() {
           </p>
         </div>
 
-        <span className="rounded-full bg-[#f3e9ff] px-2.5 py-1 text-[11px] font-medium text-[#8b5cff]">
+        <span className="rounded-full bg-[#f3e9ff] px-2.5 py-1 text-[11px] font-semibold text-[#8b5cff]">
           {doneCount}/{checklistItems.length} done
         </span>
       </div>
@@ -594,7 +963,7 @@ function ChecklistCard() {
 
       <a
         href="/settings?tab=profile"
-        className="mt-4 inline-flex items-center gap-1 text-sm font-medium text-[#8b5cff] hover:underline"
+        className="mt-4 inline-flex items-center gap-1 text-sm font-semibold text-[#8b5cff] hover:underline"
       >
         Go to setup guide
         <ArrowRight className="h-4 w-4" />
@@ -610,15 +979,32 @@ function RevenueCard(props: {
 }) {
   const { loading, error, revenue } = props;
 
+  const totalRevenue = revenue.reduce((sum, w) => sum + (w.total || 0), 0);
+  const bestWeek =
+    revenue.length > 0
+      ? revenue.reduce((best, w) => (w.total > best.total ? w : best), revenue[0])
+      : null;
+
   return (
-    <div className="rounded-[28px] border border-slate-200/70 bg-white p-4 shadow-sm shadow-slate-200/60 md:p-5">
-      <div className="mb-4">
-        <h2 className="text-base font-semibold text-slate-900">
-          Revenue trend
-        </h2>
-        <p className="mt-1 text-xs text-slate-500">
-          Completed and processing orders from the last 30 days
-        </p>
+    <div className="rounded-[30px] border border-slate-200/70 bg-white p-4 shadow-sm shadow-slate-200/60 md:p-5">
+      <div className="mb-4 flex items-start justify-between gap-3">
+        <div>
+          <h2 className="text-base font-semibold text-slate-950">
+            Revenue trend
+          </h2>
+          <p className="mt-1 text-xs text-slate-500">
+            Completed and processing orders from the last 30 days
+          </p>
+        </div>
+
+        <div className="hidden rounded-2xl bg-blue-50 px-3 py-2 text-right sm:block">
+          <div className="text-[10px] font-semibold uppercase tracking-wide text-blue-600">
+            Total
+          </div>
+          <div className="text-sm font-bold text-blue-900">
+            {formatShortMoney(totalRevenue)}
+          </div>
+        </div>
       </div>
 
       {loading && <LoadingBlock />}
@@ -629,38 +1015,50 @@ function RevenueCard(props: {
           {revenue.length === 0 || revenue.every((w) => w.total === 0) ? (
             <EmptyBlock text="No paid orders in the last 30 days." />
           ) : (
-            <div className="grid grid-cols-4 gap-3">
-              {(() => {
-                const max =
-                  revenue.reduce((m, w) => (w.total > m ? w.total : m), 0) || 1;
+            <div>
+              <div className="grid grid-cols-4 gap-3">
+                {(() => {
+                  const max =
+                    revenue.reduce((m, w) => (w.total > m ? w.total : m), 0) ||
+                    1;
 
-                return revenue.map((w) => {
-                  const height = (w.total / max) * 100;
+                  return revenue.map((w) => {
+                    const height = Math.max(12, (w.total / max) * 100);
 
-                  return (
-                    <div
-                      key={w.label}
-                      className="flex flex-col items-center justify-end gap-2"
-                    >
-                      <div className="flex h-32 w-full items-end justify-center">
-                        <div className="relative flex h-full w-12 items-end overflow-hidden rounded-full bg-slate-100">
-                          <div
-                            className="absolute bottom-0 w-full rounded-full bg-gradient-to-t from-[#4b5dff] via-[#8b5cff] to-[#ff6fb1]"
-                            style={{ height: `${height}%` }}
-                          />
+                    return (
+                      <div
+                        key={w.label}
+                        className="flex flex-col items-center justify-end gap-2"
+                      >
+                        <div className="flex h-36 w-full items-end justify-center rounded-3xl bg-slate-50 p-3">
+                          <div className="relative flex h-full w-12 items-end overflow-hidden rounded-full bg-slate-100">
+                            <div
+                              className="absolute bottom-0 w-full rounded-full bg-gradient-to-t from-[#4b5dff] via-[#8b5cff] to-[#ff6fb1]"
+                              style={{ height: `${height}%` }}
+                            />
+                          </div>
+                        </div>
+
+                        <div className="text-[11px] font-semibold text-slate-500">
+                          {w.label}
+                        </div>
+                        <div className="text-[11px] font-bold text-slate-900">
+                          {formatShortMoney(w.total)}
                         </div>
                       </div>
+                    );
+                  });
+                })()}
+              </div>
 
-                      <div className="text-[11px] font-medium text-slate-500">
-                        {w.label}
-                      </div>
-                      <div className="text-[11px] font-semibold text-slate-800">
-                        {formatShortMoney(w.total)}
-                      </div>
-                    </div>
-                  );
-                });
-              })()}
+              {bestWeek && (
+                <div className="mt-4 flex items-center justify-between rounded-2xl bg-slate-50 px-3 py-3 text-xs">
+                  <span className="font-medium text-slate-500">Best week</span>
+                  <span className="font-bold text-slate-900">
+                    {bestWeek.label} · {formatShortMoney(bestWeek.total)}
+                  </span>
+                </div>
+              )}
             </div>
           )}
         </>
@@ -677,10 +1075,10 @@ function RecentOrdersCard(props: {
   const { loading, error, orders } = props;
 
   return (
-    <div className="rounded-[28px] border border-slate-200/70 bg-white p-4 shadow-sm shadow-slate-200/60 md:p-5">
+    <div className="rounded-[30px] border border-slate-200/70 bg-white p-4 shadow-sm shadow-slate-200/60 md:p-5">
       <div className="mb-4 flex items-center justify-between gap-3">
         <div>
-          <h2 className="text-base font-semibold text-slate-900">
+          <h2 className="text-base font-semibold text-slate-950">
             Recent orders
           </h2>
           <p className="mt-1 text-xs text-slate-500">
@@ -690,7 +1088,7 @@ function RecentOrdersCard(props: {
 
         <a
           href="/orders"
-          className="inline-flex items-center gap-1 rounded-full bg-[#f3eeff] px-3 py-1.5 text-xs font-medium text-[#7a4cf0] hover:bg-[#ece4ff]"
+          className="inline-flex items-center gap-1 rounded-full bg-[#f3eeff] px-3 py-1.5 text-xs font-semibold text-[#7a4cf0] hover:bg-[#ece4ff]"
         >
           View all
           <ArrowRight className="h-3.5 w-3.5" />
@@ -710,20 +1108,20 @@ function RecentOrdersCard(props: {
             const status = o.status.toLowerCase();
             let statusLabel = o.status || "—";
             let statusClass =
-              "inline-flex items-center rounded-full bg-slate-100 px-2 py-1 text-[10px] text-slate-600";
+              "inline-flex items-center rounded-full bg-slate-100 px-2 py-1 text-[10px] font-semibold text-slate-600";
 
             if (status === "completed") {
               statusLabel = "Completed";
               statusClass =
-                "inline-flex items-center rounded-full bg-emerald-50 px-2 py-1 text-[10px] text-emerald-600";
+                "inline-flex items-center rounded-full bg-emerald-50 px-2 py-1 text-[10px] font-semibold text-emerald-600";
             } else if (status === "processing") {
               statusLabel = "Processing";
               statusClass =
-                "inline-flex items-center rounded-full bg-amber-50 px-2 py-1 text-[10px] text-amber-600";
+                "inline-flex items-center rounded-full bg-amber-50 px-2 py-1 text-[10px] font-semibold text-amber-600";
             } else if (status === "on-hold") {
               statusLabel = "On hold";
               statusClass =
-                "inline-flex items-center rounded-full bg-rose-50 px-2 py-1 text-[10px] text-rose-600";
+                "inline-flex items-center rounded-full bg-rose-50 px-2 py-1 text-[10px] font-semibold text-rose-600";
             }
 
             return (
@@ -734,7 +1132,9 @@ function RecentOrdersCard(props: {
               >
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
-                    <div className="font-medium text-slate-800">{o.number}</div>
+                    <div className="font-semibold text-slate-800">
+                      {o.number}
+                    </div>
                     <span className="text-[10px] text-slate-400">
                       {formatDateShort(o.date_created)}
                     </span>
@@ -745,7 +1145,7 @@ function RecentOrdersCard(props: {
                 </div>
 
                 <div className="shrink-0 text-right">
-                  <div className="text-sm font-semibold text-slate-900">
+                  <div className="text-sm font-bold text-slate-950">
                     {formatMoney(o.total)}
                   </div>
                   <div className="mt-1">
@@ -763,13 +1163,20 @@ function RecentOrdersCard(props: {
 
 function SupportCard() {
   return (
-    <div className="rounded-[28px] border border-slate-200/70 bg-gradient-to-br from-[#f5ecff] via-white to-[#e8f4ff] p-4 shadow-sm shadow-slate-200/60 md:p-5">
-      <div className="mb-4">
-        <h2 className="text-base font-semibold text-slate-900">Need help?</h2>
-        <p className="mt-1 text-sm leading-6 text-slate-600">
-          For billing, settings, shipping or technical issues, use the support
-          options below.
-        </p>
+    <div className="rounded-[30px] border border-slate-200/70 bg-gradient-to-br from-[#f5ecff] via-white to-[#e8f4ff] p-4 shadow-sm shadow-slate-200/60 md:p-5">
+      <div className="mb-4 flex items-start gap-3">
+        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-white text-[#8b5cff] shadow-sm">
+          <LifeBuoy className="h-5 w-5" />
+        </div>
+        <div>
+          <h2 className="text-base font-semibold text-slate-950">
+            Need help?
+          </h2>
+          <p className="mt-1 text-sm leading-6 text-slate-600">
+            For billing, settings, shipping or technical issues, use the support
+            options below.
+          </p>
+        </div>
       </div>
 
       <div className="space-y-2.5">
@@ -786,10 +1193,10 @@ function SupportCard() {
 
         <a
           href="/support/tickets"
-          className="flex items-center justify-between rounded-2xl bg-[#8b5cff] px-3 py-3 text-sm font-medium text-white hover:bg-[#7a4cf0]"
+          className="flex items-center justify-between rounded-2xl bg-[#8b5cff] px-3 py-3 text-sm font-semibold text-white hover:bg-[#7a4cf0]"
         >
           <div className="flex items-center gap-2">
-            <ShoppingBag className="h-4 w-4" />
+            <Headphones className="h-4 w-4" />
             <span>Open support ticket</span>
           </div>
           <span className="text-[11px] text-white/80">&lt; 24h reply</span>
@@ -800,6 +1207,62 @@ function SupportCard() {
         For urgent issues, you can also use the WhatsApp icon in the bottom
         right corner.
       </p>
+    </div>
+  );
+}
+
+function StoreHealthStrip(props: {
+  totalProducts: number;
+  inStock: number;
+  outOfStock: number;
+  pendingUpi: number;
+}) {
+  return (
+    <div className="rounded-[30px] border border-slate-200/70 bg-white p-4 shadow-sm shadow-slate-200/60 md:p-5">
+      <div className="grid gap-3 md:grid-cols-4">
+        <HealthItem
+          icon={Boxes}
+          label="Total products"
+          value={String(props.totalProducts)}
+        />
+        <HealthItem
+          icon={CheckCircle2}
+          label="In stock"
+          value={String(props.inStock)}
+        />
+        <HealthItem
+          icon={AlertTriangle}
+          label="Out of stock"
+          value={String(props.outOfStock)}
+        />
+        <HealthItem
+          icon={Wallet}
+          label="Pending UPI"
+          value={String(props.pendingUpi)}
+        />
+      </div>
+    </div>
+  );
+}
+
+function HealthItem(props: {
+  icon: ComponentType<{ className?: string }>;
+  label: string;
+  value: string;
+}) {
+  const Icon = props.icon;
+
+  return (
+    <div className="flex items-center gap-3 rounded-2xl bg-slate-50 px-3 py-3">
+      <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white text-blue-700 shadow-sm">
+        <Icon className="h-4.5 w-4.5" />
+      </div>
+      <div>
+        <div className="text-[11px] font-semibold text-slate-500">
+          {props.label}
+        </div>
+        <div className="text-lg font-bold text-slate-950">{props.value}</div>
+      </div>
     </div>
   );
 }
