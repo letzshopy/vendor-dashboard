@@ -362,41 +362,37 @@ function QuickActionsCard(props: {
           <h2 className="text-base font-semibold text-slate-950">
             Quick actions
           </h2>
-          
-        </div>
+          </div>
+         </div>
 
-        
-      </div>
-
-      <div className="grid gap-2.5 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3">
         {props.actions.map((action) => {
           const Icon = action.icon;
 
           return (
-  <a
-    key={action.title}
-    href={action.href}
-    className="group flex h-[58px] items-center gap-3 rounded-2xl border border-slate-200/70 bg-slate-50/70 px-4 transition hover:-translate-y-0.5 hover:bg-white hover:shadow-md hover:shadow-slate-200/70"
-  >
-    <div
-      className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${action.bg} ${action.color}`}
-    >
-      <Icon className="h-4.5 w-4.5" />
-    </div>
+            <a
+              key={action.title}
+              href={action.href}
+              className="group flex h-[58px] items-center gap-3 rounded-2xl border border-slate-200/70 bg-slate-50/70 px-4 transition hover:-translate-y-0.5 hover:bg-white hover:shadow-md hover:shadow-slate-200/70"
+            >
+              <div
+                className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${action.bg} ${action.color}`}
+              >
+                <Icon className="h-4 w-4" />
+              </div>
 
-    <h3 className="min-w-0 flex-1 truncate text-sm font-semibold text-slate-900">
-      {action.title}
-    </h3>
+              <h3 className="flex-1 whitespace-nowrap text-sm font-semibold text-slate-900">
+                {action.title}
+              </h3>
 
-    <ArrowRight className="h-4 w-4 shrink-0 text-slate-300 transition group-hover:translate-x-0.5 group-hover:text-blue-600" />
-  </a>
-);
+              <ArrowRight className="h-4 w-4 shrink-0 text-slate-300 transition group-hover:translate-x-0.5 group-hover:text-blue-600" />
+            </a>
+          );
         })}
       </div>
     </div>
   );
 }
-
 function TodaysWorkCard(props: {
   processingOrders: number;
   pendingUpi: number;
