@@ -338,11 +338,7 @@ function WelcomePanel({ greeting }: { greeting: string }) {
   return (
     <section className="px-1 pt-1">
       <div className="flex flex-col gap-1">
-        <div className="inline-flex w-fit items-center gap-2 rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700">
-          <Sparkles className="h-3.5 w-3.5" />
-          Seller command center
-        </div>
-
+        
         <h1 className="text-xl font-bold tracking-tight text-slate-950 md:text-2xl">
           {greeting}, welcome back to your store dashboard.
         </h1>
@@ -360,8 +356,8 @@ function QuickActionsCard(props: {
   }[];
 }) {
   return (
-    <div className="rounded-[30px] border border-slate-200/70 bg-white p-4 shadow-sm shadow-slate-200/60 md:p-5">
-      <div className="mb-4 flex items-center justify-between gap-3">
+    <div className="rounded-[26px] border border-slate-200/70 bg-white p-4 shadow-sm shadow-slate-200/60">
+      <div className="mb-3 flex items-center justify-between gap-3">
         <div>
           <h2 className="text-base font-semibold text-slate-950">
             Quick actions
@@ -372,31 +368,29 @@ function QuickActionsCard(props: {
         
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-2.5 sm:grid-cols-2 xl:grid-cols-4">
         {props.actions.map((action) => {
           const Icon = action.icon;
 
           return (
-            <a
-              key={action.title}
-              href={action.href}
-              className="group flex min-h-[86px] items-center justify-between gap-3 rounded-3xl border border-slate-200/70 bg-slate-50/70 p-4 transition hover:-translate-y-0.5 hover:bg-white hover:shadow-lg hover:shadow-slate-200/70"
-            >
-              <div className="flex items-center gap-3">
-                <div
-                  className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl ${action.bg} ${action.color}`}
-                >
-                  <Icon className="h-5 w-5" />
-                </div>
+  <a
+    key={action.title}
+    href={action.href}
+    className="group flex h-[58px] items-center gap-3 rounded-2xl border border-slate-200/70 bg-slate-50/70 px-4 transition hover:-translate-y-0.5 hover:bg-white hover:shadow-md hover:shadow-slate-200/70"
+  >
+    <div
+      className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${action.bg} ${action.color}`}
+    >
+      <Icon className="h-4.5 w-4.5" />
+    </div>
 
-                <h3 className="text-sm font-semibold leading-5 text-slate-900">
-                  {action.title}
-                </h3>
-              </div>
+    <h3 className="min-w-0 flex-1 truncate text-sm font-semibold text-slate-900">
+      {action.title}
+    </h3>
 
-              <ArrowRight className="h-4 w-4 shrink-0 text-slate-300 transition group-hover:translate-x-0.5 group-hover:text-blue-600" />
-            </a>
-          );
+    <ArrowRight className="h-4 w-4 shrink-0 text-slate-300 transition group-hover:translate-x-0.5 group-hover:text-blue-600" />
+  </a>
+);
         })}
       </div>
     </div>
@@ -452,9 +446,7 @@ function TodaysWorkCard(props: {
         <h2 className="text-base font-semibold text-slate-950">
           Today&apos;s work
         </h2>
-        <p className="mt-1 text-xs text-slate-500">
-          A quick view of things needing attention
-        </p>
+        
       </div>
 
       <div className="space-y-2.5">
@@ -591,9 +583,7 @@ function ProductsOverviewCard(props: {
           <h2 className="text-base font-semibold text-slate-950">
             Products overview
           </h2>
-          <p className="mt-1 text-xs text-slate-500">
-            Stock health and product count
-          </p>
+          
         </div>
 
         <a
