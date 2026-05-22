@@ -338,10 +338,7 @@ function WelcomePanel({ greeting }: { greeting: string }) {
   return (
     <section className="overflow-hidden rounded-[30px] border border-white/70 bg-gradient-to-br from-white via-[#f8fbff] to-[#eef7ff] p-5 shadow-sm shadow-slate-200/70 md:p-6">
       <div className="flex flex-col gap-3">
-        <div className="inline-flex w-fit items-center gap-2 rounded-full border border-blue-100 bg-white/80 px-3 py-1 text-xs font-semibold text-blue-700 shadow-sm">
-          <Sparkles className="h-3.5 w-3.5" />
-          Seller command center
-        </div>
+        
 
         <h1 className="text-2xl font-bold tracking-tight text-slate-950 md:text-3xl">
           {greeting}, welcome back to your store dashboard.
@@ -367,14 +364,10 @@ function QuickActionsCard(props: {
           <h2 className="text-base font-semibold text-slate-950">
             Quick actions
           </h2>
-          <p className="mt-1 text-xs text-slate-500">
-            Common tasks you can complete faster
-          </p>
+          
         </div>
 
-        <span className="rounded-full bg-blue-50 px-3 py-1 text-[11px] font-semibold text-blue-700">
-          Store tools
-        </span>
+        
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -565,7 +558,7 @@ function SummaryCard(props: {
                 className="inline-flex items-center gap-1 rounded-full bg-white/18 px-2.5 py-1 text-[11px] font-semibold text-white backdrop-blur transition hover:bg-white/25"
               >
                 {actionLabel}
-                <ArrowRight className="h-3 w-3" />
+                
               </a>
             </div>
           </div>
