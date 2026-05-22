@@ -7,7 +7,6 @@ import InstallAppCard from "@/components/pwa/InstallAppCard";
 import {
   AlertTriangle,
   ArrowRight,
-  BarChart3,
   Boxes,
   CheckCircle2,
   CircleCheckBig,
@@ -127,6 +126,7 @@ export default function DashboardPage() {
     }
 
     loadProducts();
+
     return () => {
       cancelled = true;
     };
@@ -154,6 +154,7 @@ export default function DashboardPage() {
     }
 
     loadOrders();
+
     return () => {
       cancelled = true;
     };
@@ -210,7 +211,6 @@ export default function DashboardPage() {
   const quickActions = [
     {
       title: "Add product",
-      text: "Create a new product listing",
       href: "/products/add",
       icon: PackagePlus,
       color: "text-[#2563eb]",
@@ -218,7 +218,6 @@ export default function DashboardPage() {
     },
     {
       title: "Create order",
-      text: "Add a manual customer order",
       href: "/orders/create",
       icon: ClipboardList,
       color: "text-[#0f766e]",
@@ -226,7 +225,6 @@ export default function DashboardPage() {
     },
     {
       title: "Print slips",
-      text: "Generate pack slips quickly",
       href: "/orders",
       icon: ReceiptText,
       color: "text-[#9333ea]",
@@ -234,7 +232,6 @@ export default function DashboardPage() {
     },
     {
       title: "Shipments",
-      text: "Update courier and AWB",
       href: "/orders",
       icon: Truck,
       color: "text-[#ea580c]",
@@ -253,10 +250,7 @@ export default function DashboardPage() {
         </section>
       )}
 
-      <WelcomePanel
-        greeting={getGreeting()}
-        subscriptionStatus={subscription?.status}
-      />
+      <WelcomePanel greeting={getGreeting()} />
 
       <section>
         <InstallAppCard />
@@ -279,55 +273,55 @@ export default function DashboardPage() {
         ))}
       </section>
 
-      <section className="grid items-start gap-4 xl:grid-cols-[1.35fr_0.9fr]">
-        <QuickActionsCard actions={quickActions} />
-        <TodaysWorkCard
-          processingOrders={processingOrders}
-          pendingUpi={pendingUpi}
-          outOfStock={outOfStock}
-          setupPending={3}
-          orderLoading={orderLoading}
-          productLoading={productLoading}
-        />
-      </section>
+      <section className="grid items-start gap-4 xl:grid-cols-[1.22fr_0.95fr]">
+        <div className="space-y-4 md:space-y-6">
+          <QuickActionsCard actions={quickActions} />
 
-      <section className="grid items-start gap-4 xl:grid-cols-[1.15fr_1fr]">
-  <ProductsOverviewCard
-          metrics={productMetrics}
-          loading={productLoading}
-          error={productErr}
-        />
+          <ProductsOverviewCard
+            metrics={productMetrics}
+            loading={productLoading}
+            error={productErr}
+          />
 
-        <OrdersStatusCard
-          loading={orderLoading}
-          error={orderErr}
-          statusLast30={
-            orderStats?.statusLast30 || {
-              completed: 0,
-              processing: 0,
-              onHold: 0,
+          <RevenueCard
+            loading={orderLoading}
+            error={orderErr}
+            revenue={orderStats?.revenueByWeek || []}
+          />
+
+          <ChecklistCard />
+        </div>
+
+        <div className="space-y-4 md:space-y-6">
+          <TodaysWorkCard
+            processingOrders={processingOrders}
+            pendingUpi={pendingUpi}
+            outOfStock={outOfStock}
+            setupPending={3}
+            orderLoading={orderLoading}
+            productLoading={productLoading}
+          />
+
+          <OrdersStatusCard
+            loading={orderLoading}
+            error={orderErr}
+            statusLast30={
+              orderStats?.statusLast30 || {
+                completed: 0,
+                processing: 0,
+                onHold: 0,
+              }
             }
-          }
-        />
-      </section>
+          />
 
-      <section className="grid items-start gap-4 xl:grid-cols-[1.15fr_1fr]">
-  <RevenueCard
-          loading={orderLoading}
-          error={orderErr}
-          revenue={orderStats?.revenueByWeek || []}
-        />
+          <RecentOrdersCard
+            loading={orderLoading}
+            error={orderErr}
+            orders={orderStats?.recentOrders || []}
+          />
 
-        <RecentOrdersCard
-          loading={orderLoading}
-          error={orderErr}
-          orders={orderStats?.recentOrders || []}
-        />
-      </section>
-
-      <section className="grid gap-4 xl:grid-cols-[1.15fr_1fr]">
-        <ChecklistCard />
-        <SupportCard />
+          <SupportCard />
+        </div>
       </section>
 
       <StoreHealthStrip
@@ -340,12 +334,7 @@ export default function DashboardPage() {
   );
 }
 
-function WelcomePanel(props: {
-  greeting: string;
-  subscriptionStatus?: string | null;
-}) {
-  const { greeting } = props;
-
+function WelcomePanel({ greeting }: { greeting: string }) {
   return (
     <section className="overflow-hidden rounded-[30px] border border-white/70 bg-gradient-to-br from-white via-[#f8fbff] to-[#eef7ff] p-5 shadow-sm shadow-slate-200/70 md:p-6">
       <div className="flex flex-col gap-3">
@@ -361,49 +350,10 @@ function WelcomePanel(props: {
     </section>
   );
 }
-function HeaderAction(props: {
-  href: string;
-  icon: ComponentType<{ className?: string }>;
-  label: string;
-}) {
-  const { href, icon: Icon, label } = props;
-
-  return (
-    <a
-      href={href}
-      className="inline-flex items-center gap-2 rounded-2xl border border-slate-200/80 bg-white px-3.5 py-2.5 text-sm font-semibold text-slate-700 shadow-sm shadow-slate-200/50 transition hover:-translate-y-0.5 hover:border-blue-200 hover:text-blue-700"
-    >
-      <Icon className="h-4 w-4" />
-      {label}
-    </a>
-  );
-}
-
-function StatusPill(props: {
-  label: string;
-  tone: "green" | "blue" | "purple";
-}) {
-  const toneClass =
-    props.tone === "green"
-      ? "border-emerald-100 bg-emerald-50 text-emerald-700"
-      : props.tone === "blue"
-        ? "border-blue-100 bg-blue-50 text-blue-700"
-        : "border-purple-100 bg-purple-50 text-purple-700";
-
-  return (
-    <span
-      className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold ${toneClass}`}
-    >
-      <span className="h-1.5 w-1.5 rounded-full bg-current" />
-      {props.label}
-    </span>
-  );
-}
 
 function QuickActionsCard(props: {
   actions: {
     title: string;
-    text: string;
     href: string;
     icon: ComponentType<{ className?: string }>;
     color: string;
@@ -457,6 +407,7 @@ function QuickActionsCard(props: {
     </div>
   );
 }
+
 function TodaysWorkCard(props: {
   processingOrders: number;
   pendingUpi: number;
@@ -527,7 +478,7 @@ function TodaysWorkCard(props: {
                     item.tone
                   )}`}
                 >
-                  <Icon className={`h-4.5 w-4.5 ${getToneText(item.tone)}`} />
+                  <Icon className={`h-4 w-4 ${getToneText(item.tone)}`} />
                 </span>
                 <span className="truncate text-sm font-medium text-slate-700">
                   {item.label}
@@ -672,7 +623,7 @@ function ProductsOverviewCard(props: {
             />
           </div>
 
-          <div className="grid flex-1 grid-cols-1 gap-3 sm:grid-cols-3 md:grid-cols-1 xl:grid-cols-3">
+          <div className="grid flex-1 grid-cols-1 gap-3 sm:grid-cols-3">
             <StatTile
               label="Total products"
               value={String(total)}
@@ -866,82 +817,6 @@ function OrdersStatusCard(props: {
   );
 }
 
-const checklistItems = [
-  {
-    label: "Set up your store profile (logo, address, contact details).",
-    done: true,
-  },
-  {
-    label: "Configure shipping zones & rates.",
-    done: false,
-  },
-  {
-    label: "Choose payment methods (Easebuzz, UPI, bank transfer, COD).",
-    done: false,
-  },
-  {
-    label: "Add your first products and organise them into categories.",
-    done: false,
-  },
-  {
-    label: "Use Orders to print pack slips and track fulfilment.",
-    done: true,
-  },
-];
-
-function ChecklistCard() {
-  const doneCount = checklistItems.filter((i) => i.done).length;
-
-  return (
-    <div className="rounded-[30px] border border-slate-200/70 bg-white p-4 shadow-sm shadow-slate-200/60 md:p-5">
-      <div className="mb-4 flex items-center justify-between gap-3">
-        <div>
-          <h2 className="text-base font-semibold text-slate-950">
-            Getting started
-          </h2>
-          <p className="mt-1 text-xs text-slate-500">
-            Setup checklist for your store
-          </p>
-        </div>
-
-        <span className="rounded-full bg-[#f3e9ff] px-2.5 py-1 text-[11px] font-semibold text-[#8b5cff]">
-          {doneCount}/{checklistItems.length} done
-        </span>
-      </div>
-
-      <ul className="space-y-2.5">
-        {checklistItems.map((item) => (
-          <li
-            key={item.label}
-            className="flex items-start gap-3 rounded-2xl border border-slate-200/70 bg-slate-50/70 px-3 py-3"
-          >
-            <span
-              className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[11px] ${
-                item.done
-                  ? "bg-emerald-500 text-white"
-                  : "border border-slate-300 bg-white text-slate-400"
-              }`}
-            >
-              {item.done ? "✓" : ""}
-            </span>
-            <span className="text-sm leading-5 text-slate-600">
-              {item.label}
-            </span>
-          </li>
-        ))}
-      </ul>
-
-      <a
-        href="/settings?tab=profile"
-        className="mt-4 inline-flex items-center gap-1 text-sm font-semibold text-[#8b5cff] hover:underline"
-      >
-        Go to setup guide
-        <ArrowRight className="h-4 w-4" />
-      </a>
-    </div>
-  );
-}
-
 function RevenueCard(props: {
   loading: boolean;
   error: string | null;
@@ -1033,6 +908,82 @@ function RevenueCard(props: {
           )}
         </>
       )}
+    </div>
+  );
+}
+
+const checklistItems = [
+  {
+    label: "Set up your store profile (logo, address, contact details).",
+    done: true,
+  },
+  {
+    label: "Configure shipping zones & rates.",
+    done: false,
+  },
+  {
+    label: "Choose payment methods (Easebuzz, UPI, bank transfer, COD).",
+    done: false,
+  },
+  {
+    label: "Add your first products and organise them into categories.",
+    done: false,
+  },
+  {
+    label: "Use Orders to print pack slips and track fulfilment.",
+    done: true,
+  },
+];
+
+function ChecklistCard() {
+  const doneCount = checklistItems.filter((i) => i.done).length;
+
+  return (
+    <div className="rounded-[30px] border border-slate-200/70 bg-white p-4 shadow-sm shadow-slate-200/60 md:p-5">
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <div>
+          <h2 className="text-base font-semibold text-slate-950">
+            Getting started
+          </h2>
+          <p className="mt-1 text-xs text-slate-500">
+            Setup checklist for your store
+          </p>
+        </div>
+
+        <span className="rounded-full bg-[#f3e9ff] px-2.5 py-1 text-[11px] font-semibold text-[#8b5cff]">
+          {doneCount}/{checklistItems.length} done
+        </span>
+      </div>
+
+      <ul className="space-y-2.5">
+        {checklistItems.map((item) => (
+          <li
+            key={item.label}
+            className="flex items-start gap-3 rounded-2xl border border-slate-200/70 bg-slate-50/70 px-3 py-3"
+          >
+            <span
+              className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[11px] ${
+                item.done
+                  ? "bg-emerald-500 text-white"
+                  : "border border-slate-300 bg-white text-slate-400"
+              }`}
+            >
+              {item.done ? "✓" : ""}
+            </span>
+            <span className="text-sm leading-5 text-slate-600">
+              {item.label}
+            </span>
+          </li>
+        ))}
+      </ul>
+
+      <a
+        href="/settings?tab=profile"
+        className="mt-4 inline-flex items-center gap-1 text-sm font-semibold text-[#8b5cff] hover:underline"
+      >
+        Go to setup guide
+        <ArrowRight className="h-4 w-4" />
+      </a>
     </div>
   );
 }
@@ -1225,7 +1176,7 @@ function HealthItem(props: {
   return (
     <div className="flex items-center gap-3 rounded-2xl bg-slate-50 px-3 py-3">
       <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white text-blue-700 shadow-sm">
-        <Icon className="h-4.5 w-4.5" />
+        <Icon className="h-4 w-4" />
       </div>
       <div>
         <div className="text-[11px] font-semibold text-slate-500">
@@ -1239,7 +1190,7 @@ function HealthItem(props: {
 
 function LoadingBlock() {
   return (
-    <div className="flex min-h-[160px] items-center justify-center rounded-2xl border border-slate-200/70 bg-slate-50/60 text-sm text-slate-400">
+    <div className="flex min-h-[130px] items-center justify-center rounded-2xl border border-slate-200/70 bg-slate-50/60 text-sm text-slate-400">
       Loading…
     </div>
   );
@@ -1247,7 +1198,7 @@ function LoadingBlock() {
 
 function ErrorBlock({ text }: { text: string }) {
   return (
-    <div className="flex min-h-[160px] items-center justify-center rounded-2xl border border-rose-200 bg-rose-50 px-4 text-sm text-rose-600">
+    <div className="flex min-h-[130px] items-center justify-center rounded-2xl border border-rose-200 bg-rose-50 px-4 text-sm text-rose-600">
       {text}
     </div>
   );
@@ -1255,7 +1206,7 @@ function ErrorBlock({ text }: { text: string }) {
 
 function EmptyBlock({ text }: { text: string }) {
   return (
-    <div className="flex min-h-[140px] items-center justify-center rounded-2xl border border-slate-200/70 bg-slate-50/60 px-4 text-sm text-slate-400">
+    <div className="flex min-h-[120px] items-center justify-center rounded-2xl border border-slate-200/70 bg-slate-50/60 px-4 text-sm text-slate-400">
       {text}
     </div>
   );
