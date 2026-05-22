@@ -344,51 +344,23 @@ function WelcomePanel(props: {
   greeting: string;
   subscriptionStatus?: string | null;
 }) {
-  const { greeting, subscriptionStatus } = props;
+  const { greeting } = props;
 
   return (
-    <section className="overflow-hidden rounded-[32px] border border-white/70 bg-gradient-to-br from-white via-[#f8fbff] to-[#eef7ff] p-4 shadow-sm shadow-slate-200/70 md:p-6">
-      <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
-        <div className="max-w-2xl">
-          <div className="inline-flex items-center gap-2 rounded-full border border-blue-100 bg-white/80 px-3 py-1 text-xs font-semibold text-blue-700 shadow-sm">
-            <Sparkles className="h-3.5 w-3.5" />
-            Seller command center
-          </div>
-
-          <h1 className="mt-4 text-2xl font-bold tracking-tight text-slate-950 md:text-3xl">
-            {greeting}, manage your store with clarity.
-          </h1>
-
-          <p className="mt-2 text-sm leading-6 text-slate-600 md:text-base">
-            Track sales, process orders, review payments, update products and
-            manage daily store work from one clean LetzShopy dashboard.
-          </p>
-
-          <div className="mt-4 flex flex-wrap gap-2">
-            <StatusPill
-              label={
-                subscriptionStatus
-                  ? `Subscription: ${subscriptionStatus}`
-                  : "Subscription ready"
-              }
-              tone="green"
-            />
-            <StatusPill label="Store tools active" tone="blue" />
-            <StatusPill label="WhatsApp support enabled" tone="purple" />
-          </div>
+    <section className="overflow-hidden rounded-[30px] border border-white/70 bg-gradient-to-br from-white via-[#f8fbff] to-[#eef7ff] p-5 shadow-sm shadow-slate-200/70 md:p-6">
+      <div className="flex flex-col gap-3">
+        <div className="inline-flex w-fit items-center gap-2 rounded-full border border-blue-100 bg-white/80 px-3 py-1 text-xs font-semibold text-blue-700 shadow-sm">
+          <Sparkles className="h-3.5 w-3.5" />
+          Seller command center
         </div>
 
-        <div className="flex flex-wrap gap-2 lg:justify-end">
-          <HeaderAction href="/products/add" icon={PackagePlus} label="Add Product" />
-          <HeaderAction href="/orders/create" icon={ClipboardList} label="Create Order" />
-          <HeaderAction href="/orders" icon={ReceiptText} label="Pack Slips" />
-          <HeaderAction href="/select-store" icon={Store} label="View Store" />
-        </div>
+        <h1 className="text-2xl font-bold tracking-tight text-slate-950 md:text-3xl">
+          {greeting}, welcome back to your store dashboard.
+        </h1>
       </div>
     </section>
   );
 }
-
 function HeaderAction(props: {
   href: string;
   icon: ComponentType<{ className?: string }>;
@@ -460,27 +432,26 @@ function QuickActionsCard(props: {
           const Icon = action.icon;
 
           return (
-            <a
-              key={action.title}
-              href={action.href}
-              className="group rounded-3xl border border-slate-200/70 bg-slate-50/70 p-4 transition hover:-translate-y-0.5 hover:bg-white hover:shadow-lg hover:shadow-slate-200/70"
-            >
-              <div
-                className={`mb-4 flex h-11 w-11 items-center justify-center rounded-2xl ${action.bg} ${action.color}`}
-              >
-                <Icon className="h-5 w-5" />
-              </div>
-              <div className="flex items-center justify-between gap-2">
-                <h3 className="text-sm font-semibold text-slate-900">
-                  {action.title}
-                </h3>
-                <ArrowRight className="h-4 w-4 text-slate-300 transition group-hover:translate-x-0.5 group-hover:text-blue-600" />
-              </div>
-              <p className="mt-1.5 text-xs leading-5 text-slate-500">
-                {action.text}
-              </p>
-            </a>
-          );
+  <a
+    key={action.title}
+    href={action.href}
+    className="group flex items-center justify-between gap-3 rounded-3xl border border-slate-200/70 bg-slate-50/70 p-4 transition hover:-translate-y-0.5 hover:bg-white hover:shadow-lg hover:shadow-slate-200/70"
+  >
+    <div className="flex items-center gap-3">
+      <div
+        className={`flex h-11 w-11 items-center justify-center rounded-2xl ${action.bg} ${action.color}`}
+      >
+        <Icon className="h-5 w-5" />
+      </div>
+
+      <h3 className="text-sm font-semibold text-slate-900">
+        {action.title}
+      </h3>
+    </div>
+
+    <ArrowRight className="h-4 w-4 text-slate-300 transition group-hover:translate-x-0.5 group-hover:text-blue-600" />
+  </a>
+);
         })}
       </div>
     </div>
