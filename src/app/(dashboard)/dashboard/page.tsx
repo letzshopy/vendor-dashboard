@@ -279,7 +279,7 @@ export default function DashboardPage() {
         ))}
       </section>
 
-      <section className="grid gap-4 xl:grid-cols-[1.35fr_0.9fr]">
+      <section className="grid items-start gap-4 xl:grid-cols-[1.35fr_0.9fr]">
         <QuickActionsCard actions={quickActions} />
         <TodaysWorkCard
           processingOrders={processingOrders}
@@ -291,8 +291,8 @@ export default function DashboardPage() {
         />
       </section>
 
-      <section className="grid gap-4 xl:grid-cols-[1.15fr_1fr]">
-        <ProductsOverviewCard
+      <section className="grid items-start gap-4 xl:grid-cols-[1.15fr_1fr]">
+  <ProductsOverviewCard
           metrics={productMetrics}
           loading={productLoading}
           error={productErr}
@@ -311,8 +311,8 @@ export default function DashboardPage() {
         />
       </section>
 
-      <section className="grid gap-4 xl:grid-cols-[1.15fr_1fr]">
-        <RevenueCard
+      <section className="grid items-start gap-4 xl:grid-cols-[1.15fr_1fr]">
+  <RevenueCard
           loading={orderLoading}
           error={orderErr}
           revenue={orderStats?.revenueByWeek || []}
@@ -432,32 +432,31 @@ function QuickActionsCard(props: {
           const Icon = action.icon;
 
           return (
-  <a
-    key={action.title}
-    href={action.href}
-    className="group flex items-center justify-between gap-3 rounded-3xl border border-slate-200/70 bg-slate-50/70 p-4 transition hover:-translate-y-0.5 hover:bg-white hover:shadow-lg hover:shadow-slate-200/70"
-  >
-    <div className="flex items-center gap-3">
-      <div
-        className={`flex h-11 w-11 items-center justify-center rounded-2xl ${action.bg} ${action.color}`}
-      >
-        <Icon className="h-5 w-5" />
-      </div>
+            <a
+              key={action.title}
+              href={action.href}
+              className="group flex min-h-[86px] items-center justify-between gap-3 rounded-3xl border border-slate-200/70 bg-slate-50/70 p-4 transition hover:-translate-y-0.5 hover:bg-white hover:shadow-lg hover:shadow-slate-200/70"
+            >
+              <div className="flex items-center gap-3">
+                <div
+                  className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl ${action.bg} ${action.color}`}
+                >
+                  <Icon className="h-5 w-5" />
+                </div>
 
-      <h3 className="text-sm font-semibold text-slate-900">
-        {action.title}
-      </h3>
-    </div>
+                <h3 className="text-sm font-semibold leading-5 text-slate-900">
+                  {action.title}
+                </h3>
+              </div>
 
-    <ArrowRight className="h-4 w-4 text-slate-300 transition group-hover:translate-x-0.5 group-hover:text-blue-600" />
-  </a>
-);
+              <ArrowRight className="h-4 w-4 shrink-0 text-slate-300 transition group-hover:translate-x-0.5 group-hover:text-blue-600" />
+            </a>
+          );
         })}
       </div>
     </div>
   );
 }
-
 function TodaysWorkCard(props: {
   processingOrders: number;
   pendingUpi: number;
@@ -1001,7 +1000,7 @@ function RevenueCard(props: {
                         key={w.label}
                         className="flex flex-col items-center justify-end gap-2"
                       >
-                        <div className="flex h-36 w-full items-end justify-center rounded-3xl bg-slate-50 p-3">
+                        <div className="flex h-28 w-full items-end justify-center rounded-3xl bg-slate-50 p-3">
                           <div className="relative flex h-full w-12 items-end overflow-hidden rounded-full bg-slate-100">
                             <div
                               className="absolute bottom-0 w-full rounded-full bg-gradient-to-t from-[#4b5dff] via-[#8b5cff] to-[#ff6fb1]"
