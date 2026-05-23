@@ -806,52 +806,51 @@ export default function Topbar({ onToggleSidebar }: TopbarProps) {
         </div>
 
         <div className="relative z-10 border-t border-white/10 px-3 pb-3 pt-2 md:hidden">
-          <div className="relative" ref={mobileSearchRef}>
-            <div className="mb-2 flex items-center gap-2">
-              {(["products", "orders", "customers"] as SearchScope[]).map(
-                (scope) => {
-                  const active = searchScope === scope;
-                  return (
-                    <button
-                      key={scope}
-                      type="button"
-                      onClick={() => setSearchScope(scope)}
-                      className={[
-                        "rounded-full px-3 py-1.5 text-[11px] font-medium transition",
-                        active
-                          ? "bg-white text-[#27346D] shadow-sm"
-                          : "bg-white/10 text-indigo-100 hover:bg-white/15",
-                      ].join(" ")}
-                    >
-                      {scope === "products"
-                        ? "Products"
-                        : scope === "orders"
-                        ? "Orders"
-                        : "Customers"}
-                    </button>
-                  );
-                }
-              )}
-            </div>
+  <div className="relative" ref={mobileSearchRef}>
+    <form onSubmit={handleSearchSubmit}>
+      <div className="flex h-12 items-center rounded-full border border-white/15 bg-white/95 px-3 shadow-sm">
+        <SearchIcon className="h-5 w-5 shrink-0 text-[#7B3EF3]" />
 
-            <form onSubmit={handleSearchSubmit}>
-              <div className="flex items-center rounded-full border border-white/15 bg-white/95 px-3 py-2 shadow-sm">
-                <SearchIcon className="h-4 w-4 shrink-0 text-[#7B3EF3]" />
-                <input
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  placeholder={mobileScopeLabel(searchScope)}
-                  className="ml-2 h-5 min-w-0 flex-1 bg-transparent text-[13px] text-slate-700 placeholder:text-slate-400 focus:outline-none"
-                />
-                {isSearching ? (
-                  <Loader2 className="h-4 w-4 shrink-0 animate-spin text-[#7B3EF3]" />
-                ) : null}
-              </div>
-            </form>
+        <input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder={mobileScopeLabel(searchScope)}
+          className="ml-2 h-9 min-w-0 flex-1 bg-transparent text-[15px] text-slate-700 placeholder:text-slate-400 focus:outline-none"
+        />
 
-            {searchDropdown}
-          </div>
+        {isSearching ? (
+          <Loader2 className="mr-2 h-4 w-4 shrink-0 animate-spin text-[#7B3EF3]" />
+        ) : null}
+
+        <div className="relative shrink-0">
+          <select
+            value={searchScope}
+            onChange={(e) => setSearchScope(e.target.value as SearchScope)}
+            className="h-9 w-9 cursor-pointer appearance-none rounded-full border-0 bg-[#eef2ff] text-transparent outline-none focus:ring-2 focus:ring-[#A05AFF]/40"
+            aria-label="Choose search type"
+          >
+            <option value="products">Products</option>
+            <option value="orders">Orders</option>
+            <option value="customers">Customers</option>
+          </select>
+
+          <ChevronDown className="pointer-events-none absolute left-1/2 top-1/2 h-4 w-4 -translate-x-1/2 -translate-y-1/2 text-[#27346D]" />
         </div>
+      </div>
+    </form>
+
+    <div className="mt-1 text-center text-[11px] font-medium text-indigo-100/80">
+      Searching in{" "}
+      {searchScope === "products"
+        ? "Products"
+        : searchScope === "orders"
+        ? "Orders"
+        : "Customers"}
+    </div>
+
+    {searchDropdown}
+  </div>
+</div>
       </div>
     </header>
   );
