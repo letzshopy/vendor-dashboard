@@ -5,24 +5,13 @@ import {
   BadgeCheck,
   Building2,
   CheckCircle2,
-  CreditCard,
   FileBadge2,
   FileCheck2,
   Landmark,
-  UploadCloud,
-  UserSquare2,
   XCircle,
   Clock3,
   Save,
 } from "lucide-react";
-
-type BizType =
-  | "INDIVIDUAL"
-  | "PROPRIETORSHIP"
-  | "LLP"
-  | "PVT_LTD"
-  | "PUBLIC_LTD"
-  | "OPC";
 
 type KycFileType = "AADHAAR" | "PAN" | "CHEQUE" | "GST_CERT";
 
@@ -41,18 +30,6 @@ const selectClass =
 
 function downloadUrlForKey(fileKey: string) {
   return `/api/settings/kyc/download?fileKey=${encodeURIComponent(fileKey)}`;
-}
-
-function normalizeBizType(v: string | undefined): BizType {
-  const allowed: BizType[] = [
-    "INDIVIDUAL",
-    "PROPRIETORSHIP",
-    "LLP",
-    "PVT_LTD",
-    "PUBLIC_LTD",
-    "OPC",
-  ];
-  return allowed.includes(v as BizType) ? (v as BizType) : "INDIVIDUAL";
 }
 
 function KycPrivateUploader({
@@ -125,6 +102,7 @@ function DocRow({
   kyc,
   setKyc,
   readOnly = false,
+  helper,
 }: {
   title: string;
   required?: boolean;
@@ -132,6 +110,7 @@ function DocRow({
   kyc: KycFile[];
   setKyc: (v: KycFile[]) => void;
   readOnly?: boolean;
+  helper?: string;
 }) {
   const current = useMemo(() => kyc.find((k) => k.type === type), [kyc, type]);
 
@@ -149,6 +128,8 @@ function DocRow({
           <div className="text-sm font-semibold text-slate-900">
             {title} {required && <span className="text-rose-500">*</span>}
           </div>
+
+          {helper ? <div className="mt-1 text-xs text-slate-500">{helper}</div> : null}
 
           {current ? (
             <div className="mt-1 inline-flex items-center gap-2 text-xs text-emerald-700">
@@ -258,43 +239,41 @@ export default function KycTab() {
   const [kycStatus, setKycStatus] = useState<KycStatus>("not_started");
   const [submittedAt, setSubmittedAt] = useState<string | null>(null);
 
-  const [bizType, setBizType] = useState<BizType>("INDIVIDUAL");
   const [pan, setPan] = useState("");
+  const [aadhaarNumber, setAadhaarNumber] = useState("");
+  const [gstRegistered, setGstRegistered] = useState<"yes" | "no">("no");
   const [gstin, setGstin] = useState("");
-  const [gstLegal, setGstLegal] = useState("");
-  const [gstTrade, setGstTrade] = useState("");
-  const [gstState, setGstState] = useState("");
 
   const [accNo, setAccNo] = useState("");
+  const [confirmAccNo, setConfirmAccNo] = useState("");
   const [accName, setAccName] = useState("");
   const [ifsc, setIfsc] = useState("");
   const [bank, setBank] = useState("");
   const [branch, setBranch] = useState("");
 
   const [kyc, setKyc] = useState<KycFile[]>([]);
+  const [declarationAccepted, setDeclarationAccepted] = useState(false);
   const [initialSnapshot, setInitialSnapshot] = useState("");
 
   const inReview = kycStatus === "in_review";
   const approved = kycStatus === "approved";
-  const rejected = kycStatus === "rejected";
   const readOnly = inReview || approved;
-
-  const showGST = bizType !== "INDIVIDUAL";
+  const showGST = gstRegistered === "yes";
 
   const getSnapshot = () =>
     JSON.stringify({
-      bizType,
       pan,
+      aadhaarNumber,
+      gstRegistered,
       gstin,
-      gstLegal,
-      gstTrade,
-      gstState,
       accNo,
+      confirmAccNo,
       accName,
       ifsc,
       bank,
       branch,
       kyc,
+      declarationAccepted,
       kycStatus,
     });
 
@@ -303,18 +282,18 @@ export default function KycTab() {
     return initialSnapshot !== getSnapshot();
   }, [
     initialSnapshot,
-    bizType,
     pan,
+    aadhaarNumber,
+    gstRegistered,
     gstin,
-    gstLegal,
-    gstTrade,
-    gstState,
     accNo,
+    confirmAccNo,
     accName,
     ifsc,
     bank,
     branch,
     kyc,
+    declarationAccepted,
     kycStatus,
   ]);
 
@@ -360,38 +339,51 @@ export default function KycTab() {
           name: data.docs.gstCertName,
         });
 
-      setKycStatus((data?.kycStatus || "not_started") as KycStatus);
+      const nextKycStatus = (data?.kycStatus || "not_started") as KycStatus;
+      const nextPan = data?.pan || "";
+      const nextAadhaar = data?.aadhaarNumber || data?.aadhaar || "";
+      const nextGstin = data?.gstin || "";
+      const nextGstRegistered: "yes" | "no" =
+        data?.gstRegistered === true || data?.gstRegistered === "yes" || nextGstin
+          ? "yes"
+          : "no";
+      const nextAccNo = data?.bank?.accountNumber || "";
+      const nextConfirmAccNo = data?.bank?.confirmAccountNumber || data?.bank?.accountNumber || "";
+      const nextAccName = data?.bank?.accountHolderName || "";
+      const nextIfsc = data?.bank?.ifsc || "";
+      const nextBank = data?.bank?.bankName || "";
+      const nextBranch = data?.bank?.branch || "";
+      const nextDeclaration = !!data?.declarationAccepted;
+
+      setKycStatus(nextKycStatus);
       setSubmittedAt(data?.submittedAt || null);
-
-      setBizType(normalizeBizType(data?.businessType));
-      setPan(data?.pan || "");
-      setGstin(data?.gstin || "");
-      setGstLegal(data?.legalName || "");
-      setGstTrade(data?.tradeName || "");
-      setGstState(data?.state || "");
-
-      setAccNo(data?.bank?.accountNumber || "");
-      setAccName(data?.bank?.accountHolderName || "");
-      setIfsc(data?.bank?.ifsc || "");
-      setBank(data?.bank?.bankName || "");
-      setBranch(data?.bank?.branch || "");
-
+      setPan(nextPan);
+      setAadhaarNumber(nextAadhaar);
+      setGstRegistered(nextGstRegistered);
+      setGstin(nextGstin);
+      setAccNo(nextAccNo);
+      setConfirmAccNo(nextConfirmAccNo);
+      setAccName(nextAccName);
+      setIfsc(nextIfsc);
+      setBank(nextBank);
+      setBranch(nextBranch);
+      setDeclarationAccepted(nextDeclaration);
       setKyc(files);
 
       const snap = JSON.stringify({
-        bizType: normalizeBizType(data?.businessType),
-        pan: data?.pan || "",
-        gstin: data?.gstin || "",
-        gstLegal: data?.legalName || "",
-        gstTrade: data?.tradeName || "",
-        gstState: data?.state || "",
-        accNo: data?.bank?.accountNumber || "",
-        accName: data?.bank?.accountHolderName || "",
-        ifsc: data?.bank?.ifsc || "",
-        bank: data?.bank?.bankName || "",
-        branch: data?.bank?.branch || "",
+        pan: nextPan,
+        aadhaarNumber: nextAadhaar,
+        gstRegistered: nextGstRegistered,
+        gstin: nextGstin,
+        accNo: nextAccNo,
+        confirmAccNo: nextConfirmAccNo,
+        accName: nextAccName,
+        ifsc: nextIfsc,
+        bank: nextBank,
+        branch: nextBranch,
         kyc: files,
-        kycStatus: (data?.kycStatus || "not_started") as KycStatus,
+        declarationAccepted: nextDeclaration,
+        kycStatus: nextKycStatus,
       });
 
       setInitialSnapshot(snap);
@@ -423,20 +415,20 @@ export default function KycTab() {
 
   function buildPayload() {
     return {
-      businessType: bizType,
       pan,
-      gstin,
-      legalName: gstLegal,
-      tradeName: gstTrade,
-      state: gstState,
+      aadhaarNumber,
+      gstRegistered: showGST,
+      gstin: showGST ? gstin : "",
       bank: {
         accountNumber: accNo,
+        confirmAccountNumber: confirmAccNo,
         accountHolderName: accName,
         ifsc,
         bankName: bank,
         branch,
       },
       docs: buildDocsPayload(),
+      declarationAccepted,
     };
   }
 
@@ -470,16 +462,23 @@ export default function KycTab() {
     const panOk = /^[A-Z]{5}[0-9]{4}[A-Z]$/.test(pan.toUpperCase().trim());
     if (!panOk) return alert("Please enter a valid PAN (e.g., ABCDE1234F).");
 
-    if (
-      showGST &&
-      gstin &&
-      !/^[0-9]{2}[A-Z0-9]{10}[0-9A-Z]{3}$/.test(gstin.toUpperCase().trim())
-    ) {
-      return alert("GSTIN format looks invalid.");
+    if (!aadhaarNumber.trim()) {
+      return alert("Please enter Aadhaar / ID number.");
     }
 
-    if (!accNo || !accName) {
-      return alert("Please enter bank account number and account holder name.");
+    if (showGST) {
+      if (!gstin.trim()) return alert("Please enter GST number.");
+      if (!/^[0-9]{2}[A-Z0-9]{10}[0-9A-Z]{3}$/.test(gstin.toUpperCase().trim())) {
+        return alert("GSTIN format looks invalid.");
+      }
+    }
+
+    if (!accNo || !confirmAccNo || !accName || !bank) {
+      return alert("Please enter complete bank account details.");
+    }
+
+    if (accNo !== confirmAccNo) {
+      return alert("Account number and confirm account number do not match.");
     }
 
     if (!/^[A-Z]{4}0[0-9A-Z]{6}$/.test(ifsc.toUpperCase().trim())) {
@@ -487,7 +486,11 @@ export default function KycTab() {
     }
 
     if (!has("AADHAAR") || !has("PAN") || !has("CHEQUE")) {
-      return alert("Please upload Aadhaar, PAN, and Cancelled Cheque.");
+      return alert("Please upload Aadhaar / ID proof, PAN card, and cancelled cheque leaf.");
+    }
+
+    if (!declarationAccepted) {
+      return alert("Please accept the KYC declaration before submitting.");
     }
 
     setSubmitting(true);
@@ -586,7 +589,7 @@ export default function KycTab() {
                   KYC verification
                 </div>
                 <div className="mt-1 text-xs text-slate-500 md:text-sm">
-                  Upload documents and bank details for verification.
+                  Upload identity documents and bank details for verification.
                 </div>
               </div>
             </div>
@@ -624,27 +627,11 @@ export default function KycTab() {
 
         <SectionCard
           icon={<Building2 className="h-5 w-5" />}
-          title="Business details"
-          description="Business type, PAN and optional GST information used only for verification."
+          title="Identity details"
+          description="PAN, Aadhaar/ID and optional GST details used only for verification."
         >
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            <Field label="Business type">
-              <select
-                className={selectClass}
-                value={bizType}
-                onChange={(e) => setBizType(e.target.value as BizType)}
-                disabled={readOnly}
-              >
-                <option value="INDIVIDUAL">Individual</option>
-                <option value="PROPRIETORSHIP">Proprietorship</option>
-                <option value="LLP">LLP</option>
-                <option value="PVT_LTD">Private Limited</option>
-                <option value="PUBLIC_LTD">Public Limited</option>
-                <option value="OPC">OPC</option>
-              </select>
-            </Field>
-
-            <Field label="PAN *">
+            <Field label="PAN number *">
               <input
                 className={inputClass}
                 value={pan}
@@ -653,11 +640,31 @@ export default function KycTab() {
                 disabled={readOnly}
               />
             </Field>
-          </div>
 
-          {showGST && (
-            <div className="grid gap-4 md:grid-cols-2">
-              <Field label="GSTIN">
+            <Field label="Aadhaar / ID number *">
+              <input
+                className={inputClass}
+                value={aadhaarNumber}
+                onChange={(e) => setAadhaarNumber(e.target.value)}
+                placeholder="Enter Aadhaar or valid ID proof number"
+                disabled={readOnly}
+              />
+            </Field>
+
+            <Field label="GST registered? *">
+              <select
+                className={selectClass}
+                value={gstRegistered}
+                onChange={(e) => setGstRegistered(e.target.value as "yes" | "no")}
+                disabled={readOnly}
+              >
+                <option value="no">No</option>
+                <option value="yes">Yes</option>
+              </select>
+            </Field>
+
+            {showGST && (
+              <Field label="GST number *">
                 <input
                   className={inputClass}
                   value={gstin}
@@ -666,56 +673,17 @@ export default function KycTab() {
                   disabled={readOnly}
                 />
               </Field>
-
-              <Field label="Legal name">
-                <input
-                  className={inputClass}
-                  value={gstLegal}
-                  onChange={(e) => setGstLegal(e.target.value)}
-                  placeholder="Legal name as per GST"
-                  disabled={readOnly}
-                />
-              </Field>
-
-              <Field label="Trade name">
-                <input
-                  className={inputClass}
-                  value={gstTrade}
-                  onChange={(e) => setGstTrade(e.target.value)}
-                  placeholder="Trade name"
-                  disabled={readOnly}
-                />
-              </Field>
-
-              <Field label="Registered state">
-                <input
-                  className={inputClass}
-                  value={gstState}
-                  onChange={(e) => setGstState(e.target.value)}
-                  placeholder="State as per GST registration"
-                  disabled={readOnly}
-                />
-              </Field>
-            </div>
-          )}
+            )}
+          </div>
         </SectionCard>
 
         <SectionCard
           icon={<Landmark className="h-5 w-5" />}
           title="Bank details"
-          description="Used only for manual settlements and refunds."
+          description="Used only for settlements, refunds and verification."
         >
           <div className="grid gap-4 md:grid-cols-2">
-            <Field label="Account number">
-              <input
-                className={inputClass}
-                value={accNo}
-                onChange={(e) => setAccNo(e.target.value)}
-                disabled={readOnly}
-              />
-            </Field>
-
-            <Field label="Account holder name">
+            <Field label="Account holder name *">
               <input
                 className={inputClass}
                 value={accName}
@@ -724,7 +692,34 @@ export default function KycTab() {
               />
             </Field>
 
-            <Field label="IFSC">
+            <Field label="Bank name *">
+              <input
+                className={inputClass}
+                value={bank}
+                onChange={(e) => setBank(e.target.value)}
+                disabled={readOnly}
+              />
+            </Field>
+
+            <Field label="Account number *">
+              <input
+                className={inputClass}
+                value={accNo}
+                onChange={(e) => setAccNo(e.target.value)}
+                disabled={readOnly}
+              />
+            </Field>
+
+            <Field label="Confirm account number *">
+              <input
+                className={inputClass}
+                value={confirmAccNo}
+                onChange={(e) => setConfirmAccNo(e.target.value)}
+                disabled={readOnly}
+              />
+            </Field>
+
+            <Field label="IFSC code *">
               <input
                 className={inputClass}
                 value={ifsc}
@@ -734,16 +729,7 @@ export default function KycTab() {
               />
             </Field>
 
-            <Field label="Bank">
-              <input
-                className={inputClass}
-                value={bank}
-                onChange={(e) => setBank(e.target.value)}
-                disabled={readOnly}
-              />
-            </Field>
-
-            <Field label="Branch">
+            <Field label="Branch name">
               <input
                 className={inputClass}
                 value={branch}
@@ -757,18 +743,10 @@ export default function KycTab() {
         <SectionCard
           icon={<FileBadge2 className="h-5 w-5" />}
           title="Documents"
-          description="Upload clear image or PDF copies for verification."
+          description="Upload clear JPG, PNG or PDF copies. Mandatory documents are marked with *."
         >
           <DocRow
-            title="Aadhaar"
-            required
-            type="AADHAAR"
-            kyc={kyc}
-            setKyc={setKyc}
-            readOnly={readOnly}
-          />
-          <DocRow
-            title="PAN"
+            title="PAN card upload"
             required
             type="PAN"
             kyc={kyc}
@@ -776,21 +754,54 @@ export default function KycTab() {
             readOnly={readOnly}
           />
           <DocRow
-            title="Cancelled cheque"
+            title="Aadhaar / ID proof upload"
             required
+            type="AADHAAR"
+            kyc={kyc}
+            setKyc={setKyc}
+            readOnly={readOnly}
+          />
+          {showGST && (
+            <DocRow
+              title="GST certificate upload"
+              helper="Optional, but recommended if GST registered."
+              type="GST_CERT"
+              kyc={kyc}
+              setKyc={setKyc}
+              readOnly={readOnly}
+            />
+          )}
+          <DocRow
+            title="Cancelled cheque leaf upload"
+            required
+            helper="Upload cancelled cheque leaf for bank verification."
             type="CHEQUE"
             kyc={kyc}
             setKyc={setKyc}
             readOnly={readOnly}
           />
-          <DocRow
-            title="GST certificate (optional)"
-            type="GST_CERT"
-            kyc={kyc}
-            setKyc={setKyc}
-            readOnly={readOnly}
-          />
         </SectionCard>
+
+        {!readOnly && (
+          <div className="rounded-[24px] border border-slate-200 bg-white p-4 shadow-sm">
+            <label className="flex items-start gap-3">
+              <input
+                type="checkbox"
+                className="mt-0.5 h-5 w-5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                checked={declarationAccepted}
+                onChange={(e) => setDeclarationAccepted(e.target.checked)}
+              />
+              <span>
+                <span className="block text-sm font-semibold text-slate-900">
+                  KYC declaration <span className="text-rose-500">*</span>
+                </span>
+                <span className="mt-1 block text-xs leading-5 text-slate-500 md:text-sm">
+                  I confirm that the submitted KYC documents and bank details are valid and belong to my business.
+                </span>
+              </span>
+            </label>
+          </div>
+        )}
 
         {!readOnly && (
           <div className="sticky bottom-3 z-10 md:bottom-4">

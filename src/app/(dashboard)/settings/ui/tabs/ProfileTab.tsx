@@ -15,6 +15,8 @@ import {
   Facebook,
   Youtube,
   CheckCircle2,
+  Tags,
+  Store,
 } from "lucide-react";
 
 type ProfileData = {
@@ -25,6 +27,10 @@ type ProfileData = {
     email: string;
     address: string;
     logoUrl?: string;
+    businessType?: string;
+    productCategories?: string[];
+    productCategoryOther?: string;
+    brandTagline?: string;
   };
   social: {
     instagram?: string;
@@ -35,9 +41,52 @@ type ProfileData = {
   };
 };
 
+const BUSINESS_TYPES = [
+  { value: "", label: "Select business type" },
+  { value: "INDIVIDUAL", label: "Individual / Home-based business" },
+  { value: "PROPRIETORSHIP", label: "Proprietorship" },
+  { value: "PARTNERSHIP", label: "Partnership" },
+  { value: "LLP", label: "LLP" },
+  { value: "PVT_LTD", label: "Private Limited" },
+  { value: "OPC", label: "OPC" },
+  { value: "OTHER", label: "Other" },
+];
+
+const PRODUCT_CATEGORIES = [
+  "Fashion / Clothing",
+  "Sarees",
+  "Kurtis / Ethnic Wear",
+  "Boutique / Designer Wear",
+  "Jewellery / Accessories",
+  "Bags / Footwear",
+  "Home Decor",
+  "Handicrafts",
+  "Brass / Metal Decor",
+  "Kitchenware",
+  "Gifts / Return Gifts",
+  "Kids Products",
+  "Beauty / Personal Care",
+  "Art / Stationery",
+  "Spiritual / Pooja Products",
+  "Organic / Eco-friendly Products",
+  "Food Products",
+  "Digital Products / Services",
+  "Other",
+];
+
 const EMPTY_PROFILE: ProfileData = {
   personal: { name: "", mobile: "", email: "", address: "" },
-  business: { name: "", phone: "", email: "", address: "", logoUrl: "" },
+  business: {
+    name: "",
+    phone: "",
+    email: "",
+    address: "",
+    logoUrl: "",
+    businessType: "",
+    productCategories: [],
+    productCategoryOther: "",
+    brandTagline: "",
+  },
   social: {
     instagram: "",
     facebook: "",
@@ -62,6 +111,10 @@ export default function ProfileTab() {
     "placeholder:text-slate-400 shadow-sm transition " +
     "focus:border-indigo-400 focus:outline-none focus:ring-4 focus:ring-indigo-100";
 
+  const selectClass =
+    "h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-900 " +
+    "shadow-sm transition focus:border-indigo-400 focus:outline-none focus:ring-4 focus:ring-indigo-100";
+
   const textareaClass =
     "w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 " +
     "placeholder:text-slate-400 shadow-sm transition resize-none " +
@@ -83,6 +136,10 @@ export default function ProfileTab() {
         b.email ||
         b.address ||
         b.logoUrl ||
+        b.businessType ||
+        b.brandTagline ||
+        b.productCategoryOther ||
+        (Array.isArray(b.productCategories) && b.productCategories.length) ||
         so.instagram ||
         so.facebook ||
         so.youtube ||
@@ -101,11 +158,7 @@ export default function ProfileTab() {
         if (raw) {
           try {
             const parsed = JSON.parse(raw);
-            current = {
-              personal: { ...EMPTY_PROFILE.personal, ...(parsed.personal || {}) },
-              business: { ...EMPTY_PROFILE.business, ...(parsed.business || {}) },
-              social: { ...EMPTY_PROFILE.social, ...(parsed.social || {}) },
-            };
+            current = normalizeProfile(parsed);
           } catch {
             // ignore
           }
@@ -124,11 +177,7 @@ export default function ProfileTab() {
         const s = await res.json();
         if (!apiHasUsefulData(s)) return;
 
-        const merged: ProfileData = {
-          personal: { ...EMPTY_PROFILE.personal, ...(s.personal || {}) },
-          business: { ...EMPTY_PROFILE.business, ...(s.business || {}) },
-          social: { ...EMPTY_PROFILE.social, ...(s.social || {}) },
-        };
+        const merged = normalizeProfile(s);
 
         if (!cancelled) {
           setData(merged);
@@ -183,6 +232,15 @@ export default function ProfileTab() {
       ptr[segs.at(-1)!] = value;
       return clone;
     });
+  };
+
+  const toggleCategory = (category: string) => {
+    const current = data.business.productCategories || [];
+    const next = current.includes(category)
+      ? current.filter((c) => c !== category)
+      : [...current, category];
+
+    markDirtyChange("business.productCategories", next);
   };
 
   const uploadLogo = async (file: File) => {
@@ -247,7 +305,7 @@ export default function ProfileTab() {
             </div>
             <div>
               <h3 className="text-base font-semibold text-slate-900">Personal</h3>
-                          </div>
+            </div>
           </div>
         </div>
 
@@ -303,7 +361,7 @@ export default function ProfileTab() {
               <h3 className="text-base font-semibold text-slate-900">
                 Brand &amp; business identity
               </h3>
-                          </div>
+            </div>
           </div>
         </div>
 
@@ -347,6 +405,68 @@ export default function ProfileTab() {
                 onChange={(e) => markDirtyChange("business.address", e.target.value)}
               />
             </Field>
+
+            <div className="grid gap-4 md:grid-cols-2">
+              <Field label="Business type" icon={<Store className="h-4 w-4" />}>
+                <select
+                  className={selectClass}
+                  value={data.business.businessType || ""}
+                  onChange={(e) => markDirtyChange("business.businessType", e.target.value)}
+                >
+                  {BUSINESS_TYPES.map((type) => (
+                    <option key={type.value} value={type.value}>
+                      {type.label}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+
+              <Field label="Brand tagline" icon={<Tags className="h-4 w-4" />}>
+                <input
+                  className={inputClass}
+                  placeholder="Example: Handpicked collections for every occasion"
+                  value={data.business.brandTagline ?? ""}
+                  onChange={(e) => markDirtyChange("business.brandTagline", e.target.value)}
+                />
+              </Field>
+            </div>
+
+            <div className="rounded-[24px] border border-slate-200 bg-slate-50/70 p-4">
+              <div className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                <Tags className="h-4 w-4 text-slate-400" />
+                <span>Business / product category</span>
+              </div>
+
+              <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+                {PRODUCT_CATEGORIES.map((category) => (
+                  <label
+                    key={category}
+                    className="flex items-start gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 shadow-sm"
+                  >
+                    <input
+                      type="checkbox"
+                      className="mt-0.5 h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                      checked={(data.business.productCategories || []).includes(category)}
+                      onChange={() => toggleCategory(category)}
+                    />
+                    <span>{category}</span>
+                  </label>
+                ))}
+              </div>
+
+              {(data.business.productCategories || []).includes("Other") && (
+                <div className="mt-3">
+                  <input
+                    className={inputClass}
+                    placeholder="If Other, mention category"
+                    value={data.business.productCategoryOther ?? ""}
+                    onChange={(e) =>
+                      markDirtyChange("business.productCategoryOther", e.target.value)
+                    }
+                  />
+                </div>
+              )}
+            </div>
           </div>
 
           <div className="rounded-[24px] border border-dashed border-slate-300 bg-slate-50/70 p-4 md:p-5">
@@ -445,7 +565,7 @@ export default function ProfileTab() {
               <h3 className="text-base font-semibold text-slate-900">
                 Social &amp; WhatsApp
               </h3>
-                          </div>
+            </div>
           </div>
         </div>
 
@@ -520,7 +640,6 @@ export default function ProfileTab() {
               <div className="text-sm font-semibold text-slate-900">
                 {dirty ? "Unsaved changes" : "All changes saved"}
               </div>
-              
             </div>
 
             <button
@@ -537,6 +656,20 @@ export default function ProfileTab() {
       </div>
     </div>
   );
+}
+
+function normalizeProfile(raw: any): ProfileData {
+  return {
+    personal: { ...EMPTY_PROFILE.personal, ...(raw?.personal || {}) },
+    business: {
+      ...EMPTY_PROFILE.business,
+      ...(raw?.business || {}),
+      productCategories: Array.isArray(raw?.business?.productCategories)
+        ? raw.business.productCategories
+        : [],
+    },
+    social: { ...EMPTY_PROFILE.social, ...(raw?.social || {}) },
+  };
 }
 
 function Field({
