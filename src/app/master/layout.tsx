@@ -39,10 +39,13 @@ export default function MasterLayout({ children }: { children: ReactNode }) {
               Vendors
             </a>
 
-            <button className="w-full text-left flex items-center gap-2 px-2.5 py-2 rounded-xl hover:bg-slate-800/70">
-              <span className="h-1.5 w-1.5 rounded-full bg-slate-500" />
-              Leads & Signups
-            </button>
+            <a
+  href="/master/leads"
+  className="w-full text-left flex items-center gap-2 px-2.5 py-2 rounded-xl hover:bg-slate-800/70 text-sm"
+>
+  <span className="h-1.5 w-1.5 rounded-full bg-sky-400" />
+  Leads & Signups
+</a>
 
             <a
               href="/master/support-tickets"
