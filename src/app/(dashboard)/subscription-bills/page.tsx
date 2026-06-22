@@ -1,3 +1,4 @@
+import { cookies } from "next/headers";
 import SubscriptionInvoicesClient from "./SubscriptionInvoicesClient";
 import type { SubscriptionInvoice } from "@/lib/subscription-invoices";
 import { ReceiptText } from "lucide-react";
@@ -9,8 +10,13 @@ async function getInvoices(): Promise<SubscriptionInvoice[]> {
     const baseUrl =
       process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
 
+    const cookieHeader = (await cookies()).toString();
+
     const res = await fetch(`${baseUrl}/api/subscription-invoices`, {
       cache: "no-store",
+      headers: {
+        Cookie: cookieHeader,
+      },
     });
 
     if (!res.ok) {
@@ -18,7 +24,7 @@ async function getInvoices(): Promise<SubscriptionInvoice[]> {
     }
 
     const data = await res.json();
-    return Array.isArray(data) ? data : [];
+    return Array.isArray(data) ? (data as SubscriptionInvoice[]) : [];
   } catch (error) {
     console.error("Failed to load subscription invoices:", error);
     return [];
