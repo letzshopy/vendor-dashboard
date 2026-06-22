@@ -6,16 +6,31 @@ import type { PaymentsFormValues } from "@/types/payments";
 
 export default function UPIPanel() {
   const { register, watch, setValue } = useFormContext<PaymentsFormValues>();
+
   const qrValue = watch("upi.qr") || "no";
+  const qrSrc = watch("upi.qr_src") || "";
+
+  const fileInputRef = React.useRef<HTMLInputElement | null>(null);
 
   const [uploading, setUploading] = React.useState(false);
   const [uploadError, setUploadError] = React.useState<string | null>(null);
+
+  const openFilePicker = () => {
+    fileInputRef.current?.click();
+  };
 
   const handleQrUpload: React.ChangeEventHandler<HTMLInputElement> = async (
     e
   ) => {
     const file = e.target.files?.[0];
+    e.target.value = "";
+
     if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      setUploadError("Please upload a valid QR image file.");
+      return;
+    }
 
     setUploading(true);
     setUploadError(null);
@@ -24,30 +39,48 @@ export default function UPIPanel() {
       const formData = new FormData();
       formData.append("file", file);
 
-      const res = await fetch("/api/media/upload", {
+      const res = await fetch("/api/settings/upload", {
         method: "POST",
         body: formData,
       });
 
+      const data = await res.json().catch(() => ({}));
+
       if (!res.ok) {
-        throw new Error("Upload failed");
+        throw new Error(data?.error || "QR upload failed");
       }
 
-      const data = await res.json();
       const url =
         data?.url || data?.source_url || data?.media?.source_url || "";
 
       if (!url) {
-        throw new Error("Upload succeeded but no URL returned");
+        throw new Error("Upload succeeded but image URL was missing");
       }
 
-      setValue("upi.qr_src", url, { shouldDirty: true, shouldTouch: true });
+      setValue("upi.qr_src", url, {
+        shouldDirty: true,
+        shouldTouch: true,
+        shouldValidate: true,
+      });
+
+      setValue("upi.qr", "yes", {
+        shouldDirty: true,
+        shouldTouch: true,
+        shouldValidate: true,
+      });
     } catch (err: any) {
-      setUploadError(err?.message || "Upload failed");
+      setUploadError(err?.message || "QR upload failed");
     } finally {
       setUploading(false);
-      e.target.value = "";
     }
+  };
+
+  const removeQr = () => {
+    setValue("upi.qr_src", "", {
+      shouldDirty: true,
+      shouldTouch: true,
+      shouldValidate: true,
+    });
   };
 
   return (
@@ -56,27 +89,28 @@ export default function UPIPanel() {
         <div>
           <label
             htmlFor="upi_upi_id"
-            className="block text-sm font-medium mb-1"
+            className="mb-1 block text-sm font-medium"
           >
             UPI ID
           </label>
           <input
             id="upi_upi_id"
-            className="w-full border rounded-md px-3 py-2 text-sm"
+            className="w-full rounded-md border px-3 py-2 text-sm"
             placeholder="yourname@bank"
             {...register("upi.upi_id")}
           />
         </div>
+
         <div>
           <label
             htmlFor="upi_upi_number"
-            className="block text-sm font-medium mb-1"
+            className="mb-1 block text-sm font-medium"
           >
             UPI Payment Number
           </label>
           <input
             id="upi_upi_number"
-            className="w-full border rounded-md px-3 py-2 text-sm"
+            className="w-full rounded-md border px-3 py-2 text-sm"
             placeholder="10-digit mobile UPI number"
             {...register("upi.upi_number")}
           />
@@ -87,52 +121,55 @@ export default function UPIPanel() {
         <div>
           <label
             htmlFor="upi_payee"
-            className="block text-sm font-medium mb-1"
+            className="mb-1 block text-sm font-medium"
           >
-            Payee name (optional)
+            Payee name
           </label>
           <input
             id="upi_payee"
-            className="w-full border rounded-md px-3 py-2 text-sm"
-            placeholder=""
+            className="w-full rounded-md border px-3 py-2 text-sm"
+            placeholder="Name shown to customer"
             {...register("upi.payee")}
           />
         </div>
+
         <div>
           <label
             htmlFor="upi_time_min"
-            className="block text-sm font-medium mb-1"
+            className="mb-1 block text-sm font-medium"
           >
-            Time limit (mins, optional)
+            Time limit
           </label>
           <input
             id="upi_time_min"
             type="number"
             min={0}
             step={1}
-            className="w-full border rounded-md px-3 py-2 text-sm"
+            className="w-full rounded-md border px-3 py-2 text-sm"
             placeholder="e.g., 30"
             {...register("upi.time_min")}
           />
+          <p className="mt-1 text-xs text-muted-foreground">
+            Optional. Enter minutes if you want to show payment time limit.
+          </p>
         </div>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">
         <div>
-          <label
-            htmlFor="upi_qr"
-            className="block text-sm font-medium mb-1"
-          >
+          <label htmlFor="upi_qr" className="mb-1 block text-sm font-medium">
             Show QR on checkout
           </label>
           <select
             id="upi_qr"
-            className="w-full border rounded-md px-3 py-2 text-sm"
+            className="w-full rounded-md border px-3 py-2 text-sm"
             {...register("upi.qr")}
             value={qrValue}
             onChange={(e) =>
               setValue("upi.qr", e.target.value as "yes" | "no", {
                 shouldDirty: true,
+                shouldTouch: true,
+                shouldValidate: true,
               })
             }
           >
@@ -143,68 +180,105 @@ export default function UPIPanel() {
       </div>
 
       {qrValue === "yes" && (
-        <div className="grid gap-4 md:grid-cols-2">
-          <div>
-            <label
-              htmlFor="upi_qr_src"
-              className="block text-sm font-medium mb-1"
-            >
-              QR image URL
-            </label>
-            <input
-              id="upi_qr_src"
-              className="w-full border rounded-md px-3 py-2 text-sm"
-              placeholder="https://template.letzshopy.in/wp-content/uploads/upi-qr.png"
-              {...register("upi.qr_src")}
-            />
-            <p className="text-xs text-muted-foreground mt-1">
-              If you already uploaded QR to Media, paste its URL here.
-            </p>
-          </div>
-          <div>
-            <label
-              htmlFor="upi_qr_upload"
-              className="block text-sm font-medium mb-1"
-            >
-              Or upload QR image
-            </label>
-            <input
-              id="upi_qr_upload"
-              type="file"
-              accept="image/*"
-              className="w-full text-sm"
-              onChange={handleQrUpload}
-            />
-            <p className="text-xs text-muted-foreground mt-1">
-              We&apos;ll upload and fill the URL automatically.
-            </p>
-            {uploading && (
-              <p className="text-xs text-muted-foreground mt-1">
-                Uploading QR image…
-              </p>
+        <div>
+          <label className="mb-2 block text-sm font-medium">UPI QR image</label>
+
+          <input type="hidden" {...register("upi.qr_src")} />
+
+          <input
+            ref={fileInputRef}
+            id="upi_qr_upload"
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={handleQrUpload}
+          />
+
+          <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-4">
+            {qrSrc ? (
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
+                <div className="flex h-32 w-32 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-slate-200 bg-white p-2">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={qrSrc}
+                    alt="UPI QR"
+                    className="h-full w-full object-contain"
+                  />
+                </div>
+
+                <div className="min-w-0 flex-1">
+                  <div className="text-sm font-semibold text-slate-900">
+                    QR image uploaded
+                  </div>
+                  <p className="mt-1 text-xs text-slate-500">
+                    This QR will be shown on checkout when QR display is enabled.
+                  </p>
+
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={openFilePicker}
+                      disabled={uploading}
+                      className="rounded-xl bg-indigo-600 px-4 py-2 text-xs font-semibold text-white hover:bg-indigo-700 disabled:opacity-60"
+                    >
+                      {uploading ? "Uploading..." : "Replace QR"}
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={removeQr}
+                      disabled={uploading}
+                      className="rounded-xl border border-rose-200 bg-white px-4 py-2 text-xs font-semibold text-rose-600 hover:bg-rose-50 disabled:opacity-60"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <div className="text-sm font-semibold text-slate-900">
+                    Upload UPI QR image
+                  </div>
+                  <p className="mt-1 text-xs text-slate-500">
+                    Upload PNG/JPG QR image. It will be stored safely and hidden
+                    from Catalog Media.
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={openFilePicker}
+                  disabled={uploading}
+                  className="rounded-xl bg-indigo-600 px-4 py-2 text-xs font-semibold text-white hover:bg-indigo-700 disabled:opacity-60"
+                >
+                  {uploading ? "Uploading..." : "Upload QR"}
+                </button>
+              </div>
             )}
+
             {uploadError && (
-              <p className="text-xs text-red-600 mt-1">{uploadError}</p>
+              <p className="mt-3 text-xs font-medium text-red-600">
+                {uploadError}
+              </p>
             )}
           </div>
         </div>
       )}
 
       <div>
-        <label
-          htmlFor="upi_notes"
-          className="block text-sm font-medium mb-1"
-        >
-          Notes (shown on checkout / email)
+        <label htmlFor="upi_notes" className="mb-1 block text-sm font-medium">
+          Notes shown on checkout / email
         </label>
         <textarea
           id="upi_notes"
           rows={3}
-          className="w-full border rounded-md px-3 py-2 text-sm"
+          className="w-full rounded-md border px-3 py-2 text-sm"
           placeholder="UPI instructions for the customer"
           {...register("upi.notes")}
         />
-        <p className="text-xs text-muted-foreground mt-1">
+        <p className="mt-1 text-xs text-muted-foreground">
           Customers will see these UPI instructions on checkout and in order
           emails.
         </p>
