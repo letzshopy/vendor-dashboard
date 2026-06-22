@@ -1,6 +1,23 @@
-// src/app/api/media/update/route.ts
 import { NextResponse } from "next/server";
 import { getWpBaseUrl } from "@/lib/wpClient";
+
+export const dynamic = "force-dynamic";
+
+function getWpAuthEnv() {
+  const user = process.env.WP_USER || "";
+  const appPass = (process.env.WP_APP_PASSWORD || "").replace(/\s+/g, "");
+
+  const missing: string[] = [];
+  if (!user) missing.push("WP_USER");
+  if (!appPass) missing.push("WP_APP_PASSWORD");
+
+  if (missing.length) {
+    throw new Error(`Missing env var(s): ${missing.join(", ")}`);
+  }
+
+  const auth = Buffer.from(`${user}:${appPass}`).toString("base64");
+  return { auth };
+}
 
 export async function PATCH(req: Request) {
   try {
@@ -8,43 +25,37 @@ export async function PATCH(req: Request) {
 
     if (!id) return NextResponse.json({ error: "id required" }, { status: 400 });
 
-    // ✅ tenant-aware base URL
-    const wpUrl = await getWpBaseUrl();
+    const wpUrl = (await getWpBaseUrl()).replace(/\/$/, "");
+    const { auth } = getWpAuthEnv();
 
-    // ✅ shared auth from env (tenant sites share same WP user/app password)
-    const user = process.env.WP_USER;
-    const appPass = process.env.WP_APP_PASSWORD;
-
-    if (!user || !appPass) {
-      return NextResponse.json(
-        { error: "Missing env var(s): WP_USER, WP_APP_PASSWORD" },
-        { status: 500 }
-      );
-    }
-
-    const auth = Buffer.from(`${user}:${appPass}`).toString("base64");
-
-    const body: any = {};
-    if (title !== undefined) body.title = title;
-    if (slug) body.slug = slug; // physical rename requires a renamer plugin
-
-    const res = await fetch(`${wpUrl}/wp-json/wp/v2/media/${id}`, {
-      method: "POST", // WP REST uses POST for updates
+    const res = await fetch(`${wpUrl}/wp-json/letz/v1/media/catalog/${id}`, {
+      method: "PATCH",
       headers: {
         Authorization: `Basic ${auth}`,
         "Content-Type": "application/json",
+        Accept: "application/json",
       },
-      body: JSON.stringify(body),
+      body: JSON.stringify({ title, slug }),
       cache: "no-store",
     });
 
-    if (!res.ok) {
-      const t = await res.text();
-      return NextResponse.json({ error: t }, { status: 500 });
+    const text = await res.text();
+    let data: any = {};
+
+    try {
+      data = JSON.parse(text);
+    } catch {
+      data = { raw: text };
     }
 
-    const data = await res.json();
-    return NextResponse.json({ ok: true, item: data });
+    if (!res.ok) {
+      return NextResponse.json(
+        { error: data?.message || data?.error || "Media update failed", details: data },
+        { status: res.status }
+      );
+    }
+
+    return NextResponse.json({ ok: true, item: data?.item || data });
   } catch (e: any) {
     return NextResponse.json({ error: e?.message || "Unknown error" }, { status: 500 });
   }
