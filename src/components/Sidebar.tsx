@@ -67,6 +67,7 @@ const ALL_GROUPS: Group[] = [
       { href: "/orders", label: "Orders", ready: true },
       { href: "/sales/shipment-details", label: "Shipment Details", ready: true },
       { href: "/customers", label: "Customers", ready: true },
+      { href: "/sales/feedback", label: "Customer Feedback", ready: true },
     ],
   },
   {
