@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import ImageUploader from "@/components/ImageUploader";
 import {
   Bell,
@@ -393,7 +393,7 @@ export default function SetupSiteTab() {
   const [saving, setSaving] = useState(false);
   const [banner, setBanner] = useState<null | "saved" | "error">(null);
 
-  const snapshotRef = useRef<string | null>(null);
+  const [savedSnap, setSavedSnap] = useState<string | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -406,10 +406,10 @@ export default function SetupSiteTab() {
         const next = normalizeForm(data);
 
         setForm(next);
-        snapshotRef.current = JSON.stringify(next);
+setSavedSnap(JSON.stringify(next));
       } catch {
         setForm(EMPTY_FORM);
-        snapshotRef.current = JSON.stringify(EMPTY_FORM);
+setSavedSnap(JSON.stringify(EMPTY_FORM));
       } finally {
         setLoaded(true);
       }
@@ -419,9 +419,9 @@ export default function SetupSiteTab() {
   const currentSnap = useMemo(() => JSON.stringify(form), [form]);
 
   const isDirty = useMemo(() => {
-    if (!snapshotRef.current) return false;
-    return snapshotRef.current !== currentSnap;
-  }, [currentSnap]);
+  if (!savedSnap) return false;
+  return savedSnap !== currentSnap;
+}, [savedSnap, currentSnap]);
 
   useEffect(() => {
     const onBeforeUnload = (e: BeforeUnloadEvent) => {
@@ -449,27 +449,37 @@ export default function SetupSiteTab() {
   }
 
   async function save() {
-    setSaving(true);
-    try {
-      const res = await fetch("/api/settings/site-setup", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
-      });
+  setSaving(true);
 
-      if (!res.ok) throw new Error("Save failed");
+  try {
+    const res = await fetch("/api/settings/site-setup", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(form),
+    });
 
-      snapshotRef.current = JSON.stringify(form);
-      setBanner("saved");
-      window.scrollTo({ top: 0, behavior: "smooth" });
-      setTimeout(() => setBanner(null), 2600);
-    } catch {
-      setBanner("error");
-      setTimeout(() => setBanner(null), 3200);
-    } finally {
-      setSaving(false);
+    const data = await res.json().catch(() => null);
+
+    if (!res.ok) {
+      throw new Error(data?.error || "Save failed");
     }
+
+    const next = normalizeForm(data || form);
+    const nextSnap = JSON.stringify(next);
+
+    setForm(next);
+    setSavedSnap(nextSnap);
+    setBanner("saved");
+
+    window.scrollTo({ top: 0, behavior: "smooth" });
+    setTimeout(() => setBanner(null), 2600);
+  } catch {
+    setBanner("error");
+    setTimeout(() => setBanner(null), 3200);
+  } finally {
+    setSaving(false);
   }
+}
 
   if (!loaded) {
     return (
