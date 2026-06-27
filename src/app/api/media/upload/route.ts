@@ -3,18 +3,14 @@ import { getWpBaseUrl } from "@/lib/wpClient";
 
 export const dynamic = "force-dynamic";
 
-function requireAuthEnv() {
-  const user = process.env.WP_USER || "";
-  const pass = (process.env.WP_APP_PASSWORD || "").replace(/\s+/g, "");
+function requireInternalToken() {
+  const token = process.env.LETZ_INTERNAL_TOKEN || "";
 
-  const missing: string[] = [];
-  if (!user) missing.push("WP_USER");
-  if (!pass) missing.push("WP_APP_PASSWORD");
+  if (!token) {
+    throw new Error("Missing LETZ_INTERNAL_TOKEN in dashboard env");
+  }
 
-  if (missing.length) throw new Error(`Missing env var(s): ${missing.join(", ")}`);
-
-  const auth = Buffer.from(`${user}:${pass}`).toString("base64");
-  return { auth };
+  return token;
 }
 
 function inferScope(req: NextRequest, explicitScope?: string | null) {
@@ -38,36 +34,22 @@ function inferScope(req: NextRequest, explicitScope?: string | null) {
       return "catalog";
     }
 
-    if (pathname.includes("/settings")) {
+    if (
+      pathname.includes("/settings") ||
+      pathname.includes("/payments") ||
+      pathname.includes("/account")
+    ) {
       return "system";
     }
   } catch {
-    /* ignore */
+    // ignore
   }
 
   return "system";
 }
 
-async function markMediaScope(wpUrl: string, auth: string, id: number, scope: "catalog" | "system") {
-  const purpose = scope === "catalog" ? "product_or_category" : "site_design_or_internal";
-
-  const res = await fetch(`${wpUrl}/wp-json/letz/v1/media/mark-scope`, {
-    method: "POST",
-    headers: {
-      Authorization: `Basic ${auth}`,
-      "Content-Type": "application/json",
-      Accept: "application/json",
-    },
-    body: JSON.stringify({ id, scope, purpose }),
-    cache: "no-store",
-  });
-
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`Uploaded, but media scope mark failed (${res.status}): ${text}`);
-  }
-
-  return res.json();
+function purposeForScope(scope: "catalog" | "system") {
+  return scope === "catalog" ? "product_or_category" : "site_design_or_internal";
 }
 
 export async function POST(req: NextRequest) {
@@ -75,59 +57,77 @@ export async function POST(req: NextRequest) {
     const form = await req.formData();
     const file = form.get("file") as File | null;
 
-    if (!file) return NextResponse.json({ error: "No file" }, { status: 400 });
+    if (!(file instanceof File) || !file.name || file.size <= 0) {
+      return NextResponse.json({ error: "No file" }, { status: 400 });
+    }
 
     const explicitScope = form.get("scope")?.toString() || "";
     const scope = inferScope(req, explicitScope) as "catalog" | "system";
 
     const base = (await getWpBaseUrl()).replace(/\/$/, "");
-    const { auth } = requireAuthEnv();
+    const token = requireInternalToken();
 
     const fd = new FormData();
     fd.append("file", file, file.name);
+    fd.append("scope", scope);
+    fd.append("purpose", purposeForScope(scope));
 
-    const res = await fetch(`${base}/wp-json/wp/v2/media`, {
+    const res = await fetch(`${base}/wp-json/letz/v1/media/upload`, {
       method: "POST",
-      headers: { Authorization: `Basic ${auth}` },
+      headers: {
+        "X-Letz-Auth": token,
+        Accept: "application/json",
+      },
       body: fd,
       cache: "no-store",
     });
 
     const raw = await res.text();
-    let j: any = {};
+    let data: any = {};
 
     try {
-      j = JSON.parse(raw);
+      data = JSON.parse(raw);
     } catch {
-      /* non-JSON from WP */
+      // non-JSON from WP
     }
 
     if (!res.ok) {
       return NextResponse.json(
-        { error: j?.message || "WP media upload failed", details: j || raw },
+        {
+          error: data?.error || data?.message || "WP media upload failed",
+          details: data || raw,
+        },
         { status: res.status }
       );
     }
 
-    const id = Number(j?.id);
-    const url: string | undefined = j?.source_url;
+    const id = Number(data?.id || data?.image_id || 0);
+    const url = String(data?.url || data?.source_url || data?.image_url || "");
 
-    if (!Number.isFinite(id) || !url) {
+    if (!Number.isFinite(id) || id <= 0 || !url) {
       return NextResponse.json(
-        { error: "WP upload ok but response lacked id/source_url", details: j },
+        {
+          error: "WP upload ok but response lacked id/url",
+          details: data,
+        },
         { status: 502 }
       );
     }
 
-    const mark = await markMediaScope(base, auth, id, scope);
-
     return NextResponse.json({
       id,
       url,
+      source_url: url,
+      image_url: String(data?.image_url || url),
+      thumbnail: String(data?.thumbnail || data?.image_url || url),
       scope,
-      protected: mark?.protected ?? scope === "system",
+      protected: Boolean(data?.protected ?? scope === "system"),
+      item: data?.item || null,
     });
   } catch (e: any) {
-    return NextResponse.json({ error: e?.message || "Upload failed" }, { status: 500 });
+    return NextResponse.json(
+      { error: e?.message || "Upload failed" },
+      { status: 500 }
+    );
   }
 }

@@ -3,26 +3,20 @@ import { getWpBaseUrl } from "@/lib/wpClient";
 
 export const dynamic = "force-dynamic";
 
-function requireAuthEnv() {
-  const user = process.env.WP_USER || "";
-  const pass = (process.env.WP_APP_PASSWORD || "").replace(/\s+/g, "");
+function requireInternalToken() {
+  const token = process.env.LETZ_INTERNAL_TOKEN || "";
 
-  const missing: string[] = [];
-  if (!user) missing.push("WP_USER");
-  if (!pass) missing.push("WP_APP_PASSWORD");
-
-  if (missing.length) {
-    throw new Error(`Missing env var(s): ${missing.join(", ")}. Set them in .env.local`);
+  if (!token) {
+    throw new Error("Missing LETZ_INTERNAL_TOKEN in dashboard env");
   }
 
-  const auth = Buffer.from(`${user}:${pass}`).toString("base64");
-  return { auth };
+  return token;
 }
 
 export async function GET(req: Request) {
   try {
     const wpUrl = (await getWpBaseUrl()).replace(/\/$/, "");
-    const { auth } = requireAuthEnv();
+    const token = requireInternalToken();
 
     const url = new URL(req.url);
     const id = url.searchParams.get("id") || "";
@@ -40,7 +34,7 @@ export async function GET(req: Request) {
 
     const r = await fetch(endpoint, {
       headers: {
-        Authorization: `Basic ${auth}`,
+        "X-Letz-Auth": token,
         Accept: "application/json",
       },
       cache: "no-store",
@@ -49,7 +43,9 @@ export async function GET(req: Request) {
     if (!r.ok) {
       const t = await r.text();
       return NextResponse.json(
-        { error: `WP catalog media error (${r.status}) for ${endpoint}: ${t}` },
+        {
+          error: `WP catalog media error (${r.status}) for ${endpoint}: ${t}`,
+        },
         { status: 500 }
       );
     }
@@ -59,6 +55,9 @@ export async function GET(req: Request) {
 
     return NextResponse.json({ items });
   } catch (e: any) {
-    return NextResponse.json({ error: e?.message || "Unknown error" }, { status: 500 });
+    return NextResponse.json(
+      { error: e?.message || "Unknown error" },
+      { status: 500 }
+    );
   }
 }
