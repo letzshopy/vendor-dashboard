@@ -2,15 +2,10 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  Bell,
-  Boxes,
-  CheckCircle2,
   DollarSign,
   Package,
   Printer,
   Ruler,
-  Save,
-  Scale,
   ShieldCheck,
   Star,
   Warehouse,
@@ -105,7 +100,7 @@ export default function GeneralTab() {
   const [loading, setLoading] = useState(true);
   const [loadErr, setLoadErr] = useState<string | null>(null);
 
-  const [saving, setSaving] = useState(false);
+  
   const [syncing, setSyncing] = useState(false);
   const [err, setErr] = useState<Record<string, string>>({});
 
@@ -199,10 +194,10 @@ export default function GeneralTab() {
         <div className="rounded-[24px] border border-rose-200 bg-rose-50 p-5 text-sm text-rose-700 shadow-sm">
           Failed to load: {loadErr}
           <div className="mt-2 text-xs text-slate-500">
-            Make sure <code>src/app/api/settings/general/route.ts</code> exists
-            and imports from <code>@/lib/settingsStore</code>, and that{" "}
-            <code>getSettings().general.products</code> has defaults.
-          </div>
+  Make sure <code>src/app/api/settings/general/route.ts</code> is connected to{" "}
+  <code>/wp-json/letz/v1/general-settings</code> and that the WordPress route is
+  added in <code>letz-account-settings.php</code>.
+</div>
         </div>
       </div>
     );
@@ -215,57 +210,60 @@ export default function GeneralTab() {
     v: ProductsGeneral[K]
   ) => setP({ ...p, [k]: v });
 
-  async function save(sync: boolean) {
-    if (!p) return;
-    setErr({});
-    setBanner(null);
-    (sync ? setSyncing : setSaving)(true);
+  async function save() {
+  if (!p) return;
 
-    try {
-      const res = await fetch("/api/settings/general", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ products: p, sync }),
-      });
+  setErr({});
+  setBanner(null);
+  setSyncing(true);
 
-      const text = await res.text().catch(() => "");
-      const j = text ? JSON.parse(text) : {};
+  try {
+    const res = await fetch("/api/settings/general", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ products: p, sync: true }),
+    });
 
-      if (!res.ok) {
-        if (j.error && typeof j.error === "object") {
-          setErr(j.error);
-        }
-        setBanner({
-          type: "error",
-          message:
-            "Could not save general settings. Please check the highlighted fields.",
-        });
-        return;
+    const text = await res.text().catch(() => "");
+    const j = text ? JSON.parse(text) : {};
+
+    if (!res.ok) {
+      if (j.error && typeof j.error === "object") {
+        setErr(j.error);
       }
 
-      const updated: ProductsGeneral = j?.products || p;
-      setP(updated);
-      snapshotRef.current = JSON.stringify(updated);
-
-      const msg = sync
-        ? j.synced
-          ? "Saved & synced to store."
-          : "Saved, but sync to store failed."
-        : "General settings saved successfully.";
-
-      setBanner({ type: "success", message: msg });
-      window.scrollTo({ top: 0, behavior: "smooth" });
-      setTimeout(() => setBanner(null), 2600);
-    } catch {
       setBanner({
         type: "error",
-        message: "Something went wrong while saving. Please try again.",
+        message:
+  typeof j?.message === "string"
+    ? j.message
+    : "Could not save general settings.",
       });
-    } finally {
-      (sync ? setSyncing : setSaving)(false);
-    }
-  }
 
+      return;
+    }
+
+    const updated: ProductsGeneral = j?.products || p;
+
+    setP(updated);
+    snapshotRef.current = JSON.stringify(updated);
+
+    setBanner({
+      type: "success",
+      message: "General settings saved & synced to store.",
+    });
+
+    window.scrollTo({ top: 0, behavior: "smooth" });
+    setTimeout(() => setBanner(null), 2600);
+  } catch {
+    setBanner({
+      type: "error",
+      message: "Something went wrong while saving. Please try again.",
+    });
+  } finally {
+    setSyncing(false);
+  }
+}
   return (
     <>
       {banner && (
@@ -518,31 +516,21 @@ export default function GeneralTab() {
                   {isDirty ? "Unsaved changes" : "All changes saved"}
                 </div>
                 <div className="mt-1 text-xs text-slate-500">
-                  Save and optionally sync these settings to your store.
+                  Save these settings and sync them to your store.
                 </div>
               </div>
 
               <div className="flex flex-col gap-2 sm:flex-row">
-                <button
-                  disabled={saving || syncing || !isDirty}
-                  onClick={() => save(false)}
-                  className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-800 shadow-sm hover:bg-slate-50 disabled:opacity-60"
-                >
-                  <Save className="h-4 w-4" />
-                  {saving ? "Saving..." : "Save changes"}
-                </button>
-
-                <button
-                  disabled={syncing}
-                  onClick={() => save(true)}
-                  className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-indigo-600 px-5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700 disabled:opacity-60"
-                  title="Save and push these settings to your store"
-                >
-                  <ShieldCheck className="h-4 w-4" />
-                  {syncing ? "Saving & syncing..." : "Save & Sync to Store"}
-                </button>
-              </div>
-            </div>
+  <button
+    disabled={syncing || !isDirty}
+    onClick={() => save()}
+    className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-indigo-600 px-5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700 disabled:opacity-60"
+    title="Save and push these settings to your store"
+  >
+    <ShieldCheck className="h-4 w-4" />
+    {syncing ? "Saving & syncing..." : "Save & Sync to Store"}
+  </button>
+</div>            </div>
           </div>
         </div>
       </div>
