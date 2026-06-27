@@ -522,7 +522,7 @@ export default function ShippingTab() {
   useEffect(() => {
     (async () => {
       try {
-        const r = await fetch("/wp-json/letz/v1/shipping/state");
+        const r = await fetch("/api/shipping/state");
         if (!r.ok) throw new Error(await r.text());
         const data = await r.json();
 
