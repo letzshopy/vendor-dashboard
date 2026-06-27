@@ -516,13 +516,13 @@ export default function SetupSiteTab() {
           </div>
         </div>
 
-        <SectionCard
+<SectionCard
   icon={<Sparkles className="h-5 w-5" />}
   title="Homepage setup"
-  hint="These fields control the top bar, homepage hero banner and visible homepage sections."
+  hint="Control the topbar message, homepage banner image and visible homepage sections."
 >
-  <div className="grid gap-4 xl:grid-cols-[minmax(0,1.1fr)_minmax(320px,0.9fr)]">
-    <div className="space-y-4">
+  <div className="space-y-4">
+    <div className="rounded-[24px] border border-slate-200 bg-slate-50/70 p-4">
       <Field label="Topbar message">
         <div className="relative">
           <Bell className="pointer-events-none absolute left-4 top-3.5 h-4 w-4 text-slate-400" />
@@ -537,88 +537,99 @@ export default function SetupSiteTab() {
     </div>
 
     <div className="rounded-[24px] border border-dashed border-slate-300 bg-slate-50/70 p-4 md:p-5">
-      <div className="flex items-start gap-3">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-white text-slate-600 shadow-sm">
-          <ImageIcon className="h-5 w-5" />
-        </div>
-        <div>
-          <div className="text-sm font-semibold text-slate-900">
-            Home banner image
+      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+        <div className="flex items-start gap-3 md:max-w-sm">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-white text-slate-600 shadow-sm">
+            <ImageIcon className="h-5 w-5" />
           </div>
-          <p className="mt-1 text-xs leading-5 text-slate-500">
-            Upload the banner image used on the storefront home page.
-          </p>
-        </div>
-      </div>
-
-      <div className="mt-4">
-        {form.branding.heroBannerUrl ? (
-          <div className="space-y-4">
-            <div className="overflow-hidden rounded-[22px] border border-slate-200 bg-white p-1">
-              <img
-                src={form.branding.heroBannerUrl}
-                alt="Hero banner"
-                className="h-44 w-full rounded-[18px] object-cover"
-              />
+          <div>
+            <div className="text-sm font-semibold text-slate-900">
+              Home banner image
             </div>
-
-            <div className="flex flex-wrap items-center gap-2">
-              <button
-                type="button"
-                className="inline-flex h-11 items-center justify-center rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50"
-                onClick={() => patch("branding.heroBannerUrl", "")}
-              >
-                Change banner
-              </button>
-              <span className="text-xs text-slate-500">
-                Recommended ~1600×600px JPG/PNG
-              </span>
-            </div>
-          </div>
-        ) : (
-          <div className="space-y-2">
-            <div className="rounded-[22px] border border-dashed border-slate-300 bg-white p-4">
-              <ImageUploader
-                onUploaded={(url) => patch("branding.heroBannerUrl", url ?? "")}
-              />
-            </div>
-            <p className="text-[11px] text-slate-500">
-              Recommended ~1600×600px JPG/PNG.
+            <p className="mt-1 text-xs leading-5 text-slate-500">
+              Upload the banner image used on the storefront home page.
+              Recommended size is around 1600×600px.
             </p>
           </div>
-        )}
+        </div>
+
+        <div className="w-full md:max-w-md">
+          {form.branding.heroBannerUrl ? (
+            <div className="space-y-3">
+              <div className="overflow-hidden rounded-[22px] border border-slate-200 bg-white p-1">
+                <img
+                  src={form.branding.heroBannerUrl}
+                  alt="Home banner"
+                  className="h-48 w-full rounded-[18px] object-cover"
+                />
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  className="inline-flex h-10 items-center justify-center rounded-2xl border border-slate-200 bg-white px-4 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-50"
+                  onClick={() => patch("branding.heroBannerUrl", "")}
+                >
+                  Change banner
+                </button>
+                <span className="text-xs text-slate-500">
+                  JPG/PNG supported
+                </span>
+              </div>
+            </div>
+          ) : (
+            <div className="rounded-[22px] border border-dashed border-slate-300 bg-white p-4">
+              <ImageUploader
+                onUploaded={(url) =>
+                  patch("branding.heroBannerUrl", url ?? "")
+                }
+              />
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+
+    <div className="rounded-[24px] border border-slate-200 bg-white p-4">
+      <div className="mb-3">
+        <div className="text-sm font-semibold text-slate-900">
+          Homepage sections
+        </div>
+        <p className="mt-1 text-xs text-slate-500">
+          Choose which sections should appear on the storefront homepage.
+        </p>
+      </div>
+
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+        <ToggleField
+          title='Show "New Arrivals" section on homepage?'
+          checked={form.branding.showNewArrivals}
+          onChange={(v) => patch("branding.showNewArrivals", v)}
+        />
+        <ToggleField
+          title='Show "Our Collections" section on homepage?'
+          checked={form.branding.showCollections}
+          onChange={(v) => patch("branding.showCollections", v)}
+        />
+        <ToggleField
+          title='Show "Best Sellers" section on homepage?'
+          checked={form.branding.showBestSellers}
+          onChange={(v) => patch("branding.showBestSellers", v)}
+        />
+        <ToggleField
+          title='Show "Offer Sale" section on homepage?'
+          checked={form.branding.showOfferSale}
+          onChange={(v) => patch("branding.showOfferSale", v)}
+        />
+        <ToggleField
+          title="Show Customer Feedback section on homepage?"
+          checked={form.branding.showCustomerFeedback}
+          onChange={(v) => patch("branding.showCustomerFeedback", v)}
+        />
       </div>
     </div>
   </div>
-
-  <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-    <ToggleField
-      title='Show "New Arrivals" section on homepage?'
-      checked={form.branding.showNewArrivals}
-      onChange={(v) => patch("branding.showNewArrivals", v)}
-    />
-    <ToggleField
-      title='Show "Our Collections" section on homepage?'
-      checked={form.branding.showCollections}
-      onChange={(v) => patch("branding.showCollections", v)}
-    />
-    <ToggleField
-      title='Show "Best Sellers" section on homepage?'
-      checked={form.branding.showBestSellers}
-      onChange={(v) => patch("branding.showBestSellers", v)}
-    />
-    <ToggleField
-      title='Show "Offer Sale" section on homepage?'
-      checked={form.branding.showOfferSale}
-      onChange={(v) => patch("branding.showOfferSale", v)}
-    />
-    <ToggleField
-      title="Show Customer Feedback section on homepage?"
-      checked={form.branding.showCustomerFeedback}
-      onChange={(v) => patch("branding.showCustomerFeedback", v)}
-    />
-  </div>
-</SectionCard>
+</SectionCard>        
         <SectionCard
           icon={<UserRound className="h-5 w-5" />}
           title="About page setup"
