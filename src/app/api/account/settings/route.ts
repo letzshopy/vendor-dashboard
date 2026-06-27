@@ -7,15 +7,24 @@ function authHeader() {
   return "Basic " + Buffer.from(`${user}:${pass}`).toString("base64");
 }
 
+function wpHeaders(extra: Record<string, string> = {}) {
+  return {
+    Authorization: authHeader(),
+    "X-Letz-Dashboard-Key": process.env.LETZ_DASHBOARD_API_KEY || "",
+    ...extra,
+  };
+}
+
 export async function GET() {
   const base = (await getWpBaseUrl()).replace(/\/$/, "");
 
   const r = await fetch(`${base}/wp-json/letz/v1/account-settings`, {
     cache: "no-store",
-    headers: { Authorization: authHeader() },
+    headers: wpHeaders(),
   });
 
   const text = await r.text();
+
   return new NextResponse(text, {
     status: r.status,
     headers: { "content-type": "application/json" },
@@ -28,14 +37,14 @@ export async function PUT(req: Request) {
 
   const r = await fetch(`${base}/wp-json/letz/v1/account-settings`, {
     method: "PUT",
-    headers: {
-      Authorization: authHeader(),
+    headers: wpHeaders({
       "content-type": "application/json",
-    },
+    }),
     body,
   });
 
   const text = await r.text();
+
   return new NextResponse(text, {
     status: r.status,
     headers: { "content-type": "application/json" },

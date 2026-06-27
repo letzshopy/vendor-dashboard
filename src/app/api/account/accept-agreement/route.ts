@@ -24,8 +24,7 @@ function verifySignedToken(token: string, secret: string) {
     if (expected.length !== actual.length) return null;
     if (!crypto.timingSafeEqual(expected, actual)) return null;
 
-    const json = JSON.parse(b64urlToBuffer(body).toString("utf8"));
-    return json;
+    return JSON.parse(b64urlToBuffer(body).toString("utf8"));
   } catch {
     return null;
   }
@@ -49,7 +48,10 @@ export async function POST() {
 
     if (role !== "store_owner") {
       return NextResponse.json(
-        { ok: false, error: "Only store owners can accept the Vendor Agreement." },
+        {
+          ok: false,
+          error: "Only store owners can accept the Vendor Agreement.",
+        },
         { status: 403 }
       );
     }
@@ -62,19 +64,23 @@ export async function POST() {
 
     const base = (await getWpBaseUrl()).replace(/\/$/, "");
 
-    const wpRes = await fetch(`${base}/wp-json/letz/v1/account/agreement/accept`, {
-      method: "POST",
-      headers: {
-        Authorization: authHeader(),
-        "Content-Type": "application/json",
-      },
-      cache: "no-store",
-      body: JSON.stringify({
-        version: "v1.0",
-        accepted_by_email: acceptedByEmail,
-        saas_role: role,
-      }),
-    });
+    const wpRes = await fetch(
+      `${base}/wp-json/letz/v1/account/agreement/accept`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: authHeader(),
+          "Content-Type": "application/json",
+          "X-Letz-Dashboard-Key": process.env.LETZ_DASHBOARD_API_KEY || "",
+        },
+        cache: "no-store",
+        body: JSON.stringify({
+          version: "v1.0",
+          accepted_by_email: acceptedByEmail,
+          saas_role: role,
+        }),
+      }
+    );
 
     const text = await wpRes.text();
 
@@ -86,8 +92,12 @@ export async function POST() {
     });
   } catch (error: any) {
     console.error("Agreement accept error:", error);
+
     return NextResponse.json(
-      { ok: false, error: error?.message || "Could not accept agreement." },
+      {
+        ok: false,
+        error: error?.message || "Could not accept agreement.",
+      },
       { status: 500 }
     );
   }
