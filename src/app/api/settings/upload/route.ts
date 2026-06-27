@@ -4,46 +4,14 @@ import { getWpBaseUrl } from "@/lib/wpClient";
 
 export const dynamic = "force-dynamic";
 
-function requireAuthEnv() {
-  const user = process.env.WP_USER || "";
-  const pass = (process.env.WP_APP_PASSWORD || "").replace(/\s+/g, "");
+function requireInternalToken() {
+  const token = process.env.LETZ_INTERNAL_TOKEN || "";
 
-  const missing: string[] = [];
-  if (!user) missing.push("WP_USER");
-  if (!pass) missing.push("WP_APP_PASSWORD");
-
-  if (missing.length) {
-    throw new Error(`Missing env var(s): ${missing.join(", ")}`);
+  if (!token) {
+    throw new Error("Missing LETZ_INTERNAL_TOKEN in dashboard env");
   }
 
-  const auth = Buffer.from(`${user}:${pass}`).toString("base64");
-  return { auth };
-}
-
-async function markAsSystemMedia(wpUrl: string, auth: string, id: number) {
-  try {
-    const res = await fetch(`${wpUrl}/wp-json/letz/v1/media/mark-scope`, {
-      method: "POST",
-      headers: {
-        Authorization: `Basic ${auth}`,
-        "Content-Type": "application/json",
-        Accept: "application/json",
-      },
-      body: JSON.stringify({
-        id,
-        scope: "system",
-        purpose: "settings_logo_banner_qr",
-      }),
-      cache: "no-store",
-    });
-
-    if (!res.ok) {
-      const text = await res.text().catch(() => "");
-      console.error("Settings upload media scope mark failed:", res.status, text);
-    }
-  } catch (error) {
-    console.error("Settings upload media scope mark error:", error);
-  }
+  return token;
 }
 
 export async function POST(req: NextRequest) {
@@ -51,20 +19,37 @@ export async function POST(req: NextRequest) {
     const form = await req.formData();
     const file = form.get("file") as File | null;
 
-    if (!file) {
+    if (!(file instanceof File) || !file.name || file.size <= 0) {
       return NextResponse.json({ error: "No file" }, { status: 400 });
     }
 
     const wpUrl = (await getWpBaseUrl()).replace(/\/$/, "");
-    const { auth } = requireAuthEnv();
+    const token = requireInternalToken();
 
     const fd = new FormData();
     fd.append("file", file, file.name);
 
-    const res = await fetch(`${wpUrl}/wp-json/wp/v2/media`, {
+    /*
+      Settings upload is always protected/system media.
+
+      Used by:
+      - Profile logo
+      - Setup Site banner image
+      - Setup Site founder/store owner photo
+      - Payment UPI QR image
+      - Internal design/site images
+
+      These images should upload successfully, but should NOT appear
+      in dashboard Catalog → Media page.
+    */
+    fd.append("scope", "system");
+    fd.append("purpose", "settings_logo_banner_qr");
+
+    const res = await fetch(`${wpUrl}/wp-json/letz/v1/media/upload`, {
       method: "POST",
       headers: {
-        Authorization: `Basic ${auth}`,
+        "X-Letz-Auth": token,
+        Accept: "application/json",
       },
       body: fd,
       cache: "no-store",
@@ -82,37 +67,42 @@ export async function POST(req: NextRequest) {
     if (!res.ok) {
       return NextResponse.json(
         {
-          error: data?.message || "WP media upload failed",
+          error:
+            data?.error ||
+            data?.message ||
+            "WP settings media upload failed",
           details: data,
         },
         { status: res.status }
       );
     }
 
-    const id = Number(data?.id);
-    const url = String(data?.source_url || "");
+    const id = Number(data?.id || data?.image_id || 0);
+    const url = String(data?.url || data?.source_url || data?.image_url || "");
 
-    if (!Number.isFinite(id) || !url) {
+    if (!Number.isFinite(id) || id <= 0 || !url) {
       return NextResponse.json(
         {
-          error: "WP upload succeeded but response missed id/source_url",
+          error: "WP upload succeeded but response missed id/url",
           details: data,
         },
         { status: 502 }
       );
     }
 
-    await markAsSystemMedia(wpUrl, auth, id);
-
     return NextResponse.json({
       ok: true,
       id,
       fileName: file.name,
       url,
+      source_url: url,
+      image_url: String(data?.image_url || url),
+      thumbnail: String(data?.thumbnail || data?.image_url || url),
       size: file.size,
       type: file.type,
       scope: "system",
       protected: true,
+      item: data?.item || null,
     });
   } catch (e: any) {
     return NextResponse.json(
