@@ -6,11 +6,8 @@ import {
   Bell,
   ImageIcon,
   LayoutTemplate,
-  Link2,
   Save,
-  ShieldCheck,
   Sparkles,
-  Type,
   UserRound,
   PackageCheck,
   RotateCcw,
@@ -21,16 +18,10 @@ type SetupSiteForm = {
   branding: {
     topbarMessage: string;
     heroBannerUrl: string;
-    heroTopText: string;
-    heroHeading: string;
-    heroBottomText: string;
-    heroButtonText: string;
-    heroButtonLink: string;
     showNewArrivals: boolean;
     showCollections: boolean;
     showBestSellers: boolean;
     showOfferSale: boolean;
-    allowInstagramFeed: boolean;
     showCustomerFeedback: boolean;
   };
   about: {
@@ -68,16 +59,10 @@ const EMPTY_FORM: SetupSiteForm = {
   branding: {
     topbarMessage: "",
     heroBannerUrl: "",
-    heroTopText: "",
-    heroHeading: "",
-    heroBottomText: "",
-    heroButtonText: "",
-    heroButtonLink: "",
     showNewArrivals: true,
     showCollections: true,
     showBestSellers: true,
     showOfferSale: true,
-    allowInstagramFeed: true,
     showCustomerFeedback: true,
   },
   about: {
@@ -532,168 +517,108 @@ export default function SetupSiteTab() {
         </div>
 
         <SectionCard
-          icon={<Sparkles className="h-5 w-5" />}
-          title="Homepage setup"
-          hint="These fields control the top bar, homepage hero banner and visible homepage sections."
-        >
-          <div className="grid gap-4 xl:grid-cols-[minmax(0,1.1fr)_minmax(320px,0.9fr)]">
-            <div className="space-y-4">
-              <Field label="Topbar message">
-                <div className="relative">
-                  <Bell className="pointer-events-none absolute left-4 top-3.5 h-4 w-4 text-slate-400" />
-                  <input
-                    className="h-11 w-full rounded-2xl border border-slate-200 bg-white pl-11 pr-4 text-sm text-slate-900 placeholder:text-slate-400 shadow-sm transition focus:border-indigo-400 focus:outline-none focus:ring-4 focus:ring-indigo-100"
-                    placeholder="Example: Free shipping on orders above ₹999"
-                    value={form.branding.topbarMessage}
-                    onChange={(e) => patch("branding.topbarMessage", e.target.value)}
-                  />
-                </div>
-              </Field>
+  icon={<Sparkles className="h-5 w-5" />}
+  title="Homepage setup"
+  hint="These fields control the top bar, homepage hero banner and visible homepage sections."
+>
+  <div className="grid gap-4 xl:grid-cols-[minmax(0,1.1fr)_minmax(320px,0.9fr)]">
+    <div className="space-y-4">
+      <Field label="Topbar message">
+        <div className="relative">
+          <Bell className="pointer-events-none absolute left-4 top-3.5 h-4 w-4 text-slate-400" />
+          <input
+            className="h-11 w-full rounded-2xl border border-slate-200 bg-white pl-11 pr-4 text-sm text-slate-900 placeholder:text-slate-400 shadow-sm transition focus:border-indigo-400 focus:outline-none focus:ring-4 focus:ring-indigo-100"
+            placeholder="Example: Free shipping on orders above ₹999"
+            value={form.branding.topbarMessage}
+            onChange={(e) => patch("branding.topbarMessage", e.target.value)}
+          />
+        </div>
+      </Field>
+    </div>
 
-              <Field label="Hero top text">
-                <div className="relative">
-                  <Type className="pointer-events-none absolute left-4 top-3.5 h-4 w-4 text-slate-400" />
-                  <input
-                    className="h-11 w-full rounded-2xl border border-slate-200 bg-white pl-11 pr-4 text-sm text-slate-900 placeholder:text-slate-400 shadow-sm transition focus:border-indigo-400 focus:outline-none focus:ring-4 focus:ring-indigo-100"
-                    placeholder="Small text above heading"
-                    value={form.branding.heroTopText}
-                    onChange={(e) => patch("branding.heroTopText", e.target.value)}
-                  />
-                </div>
-              </Field>
+    <div className="rounded-[24px] border border-dashed border-slate-300 bg-slate-50/70 p-4 md:p-5">
+      <div className="flex items-start gap-3">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-white text-slate-600 shadow-sm">
+          <ImageIcon className="h-5 w-5" />
+        </div>
+        <div>
+          <div className="text-sm font-semibold text-slate-900">
+            Home banner image
+          </div>
+          <p className="mt-1 text-xs leading-5 text-slate-500">
+            Upload the banner image used on the storefront home page.
+          </p>
+        </div>
+      </div>
 
-              <Field label="Hero heading">
-                <input
-                  className={inputClass}
-                  placeholder="Main banner heading"
-                  value={form.branding.heroHeading}
-                  onChange={(e) => patch("branding.heroHeading", e.target.value)}
-                />
-              </Field>
-
-              <Field label="Hero bottom text">
-                <textarea
-                  rows={4}
-                  className={textareaClass}
-                  placeholder="Small text below heading"
-                  value={form.branding.heroBottomText}
-                  onChange={(e) => patch("branding.heroBottomText", e.target.value)}
-                />
-              </Field>
-
-              <div className="grid gap-4 md:grid-cols-2">
-                <Field label="Hero button text">
-                  <input
-                    className={inputClass}
-                    placeholder="Shop Now"
-                    value={form.branding.heroButtonText}
-                    onChange={(e) => patch("branding.heroButtonText", e.target.value)}
-                  />
-                </Field>
-
-                <Field label="Hero button link">
-                  <div className="relative">
-                    <Link2 className="pointer-events-none absolute left-4 top-3.5 h-4 w-4 text-slate-400" />
-                    <input
-                      className="h-11 w-full rounded-2xl border border-slate-200 bg-white pl-11 pr-4 text-sm text-slate-900 placeholder:text-slate-400 shadow-sm transition focus:border-indigo-400 focus:outline-none focus:ring-4 focus:ring-indigo-100"
-                      placeholder="/shop"
-                      value={form.branding.heroButtonLink}
-                      onChange={(e) => patch("branding.heroButtonLink", e.target.value)}
-                    />
-                  </div>
-                </Field>
-              </div>
+      <div className="mt-4">
+        {form.branding.heroBannerUrl ? (
+          <div className="space-y-4">
+            <div className="overflow-hidden rounded-[22px] border border-slate-200 bg-white p-1">
+              <img
+                src={form.branding.heroBannerUrl}
+                alt="Hero banner"
+                className="h-44 w-full rounded-[18px] object-cover"
+              />
             </div>
 
-            <div className="rounded-[24px] border border-dashed border-slate-300 bg-slate-50/70 p-4 md:p-5">
-              <div className="flex items-start gap-3">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-white text-slate-600 shadow-sm">
-                  <ImageIcon className="h-5 w-5" />
-                </div>
-                <div>
-                  <div className="text-sm font-semibold text-slate-900">
-                    Home banner image
-                  </div>
-                  <p className="mt-1 text-xs leading-5 text-slate-500">
-                    Upload the banner image used on the storefront home page.
-                  </p>
-                </div>
-              </div>
-
-              <div className="mt-4">
-                {form.branding.heroBannerUrl ? (
-                  <div className="space-y-4">
-                    <div className="overflow-hidden rounded-[22px] border border-slate-200 bg-white p-1">
-                      <img
-                        src={form.branding.heroBannerUrl}
-                        alt="Hero banner"
-                        className="h-44 w-full rounded-[18px] object-cover"
-                      />
-                    </div>
-
-                    <div className="flex flex-wrap items-center gap-2">
-                      <button
-                        type="button"
-                        className="inline-flex h-11 items-center justify-center rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50"
-                        onClick={() => patch("branding.heroBannerUrl", "")}
-                      >
-                        Change banner
-                      </button>
-                      <span className="text-xs text-slate-500">
-                        Recommended ~1600×600px JPG/PNG
-                      </span>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    <div className="rounded-[22px] border border-dashed border-slate-300 bg-white p-4">
-                      <ImageUploader
-                        onUploaded={(url) => patch("branding.heroBannerUrl", url ?? "")}
-                      />
-                    </div>
-                    <p className="text-[11px] text-slate-500">
-                      Recommended ~1600×600px JPG/PNG.
-                    </p>
-                  </div>
-                )}
-              </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                className="inline-flex h-11 items-center justify-center rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50"
+                onClick={() => patch("branding.heroBannerUrl", "")}
+              >
+                Change banner
+              </button>
+              <span className="text-xs text-slate-500">
+                Recommended ~1600×600px JPG/PNG
+              </span>
             </div>
           </div>
-
-          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-            <ToggleField
-              title='Show "New Arrivals" section on homepage?'
-              checked={form.branding.showNewArrivals}
-              onChange={(v) => patch("branding.showNewArrivals", v)}
-            />
-            <ToggleField
-              title='Show "Our Collections" section on homepage?'
-              checked={form.branding.showCollections}
-              onChange={(v) => patch("branding.showCollections", v)}
-            />
-            <ToggleField
-              title='Show "Best Sellers" section on homepage?'
-              checked={form.branding.showBestSellers}
-              onChange={(v) => patch("branding.showBestSellers", v)}
-            />
-            <ToggleField
-              title='Show "Offer Sale" section on homepage?'
-              checked={form.branding.showOfferSale}
-              onChange={(v) => patch("branding.showOfferSale", v)}
-            />
-            <ToggleField
-              title="Allow Instagram Feed connection on homepage?"
-              checked={form.branding.allowInstagramFeed}
-              onChange={(v) => patch("branding.allowInstagramFeed", v)}
-            />
-            <ToggleField
-              title="Show Customer Feedback section on homepage?"
-              checked={form.branding.showCustomerFeedback}
-              onChange={(v) => patch("branding.showCustomerFeedback", v)}
-            />
+        ) : (
+          <div className="space-y-2">
+            <div className="rounded-[22px] border border-dashed border-slate-300 bg-white p-4">
+              <ImageUploader
+                onUploaded={(url) => patch("branding.heroBannerUrl", url ?? "")}
+              />
+            </div>
+            <p className="text-[11px] text-slate-500">
+              Recommended ~1600×600px JPG/PNG.
+            </p>
           </div>
-        </SectionCard>
+        )}
+      </div>
+    </div>
+  </div>
 
+  <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+    <ToggleField
+      title='Show "New Arrivals" section on homepage?'
+      checked={form.branding.showNewArrivals}
+      onChange={(v) => patch("branding.showNewArrivals", v)}
+    />
+    <ToggleField
+      title='Show "Our Collections" section on homepage?'
+      checked={form.branding.showCollections}
+      onChange={(v) => patch("branding.showCollections", v)}
+    />
+    <ToggleField
+      title='Show "Best Sellers" section on homepage?'
+      checked={form.branding.showBestSellers}
+      onChange={(v) => patch("branding.showBestSellers", v)}
+    />
+    <ToggleField
+      title='Show "Offer Sale" section on homepage?'
+      checked={form.branding.showOfferSale}
+      onChange={(v) => patch("branding.showOfferSale", v)}
+    />
+    <ToggleField
+      title="Show Customer Feedback section on homepage?"
+      checked={form.branding.showCustomerFeedback}
+      onChange={(v) => patch("branding.showCustomerFeedback", v)}
+    />
+  </div>
+</SectionCard>
         <SectionCard
           icon={<UserRound className="h-5 w-5" />}
           title="About page setup"
