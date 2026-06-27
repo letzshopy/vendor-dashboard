@@ -29,11 +29,13 @@ async function wpAuth() {
   }
 
   const auth = Buffer.from(`${user}:${appPass}`).toString("base64");
+
   return {
     base,
     headers: {
       Authorization: `Basic ${auth}`,
       "Content-Type": "application/json",
+      "X-Letz-Dashboard-Key": process.env.LETZ_DASHBOARD_API_KEY || "",
     },
   };
 }
@@ -48,16 +50,21 @@ export async function GET() {
     });
 
     const text = await res.text();
+
     let json: any = null;
     try {
       json = JSON.parse(text);
     } catch {
-      // non-JSON
+      // non-JSON response
     }
 
     if (!res.ok) {
       return NextResponse.json(
-        { error: json?.message || "Failed to load shipment fulfillment settings", details: json || text },
+        {
+          error:
+            json?.message || "Failed to load shipment fulfillment settings",
+          details: json || text,
+        },
         { status: res.status || 500 }
       );
     }
@@ -65,6 +72,7 @@ export async function GET() {
     return NextResponse.json(json as ShipmentFulfillmentSettings);
   } catch (err: any) {
     console.error("GET shipment-fulfillment error:", err?.message || err);
+
     return NextResponse.json(
       { error: "Failed to load shipment fulfillment settings" },
       { status: 500 }
@@ -77,8 +85,6 @@ export async function PUT(req: Request) {
     const body = (await req.json()) as ShipmentFulfillmentSettings;
     const { base, headers } = await wpAuth();
 
-    // Keep method as POST if your WP route expects POST for updates.
-    // If your WP endpoint is truly PUT, change method to "PUT".
     const res = await fetch(`${base}/wp-json/letz/v1/shipment-fulfillment`, {
       method: "POST",
       headers,
@@ -86,16 +92,21 @@ export async function PUT(req: Request) {
     });
 
     const text = await res.text();
+
     let json: any = null;
     try {
       json = JSON.parse(text);
     } catch {
-      // non-JSON
+      // non-JSON response
     }
 
     if (!res.ok) {
       return NextResponse.json(
-        { error: json?.message || "Failed to save shipment fulfillment settings", details: json || text },
+        {
+          error:
+            json?.message || "Failed to save shipment fulfillment settings",
+          details: json || text,
+        },
         { status: res.status || 500 }
       );
     }
@@ -103,6 +114,7 @@ export async function PUT(req: Request) {
     return NextResponse.json(json as ShipmentFulfillmentSettings);
   } catch (err: any) {
     console.error("PUT shipment-fulfillment error:", err?.message || err);
+
     return NextResponse.json(
       { error: "Failed to save shipment fulfillment settings" },
       { status: 500 }
