@@ -2,42 +2,15 @@ import { NextResponse } from "next/server";
 import { getWooClient } from "@/lib/woo";
 import { getWpBaseUrl } from "@/lib/wpClient";
 
-const OPTION_KEY = "letz_payments_settings";
+export const dynamic = "force-dynamic";
 
-// --- helpers to store UI state as a single JSON option via custom WP REST ---
-async function getOption(_name: string): Promise<any> {
-  try {
-    const wpBase = (await getWpBaseUrl()).replace(/\/$/, "");
-    const res = await fetch(`${wpBase}/wp-json/letz/v2/payments/settings`, {
-      method: "GET",
-      cache: "no-store",
-    });
-    if (!res.ok) return {};
-    return res.json();
-  } catch {
-    return {};
-  }
-}
-
-async function setOption(_name: string, value: any) {
-  const wpBase = (await getWpBaseUrl()).replace(/\/$/, "");
-
-  const res = await fetch(`${wpBase}/wp-json/letz/v2/payments/settings`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(value),
-    cache: "no-store",
-  });
-
-  if (!res.ok) {
-    const txt = await res.text().catch(() => "");
-    console.error("Failed to save payments settings via WP:", txt);
-    throw new Error("Could not persist payments settings");
-  }
-}
+type OrderSuccessStatus = "processing" | "completed" | "on-hold" | "pending";
 
 type SaveBody = {
-  general?: { enabled?: boolean; default_status?: string };
+  general?: {
+    enabled?: boolean;
+    default_status?: string;
+  };
   upi?: {
     enabled?: boolean;
     upi_id?: string;
@@ -48,7 +21,7 @@ type SaveBody = {
     notes?: string;
     qr_src?: string;
     require_screenshot?: boolean;
-    screenshot_upload?: boolean; // backward compatibility
+    screenshot_upload?: boolean;
   };
   bank?: {
     enabled?: boolean;
@@ -59,8 +32,14 @@ type SaveBody = {
     branch?: string;
     notes?: string;
   };
-  cod?: { enabled?: boolean; notes?: string };
-  cheque?: { enabled?: boolean; notes?: string };
+  cod?: {
+    enabled?: boolean;
+    notes?: string;
+  };
+  cheque?: {
+    enabled?: boolean;
+    notes?: string;
+  };
   easebuzz?: {
     enabled?: boolean;
     mode?: string;
@@ -72,10 +51,132 @@ type SaveBody = {
   };
 };
 
-// Helper to find an Easebuzz gateway by id/title/description
+function requireInternalToken() {
+  const token = process.env.LETZ_INTERNAL_TOKEN || "";
+  if (!token) {
+    throw new Error("Missing LETZ_INTERNAL_TOKEN in dashboard env");
+  }
+  return token;
+}
+
+function boolValue(value: any, fallback = false) {
+  if (value === true || value === 1 || value === "1" || value === "true" || value === "yes" || value === "on") {
+    return true;
+  }
+
+  if (value === false || value === 0 || value === "0" || value === "false" || value === "no" || value === "off") {
+    return false;
+  }
+
+  return fallback;
+}
+
+function cleanStatus(value: any): OrderSuccessStatus {
+  const v = String(value || "").trim();
+
+  if (v === "completed") return "completed";
+  if (v === "on-hold") return "on-hold";
+  if (v === "pending") return "pending";
+
+  return "processing";
+}
+
+function normalizeBody(body: SaveBody | null | undefined): Required<SaveBody> {
+  return {
+    general: {
+      enabled: boolValue(body?.general?.enabled, true),
+      default_status: cleanStatus(body?.general?.default_status),
+    },
+    easebuzz: {
+      enabled: boolValue(body?.easebuzz?.enabled, false),
+      mode: body?.easebuzz?.mode || "test",
+      merchant_key: body?.easebuzz?.merchant_key || "",
+      salt: body?.easebuzz?.salt || "",
+      merchant_id: body?.easebuzz?.merchant_id || "",
+      webhook_secret: body?.easebuzz?.webhook_secret || "",
+      hint: body?.easebuzz?.hint || "easebuzz",
+    },
+    upi: {
+      enabled: boolValue(body?.upi?.enabled, false),
+      upi_id: body?.upi?.upi_id || "",
+      upi_number: body?.upi?.upi_number || "",
+      payee: body?.upi?.payee || "",
+      qr: body?.upi?.qr === "yes" ? "yes" : "no",
+      time_min: body?.upi?.time_min || "",
+      notes: body?.upi?.notes || "",
+      qr_src: body?.upi?.qr_src || "",
+      require_screenshot:
+        body?.upi?.require_screenshot !== undefined
+          ? boolValue(body.upi.require_screenshot, true)
+          : body?.upi?.screenshot_upload !== undefined
+          ? boolValue(body.upi.screenshot_upload, true)
+          : true,
+    },
+    bank: {
+      enabled: boolValue(body?.bank?.enabled, false),
+      account_name: body?.bank?.account_name || "",
+      account_number: body?.bank?.account_number || "",
+      ifsc: body?.bank?.ifsc || "",
+      bank: body?.bank?.bank || "",
+      branch: body?.bank?.branch || "",
+      notes: body?.bank?.notes || "",
+    },
+    cod: {
+      enabled: boolValue(body?.cod?.enabled, false),
+      notes: body?.cod?.notes || "",
+    },
+    cheque: {
+      enabled: boolValue(body?.cheque?.enabled, false),
+      notes: body?.cheque?.notes || "",
+    },
+  };
+}
+
+async function getPaymentsOption(): Promise<any> {
+  const wpBase = (await getWpBaseUrl()).replace(/\/$/, "");
+  const token = requireInternalToken();
+
+  const res = await fetch(`${wpBase}/wp-json/letz/v2/payments/settings`, {
+    method: "GET",
+    headers: {
+      Accept: "application/json",
+      "X-Letz-Auth": token,
+    },
+    cache: "no-store",
+  });
+
+  if (!res.ok) {
+    const txt = await res.text().catch(() => "");
+    throw new Error(txt || "Failed to load payments settings from WordPress");
+  }
+
+  return res.json();
+}
+
+async function setPaymentsOption(value: any) {
+  const wpBase = (await getWpBaseUrl()).replace(/\/$/, "");
+  const token = requireInternalToken();
+
+  const res = await fetch(`${wpBase}/wp-json/letz/v2/payments/settings`, {
+    method: "POST",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+      "X-Letz-Auth": token,
+    },
+    body: JSON.stringify(value),
+    cache: "no-store",
+  });
+
+  if (!res.ok) {
+    const txt = await res.text().catch(() => "");
+    console.error("Failed to save payments settings via WP:", txt);
+    throw new Error(txt || "Could not persist payments settings");
+  }
+}
+
 function findEasebuzzGateway(gateways: any[], hint: string): any | undefined {
-  const h = (hint || "").toLowerCase();
-  if (!h) return undefined;
+  const h = (hint || "easebuzz").toLowerCase();
 
   let gw = gateways.find((g) => String(g.id || "").toLowerCase().includes(h));
   if (gw) return gw;
@@ -91,6 +192,7 @@ function findEasebuzzGateway(gateways: any[], hint: string): any | undefined {
     const id = String(g.id || "").toLowerCase();
     const title = String(g.title || "").toLowerCase();
     const desc = String(g.description || "").toLowerCase();
+
     return (
       id.includes("easebuzz") ||
       title.includes("easebuzz") ||
@@ -99,87 +201,45 @@ function findEasebuzzGateway(gateways: any[], hint: string): any | undefined {
   });
 }
 
-function normalizeBody(body: SaveBody): SaveBody {
-  return {
-    general: {
-      enabled: !!body?.general?.enabled,
-      default_status: body?.general?.default_status || "processing",
-    },
-    easebuzz: {
-      enabled: !!body?.easebuzz?.enabled,
-      mode: body?.easebuzz?.mode || "test",
-      merchant_key: body?.easebuzz?.merchant_key || "",
-      salt: body?.easebuzz?.salt || "",
-      merchant_id: body?.easebuzz?.merchant_id || "",
-      webhook_secret: body?.easebuzz?.webhook_secret || "",
-      hint: body?.easebuzz?.hint || "easebuzz",
-    },
-    upi: {
-      enabled: !!body?.upi?.enabled,
-      upi_id: body?.upi?.upi_id || "",
-      upi_number: body?.upi?.upi_number || "",
-      payee: body?.upi?.payee || "",
-      qr: body?.upi?.qr === "yes" ? "yes" : "no",
-      time_min: body?.upi?.time_min || "",
-      notes: body?.upi?.notes || "",
-      qr_src: body?.upi?.qr_src || "",
-      require_screenshot:
-        body?.upi?.require_screenshot !== undefined
-          ? !!body.upi.require_screenshot
-          : body?.upi?.screenshot_upload !== undefined
-          ? !!body.upi.screenshot_upload
-          : true,
-    },
-    bank: {
-      enabled: !!body?.bank?.enabled,
-      account_name: body?.bank?.account_name || "",
-      account_number: body?.bank?.account_number || "",
-      ifsc: body?.bank?.ifsc || "",
-      bank: body?.bank?.bank || "",
-      branch: body?.bank?.branch || "",
-      notes: body?.bank?.notes || "",
-    },
-    cod: {
-      enabled: !!body?.cod?.enabled,
-      notes: body?.cod?.notes || "",
-    },
-    cheque: {
-      enabled: !!body?.cheque?.enabled,
-      notes: body?.cheque?.notes || "",
-    },
-  };
-}
-
 export async function GET() {
   try {
-    const state = await getOption(OPTION_KEY);
+    const state = await getPaymentsOption();
     const safe = normalizeBody((state || {}) as SaveBody);
+
     return NextResponse.json(safe);
   } catch (e: any) {
     return NextResponse.json(
-      { error: e?.message || "Failed to load" },
+      { error: e?.message || "Failed to load payments settings" },
       { status: 500 }
     );
   }
 }
 
-// Shared save handler for both POST and PUT
 async function handleSave(req: Request) {
   try {
     const woo = await getWooClient();
-    const rawBody = (await req.json()) as SaveBody;
+
+    const rawBody = (await req.json().catch(() => null)) as SaveBody | null;
     const body = normalizeBody(rawBody);
 
-    // 1) Persist dashboard JSON
-    await setOption(OPTION_KEY, body);
+    /*
+     * Save dashboard settings first.
+     * Important: method toggles stay stored even when global payments are off.
+     */
+    await setPaymentsOption(body);
 
-    // 2) Reflect enables to Woo payment gateways directly
+    /*
+     * Checkout visibility should respect global Accept Payments.
+     * If general.enabled = false, all Woo checkout gateways are disabled.
+     */
+    const acceptPayments = !!body.general.enabled;
+
     const enableMap = {
-      letz_upi: !!body?.upi?.enabled,
-      bacs: !!body?.bank?.enabled,
-      cod: !!body?.cod?.enabled,
-      cheque: !!body?.cheque?.enabled,
-      easebuzz: !!body?.easebuzz?.enabled,
+      letz_upi: acceptPayments && !!body.upi.enabled,
+      bacs: acceptPayments && !!body.bank.enabled,
+      cod: acceptPayments && !!body.cod.enabled,
+      cheque: acceptPayments && !!body.cheque.enabled,
+      easebuzz: acceptPayments && !!body.easebuzz.enabled,
     };
 
     const { data: gateways } = await woo.get("/payment_gateways");
@@ -192,8 +252,7 @@ async function handleSave(req: Request) {
 
     const updates: Promise<any>[] = [];
 
-    const maybeToggle = (id: string, want?: boolean) => {
-      if (typeof want !== "boolean") return;
+    const maybeToggle = (id: string, want: boolean) => {
       const gw = byId[id];
       if (!gw) return;
 
@@ -217,21 +276,23 @@ async function handleSave(req: Request) {
     maybeToggle("cod", enableMap.cod);
     maybeToggle("cheque", enableMap.cheque);
 
-    if (typeof enableMap.easebuzz === "boolean") {
-      const easebuzzHint = body?.easebuzz?.hint || "easebuzz";
-      const easebuzzGw = findEasebuzzGateway(list, easebuzzHint);
-      if (easebuzzGw && easebuzzGw.id) {
-        maybeToggle(String(easebuzzGw.id), enableMap.easebuzz);
-      }
+    const easebuzzGw = findEasebuzzGateway(list, body.easebuzz.hint || "easebuzz");
+    if (easebuzzGw?.id) {
+      maybeToggle(String(easebuzzGw.id), enableMap.easebuzz);
     }
 
     if (updates.length) {
       await Promise.all(updates);
     }
 
-    return NextResponse.json({ ok: true, settings: body });
+    return NextResponse.json({
+      ok: true,
+      settings: body,
+      effectiveGateways: enableMap,
+    });
   } catch (e: any) {
     console.error("payments/settings SAVE error", e);
+
     return NextResponse.json(
       { error: e?.message || "Save failed" },
       { status: 500 }
