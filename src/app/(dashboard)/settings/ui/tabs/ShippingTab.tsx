@@ -1,12 +1,10 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
-import { INDIA_STATE_GROUPS, stateName } from "@/lib/indiaStates";
+import { stateName } from "@/lib/indiaStates";
 import RegionsField from "./components/RegionsField";
 import {
   CheckCircle2,
-  MapPinned,
-  Package,
   Save,
   Settings2,
   ShieldCheck,
@@ -45,38 +43,6 @@ const inputClass =
 const selectClass =
   "h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-900 " +
   "shadow-sm transition focus:border-indigo-400 focus:outline-none focus:ring-4 focus:ring-indigo-100";
-
-function SectionCard({
-  icon,
-  title,
-  description,
-  children,
-}: {
-  icon: React.ReactNode;
-  title: string;
-  description: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <section className="overflow-hidden rounded-[26px] border border-slate-200 bg-white shadow-sm">
-      <div className="border-b border-slate-100 bg-gradient-to-r from-white via-slate-50 to-indigo-50/40 px-4 py-4 md:px-5">
-        <div className="flex items-start gap-3">
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600">
-            {icon}
-          </div>
-          <div>
-            <h3 className="text-base font-semibold text-slate-900">{title}</h3>
-            <p className="mt-1 text-xs leading-5 text-slate-500 md:text-sm">
-              {description}
-            </p>
-          </div>
-        </div>
-      </div>
-
-      <div className="space-y-4 p-4 md:p-5">{children}</div>
-    </section>
-  );
-}
 
 const smallBadge =
   "inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[10px] font-semibold text-slate-600";
@@ -415,6 +381,139 @@ function ZoneEditor({
   );
 }
 
+
+function Toggle({
+  checked,
+  onChange,
+  disabled = false,
+}: {
+  checked: boolean;
+  onChange: () => void;
+  disabled?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onChange}
+      disabled={disabled}
+      className={`relative flex h-7 w-12 items-center rounded-full border transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
+        checked
+          ? "border-emerald-500 bg-emerald-500"
+          : "border-slate-300 bg-slate-200"
+      }`}
+      aria-pressed={checked}
+    >
+      <span
+        className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${
+          checked ? "translate-x-[25px]" : "translate-x-[2px]"
+        }`}
+      />
+    </button>
+  );
+}
+
+function StatusPill({
+  active,
+  labelOn = "Enabled",
+  labelOff = "Off",
+}: {
+  active: boolean;
+  labelOn?: string;
+  labelOff?: string;
+}) {
+  return (
+    <span
+      className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide ${
+        active
+          ? "bg-emerald-50 text-emerald-700"
+          : "bg-slate-100 text-slate-500"
+      }`}
+    >
+      {active ? (
+        <CheckCircle2 className="h-3 w-3" />
+      ) : (
+        <span className="h-1.5 w-1.5 rounded-full bg-current" />
+      )}
+      {active ? labelOn : labelOff}
+    </span>
+  );
+}
+
+function ShippingMethodCard({
+  icon,
+  title,
+  description,
+  enabled,
+  onToggle,
+  badge,
+  disabled = false,
+  children,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  description: string;
+  enabled: boolean;
+  onToggle: () => void;
+  badge?: React.ReactNode;
+  disabled?: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <section
+      className={`overflow-hidden rounded-[26px] border bg-white shadow-sm transition ${
+        enabled
+          ? "border-indigo-200 ring-1 ring-indigo-100"
+          : "border-slate-200"
+      } ${disabled ? "opacity-60" : ""}`}
+    >
+      <div className="p-4 md:p-5">
+        <div className="flex items-start justify-between gap-4">
+          <button
+            type="button"
+            onClick={onToggle}
+            disabled={disabled}
+            className="flex min-w-0 flex-1 items-start gap-3 text-left disabled:cursor-not-allowed"
+          >
+            <div
+              className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl ${
+                enabled
+                  ? "bg-indigo-600 text-white"
+                  : "bg-indigo-50 text-indigo-600"
+              }`}
+            >
+              {icon}
+            </div>
+
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <h3 className="text-base font-semibold text-slate-900">
+                  {title}
+                </h3>
+                <StatusPill active={enabled} />
+                {badge}
+              </div>
+              <p className="mt-1 text-xs leading-5 text-slate-500 md:text-sm">
+                {description}
+              </p>
+            </div>
+          </button>
+
+          <Toggle checked={enabled} onChange={onToggle} disabled={disabled} />
+        </div>
+      </div>
+
+      {enabled && (
+        <div className="border-t border-slate-100 bg-slate-50/60 p-4 md:p-5">
+          <div className="rounded-[22px] border border-slate-200 bg-white p-4 shadow-sm">
+            {children}
+          </div>
+        </div>
+      )}
+    </section>
+  );
+}
+
+
 export default function ShippingTab() {
   const [active, setActive] = useState<"free" | "all" | "cat">("free");
   const [busy, setBusy] = useState(false);
@@ -474,6 +573,14 @@ export default function ShippingTab() {
   useEffect(() => {
     if (mounted) saveTab(active);
   }, [active, mounted]);
+
+  const enabledCount = useMemo(() => {
+    let count = 0;
+    if (freeEnabled) count += 1;
+    if (allEnabled) count += 1;
+    if (catEnabled) count += 1;
+    return count;
+  }, [freeEnabled, allEnabled, catEnabled]);
 
   function addCategoryMethod(cat: Cat) {
     const slug = safeSlug(cat.slug || cat.name);
@@ -563,54 +670,44 @@ export default function ShippingTab() {
           (z: any) => !!z?.methods?.weight?.enabled
         );
 
-        setFreeEnabled(!!free.enabled);
-        setFreeScope(free.scope === "category" ? "category" : "all");
-        setFreeCatIds(Array.isArray(free.categories) ? free.categories : []);
+        const nextFreeEnabled = !!free.enabled;
+        const nextFreeScope = free.scope === "category" ? "category" : "all";
+        const nextFreeCatIds = Array.isArray(free.categories)
+          ? free.categories
+          : [];
+        const nextZones: Zone[] = mapped.length
+  ? mapped
+  : [
+      {
+        name: "Across India",
+        regions: [],
+        step: 1 as const,
+        max: 10,
+        slabs: [],
+        overrides: [],
+      },
+    ];
+        const nextActive =
+          loadTab() ?? (nextFreeEnabled ? "free" : anyWeight ? "all" : "free");
 
+        setFreeEnabled(nextFreeEnabled);
+        setFreeScope(nextFreeScope);
+        setFreeCatIds(nextFreeCatIds);
         setAllEnabled(!!anyWeight);
-        setZones(
-          mapped.length
-            ? mapped
-            : [
-                {
-                  name: "Across India",
-                  regions: [],
-                  step: 1,
-                  max: 10,
-                  slabs: [],
-                  overrides: [],
-                },
-              ]
-        );
-
-        setActive((prev) =>
-          prev || (free.enabled ? "free" : anyWeight ? "all" : "free")
-        );
+        setZones(nextZones);
+        setActive(nextActive);
 
         saveLS({
-          freeEnabled: !!free.enabled,
-          freeScope: free.scope === "category" ? "category" : "all",
-          freeCatIds: Array.isArray(free.categories) ? free.categories : [],
+          freeEnabled: nextFreeEnabled,
+          freeScope: nextFreeScope,
+          freeCatIds: nextFreeCatIds,
           allEnabled: !!anyWeight,
           catEnabled,
-          zones:
-            mapped.length
-              ? mapped
-              : [
-                  {
-                    name: "Across India",
-                    regions: [],
-                    step: 1,
-                    max: 10,
-                    slabs: [],
-                    overrides: [],
-                  },
-                ],
-          active:
-            loadTab() ?? (free.enabled ? "free" : anyWeight ? "all" : "free"),
+          zones: nextZones,
+          active: nextActive,
         });
       } catch {
-        // ignore
+        // keep local state if store fetch fails
       } finally {
         setHydrating(false);
       }
@@ -736,6 +833,21 @@ export default function ShippingTab() {
     }
   }
 
+  const setFreeToggle = () => {
+    setActive("free");
+    setFreeEnabled((v) => !v);
+  };
+
+  const setAllToggle = () => {
+    setActive("all");
+    setAllEnabled((v) => !v);
+  };
+
+  const setCatToggle = () => {
+    setActive("cat");
+    setCatEnabled((v) => !v);
+  };
+
   return (
     <>
       {banner && (
@@ -758,41 +870,22 @@ export default function ShippingTab() {
             <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600">
               <Truck className="h-5 w-5" />
             </div>
-            <div>
-              <div className="text-base font-semibold text-slate-900">
-                Shipping charges
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="text-base font-semibold text-slate-900">
+                  Shipping charges
+                </div>
+                <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-slate-600">
+                  {enabledCount} active
+                </span>
               </div>
               <div className="mt-1 text-xs text-slate-500 md:text-sm">
-                Configure free shipping and weight-based charges by zone and
-                category.
+                Switch on only the shipping rule you want. Its setup form opens
+                below that method.
               </div>
             </div>
           </div>
         </div>
-
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-          <div className="inline-flex w-full max-w-full flex-wrap items-center gap-2 rounded-[20px] border border-slate-200 bg-white p-2 shadow-sm">
-            {[
-              { k: "free", label: "Free shipping" },
-              { k: "all", label: "Weight – all categories" },
-              { k: "cat", label: "Weight – specific categories" },
-            ].map((t) => (
-              <button
-                key={t.k}
-                type="button"
-                onClick={() => setActive(t.k as any)}
-                className={`inline-flex items-center rounded-full px-4 py-2 text-xs font-semibold transition ${
-                  active === t.k
-                    ? "bg-indigo-600 text-white"
-                    : "border border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
-                }`}
-              >
-                {t.label}
-              </button>
-            ))}
-          </div>
-
-          </div>
 
         {hydrating && (
           <div className="rounded-[20px] border border-slate-200 bg-slate-50/70 px-4 py-3 text-xs text-slate-500">
@@ -800,124 +893,120 @@ export default function ShippingTab() {
           </div>
         )}
 
-        {active === "free" && (
-          <SectionCard
-            icon={<ShieldCheck className="h-5 w-5" />}
-            title="Free shipping"
-            description="Enable free shipping for all products or only selected categories."
-          >
-            <div className={hydrating ? "pointer-events-none opacity-60" : ""}>
-              <label className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50/70 px-4 py-3 text-sm text-slate-800">
-                <input
-                  type="checkbox"
-                  className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
-                  checked={freeEnabled}
-                  onChange={(e) => setFreeEnabled(e.target.checked)}
-                />
-                <span>Enable free shipping</span>
-              </label>
+        <section className="overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-sm">
+          <div className="border-b border-slate-100 bg-gradient-to-r from-white via-slate-50 to-indigo-50/40 px-4 py-4 md:px-5">
+            <h3 className="text-base font-semibold text-slate-900">
+              Choose shipping rules
+            </h3>
+            <p className="mt-1 text-xs leading-5 text-slate-500 md:text-sm">
+              The page stays clean: only headings are visible first. Enable a
+              rule to open and edit its details.
+            </p>
+          </div>
 
-              {freeEnabled ? (
-                <div className="mt-4 space-y-4">
-                  <div>
-                    <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                      Apply free shipping to
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setFreeScope("all")}
-                        className={`inline-flex items-center rounded-full px-4 py-2 text-xs font-semibold transition ${
-                          freeScope === "all"
-                            ? "bg-indigo-600 text-white"
-                            : "border border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
-                        }`}
-                      >
-                        All products
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setFreeScope("category")}
-                        className={`inline-flex items-center rounded-full px-4 py-2 text-xs font-semibold transition ${
-                          freeScope === "category"
-                            ? "bg-indigo-600 text-white"
-                            : "border border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
-                        }`}
-                      >
-                        Specific categories only
-                      </button>
-                    </div>
+          <div className="space-y-3 p-4 md:p-5">
+            <ShippingMethodCard
+              icon={<ShieldCheck className="h-5 w-5" />}
+              title="Free shipping"
+              description="Offer free shipping for all products or selected categories."
+              enabled={freeEnabled}
+              onToggle={setFreeToggle}
+              disabled={hydrating}
+              badge={
+                <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-emerald-700">
+                  Customer friendly
+                </span>
+              }
+            >
+              <div className="space-y-4">
+                <div>
+                  <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    Apply free shipping to
                   </div>
-
-                  {freeScope === "category" && (
-                    <div>
-                      <div className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                        Select categories
-                      </div>
-                      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                        {cats.map((c) => {
-                          const on = freeCatIds.includes(c.id);
-                          return (
-                            <label
-                              key={c.id}
-                              className={`flex items-center gap-3 rounded-2xl border px-3 py-3 text-sm ${
-                                on
-                                  ? "border-indigo-500 bg-indigo-50 text-indigo-800"
-                                  : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
-                              }`}
-                            >
-                              <input
-                                type="checkbox"
-                                className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
-                                checked={on}
-                                onChange={(e) => {
-                                  setFreeCatIds((prev) => {
-                                    const s = new Set(prev);
-                                    if (e.target.checked) s.add(c.id);
-                                    else s.delete(c.id);
-                                    return Array.from(s);
-                                  });
-                                }}
-                              />
-                              <span className="truncate">{c.name}</span>
-                            </label>
-                          );
-                        })}
-                      </div>
-                      <p className="mt-3 text-xs text-slate-500">
-                        Only selected categories will get free shipping.
-                      </p>
-                    </div>
-                  )}
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setFreeScope("all")}
+                      className={`inline-flex items-center rounded-full px-4 py-2 text-xs font-semibold transition ${
+                        freeScope === "all"
+                          ? "bg-indigo-600 text-white"
+                          : "border border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                      }`}
+                    >
+                      All products
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setFreeScope("category")}
+                      className={`inline-flex items-center rounded-full px-4 py-2 text-xs font-semibold transition ${
+                        freeScope === "category"
+                          ? "bg-indigo-600 text-white"
+                          : "border border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                      }`}
+                    >
+                      Specific categories only
+                    </button>
+                  </div>
                 </div>
-              ) : (
-                <p className="mt-4 text-xs text-slate-500">
-                  Turn this on to configure free shipping for your store.
-                </p>
-              )}
-            </div>
-          </SectionCard>
-        )}
 
-        {active === "all" && (
-          <SectionCard
-            icon={<Weight className="h-5 w-5" />}
-            title="Weight-based shipping – all categories"
-            description="Define zones and weight slabs that apply across your store."
-          >
-            <div className={hydrating ? "pointer-events-none opacity-60" : ""}>
-              <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                <label className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50/70 px-4 py-3 text-sm text-slate-800">
-                  <input
-                    type="checkbox"
-                    className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
-                    checked={allEnabled}
-                    onChange={(e) => setAllEnabled(e.target.checked)}
-                  />
-                  <span>Enable weight-based shipping for all categories</span>
-                </label>
+                {freeScope === "category" && (
+                  <div>
+                    <div className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                      Select categories
+                    </div>
+                    <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                      {cats.map((c) => {
+                        const on = freeCatIds.includes(c.id);
+                        return (
+                          <label
+                            key={c.id}
+                            className={`flex items-center gap-3 rounded-2xl border px-3 py-3 text-sm ${
+                              on
+                                ? "border-indigo-500 bg-indigo-50 text-indigo-800"
+                                : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                            }`}
+                          >
+                            <input
+                              type="checkbox"
+                              className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                              checked={on}
+                              onChange={(e) => {
+                                setFreeCatIds((prev) => {
+                                  const s = new Set(prev);
+                                  if (e.target.checked) s.add(c.id);
+                                  else s.delete(c.id);
+                                  return Array.from(s);
+                                });
+                              }}
+                            />
+                            <span className="truncate">{c.name}</span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                    <p className="mt-3 text-xs text-slate-500">
+                      Only selected categories will get free shipping.
+                    </p>
+                  </div>
+                )}
+              </div>
+            </ShippingMethodCard>
 
-                {allEnabled && (
+            <ShippingMethodCard
+              icon={<Weight className="h-5 w-5" />}
+              title="Weight-based shipping – all categories"
+              description="Define zones and weight slabs that apply across the store."
+              enabled={allEnabled}
+              onToggle={setAllToggle}
+              disabled={hydrating}
+              badge={
+                <span className="rounded-full bg-indigo-50 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-indigo-700">
+                  Advanced
+                </span>
+              }
+            >
+              <div className="space-y-4">
+                <div className="flex justify-end">
                   <button
                     type="button"
                     onClick={addZone}
@@ -925,11 +1014,98 @@ export default function ShippingTab() {
                   >
                     + Add zone
                   </button>
-                )}
-              </div>
+                </div>
 
-              {allEnabled ? (
-                <div className="mt-4 space-y-4">
+                {zones.map((z, idx) => (
+                  <div
+                    key={idx}
+                    className="overflow-hidden rounded-[24px] border border-slate-200 bg-slate-50/50"
+                  >
+                    <div className="flex flex-col gap-2 border-b border-slate-200 bg-white px-4 py-3 md:flex-row md:items-center md:justify-between">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-sm font-semibold text-slate-900">
+                          {z.name || "Zone"}
+                        </span>
+                        <span className={smallBadge}>
+                          {z.regions.length === 0
+                            ? "All India"
+                            : `${z.regions.length} state(s)`}
+                        </span>
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
+                        <span>
+                          {z.regions.length === 0
+                            ? "Applies to all Indian states"
+                            : z.regions.map(stateName).join(", ")}
+                        </span>
+                        {idx > 0 && (
+                          <button
+                            type="button"
+                            className="font-medium text-rose-600 hover:underline"
+                            onClick={() => removeZone(idx)}
+                          >
+                            Delete
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="p-3 md:p-4">
+                      <ZoneEditor
+                        z={z}
+                        onChange={(next) => updateZone(idx, next)}
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </ShippingMethodCard>
+
+            <ShippingMethodCard
+              icon={<Settings2 className="h-5 w-5" />}
+              title="Weight-based shipping – specific categories"
+              description="Add category-wise overrides on top of the zone slabs."
+              enabled={catEnabled}
+              onToggle={setCatToggle}
+              disabled={hydrating}
+            >
+              <div className="space-y-4">
+                <div className="grid gap-3 md:grid-cols-[minmax(0,280px)_auto] md:items-end">
+                  <div>
+                    <label className="mb-2 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                      Choose category
+                    </label>
+                    <select
+                      className={selectClass}
+                      value={catPicked?.id || ""}
+                      onChange={(e) => {
+                        const id = Number(e.target.value || "");
+                        setCatPicked(cats.find((c) => c.id === id) || null);
+                      }}
+                    >
+                      <option value="">— Select category —</option>
+                      {cats.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <button
+                    type="button"
+                    disabled={!catPicked}
+                    onClick={() => {
+                      if (catPicked) addCategoryMethod(catPicked);
+                    }}
+                    className="inline-flex h-11 items-center justify-center rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50 disabled:opacity-50"
+                  >
+                    + Add category override
+                  </button>
+                </div>
+
+                <div className="space-y-4">
                   {zones.map((z, idx) => (
                     <div
                       key={idx}
@@ -947,145 +1123,46 @@ export default function ShippingTab() {
                           </span>
                         </div>
 
-                        <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
-                          <span>
-                            {z.regions.length === 0
-                              ? "Applies to all Indian states"
-                              : z.regions.map(stateName).join(", ")}
-                          </span>
-                          {idx > 0 && (
-                            <button
-                              type="button"
-                              className="font-medium text-rose-600 hover:underline"
-                              onClick={() => removeZone(idx)}
-                            >
-                              Delete
-                            </button>
-                          )}
-                        </div>
+                        <span className="text-xs text-slate-500">
+                          Overrides apply only to selected categories inside
+                          this zone.
+                        </span>
                       </div>
 
                       <div className="p-3 md:p-4">
                         <ZoneEditor
                           z={z}
                           onChange={(next) => updateZone(idx, next)}
+                          showOverrides
                         />
                       </div>
                     </div>
                   ))}
                 </div>
-              ) : (
-                <p className="mt-4 text-xs text-slate-500">
-                  Turn this on to configure zones and weight slabs for all
-                  products.
-                </p>
-              )}
-            </div>
-          </SectionCard>
-        )}
+              </div>
+            </ShippingMethodCard>
+          </div>
+        </section>
 
-        {active === "cat" && (
-          <SectionCard
-            icon={<Settings2 className="h-5 w-5" />}
-            title="Weight-based shipping – specific categories"
-            description="Add category-wise overrides on top of your zone slabs."
-          >
-            <div className={hydrating ? "pointer-events-none opacity-60" : ""}>
-              <label className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50/70 px-4 py-3 text-sm text-slate-800">
-                <input
-                  type="checkbox"
-                  className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
-                  checked={catEnabled}
-                  onChange={(e) => setCatEnabled(e.target.checked)}
-                />
-                <span>Enable category-specific weight overrides</span>
-              </label>
-
-              {catEnabled ? (
-                <div className="mt-4 space-y-4">
-                  <div className="grid gap-3 md:grid-cols-[minmax(0,280px)_auto] md:items-end">
-                    <div>
-                      <label className="mb-2 block text-xs font-semibold uppercase tracking-wide text-slate-500">
-                        Choose category
-                      </label>
-                      <select
-                        className={selectClass}
-                        value={catPicked?.id || ""}
-                        onChange={(e) => {
-                          const id = Number(e.target.value || "");
-                          setCatPicked(cats.find((c) => c.id === id) || null);
-                        }}
-                      >
-                        <option value="">— Select category —</option>
-                        {cats.map((c) => (
-                          <option key={c.id} value={c.id}>
-                            {c.name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <button
-                      type="button"
-                      disabled={!catPicked}
-                      onClick={() => {
-                        if (catPicked) addCategoryMethod(catPicked);
-                      }}
-                      className="inline-flex h-11 items-center justify-center rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50 disabled:opacity-50"
-                    >
-                      + Add category override
-                    </button>
-                  </div>
-
-                  <div className="space-y-4">
-                    {zones.map((z, idx) => (
-                      <div
-                        key={idx}
-                        className="overflow-hidden rounded-[24px] border border-slate-200 bg-slate-50/50"
-                      >
-                        <div className="flex flex-col gap-2 border-b border-slate-200 bg-white px-4 py-3 md:flex-row md:items-center md:justify-between">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <span className="text-sm font-semibold text-slate-900">
-                              {z.name || "Zone"}
-                            </span>
-                            <span className={smallBadge}>
-                              {z.regions.length === 0
-                                ? "All India"
-                                : `${z.regions.length} state(s)`}
-                            </span>
-                          </div>
-
-                          <span className="text-xs text-slate-500">
-                            Overrides apply only to selected categories inside
-                            this zone.
-                          </span>
-                        </div>
-
-                        <div className="p-3 md:p-4">
-                          <ZoneEditor
-                            z={z}
-                            onChange={(next) => updateZone(idx, next)}
-                            showOverrides
-                          />
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ) : (
-                <p className="mt-4 text-xs text-slate-500">
-                  Turn this on to define different weight slabs for specific
-                  categories like Sarees, Bags or Accessories.
-                </p>
-              )}
-            </div>
-          </SectionCard>
+        {!freeEnabled && !allEnabled && !catEnabled && !hydrating && (
+          <div className="rounded-[20px] border border-amber-100 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+            No shipping rule is enabled. Enable at least one rule before using
+            checkout for physical products.
+          </div>
         )}
 
         <div className="sticky bottom-3 z-10 md:bottom-4">
           <div className="rounded-[24px] border border-slate-200 bg-white/95 p-3 shadow-lg backdrop-blur">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              
+              <div className="min-w-0">
+                <div className="text-sm font-semibold text-slate-900">
+                  Save shipping configuration
+                </div>
+                <div className="mt-1 text-xs text-slate-500">
+                  Save and sync shipping classes, zones and rates to the store.
+                </div>
+              </div>
+
               <button
                 type="button"
                 onClick={saveAndSync}
