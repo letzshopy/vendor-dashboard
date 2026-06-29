@@ -37,6 +37,18 @@ const inputClass =
   "h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-900 " +
   "placeholder:text-slate-400 shadow-sm transition focus:border-indigo-400 focus:outline-none focus:ring-4 focus:ring-indigo-100";
 
+const readOnlyInputClass =
+  "h-11 w-full cursor-not-allowed rounded-2xl border border-slate-200 bg-slate-50 px-4 text-sm text-slate-600 " +
+  "placeholder:text-slate-400 shadow-sm";
+
+function firstFilled(...values: Array<unknown>) {
+  for (const value of values) {
+    const text = String(value ?? "").trim();
+    if (text) return text;
+  }
+  return "";
+}
+
 function SectionCard({
   icon,
   title,
@@ -116,23 +128,56 @@ export default function AccountTab() {
         const res = await fetch("/api/account/settings", { cache: "no-store" });
         if (!res.ok) throw new Error("Failed to load account");
 
-        const data = await res.json();
+        const accountData = await res.json();
+
+        let profileData: any = {};
+        try {
+          const profileRes = await fetch("/api/settings/profile", {
+            cache: "no-store",
+          });
+
+          if (profileRes.ok) {
+            profileData = await profileRes.json();
+          }
+        } catch {
+          profileData = {};
+        }
+
+        const personal = profileData?.personal || {};
+        const business = profileData?.business || {};
+        const social = profileData?.social || {};
 
         if (!cancelled) {
           const merged: AccountSettings = {
             ...emptySettings,
-            ...data,
+            ...accountData,
             overview: {
               ...emptySettings.overview,
-              ...(data.overview ?? {}),
+              ...(accountData.overview ?? {}),
             },
             contact: {
-              ...emptySettings.contact,
-              ...(data.contact ?? {}),
+              contact_name: firstFilled(
+                accountData?.contact?.contact_name,
+                personal.name
+              ),
+              contact_email: firstFilled(
+                accountData?.contact?.contact_email,
+                personal.email,
+                business.email
+              ),
+              contact_mobile: firstFilled(
+                accountData?.contact?.contact_mobile,
+                personal.mobile,
+                business.phone,
+                social.whatsappNumber
+              ),
             },
             security: {
-              ...emptySettings.security,
-              ...(data.security ?? {}),
+              login_email: firstFilled(
+                accountData?.security?.login_email,
+                personal.email,
+                business.email
+              ),
             },
           };
 
@@ -163,6 +208,11 @@ export default function AccountTab() {
     try {
       const payload: AccountSettings = {
         ...settings,
+        security: {
+          ...settings.security,
+          // Display only. Backend also preserves this value.
+          login_email: settings.security.login_email,
+        },
       };
 
       const res = await fetch("/api/account/settings", {
@@ -263,8 +313,8 @@ export default function AccountTab() {
               Account & Security
             </div>
             <div className="mt-1 text-xs text-slate-500 md:text-sm">
-              View your store account details, update contact information and
-              manage dashboard login security.
+              View your store account details, update support contact
+              information and manage dashboard password.
             </div>
           </div>
         </div>
@@ -287,26 +337,26 @@ export default function AccountTab() {
             hint="Generated when your store is created."
           >
             <input
-              className={`${inputClass} bg-slate-50 text-slate-700`}
+              className={`${readOnlyInputClass}`}
               value={s.overview.account_id}
-              disabled
+              readOnly
             />
           </Field>
 
           <Field label="Store URL">
             <input
-              className={`${inputClass} bg-slate-50 text-slate-700`}
+              className={`${readOnlyInputClass}`}
               value={s.overview.store_url}
-              disabled
+              readOnly
             />
           </Field>
 
           <Field label="Created on">
             <input
               type="date"
-              className={`${inputClass} bg-slate-50 text-slate-700`}
+              className={`${readOnlyInputClass}`}
               value={s.overview.created_on || ""}
-              disabled
+              readOnly
             />
           </Field>
         </div>
@@ -359,7 +409,10 @@ export default function AccountTab() {
             </div>
           </Field>
 
-          <Field label="Contact mobile / WhatsApp">
+          <Field
+            label="Contact mobile / WhatsApp"
+            hint="Auto-filled from Profile when Account contact mobile is empty."
+          >
             <div className="relative">
               <Phone className="pointer-events-none absolute left-4 top-3.5 h-4 w-4 text-slate-400" />
               <input
@@ -384,32 +437,36 @@ export default function AccountTab() {
       <SectionCard
         icon={<KeyRound className="h-5 w-5" />}
         title="Access & security"
-        description="Manage login email and update your dashboard password."
+        description="View login email and update your dashboard password."
       >
         <div className="grid gap-4 md:grid-cols-2">
           <Field
             label="Login email"
-            hint="This will stay in sync with your dashboard user email."
+            hint="Login email is linked to the WordPress dashboard user and cannot be changed here."
           >
             <div className="relative">
               <Mail className="pointer-events-none absolute left-4 top-3.5 h-4 w-4 text-slate-400" />
               <input
                 type="email"
-                className={`${inputClass} pl-11`}
+                className={`${readOnlyInputClass} pl-11`}
                 value={s.security.login_email}
-                onChange={(e) =>
-                  setSettings((prev) => ({
-                    ...prev,
-                    security: {
-                      ...prev.security,
-                      login_email: e.target.value,
-                    },
-                  }))
-                }
+                readOnly
+                aria-readonly="true"
+                tabIndex={-1}
                 placeholder="Login email"
               />
             </div>
           </Field>
+        </div>
+
+        <div className="rounded-2xl border border-indigo-100 bg-indigo-50/70 px-4 py-3">
+          <div className="flex items-start gap-2">
+            <BadgeInfo className="mt-0.5 h-4 w-4 shrink-0 text-indigo-600" />
+            <p className="text-xs leading-5 text-indigo-800">
+              Login email is created during vendor onboarding. To change it,
+              LetzShopy support must update the linked WordPress user account.
+            </p>
+          </div>
         </div>
 
         <div className="rounded-[22px] border border-slate-200 bg-slate-50/70 p-4">
@@ -503,8 +560,8 @@ export default function AccountTab() {
                 Save account changes
               </div>
               <div className="mt-1 text-xs text-slate-500">
-                Save updated contact and login email information to your
-                dashboard account.
+                Save updated contact information. Login email is managed by
+                LetzShopy support.
               </div>
             </div>
 
