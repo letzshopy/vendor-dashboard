@@ -44,7 +44,7 @@ type WebsiteAnalyticsResponse = {
   realtime?: RealtimeSummary;
   summary?: WebsiteSummary;
   topPages?: TopPage[];
-  topProductPages?: TopPage[];
+  topCategoryPages?: TopPage[];
   devices?: DeviceRow[];
   error?: string;
 };
@@ -335,12 +335,12 @@ export default function WebsiteAnalyticsReportClient() {
           emptyText="No page data available yet."
         />
 
-        <DataTable
-          title="Top product views"
-          description="Product pages visited by customers."
+                <DataTable
+          title="Top category views"
+          description="Product category pages visited by customers."
           icon="products"
-          rows={data.topProductPages ?? []}
-          emptyText="No product view data available yet."
+          rows={data.topCategoryPages ?? []}
+          emptyText="No category view data available yet."
         />
       </div>
 

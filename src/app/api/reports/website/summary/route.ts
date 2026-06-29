@@ -77,7 +77,7 @@ export async function GET() {
         };
       }) ?? [];
 
-    const [topProductsResponse] = await analyticsDataClient.runReport({
+        const [topCategoriesResponse] = await analyticsDataClient.runReport({
       property: `properties/${propertyId}`,
       dateRanges: [
         {
@@ -92,7 +92,7 @@ export async function GET() {
           fieldName: "pagePath",
           stringFilter: {
             matchType: "BEGINS_WITH",
-            value: "/product/",
+            value: "/product-category/",
             caseSensitive: false,
           },
         },
@@ -108,13 +108,13 @@ export async function GET() {
       limit: 10,
     });
 
-    const topProductPages =
-      topProductsResponse.rows?.map((row) => {
+    const topCategoryPages =
+      topCategoriesResponse.rows?.map((row) => {
         const typedRow = row as Ga4Row;
 
         return {
-          title: typedRow.dimensionValues?.[0]?.value || "Untitled product",
-          path: typedRow.dimensionValues?.[1]?.value || "/product/",
+          title: typedRow.dimensionValues?.[0]?.value || "Untitled category",
+          path: typedRow.dimensionValues?.[1]?.value || "/product-category/",
           views: metricValue(typedRow, 0),
           users: metricValue(typedRow, 1),
         };
@@ -164,7 +164,7 @@ export async function GET() {
         events: metricValue(summaryRow, 3),
       },
       topPages,
-      topProductPages,
+      topCategoryPages,
       devices,
     });
   } catch (error) {
