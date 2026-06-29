@@ -189,19 +189,20 @@ export default function GeneralTab() {
   }
 
   if (loadErr) {
-    return (
-      <div className="p-4 md:p-5">
-        <div className="rounded-[24px] border border-rose-200 bg-rose-50 p-5 text-sm text-rose-700 shadow-sm">
-          Failed to load: {loadErr}
-          <div className="mt-2 text-xs text-slate-500">
-  Make sure <code>src/app/api/settings/general/route.ts</code> is connected to{" "}
-  <code>/wp-json/letz/v1/general-settings</code> and that the WordPress route is
-  added in <code>letz-account-settings.php</code>.
-</div>
+  return (
+    <div className="p-4 md:p-5">
+      <div className="rounded-[24px] border border-rose-200 bg-rose-50 p-5 text-sm text-rose-700 shadow-sm">
+        <div className="font-semibold">
+          General settings could not be loaded.
+        </div>
+        <div className="mt-2 text-xs leading-5 text-rose-700/80">
+          Please refresh the page and try again. If the issue continues, contact
+          LetzShopy support.
         </div>
       </div>
-    );
-  }
+    </div>
+  );
+}
 
   if (!p) return null;
 
