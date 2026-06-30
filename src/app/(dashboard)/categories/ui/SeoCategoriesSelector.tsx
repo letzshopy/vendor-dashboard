@@ -184,14 +184,10 @@ export default function SeoCategoriesSelector({ categories }: Props) {
           </div>
 
           <h2 className="mt-3 text-lg font-semibold text-slate-900">
-            Select 3 to 6 product categories for your store SEO and footer
+            Select 3 to 6 best product categories of your store for highlighting in website
           </h2>
 
-          <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-500">
-            Choose the main product categories that best describe this store.
-            The first 3 categories will be used in homepage SEO. All selected
-            categories will appear in the footer category list.
-          </p>
+          
         </div>
 
         <button
@@ -284,22 +280,6 @@ export default function SeoCategoriesSelector({ categories }: Props) {
             Selected {selectedIds.length}/{MAX_CATEGORIES}. Minimum{" "}
             {MIN_CATEGORIES} required.
           </p>
-
-          <p>
-            SEO uses first 3:{" "}
-            <span className="font-semibold text-slate-700">
-              {seoPreview || "Sarees | Bags | Home Furnishing"}
-            </span>
-          </p>
-
-          <p>
-            Footer uses all selected:{" "}
-            <span className="font-semibold text-slate-700">
-              {footerPreview || "Selected categories will appear here"}
-            </span>
-          </p>
-
-          <p>Only existing WooCommerce product categories can be selected.</p>
         </div>
 
         {loading && (
