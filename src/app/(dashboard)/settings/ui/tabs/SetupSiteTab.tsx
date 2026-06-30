@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState } from "react";
 import ImageUploader from "@/components/ImageUploader";
 import {
   Bell,
-  ImageIcon,
   LayoutTemplate,
   Save,
   Sparkles,
@@ -17,7 +16,6 @@ import {
 type SetupSiteForm = {
   branding: {
     topbarMessage: string;
-    heroBannerUrl: string;
     showNewArrivals: boolean;
     showCollections: boolean;
     showBestSellers: boolean;
@@ -58,7 +56,6 @@ type SetupSiteForm = {
 const EMPTY_FORM: SetupSiteForm = {
   branding: {
     topbarMessage: "",
-    heroBannerUrl: "",
     showNewArrivals: true,
     showCollections: true,
     showBestSellers: true,
@@ -358,7 +355,21 @@ function CheckboxGroup({
 }
 
 function normalizeForm(raw: any): SetupSiteForm {
-  const branding = { ...EMPTY_FORM.branding, ...(raw?.branding || {}) };
+  const rawBranding = raw?.branding || {};
+
+  const branding: SetupSiteForm["branding"] = {
+    topbarMessage: rawBranding.topbarMessage || "",
+    showNewArrivals:
+      rawBranding.showNewArrivals ?? EMPTY_FORM.branding.showNewArrivals,
+    showCollections:
+      rawBranding.showCollections ?? EMPTY_FORM.branding.showCollections,
+    showBestSellers:
+      rawBranding.showBestSellers ?? EMPTY_FORM.branding.showBestSellers,
+    showOfferSale:
+      rawBranding.showOfferSale ?? EMPTY_FORM.branding.showOfferSale,
+    showCustomerFeedback:
+      rawBranding.showCustomerFeedback ?? EMPTY_FORM.branding.showCustomerFeedback,
+  };
 
   const oldReturnWindow = raw?.policies?.returnWindowDays || "";
   const oldRefundDays = raw?.policies?.refundProcessingDays || "";
@@ -406,10 +417,10 @@ export default function SetupSiteTab() {
         const next = normalizeForm(data);
 
         setForm(next);
-setSavedSnap(JSON.stringify(next));
+        setSavedSnap(JSON.stringify(next));
       } catch {
         setForm(EMPTY_FORM);
-setSavedSnap(JSON.stringify(EMPTY_FORM));
+        setSavedSnap(JSON.stringify(EMPTY_FORM));
       } finally {
         setLoaded(true);
       }
@@ -419,9 +430,9 @@ setSavedSnap(JSON.stringify(EMPTY_FORM));
   const currentSnap = useMemo(() => JSON.stringify(form), [form]);
 
   const isDirty = useMemo(() => {
-  if (!savedSnap) return false;
-  return savedSnap !== currentSnap;
-}, [savedSnap, currentSnap]);
+    if (!savedSnap) return false;
+    return savedSnap !== currentSnap;
+  }, [savedSnap, currentSnap]);
 
   useEffect(() => {
     const onBeforeUnload = (e: BeforeUnloadEvent) => {
@@ -529,7 +540,7 @@ setSavedSnap(JSON.stringify(EMPTY_FORM));
 <SectionCard
   icon={<Sparkles className="h-5 w-5" />}
   title="Homepage setup"
-  hint="Control the topbar message, homepage banner image and visible homepage sections."
+  hint="Control the topbar message and visible homepage sections."
 >
   <div className="space-y-4">
     <div className="rounded-[24px] border border-slate-200 bg-slate-50/70 p-4">
@@ -544,60 +555,6 @@ setSavedSnap(JSON.stringify(EMPTY_FORM));
           />
         </div>
       </Field>
-    </div>
-
-    <div className="rounded-[24px] border border-dashed border-slate-300 bg-slate-50/70 p-4 md:p-5">
-      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-        <div className="flex items-start gap-3 md:max-w-sm">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-white text-slate-600 shadow-sm">
-            <ImageIcon className="h-5 w-5" />
-          </div>
-          <div>
-            <div className="text-sm font-semibold text-slate-900">
-              Home banner image
-            </div>
-            <p className="mt-1 text-xs leading-5 text-slate-500">
-              Upload the banner image used on the storefront home page.
-              Recommended size is around 1600×600px.
-            </p>
-          </div>
-        </div>
-
-        <div className="w-full md:max-w-md">
-          {form.branding.heroBannerUrl ? (
-            <div className="space-y-3">
-              <div className="overflow-hidden rounded-[22px] border border-slate-200 bg-white p-1">
-                <img
-                  src={form.branding.heroBannerUrl}
-                  alt="Home banner"
-                  className="h-48 w-full rounded-[18px] object-cover"
-                />
-              </div>
-
-              <div className="flex flex-wrap items-center gap-2">
-                <button
-                  type="button"
-                  className="inline-flex h-10 items-center justify-center rounded-2xl border border-slate-200 bg-white px-4 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-50"
-                  onClick={() => patch("branding.heroBannerUrl", "")}
-                >
-                  Change banner
-                </button>
-                <span className="text-xs text-slate-500">
-                  JPG/PNG supported
-                </span>
-              </div>
-            </div>
-          ) : (
-            <div className="rounded-[22px] border border-dashed border-slate-300 bg-white p-4">
-              <ImageUploader
-                onUploaded={(url) =>
-                  patch("branding.heroBannerUrl", url ?? "")
-                }
-              />
-            </div>
-          )}
-        </div>
-      </div>
     </div>
 
     <div className="rounded-[24px] border border-slate-200 bg-white p-4">
