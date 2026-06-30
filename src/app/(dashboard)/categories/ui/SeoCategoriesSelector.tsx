@@ -16,6 +16,9 @@ type Props = {
   categories: Cat[];
 };
 
+const MIN_CATEGORIES = 3;
+const MAX_CATEGORIES = 6;
+
 export default function SeoCategoriesSelector({ categories }: Props) {
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [query, setQuery] = useState("");
@@ -47,6 +50,13 @@ export default function SeoCategoriesSelector({ categories }: Props) {
       .slice(0, 8);
   }, [query, cleanCategories, selectedIds]);
 
+  const seoPreview = selectedCategories
+    .slice(0, 3)
+    .map((cat) => cat.name)
+    .join(" | ");
+
+  const footerPreview = selectedCategories.map((cat) => cat.name).join(" | ");
+
   useEffect(() => {
     let alive = true;
 
@@ -72,7 +82,7 @@ export default function SeoCategoriesSelector({ categories }: Props) {
           ? data.selectedIds
               .map((id: unknown) => Number(id))
               .filter((id: number) => Number.isInteger(id) && id > 0)
-              .slice(0, 3)
+              .slice(0, MAX_CATEGORIES)
           : [];
 
         setSelectedIds(ids);
@@ -100,12 +110,12 @@ export default function SeoCategoriesSelector({ categories }: Props) {
 
     if (selectedIds.includes(cat.id)) return;
 
-    if (selectedIds.length >= 3) {
-      setError("Select 3 to 6 product categories for your store SEO and footer");
+    if (selectedIds.length >= MAX_CATEGORIES) {
+      setError(`Only ${MAX_CATEGORIES} categories can be selected.`);
       return;
     }
 
-    setSelectedIds((prev) => [...prev, cat.id].slice(0, 3));
+    setSelectedIds((prev) => [...prev, cat.id].slice(0, MAX_CATEGORIES));
     setQuery("");
   }
 
@@ -116,9 +126,20 @@ export default function SeoCategoriesSelector({ categories }: Props) {
   }
 
   async function saveCategories() {
-    setSaving(true);
     setMessage("");
     setError("");
+
+    if (selectedIds.length < MIN_CATEGORIES) {
+      setError(`Select at least ${MIN_CATEGORIES} product categories.`);
+      return;
+    }
+
+    if (selectedIds.length > MAX_CATEGORIES) {
+      setError(`Select maximum ${MAX_CATEGORIES} product categories only.`);
+      return;
+    }
+
+    setSaving(true);
 
     try {
       const res = await fetch("/api/categories/seo", {
@@ -127,7 +148,7 @@ export default function SeoCategoriesSelector({ categories }: Props) {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          ids: selectedIds.slice(0, 3),
+          ids: selectedIds.slice(0, MAX_CATEGORIES),
         }),
       });
 
@@ -141,11 +162,11 @@ export default function SeoCategoriesSelector({ categories }: Props) {
         ? data.selectedIds
             .map((id: unknown) => Number(id))
             .filter((id: number) => Number.isInteger(id) && id > 0)
-            .slice(0, 3)
-        : selectedIds.slice(0, 3);
+            .slice(0, MAX_CATEGORIES)
+        : selectedIds.slice(0, MAX_CATEGORIES);
 
       setSelectedIds(ids);
-      setMessage("SEO categories saved successfully.");
+      setMessage("SEO and footer categories saved successfully.");
     } catch (err: any) {
       setError(err?.message || "Unable to save SEO categories");
     } finally {
@@ -159,16 +180,17 @@ export default function SeoCategoriesSelector({ categories }: Props) {
         <div>
           <div className="inline-flex items-center gap-2 rounded-full bg-violet-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-violet-700">
             <Sparkles className="h-3.5 w-3.5" />
-            Homepage SEO
+            Homepage SEO & Footer
           </div>
 
           <h2 className="mt-3 text-lg font-semibold text-slate-900">
-            Select top 3 to 6 product categories for your store SEO
+            Select 3 to 6 product categories for your store SEO and footer
           </h2>
 
           <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-500">
             Choose the main product categories that best describe this store.
-            These names will be used in the homepage SEO title and description.
+            The first 3 categories will be used in homepage SEO. All selected
+            categories will appear in the footer category list.
           </p>
         </div>
 
@@ -183,7 +205,7 @@ export default function SeoCategoriesSelector({ categories }: Props) {
           ) : (
             <Save className="h-4 w-4" />
           )}
-          Save SEO Categories
+          Save Categories
         </button>
       </div>
 
@@ -209,7 +231,8 @@ export default function SeoCategoriesSelector({ categories }: Props) {
             ))
           ) : (
             <p className="text-sm text-slate-500">
-              No SEO categories selected yet. Select 3 to 6 categories.
+              No categories selected yet. Select minimum 3 and maximum 6
+              categories.
             </p>
           )}
         </div>
@@ -224,10 +247,10 @@ export default function SeoCategoriesSelector({ categories }: Props) {
                 setMessage("");
                 setError("");
               }}
-              disabled={loading || selectedIds.length >= 3}
+              disabled={loading || selectedIds.length >= MAX_CATEGORIES}
               placeholder={
-                selectedIds.length >= 3
-                  ? "Maximum 3 categories selected"
+                selectedIds.length >= MAX_CATEGORIES
+                  ? `Maximum ${MAX_CATEGORIES} categories selected`
                   : "Start typing existing product category name..."
               }
               className="w-full bg-transparent text-sm text-slate-800 outline-none placeholder:text-slate-400 disabled:cursor-not-allowed"
@@ -256,13 +279,23 @@ export default function SeoCategoriesSelector({ categories }: Props) {
           )}
         </div>
 
-        <div className="mt-3 flex flex-col gap-1 text-xs text-slate-500 md:flex-row md:items-center md:justify-between">
+        <div className="mt-3 space-y-1 text-xs text-slate-500">
           <p>
-            Selected {selectedIds.length}/3. Output example:{" "}
+            Selected {selectedIds.length}/{MAX_CATEGORIES}. Minimum{" "}
+            {MIN_CATEGORIES} required.
+          </p>
+
+          <p>
+            SEO uses first 3:{" "}
             <span className="font-semibold text-slate-700">
-              {selectedCategories.length > 0
-                ? selectedCategories.map((cat) => cat.name).join(" | ")
-                : "Sarees | Bags | Home Furnishing"}
+              {seoPreview || "Sarees | Bags | Home Furnishing"}
+            </span>
+          </p>
+
+          <p>
+            Footer uses all selected:{" "}
+            <span className="font-semibold text-slate-700">
+              {footerPreview || "Selected categories will appear here"}
             </span>
           </p>
 
@@ -272,7 +305,7 @@ export default function SeoCategoriesSelector({ categories }: Props) {
         {loading && (
           <p className="mt-3 inline-flex items-center gap-2 text-sm text-slate-500">
             <Loader2 className="h-4 w-4 animate-spin" />
-            Loading saved SEO categories...
+            Loading saved categories...
           </p>
         )}
 
