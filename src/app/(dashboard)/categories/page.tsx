@@ -1,6 +1,7 @@
 import { FolderTree, Plus } from "lucide-react";
 import { getWooClient } from "@/lib/woo";
 import CategoriesClient from "./ui/CategoriesClient";
+import SeoCategoriesSelector from "./ui/SeoCategoriesSelector";
 
 type Cat = {
   id: number;
@@ -76,6 +77,10 @@ export default async function CategoriesPage() {
           using parent categories.
         </p>
       </div>
+
+      <section className="mt-4">
+        <SeoCategoriesSelector categories={categories} />
+      </section>
 
       <section className="mt-4">
         <CategoriesClient initial={categories} />
