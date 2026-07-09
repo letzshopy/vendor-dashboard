@@ -50,6 +50,7 @@ const ALL_GROUPS: Group[] = [
     items: [
       { href: "/products/new", label: "Add Product", ready: true },
       { href: "/products", label: "Products", ready: true },
+      { href: "/sale-events", label: "Sale Events", ready: true },
       { href: "/categories", label: "Categories", ready: true },
       { href: "/menu", label: "Menu Layout", ready: true },
       { href: "/tags", label: "Product Tags", ready: true },
