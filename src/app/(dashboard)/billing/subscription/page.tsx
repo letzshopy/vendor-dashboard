@@ -427,7 +427,7 @@ export default function BillingSubscriptionPage() {
           </div>
 
           <div className="mt-5 text-4xl font-bold tracking-tight text-slate-900">
-            ₹{billingCycle === "yearly" ? "18,000" : "1,499"}
+            ₹{billingCycle === "yearly" ? "16,000" : "1,399"}
           </div>
           <div className="mt-1 text-sm text-slate-500">
             / {billingCycle === "yearly" ? "year" : "month"}
