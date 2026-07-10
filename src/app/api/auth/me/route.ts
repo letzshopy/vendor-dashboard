@@ -1,35 +1,67 @@
 import { NextResponse } from "next/server";
+import { verifySessionToken } from "@/lib/session";
 
-const COOKIE = process.env.AUTH_COOKIE_NAME || "ls_vendor_auth";
+const AUTH_COOKIE_NAME =
+  process.env.AUTH_COOKIE_NAME || "ls_vendor_auth";
 
-function decodeToken(token: string) {
-  try {
-    const [body] = token.split(".");
-    if (!body) return null;
-
-    // base64url -> base64
-    const b64 = body.replace(/-/g, "+").replace(/_/g, "/") + "===".slice((body.length + 3) % 4);
-    const json = Buffer.from(b64, "base64").toString("utf8");
-    return JSON.parse(json);
-  } catch {
-    return null;
-  }
-}
+const SESSION_SIGNING_SECRET =
+  process.env.DASHBOARD_SECRET || "";
 
 export async function GET(req: Request) {
-  const cookie = req.headers.get("cookie") || "";
-  const m = cookie.match(new RegExp(`${COOKIE}=([^;]+)`));
-  const token = m?.[1] || "";
+  if (!SESSION_SIGNING_SECRET) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error: "Server authentication is not configured.",
+      },
+      {
+        status: 500,
+        headers: {
+          "Cache-Control": "no-store",
+        },
+      }
+    );
+  }
 
-  if (!token) return NextResponse.json({ ok: false, error: "Not logged in" }, { status: 401 });
+  const cookieHeader = req.headers.get("cookie") || "";
 
-  const payload = decodeToken(token);
-  if (!payload) return NextResponse.json({ ok: false, error: "Bad session" }, { status: 401 });
+  const authMatch = cookieHeader.match(
+    new RegExp(`${AUTH_COOKIE_NAME}=([^;]+)`)
+  );
 
-  return NextResponse.json({
-    ok: true,
-    email: payload.email,
-    saas_role: payload.saas_role,
-    stores: payload.stores || [],
-  });
+  const rawToken = authMatch?.[1] || "";
+
+  const session = await verifySessionToken(
+    rawToken,
+    SESSION_SIGNING_SECRET
+  );
+
+  if (!session) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error: "Invalid or expired session.",
+      },
+      {
+        status: 401,
+        headers: {
+          "Cache-Control": "no-store",
+        },
+      }
+    );
+  }
+
+  return NextResponse.json(
+    {
+      ok: true,
+      email: session.email,
+      saas_role: session.saas_role,
+      stores: session.stores,
+    },
+    {
+      headers: {
+        "Cache-Control": "no-store",
+      },
+    }
+  );
 }
