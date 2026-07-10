@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import crypto from "crypto";
+import { SESSION_TTL_MS, signSessionPayload } from "@/lib/session";
 
 const AUTH_COOKIE_NAME = process.env.AUTH_COOKIE_NAME || "ls_vendor_auth";
 const TENANT_COOKIE_NAME = process.env.TENANT_COOKIE_NAME || "ls_tenant";
@@ -20,22 +20,6 @@ type MasterLoginOk = {
 };
 
 type MasterLoginErr = { ok: false; message?: string };
-
-function b64url(input: Buffer | string) {
-  const buf = Buffer.isBuffer(input) ? input : Buffer.from(input);
-  return buf
-    .toString("base64")
-    .replace(/=/g, "")
-    .replace(/\+/g, "-")
-    .replace(/\//g, "_");
-}
-
-function sign(payload: any, secret: string) {
-  const json = JSON.stringify(payload);
-  const body = b64url(json);
-  const sig = crypto.createHmac("sha256", secret).update(body).digest();
-  return `${body}.${b64url(sig)}`;
-}
 
 function normalizeBase(url: string) {
   return String(url || "").replace(/\/+$/, "");
@@ -143,8 +127,8 @@ export async function POST(req: Request) {
       wpJson = JSON.parse(wpText);
     } catch {}
 
-    if (!wpRes.ok || !wpJson || (wpJson as any).ok !== true) {
-      const msg = (wpJson as any)?.message || "Invalid email or password.";
+    if (!wpRes.ok || !wpJson || wpJson.ok !== true) {
+      const msg = wpJson && "message" in wpJson ? wpJson.message || "Invalid email or password." : "Invalid email or password.";
       if (mode === "form") {
         return NextResponse.redirect(
           new URL(`/signin?error=${encodeURIComponent(msg)}`, req.url),
@@ -165,13 +149,16 @@ export async function POST(req: Request) {
       redirect = stores.length === 1 ? (next || "/dashboard") : "/select-store";
     }
 
-    const token = sign(
+    const issuedAt = Date.now();
+
+    const token = await signSessionPayload(
       {
         v: 4,
-        email,
+        email: email.toLowerCase(),
         saas_role: role,
         stores,
-        iat: Date.now(),
+        iat: issuedAt,
+        exp: issuedAt + SESSION_TTL_MS,
       },
       SESSION_SIGNING_SECRET
     );
@@ -202,9 +189,9 @@ export async function POST(req: Request) {
     }
 
     return res;
-  } catch (e: any) {
+  } catch (error: unknown) {
     return NextResponse.json(
-      { ok: false, error: e?.message || "Login failed." },
+      { ok: false, error: error instanceof Error ? error.message : "Login failed." },
       { status: 500 }
     );
   }
