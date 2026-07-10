@@ -1,37 +1,86 @@
 import { NextResponse } from "next/server";
-import { getWpBaseUrl, wpAuthHeader } from "@/lib/wpClient";
+import { getWpBaseUrl } from "@/lib/wpClient";
 
-function safeJson(s: string) {
-  try {
-    return JSON.parse(s);
-  } catch {
-    return null as any;
+export const dynamic = "force-dynamic";
+
+function requireInternalToken(): string {
+  const token = process.env.LETZ_INTERNAL_TOKEN || "";
+
+  if (!token) {
+    throw new Error("Missing LETZ_INTERNAL_TOKEN in dashboard env");
   }
+
+  return token;
+}
+
+function safeJson(text: string): any {
+  try {
+    return JSON.parse(text);
+  } catch {
+    return null;
+  }
+}
+
+function wpErrorMessage(
+  json: any,
+  text: string,
+  fallback: string
+): string {
+  return (
+    json?.error ||
+    json?.message ||
+    json?.data?.message ||
+    text ||
+    fallback
+  );
 }
 
 export async function GET() {
   try {
     const base = (await getWpBaseUrl()).replace(/\/$/, "");
+    const token = requireInternalToken();
 
-    const r = await fetch(`${base}/wp-json/letzshopy/v1/menus`, {
-      headers: { ...wpAuthHeader() },
-      cache: "no-store",
-    });
+    const response = await fetch(
+      `${base}/wp-json/letzshopy/v1/menus`,
+      {
+        headers: {
+          "X-Letz-Auth": token,
+          Accept: "application/json",
+        },
+        cache: "no-store",
+      }
+    );
 
-    const text = await r.text();
+    const text = await response.text();
     const json = safeJson(text);
 
-    if (!r.ok) {
+    if (!response.ok) {
       return NextResponse.json(
-        { error: json?.error || "WP menus failed", details: json || text },
-        { status: r.status || 500 }
+        {
+          error: wpErrorMessage(
+            json,
+            text,
+            "WP menus failed"
+          ),
+          details: json || text,
+        },
+        {
+          status: response.status || 500,
+        }
       );
     }
 
-    return NextResponse.json(json, { status: 200 });
-  } catch (e: any) {
     return NextResponse.json(
-      { error: e?.message || "Proxy error" },
+      json || { menus: [] },
+      { status: 200 }
+    );
+  } catch (error: any) {
+    return NextResponse.json(
+      {
+        error:
+          error?.message ||
+          "Menu list proxy error",
+      },
       { status: 500 }
     );
   }

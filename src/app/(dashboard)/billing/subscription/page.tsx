@@ -165,7 +165,7 @@ export default function BillingSubscriptionPage() {
     if (selectedPlan === "standard") {
       return billingCycle === "yearly" ? 11000 : 999;
     }
-    return billingCycle === "yearly" ? 18000 : 1499;
+    return billingCycle === "yearly" ? 16000 : 1399;
   }, [selectedPlan, billingCycle]);
 
   const selectedPlanLabel = useMemo(() => {

@@ -1,45 +1,115 @@
-import { NextRequest, NextResponse } from "next/server";
-import { getWpBaseUrl, wpAuthHeader } from "@/lib/wpClient";
+import {
+  NextRequest,
+  NextResponse,
+} from "next/server";
 
-function safeJson(s: string) {
-  try {
-    return JSON.parse(s);
-  } catch {
-    return null as any;
+import { getWpBaseUrl } from "@/lib/wpClient";
+
+export const dynamic = "force-dynamic";
+
+function requireInternalToken(): string {
+  const token = process.env.LETZ_INTERNAL_TOKEN || "";
+
+  if (!token) {
+    throw new Error(
+      "Missing LETZ_INTERNAL_TOKEN in dashboard env"
+    );
   }
+
+  return token;
+}
+
+function safeJson(text: string): any {
+  try {
+    return JSON.parse(text);
+  } catch {
+    return null;
+  }
+}
+
+function wpErrorMessage(
+  json: any,
+  text: string,
+  fallback: string
+): string {
+  return (
+    json?.error ||
+    json?.message ||
+    json?.data?.message ||
+    text ||
+    fallback
+  );
+}
+
+async function getWpMenuBase(): Promise<string> {
+  const base = await getWpBaseUrl();
+  return base.replace(/\/$/, "");
 }
 
 export async function GET(req: NextRequest) {
   try {
-    const base = await getWpBaseUrl();
+    const base = await getWpMenuBase();
+    const token = requireInternalToken();
 
     const { searchParams } = new URL(req.url);
-    const qs = new URLSearchParams();
+    const query = new URLSearchParams();
 
-    for (const key of ["location", "location_label", "menu_name", "menu_id"]) {
-      const v = searchParams.get(key);
-      if (v !== null) qs.set(key, v);
+    for (const key of [
+      "location",
+      "location_label",
+      "menu_name",
+      "menu_id",
+    ]) {
+      const value = searchParams.get(key);
+
+      if (value !== null) {
+        query.set(key, value);
+      }
     }
 
-    const r = await fetch(`${base}/wp-json/letzshopy/v1/menu?${qs.toString()}`, {
-      headers: { ...wpAuthHeader() },
+    const suffix = query.toString();
+    const url =
+      `${base}/wp-json/letzshopy/v1/menu` +
+      (suffix ? `?${suffix}` : "");
+
+    const response = await fetch(url, {
+      headers: {
+        "X-Letz-Auth": token,
+        Accept: "application/json",
+      },
       cache: "no-store",
     });
 
-    const text = await r.text();
+    const text = await response.text();
     const json = safeJson(text);
 
-    if (!r.ok) {
+    if (!response.ok) {
       return NextResponse.json(
-        { error: json?.error || text || "WP menu GET failed" },
-        { status: r.status || 500 }
+        {
+          error: wpErrorMessage(
+            json,
+            text,
+            "WP menu GET failed"
+          ),
+          details: json || text,
+        },
+        {
+          status: response.status || 500,
+        }
       );
     }
 
-    return NextResponse.json(json, { status: 200 });
-  } catch (e: any) {
     return NextResponse.json(
-      { error: e?.message || "Proxy GET error" },
+      json || { items: [] },
+      { status: 200 }
+    );
+  } catch (error: any) {
+    return NextResponse.json(
+      {
+        error:
+          error?.message ||
+          "Menu proxy GET error",
+      },
       { status: 500 }
     );
   }
@@ -47,32 +117,54 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const base = await getWpBaseUrl();
+    const base = await getWpMenuBase();
+    const token = requireInternalToken();
     const body = await req.json();
 
-    const r = await fetch(`${base}/wp-json/letzshopy/v1/menu`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        ...wpAuthHeader(),
-      },
-      body: JSON.stringify(body),
-    });
+    const response = await fetch(
+      `${base}/wp-json/letzshopy/v1/menu`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Letz-Auth": token,
+          Accept: "application/json",
+        },
+        body: JSON.stringify(body),
+        cache: "no-store",
+      }
+    );
 
-    const text = await r.text();
+    const text = await response.text();
     const json = safeJson(text);
 
-    if (!r.ok) {
+    if (!response.ok) {
       return NextResponse.json(
-        { error: json?.error || text || "WP menu POST failed" },
-        { status: r.status || 500 }
+        {
+          error: wpErrorMessage(
+            json,
+            text,
+            "WP menu POST failed"
+          ),
+          details: json || text,
+        },
+        {
+          status: response.status || 500,
+        }
       );
     }
 
-    return NextResponse.json(json, { status: 200 });
-  } catch (e: any) {
     return NextResponse.json(
-      { error: e?.message || "Proxy POST error" },
+      json || { ok: true },
+      { status: 200 }
+    );
+  } catch (error: any) {
+    return NextResponse.json(
+      {
+        error:
+          error?.message ||
+          "Menu proxy POST error",
+      },
       { status: 500 }
     );
   }
