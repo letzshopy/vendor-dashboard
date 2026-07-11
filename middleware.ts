@@ -92,6 +92,42 @@ function isMasterApi(pathname: string) {
   );
 }
 
+function isRecoveryApi(pathname: string) {
+  const kycRecovery =
+    pathname === "/api/settings/kyc" ||
+    pathname.startsWith(
+      "/api/settings/kyc/"
+    );
+
+  const subscriptionRecovery =
+    pathname ===
+      "/api/settings/subscription" ||
+    pathname.startsWith(
+      "/api/settings/subscription/"
+    ) ||
+    pathname.startsWith(
+      "/api/subscription-invoices"
+    );
+
+  const accountRecovery =
+    pathname ===
+      "/api/account/agreement-status" ||
+    pathname ===
+      "/api/account/accept-agreement" ||
+    pathname ===
+      "/api/account/settings" ||
+    pathname ===
+      "/api/account/password";
+
+  return (
+    kycRecovery ||
+    subscriptionRecovery ||
+    accountRecovery ||
+    pathname ===
+      "/api/onboarding/status"
+  );
+}
+
 function isAlwaysAllowedAfterLogin(pathname: string) {
   return (
     pathname === "/settings" ||
@@ -434,6 +470,59 @@ export async function middleware(req: NextRequest) {
     if (!authorizedTenant) {
       return forbiddenApi(
         "No authorized store is selected."
+      );
+    }
+
+    if (isRecoveryApi(pathname)) {
+      return NextResponse.next();
+    }
+
+    const [
+      manuallyLocked,
+      status,
+      agreementAccepted,
+    ] = await Promise.all([
+      getLockedFromMaster(
+        authorizedTenant.blog_id
+      ),
+      getOnboardingStatus(req),
+      getAgreementAccepted(
+        req,
+        session
+      ),
+    ]);
+
+    const access = evaluateAccessPolicy({
+      role: session.saas_role,
+      agreementAccepted,
+      kycStatus:
+        status?.kyc_status ||
+        "not_started",
+      subscriptionStatus:
+        status?.subscription_status ||
+        "inactive",
+      trialEndsAt:
+        status?.trial_ends_at,
+      nextPaymentDate:
+        status?.next_payment_date,
+      manuallyLocked,
+    });
+
+    if (
+      access.dashboardMode ===
+      "agreement_required"
+    ) {
+      return forbiddenApi(
+        "Vendor Agreement acceptance is required."
+      );
+    }
+
+    if (
+      access.dashboardMode ===
+      "restricted"
+    ) {
+      return forbiddenApi(
+        "Dashboard access is restricted. Complete the required subscription or account steps."
       );
     }
 
