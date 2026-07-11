@@ -1,53 +1,170 @@
 import { NextResponse } from "next/server";
+
 import { getWpBaseUrl } from "@/lib/wpClient";
 
-const TOKEN = process.env.LETZ_INTERNAL_TOKEN;
+const INTERNAL_TOKEN =
+  process.env.LETZ_INTERNAL_TOKEN || "";
+
+const PRIVATE_HEADERS = {
+  "Cache-Control":
+    "private, no-store, no-cache, must-revalidate, max-age=0",
+};
+
+type JsonRecord = Record<string, unknown>;
+
+function isRecord(value: unknown): value is JsonRecord {
+  return Boolean(
+    value &&
+      typeof value === "object" &&
+      !Array.isArray(value)
+  );
+}
+
+function textField(
+  source: JsonRecord,
+  key: string
+): string {
+  return typeof source[key] === "string"
+    ? source[key]
+    : "";
+}
+
+function numberField(
+  source: JsonRecord,
+  key: string
+): number {
+  const value = Number(source[key]);
+
+  return Number.isFinite(value)
+    ? value
+    : 0;
+}
+
+function publicSubscription(
+  value: unknown
+): JsonRecord | null {
+  if (!isRecord(value)) {
+    return null;
+  }
+
+  return {
+    plan: textField(value, "plan"),
+    current_plan:
+      textField(value, "current_plan"),
+    billing_cycle:
+      textField(value, "billing_cycle"),
+    period: textField(value, "period"),
+    billing_status:
+      textField(value, "billing_status"),
+    status: textField(value, "status"),
+    amount: numberField(value, "amount"),
+    trial_status:
+      textField(value, "trial_status"),
+    trial_started_at:
+      textField(value, "trial_started_at"),
+    trial_ends_at:
+      textField(value, "trial_ends_at"),
+    next_payment_date:
+      textField(value, "next_payment_date"),
+    next_renewal_date:
+      textField(value, "next_renewal_date"),
+    payment_reference:
+      textField(value, "payment_reference"),
+    utr: textField(value, "utr"),
+    payment_mode:
+      textField(value, "payment_mode"),
+    last_paid_date:
+      textField(value, "last_paid_date"),
+    last_billed_at:
+      textField(value, "last_billed_at"),
+  };
+}
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 export async function GET() {
   try {
-    if (!TOKEN) {
+    if (!INTERNAL_TOKEN) {
       return NextResponse.json(
-        { ok: false, error: "LETZ_INTERNAL_TOKEN missing" },
-        { status: 500 }
+        {
+          ok: false,
+          error:
+            "Subscription service is not configured.",
+        },
+        {
+          status: 500,
+          headers: PRIVATE_HEADERS,
+        }
       );
     }
 
-    const base = (await getWpBaseUrl()).replace(/\/$/, "");
+    const base = (
+      await getWpBaseUrl()
+    ).replace(/\/$/, "");
 
-    const wpRes = await fetch(`${base}/wp-json/letz/v1/subscription?_ts=${Date.now()}`, {
-      method: "GET",
-      headers: {
-        "x-letz-auth": TOKEN,
-      },
-      cache: "no-store",
-    });
+    const response = await fetch(
+      `${base}/wp-json/letz/v1/subscription`,
+      {
+        method: "GET",
+        headers: {
+          "x-letz-auth": INTERNAL_TOKEN,
+        },
+        cache: "no-store",
+        signal: AbortSignal.timeout(12_000),
+      }
+    );
 
-    const text = await wpRes.text();
-    let json: any = null;
-    try {
-      json = JSON.parse(text);
-    } catch {}
+    const parsed: unknown = await response
+      .json()
+      .catch(() => null);
 
-    if (!wpRes.ok) {
+    const subscription =
+      publicSubscription(parsed);
+
+    if (!response.ok || !subscription) {
       return NextResponse.json(
-        { ok: false, error: "Failed to fetch subscription", details: json || text },
-        { status: wpRes.status || 500 }
+        {
+          ok: false,
+          error:
+            "Could not load subscription details.",
+        },
+        {
+          status:
+            response.status >= 400 &&
+            response.status < 500
+              ? response.status
+              : 502,
+          headers: PRIVATE_HEADERS,
+        }
       );
     }
 
-    return NextResponse.json(json, {
-      status: 200,
-      headers: {
-        "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
-      },
-    });
-  } catch (e: any) {
     return NextResponse.json(
-      { ok: false, error: e?.message || "Failed to load subscription" },
-      { status: 500 }
+      subscription,
+      {
+        status: 200,
+        headers: PRIVATE_HEADERS,
+      }
+    );
+  } catch (error: unknown) {
+    console.error(
+      "Subscription read failed:",
+      error instanceof Error
+        ? error.message
+        : "Unknown error"
+    );
+
+    return NextResponse.json(
+      {
+        ok: false,
+        error:
+          "Could not load subscription details.",
+      },
+      {
+        status: 500,
+        headers: PRIVATE_HEADERS,
+      }
     );
   }
 }
