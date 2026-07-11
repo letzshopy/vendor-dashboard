@@ -104,7 +104,7 @@ export async function GET() {
     ).replace(/\/$/, "");
 
     const response = await fetch(
-      `${base}/wp-json/letz/v1/subscription`,
+      `${base}/wp-json/letz/v1/subscription/status`,
       {
         method: "GET",
         headers: {
