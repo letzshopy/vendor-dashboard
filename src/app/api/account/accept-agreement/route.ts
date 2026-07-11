@@ -1,102 +1,129 @@
 import { NextResponse } from "next/server";
-import crypto from "crypto";
 import { cookies } from "next/headers";
+
 import { getWpBaseUrl } from "@/lib/wpClient";
+import { verifySessionToken } from "@/lib/session";
 
-const AUTH_COOKIE_NAME = process.env.AUTH_COOKIE_NAME || "ls_vendor_auth";
-const ROLE_COOKIE_NAME = "ls_role";
-const DASHBOARD_SECRET = process.env.DASHBOARD_SECRET || "";
+const AUTH_COOKIE_NAME =
+  process.env.AUTH_COOKIE_NAME || "ls_vendor_auth";
 
-function b64urlToBuffer(input: string) {
-  const padded = input.replace(/-/g, "+").replace(/_/g, "/");
-  const padLen = (4 - (padded.length % 4)) % 4;
-  return Buffer.from(padded + "=".repeat(padLen), "base64");
-}
-
-function verifySignedToken(token: string, secret: string) {
-  try {
-    const [body, sig] = token.split(".");
-    if (!body || !sig || !secret) return null;
-
-    const expected = crypto.createHmac("sha256", secret).update(body).digest();
-    const actual = b64urlToBuffer(sig);
-
-    if (expected.length !== actual.length) return null;
-    if (!crypto.timingSafeEqual(expected, actual)) return null;
-
-    return JSON.parse(b64urlToBuffer(body).toString("utf8"));
-  } catch {
-    return null;
-  }
-}
+const SESSION_SIGNING_SECRET =
+  process.env.DASHBOARD_SECRET || "";
 
 function authHeader() {
   const user = process.env.WP_USER;
-  const pass = (process.env.WP_APP_PASSWORD || "").replace(/\s+/g, "");
+  const pass = (
+    process.env.WP_APP_PASSWORD || ""
+  ).replace(/\s+/g, "");
 
   if (!user || !pass) {
-    throw new Error("Missing WP_USER or WP_APP_PASSWORD environment variables.");
+    throw new Error(
+      "Missing WP_USER or WP_APP_PASSWORD environment variables."
+    );
   }
 
-  return "Basic " + Buffer.from(`${user}:${pass}`).toString("base64");
+  return (
+    "Basic " +
+    Buffer.from(`${user}:${pass}`).toString("base64")
+  );
 }
 
 export async function POST() {
   try {
-    const cookieStore = await cookies();
-    const role = cookieStore.get(ROLE_COOKIE_NAME)?.value || "";
-
-    if (role !== "store_owner") {
+    if (!SESSION_SIGNING_SECRET) {
       return NextResponse.json(
         {
           ok: false,
-          error: "Only store owners can accept the Vendor Agreement.",
+          error:
+            "Server authentication is not configured.",
         },
-        { status: 403 }
+        { status: 500 }
       );
     }
 
-    const authToken = cookieStore.get(AUTH_COOKIE_NAME)?.value || "";
-    const session = verifySignedToken(authToken, DASHBOARD_SECRET);
+    const cookieStore = await cookies();
 
-    const acceptedByEmail =
-      typeof session?.email === "string" ? session.email.trim() : "";
+    const authToken =
+      cookieStore.get(AUTH_COOKIE_NAME)?.value || "";
 
-    const base = (await getWpBaseUrl()).replace(/\/$/, "");
+    const session = await verifySessionToken(
+      authToken,
+      SESSION_SIGNING_SECRET
+    );
 
-    const wpRes = await fetch(
+    if (!session) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: "Invalid or expired session.",
+        },
+        {
+          status: 401,
+          headers: {
+            "Cache-Control": "no-store",
+          },
+        }
+      );
+    }
+
+    if (session.saas_role !== "store_owner") {
+      return NextResponse.json(
+        {
+          ok: false,
+          error:
+            "Only store owners can accept the Vendor Agreement.",
+        },
+        {
+          status: 403,
+          headers: {
+            "Cache-Control": "no-store",
+          },
+        }
+      );
+    }
+
+    const base = (
+      await getWpBaseUrl()
+    ).replace(/\/$/, "");
+
+    const wpResponse = await fetch(
       `${base}/wp-json/letz/v1/account/agreement/accept`,
       {
         method: "POST",
         headers: {
           Authorization: authHeader(),
           "Content-Type": "application/json",
-          "X-Letz-Dashboard-Key": process.env.LETZ_DASHBOARD_API_KEY || "",
+          "X-Letz-Dashboard-Key":
+            process.env.LETZ_DASHBOARD_API_KEY || "",
         },
         cache: "no-store",
         body: JSON.stringify({
           version: "v1.0",
-          accepted_by_email: acceptedByEmail,
-          saas_role: role,
+          accepted_by_email: session.email,
+          saas_role: session.saas_role,
         }),
       }
     );
 
-    const text = await wpRes.text();
+    const responseText = await wpResponse.text();
 
-    return new NextResponse(text, {
-      status: wpRes.status,
+    return new NextResponse(responseText, {
+      status: wpResponse.status,
       headers: {
         "Content-Type": "application/json",
+        "Cache-Control": "no-store",
       },
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Agreement accept error:", error);
 
     return NextResponse.json(
       {
         ok: false,
-        error: error?.message || "Could not accept agreement.",
+        error:
+          error instanceof Error
+            ? error.message
+            : "Could not accept agreement.",
       },
       { status: 500 }
     );
