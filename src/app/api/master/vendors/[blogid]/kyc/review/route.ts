@@ -9,8 +9,8 @@ import {
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-const INTERNAL_TOKEN =
-  process.env.LETZ_INTERNAL_TOKEN || "";
+const MASTER_API_KEY =
+  process.env.MASTER_API_KEY || "";
 
 const MAX_REQUEST_BYTES = 8_192;
 const MAX_REVIEW_NOTE_LENGTH = 2_000;
@@ -77,7 +77,7 @@ export async function POST(
     }>;
   }
 ) {
-  if (!INTERNAL_TOKEN) {
+  if (!MASTER_API_KEY) {
     return privateJson(
       {
         ok: false,
@@ -170,8 +170,10 @@ export async function POST(
           Accept: "application/json",
           "Content-Type":
             "application/json",
-          "x-letz-auth":
-            INTERNAL_TOKEN,
+          Authorization:
+            `Bearer ${MASTER_API_KEY}`,
+          "X-Letz-Master-Key":
+            MASTER_API_KEY,
         },
         body: JSON.stringify({
           status,
@@ -207,45 +209,6 @@ export async function POST(
     )
       ? reviewPayload
       : {};
-
-    const onboardingResponse =
-      await fetch(
-        `${storeUrl}/wp-json/letz/v1/onboarding/set`,
-        {
-          method: "POST",
-          headers: {
-            Accept:
-              "application/json",
-            "Content-Type":
-              "application/json",
-            "x-letz-auth":
-              INTERNAL_TOKEN,
-          },
-          body: JSON.stringify({
-            kyc_status: status,
-          }),
-          cache: "no-store",
-          signal: AbortSignal.timeout(
-            UPSTREAM_TIMEOUT_MS
-          ),
-        }
-      );
-
-    if (!onboardingResponse.ok) {
-      console.error(
-        `KYC review saved but onboarding sync failed with status ${onboardingResponse.status}.`
-      );
-
-      return privateJson(
-        {
-          ok: false,
-          error:
-            "KYC review was saved, but onboarding status synchronization failed.",
-          reviewSaved: true,
-        },
-        502
-      );
-    }
 
     return privateJson({
       ok: true,
