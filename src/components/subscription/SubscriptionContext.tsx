@@ -5,6 +5,7 @@ import { createContext, useContext } from "react";
 export type DashboardSubscription = {
   status: string;
   nextPaymentDate: string;
+  trialEndsAt: string;
 };
 
 type SubscriptionContextValue = {
