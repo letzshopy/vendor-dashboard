@@ -8,7 +8,14 @@ export const dynamic = "force-dynamic";
 type VendorDetail = {
   blogid: number;
   site: { name: string; url: string };
-  account_settings: any;
+  account_settings?: {
+    owner?: Record<string, string | undefined>;
+    contact?: Record<string, string | undefined>;
+    profile?: Record<string, string | undefined>;
+    business?: Record<string, string | undefined>;
+    company?: Record<string, string | undefined>;
+    shop?: Record<string, string | undefined>;
+  };
   dashboard_access?: {
     locked?: boolean;
     locked_at?: string;
