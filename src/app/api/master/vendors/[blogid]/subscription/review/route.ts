@@ -14,6 +14,9 @@ import {
 const INTERNAL_TOKEN =
   process.env.LETZ_INTERNAL_TOKEN || "";
 
+const MASTER_API_KEY =
+  process.env.MASTER_API_KEY || "";
+
 const PRIVATE_HEADERS = {
   "Cache-Control":
     "private, no-store, no-cache, must-revalidate, max-age=0",
@@ -127,12 +130,15 @@ export async function POST(
   }
 ) {
   try {
-    if (!INTERNAL_TOKEN) {
+    if (
+      !INTERNAL_TOKEN ||
+      !MASTER_API_KEY
+    ) {
       return NextResponse.json(
         {
           ok: false,
           error:
-            "Subscription service is not configured.",
+            "Subscription services are not configured.",
         },
         {
           status: 500,
@@ -327,11 +333,14 @@ export async function POST(
     }
 
     const reviewResponse = await fetch(
-      `${storeUrl}/wp-json/letz/v1/subscription`,
+      `${storeUrl}/wp-json/letz/v1/subscription/review`,
       {
-        method: "PUT",
+        method: "POST",
         headers: {
-          ...headers,
+          Authorization:
+            `Bearer ${MASTER_API_KEY}`,
+          "X-Letz-Master-Key":
+            MASTER_API_KEY,
           "Content-Type":
             "application/json",
         },
