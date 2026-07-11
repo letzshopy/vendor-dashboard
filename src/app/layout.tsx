@@ -1,15 +1,19 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
-import "./globals.css";
+import {
+  Geist,
+  Geist_Mono,
+} from "next/font/google";
 import { Suspense } from "react";
 
-import LookupGuard from "./_debug/lookup-guard";
-import LookupMuzzle from "./_debug/lookup-muzzle";
 import PwaRegister from "@/components/pwa/PwaRegister";
 
+import "./globals.css";
+
 export const metadata: Metadata = {
-  title: "LetzShopy Vendor Dashboard",
-  description: "LetzShopy vendor admin dashboard",
+  title:
+    "LetzShopy Vendor Dashboard",
+  description:
+    "LetzShopy vendor admin dashboard",
   applicationName: "LetzShopy",
   appleWebApp: {
     capable: true,
@@ -21,17 +25,32 @@ export const metadata: Metadata = {
   },
   icons: {
     icon: [
-      { url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
-      { url: "/icons/icon-512.png", sizes: "512x512", type: "image/png" },
+      {
+        url: "/icons/icon-192.png",
+        sizes: "192x192",
+        type: "image/png",
+      },
+      {
+        url: "/icons/icon-512.png",
+        sizes: "512x512",
+        type: "image/png",
+      },
     ],
     apple: [
-      { url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
+      {
+        url: "/icons/icon-192.png",
+        sizes: "192x192",
+        type: "image/png",
+      },
     ],
-    shortcut: ["/icons/icon-192.png"],
+    shortcut: [
+      "/icons/icon-192.png",
+    ],
   },
 };
 
-export const dynamic = "force-dynamic";
+export const dynamic =
+  "force-dynamic";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -51,16 +70,9 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-slate-50 text-slate-900`}
+        className={`${geistSans.variable} ${geistMono.variable} bg-slate-50 text-slate-900 antialiased`}
       >
         <PwaRegister />
-
-        {process.env.NODE_ENV !== "production" && (
-          <>
-            <LookupGuard />
-            <LookupMuzzle />
-          </>
-        )}
 
         <Suspense
           fallback={
