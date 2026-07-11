@@ -1,115 +1,280 @@
-import { NextRequest, NextResponse } from "next/server";
+import {
+  NextRequest,
+  NextResponse,
+} from "next/server";
+import {
+  resolveMasterVendorStoreUrl,
+} from "@/lib/masterVendor";
 
-const LETZ_INTERNAL_TOKEN = process.env.LETZ_INTERNAL_TOKEN!;
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
-function normalizeStoreUrl(raw: string | null) {
-  if (!raw) return "";
-  return raw.trim().replace(/\/$/, "");
+const INTERNAL_TOKEN =
+  process.env.LETZ_INTERNAL_TOKEN || "";
+
+const MAX_REQUEST_BYTES = 8_192;
+const MAX_REVIEW_NOTE_LENGTH = 2_000;
+const UPSTREAM_TIMEOUT_MS = 15_000;
+
+type JsonRecord = Record<string, unknown>;
+type ReviewStatus =
+  | "approved"
+  | "rejected";
+
+function isRecord(
+  value: unknown
+): value is JsonRecord {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    !Array.isArray(value)
+  );
+}
+
+function privateJson(
+  body: JsonRecord,
+  status = 200
+): NextResponse<JsonRecord> {
+  return NextResponse.json(body, {
+    status,
+    headers: {
+      "Cache-Control": "no-store, private",
+      Pragma: "no-cache",
+      Expires: "0",
+    },
+  });
+}
+
+function normalizeStatus(
+  value: unknown
+): ReviewStatus | null {
+  return value === "approved" ||
+    value === "rejected"
+    ? value
+    : null;
+}
+
+function normalizeNote(
+  value: unknown
+): string {
+  return typeof value === "string"
+    ? value
+        .trim()
+        .slice(
+          0,
+          MAX_REVIEW_NOTE_LENGTH
+        )
+    : "";
 }
 
 export async function POST(
-  req: NextRequest,
-  { params }: { params: Promise<{ blogid: string }> }
+  request: NextRequest,
+  {
+    params,
+  }: {
+    params: Promise<{
+      blogid: string;
+    }>;
+  }
 ) {
-  try {
-    if (!LETZ_INTERNAL_TOKEN) {
-      return NextResponse.json(
-        { ok: false, error: "LETZ_INTERNAL_TOKEN missing" },
-        { status: 500 }
-      );
-    }
-
-    await params;
-
-    const body = await req.json().catch(() => ({}));
-    const status = body?.status;
-    const note = body?.note || "";
-    const storeUrl = normalizeStoreUrl(body?.storeUrl || "");
-
-    if (!storeUrl) {
-      return NextResponse.json(
-        { ok: false, error: "storeUrl is required" },
-        { status: 400 }
-      );
-    }
-
-    if (!status || !["approved", "rejected"].includes(status)) {
-      return NextResponse.json(
-        { ok: false, error: "status must be approved or rejected" },
-        { status: 400 }
-      );
-    }
-
-    const reviewRes = await fetch(`${storeUrl}/wp-json/letz/v1/kyc/review`, {
-      method: "POST",
-      headers: {
-        "x-letz-auth": LETZ_INTERNAL_TOKEN,
-        "content-type": "application/json",
-      },
-      body: JSON.stringify({ status, note }),
-      cache: "no-store",
-    });
-
-    const reviewText = await reviewRes.text();
-    let reviewJson: any = null;
-    try {
-      reviewJson = JSON.parse(reviewText);
-    } catch {}
-
-    if (!reviewRes.ok) {
-      return NextResponse.json(
-        {
-          ok: false,
-          error: reviewJson?.error || "Failed to review tenant KYC",
-          details: reviewJson || reviewText,
-        },
-        { status: reviewRes.status || 500 }
-      );
-    }
-
-    const onboardingRes = await fetch(`${storeUrl}/wp-json/letz/v1/onboarding/set`, {
-      method: "POST",
-      headers: {
-        "x-letz-auth": LETZ_INTERNAL_TOKEN,
-        "content-type": "application/json",
-      },
-      body: JSON.stringify({ kyc_status: status }),
-      cache: "no-store",
-    });
-
-    const onboardingText = await onboardingRes.text();
-    let onboardingJson: any = null;
-    try {
-      onboardingJson = JSON.parse(onboardingText);
-    } catch {}
-
-    if (!onboardingRes.ok) {
-      return NextResponse.json(
-        {
-          ok: false,
-          error: "KYC review saved but onboarding sync failed",
-          details: onboardingJson || onboardingText,
-          review: reviewJson,
-        },
-        { status: onboardingRes.status || 500 }
-      );
-    }
-
-    return NextResponse.json(
+  if (!INTERNAL_TOKEN) {
+    return privateJson(
       {
-        ok: true,
-        requestedStatus: status,
-        reviewSavedStatus: reviewJson?.kycStatus || null,
-        optionKycStatus: reviewJson?.option_kyc_status || null,
-        onboardingStatus: onboardingJson?.kyc_status || null,
-        reviewedAt: reviewJson?.reviewedAt || new Date().toISOString(),
+        ok: false,
+        error:
+          "KYC service is not configured.",
       },
-      { status: 200 }
+      500
     );
-  } catch (e: any) {
-    return NextResponse.json(
-      { ok: false, error: e?.message || "Failed to update vendor KYC review" },
-      { status: 500 }
+  }
+
+  const contentLength = Number(
+    request.headers.get("content-length") ||
+      "0"
+  );
+
+  if (
+    !Number.isFinite(contentLength) ||
+    contentLength < 0 ||
+    contentLength > MAX_REQUEST_BYTES
+  ) {
+    return privateJson(
+      {
+        ok: false,
+        error:
+          "Invalid KYC review request.",
+      },
+      400
+    );
+  }
+
+  let body: unknown;
+
+  try {
+    body = await request.json();
+  } catch {
+    return privateJson(
+      {
+        ok: false,
+        error:
+          "Invalid KYC review request.",
+      },
+      400
+    );
+  }
+
+  if (!isRecord(body)) {
+    return privateJson(
+      {
+        ok: false,
+        error:
+          "Invalid KYC review request.",
+      },
+      400
+    );
+  }
+
+  const status = normalizeStatus(
+    body.status
+  );
+
+  if (!status) {
+    return privateJson(
+      {
+        ok: false,
+        error:
+          "KYC status must be approved or rejected.",
+      },
+      400
+    );
+  }
+
+  const note = normalizeNote(body.note);
+  const { blogid } = await params;
+
+  try {
+    /*
+     * Browser-provided storeUrl is deliberately ignored.
+     * The authoritative master registry resolves the tenant from blogid.
+     */
+    const storeUrl =
+      await resolveMasterVendorStoreUrl(
+        blogid
+      );
+
+    const reviewResponse = await fetch(
+      `${storeUrl}/wp-json/letz/v1/kyc/review`,
+      {
+        method: "POST",
+        headers: {
+          Accept: "application/json",
+          "Content-Type":
+            "application/json",
+          "x-letz-auth":
+            INTERNAL_TOKEN,
+        },
+        body: JSON.stringify({
+          status,
+          note,
+        }),
+        cache: "no-store",
+        signal: AbortSignal.timeout(
+          UPSTREAM_TIMEOUT_MS
+        ),
+      }
+    );
+
+    if (!reviewResponse.ok) {
+      console.error(
+        `Master KYC review failed with status ${reviewResponse.status}.`
+      );
+
+      return privateJson(
+        {
+          ok: false,
+          error:
+            "Failed to save KYC review.",
+        },
+        502
+      );
+    }
+
+    const reviewPayload: unknown =
+      await reviewResponse.json();
+
+    const review = isRecord(
+      reviewPayload
+    )
+      ? reviewPayload
+      : {};
+
+    const onboardingResponse =
+      await fetch(
+        `${storeUrl}/wp-json/letz/v1/onboarding/set`,
+        {
+          method: "POST",
+          headers: {
+            Accept:
+              "application/json",
+            "Content-Type":
+              "application/json",
+            "x-letz-auth":
+              INTERNAL_TOKEN,
+          },
+          body: JSON.stringify({
+            kyc_status: status,
+          }),
+          cache: "no-store",
+          signal: AbortSignal.timeout(
+            UPSTREAM_TIMEOUT_MS
+          ),
+        }
+      );
+
+    if (!onboardingResponse.ok) {
+      console.error(
+        `KYC review saved but onboarding sync failed with status ${onboardingResponse.status}.`
+      );
+
+      return privateJson(
+        {
+          ok: false,
+          error:
+            "KYC review was saved, but onboarding status synchronization failed.",
+          reviewSaved: true,
+        },
+        502
+      );
+    }
+
+    return privateJson({
+      ok: true,
+      kycStatus:
+        typeof review.kycStatus ===
+        "string"
+          ? review.kycStatus
+          : status,
+      reviewedAt:
+        typeof review.reviewedAt ===
+        "string"
+          ? review.reviewedAt
+          : new Date().toISOString(),
+    });
+  } catch (error: unknown) {
+    console.error(
+      "Master KYC review failed:",
+      error instanceof Error
+        ? error.message
+        : "Unknown master KYC review error"
+    );
+
+    return privateJson(
+      {
+        ok: false,
+        error:
+          "Failed to update vendor KYC review.",
+      },
+      502
     );
   }
 }
