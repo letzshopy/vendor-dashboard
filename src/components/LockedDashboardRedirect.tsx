@@ -16,7 +16,8 @@ export default function LockedDashboardRedirect({ locked }: Props) {
 
     const isAllowed =
       pathname.startsWith("/settings") ||
-      pathname.startsWith("/billing/subscription");
+      pathname.startsWith("/billing/subscription") ||
+      pathname.startsWith("/support");
 
     if (!isAllowed) {
       router.replace("/billing/subscription");
