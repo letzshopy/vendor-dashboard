@@ -10,105 +10,203 @@ import {
   SubscriptionProvider,
   type DashboardSubscription,
 } from "@/components/subscription/SubscriptionContext";
+import {
+  findAuthorizedStore,
+  verifySessionToken,
+} from "@/lib/session";
 
-const COOKIE_NAME = process.env.AUTH_COOKIE_NAME || "ls_vendor_auth";
-const TENANT_COOKIE_NAME = process.env.TENANT_COOKIE_NAME || "ls_tenant";
-const ROLE_COOKIE_NAME = "ls_role";
+const AUTH_COOKIE_NAME =
+  process.env.AUTH_COOKIE_NAME || "ls_vendor_auth";
 
-function parseTenantCookie(raw: string | undefined) {
-  if (!raw) return null;
+const TENANT_COOKIE_NAME =
+  process.env.TENANT_COOKIE_NAME || "ls_tenant";
+
+const SESSION_SIGNING_SECRET =
+  process.env.DASHBOARD_SECRET || "";
+
+type JsonRecord = Record<string, unknown>;
+
+function isRecord(value: unknown): value is JsonRecord {
+  return Boolean(
+    value &&
+      typeof value === "object" &&
+      !Array.isArray(value)
+  );
+}
+
+function parseTenantCookie(
+  rawValue: string | undefined
+): JsonRecord | null {
+  if (!rawValue) {
+    return null;
+  }
+
   try {
-    return JSON.parse(decodeURIComponent(raw));
+    const parsed: unknown = JSON.parse(
+      decodeURIComponent(rawValue)
+    );
+
+    return isRecord(parsed) ? parsed : null;
   } catch {
     return null;
   }
 }
 
-async function getDashboardLockedFromMaster(): Promise<boolean> {
+async function getDashboardLockedFromMaster(
+  blogId: number
+): Promise<boolean> {
   try {
-    const cookieStore = await cookies();
-    const tenantRaw = cookieStore.get(TENANT_COOKIE_NAME)?.value;
-    const tenant = parseTenantCookie(tenantRaw);
-    const blogId = Number(tenant?.blog_id || 0);
+    const base = (
+      process.env.MASTER_WP_URL || ""
+    ).replace(/\/$/, "");
 
-    if (!blogId) return false;
-
-    const base = (process.env.MASTER_WP_URL || "").replace(/\/$/, "");
     const key = process.env.MASTER_API_KEY || "";
 
-    if (!base || !key) return false;
+    if (!base || !key || !blogId) {
+      return false;
+    }
 
-    const res = await fetch(`${base}/wp-json/letz/v1/master-vendors/${blogId}`, {
-      headers: {
-        Authorization: `Bearer ${key}`,
-        "X-Letz-Master-Key": key,
-      },
-      cache: "no-store",
-    });
+    const response = await fetch(
+      `${base}/wp-json/letz/v1/master-vendors/${blogId}`,
+      {
+        headers: {
+          Authorization: `Bearer ${key}`,
+          "X-Letz-Master-Key": key,
+        },
+        cache: "no-store",
+      }
+    );
 
-    const text = await res.text();
-    let json: any = {};
-    try {
-      json = JSON.parse(text);
-    } catch {}
+    if (!response.ok) {
+      return false;
+    }
 
-    return !!json?.dashboard_access?.locked;
+    const parsed: unknown = await response
+      .json()
+      .catch(() => null);
+
+    if (!isRecord(parsed)) {
+      return false;
+    }
+
+    const dashboardAccess = parsed.dashboard_access;
+
+    return (
+      isRecord(dashboardAccess) &&
+      dashboardAccess.locked === true
+    );
   } catch {
     return false;
   }
 }
 
-async function getDashboardSubscription(): Promise<DashboardSubscription | null> {
+async function getDashboardSubscription(
+  cookieHeader: string
+): Promise<DashboardSubscription | null> {
   try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get(COOKIE_NAME)?.value;
+    const base =
+      process.env.NEXT_PUBLIC_APP_URL?.replace(
+        /\/$/,
+        ""
+      );
 
-    if (!token) return null;
+    if (!base) {
+      return null;
+    }
 
-    const base = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "");
-    if (!base) return null;
+    const response = await fetch(
+      `${base}/api/settings/subscription`,
+      {
+        cache: "no-store",
+        headers: {
+          Cookie: cookieHeader,
+        },
+      }
+    );
 
-    const res = await fetch(`${base}/api/settings/subscription`, {
-      cache: "no-store",
-      headers: {
-        Cookie: cookieStore.toString(),
-      },
-    });
+    if (!response.ok) {
+      return null;
+    }
 
-    if (!res.ok) return null;
+    const parsed: unknown = await response
+      .json()
+      .catch(() => null);
 
-    const data = await res.json();
+    if (!isRecord(parsed)) {
+      return null;
+    }
+
+    const status =
+      typeof parsed.billing_status === "string"
+        ? parsed.billing_status
+        : "";
+
+    const nextPaymentDate =
+      typeof parsed.next_payment_date === "string"
+        ? parsed.next_payment_date
+        : typeof parsed.next_renewal_date === "string"
+          ? parsed.next_renewal_date
+          : "";
 
     return {
-      status: data?.billing_status || "",
-      nextPaymentDate: data?.next_payment_date || data?.next_renewal_date || "",
+      status,
+      nextPaymentDate,
     };
   } catch {
     return null;
   }
 }
 
-async function getVendorAgreementAccepted(): Promise<boolean> {
+async function getVendorAgreementAccepted(
+  cookieHeader: string
+): Promise<boolean> {
   try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get(COOKIE_NAME)?.value;
+    const base =
+      process.env.NEXT_PUBLIC_APP_URL?.replace(
+        /\/$/,
+        ""
+      );
 
-    if (!token) return false;
+    if (!base) {
+      return false;
+    }
 
-    const base = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "");
-    if (!base) return false;
+    const response = await fetch(
+      `${base}/api/account/agreement-status`,
+      {
+        cache: "no-store",
+        headers: {
+          Cookie: cookieHeader,
+        },
+      }
+    );
 
-    const res = await fetch(`${base}/api/account/agreement-status`, {
-      cache: "no-store",
-      headers: {
-        Cookie: cookieStore.toString(),
-      },
-    });
+    if (!response.ok) {
+      return false;
+    }
 
-    if (!res.ok) return false;
+    const parsed: unknown = await response
+      .json()
+      .catch(() => null);
 
-    const data = await res.json();
-    return !!data?.legal?.vendorAgreementAccepted;
+    if (!isRecord(parsed)) {
+      return false;
+    }
+
+    const legal = parsed.legal;
+
+    if (!isRecord(legal)) {
+      return false;
+    }
+
+    const accepted =
+      legal.vendorAgreementAccepted;
+
+    return (
+      accepted === true ||
+      accepted === 1 ||
+      accepted === "1"
+    );
   } catch {
     return false;
   }
@@ -120,22 +218,63 @@ export default async function DashboardLayout({
   children: React.ReactNode;
 }) {
   const cookieStore = await cookies();
-  const token = cookieStore.get(COOKIE_NAME)?.value;
-  const role = cookieStore.get(ROLE_COOKIE_NAME)?.value || "";
 
-  if (!token) {
+  const authToken =
+    cookieStore.get(AUTH_COOKIE_NAME)?.value || "";
+
+  if (!SESSION_SIGNING_SECRET) {
     redirect("/signin");
   }
 
-  const [locked, subscription, agreementAccepted] = await Promise.all([
-    getDashboardLockedFromMaster(),
-    getDashboardSubscription(),
-    role === "store_owner"
-      ? getVendorAgreementAccepted()
+  const session = await verifySessionToken(
+    authToken,
+    SESSION_SIGNING_SECRET
+  );
+
+  if (!session) {
+    redirect("/signin");
+  }
+
+  if (session.saas_role === "master_admin") {
+    redirect("/master");
+  }
+
+  const tenant = parseTenantCookie(
+    cookieStore.get(TENANT_COOKIE_NAME)?.value
+  );
+
+  const authorizedStore = tenant
+    ? findAuthorizedStore(session, {
+        blog_id: tenant.blog_id,
+        store_url: tenant.store_url,
+      })
+    : null;
+
+  if (!authorizedStore) {
+    redirect("/select-store");
+  }
+
+  const cookieHeader = cookieStore.toString();
+
+  const requiresAgreement =
+    session.saas_role === "store_owner";
+
+  const [
+    locked,
+    subscription,
+    agreementAccepted,
+  ] = await Promise.all([
+    getDashboardLockedFromMaster(
+      authorizedStore.blog_id
+    ),
+    getDashboardSubscription(cookieHeader),
+    requiresAgreement
+      ? getVendorAgreementAccepted(cookieHeader)
       : Promise.resolve(true),
   ]);
 
-  const showAgreementGate = role === "store_owner" && !agreementAccepted;
+  const showAgreementGate =
+    requiresAgreement && !agreementAccepted;
 
   return (
     <Suspense
@@ -145,13 +284,19 @@ export default async function DashboardLayout({
         </div>
       }
     >
-      <SubscriptionProvider subscription={subscription}>
+      <SubscriptionProvider
+        subscription={subscription}
+      >
         <>
-          <LockedDashboardRedirect locked={locked} />
+          <LockedDashboardRedirect
+            locked={locked}
+          />
 
           <DashboardShell locked={locked}>
             {children}
-            {showAgreementGate && <VendorAgreementGate />}
+            {showAgreementGate && (
+              <VendorAgreementGate />
+            )}
           </DashboardShell>
 
           <WhatsappFab />
