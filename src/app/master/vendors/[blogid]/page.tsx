@@ -15,6 +15,11 @@ type VendorDetail = {
     locked_by?: string;
     unlocked_at?: string;
     unlocked_by?: string;
+    storefront_suspended?: boolean;
+    storefront_suspended_at?: string;
+    storefront_suspended_by?: string;
+    storefront_restored_at?: string;
+    storefront_restored_by?: string;
   };
   payment_methods: { upi: boolean; easebuzz: boolean; cod: boolean };
   shipping: { provider: "self" | "shift" | string };
@@ -177,6 +182,21 @@ export default async function VendorDetailPage({
           lockedBy={access.locked_by}
           unlockedAt={access.unlocked_at}
           unlockedBy={access.unlocked_by}
+          storefrontSuspended={
+            !!access.storefront_suspended
+          }
+          storefrontSuspendedAt={
+            access.storefront_suspended_at
+          }
+          storefrontSuspendedBy={
+            access.storefront_suspended_by
+          }
+          storefrontRestoredAt={
+            access.storefront_restored_at
+          }
+          storefrontRestoredBy={
+            access.storefront_restored_by
+          }
         />
 
         <VendorKycReviewCard
