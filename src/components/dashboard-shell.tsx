@@ -44,8 +44,8 @@ export default function DashboardShell({
       {locked && (
         <div className="sticky top-16 z-30 border-b border-amber-200 bg-amber-50/95 px-4 py-3 text-sm text-amber-800 backdrop-blur md:top-[72px]">
           <div className="mx-auto max-w-7xl">
-            Your dashboard is currently locked by LetzShopy. Please complete the
-            required steps in the Settings section.
+            Your dashboard access is restricted. Please use Settings,
+            Subscription or Support to complete the required steps.
           </div>
         </div>
       )}
