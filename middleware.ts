@@ -1,5 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server";
 import {
+  evaluateAccessPolicy,
+} from "@/lib/accessPolicy";
+import {
   findAuthorizedStore,
   type SessionPayload,
   type SessionStore,
@@ -43,19 +46,10 @@ type JsonRecord = Record<string, unknown>;
 
 type OnboardingStatusResponse = {
   ok?: boolean;
-  kyc_status?:
-    | "not_started"
-    | "in_review"
-    | "approved"
-    | "rejected";
-  subscription_status?:
-    | "trial"
-    | "inactive"
-    | "pending_payment"
-    | "payment_submitted"
-    | "active"
-    | "suspended"
-    | "expired";
+  kyc_status?: string;
+  subscription_status?: string;
+  trial_ends_at?: string;
+  next_payment_date?: string;
 };
 
 function isRecord(value: unknown): value is JsonRecord {
@@ -106,6 +100,8 @@ function isAlwaysAllowedAfterLogin(pathname: string) {
     pathname.startsWith("/billing/subscription/") ||
     pathname === "/onboarding" ||
     pathname.startsWith("/onboarding/") ||
+    pathname === "/support" ||
+    pathname.startsWith("/support/") ||
     pathname === "/vendor-agreement/accept"
   );
 }
@@ -306,6 +302,56 @@ async function getOnboardingStatus(
   }
 }
 
+async function getAgreementAccepted(
+  req: NextRequest,
+  session: SessionPayload
+): Promise<boolean> {
+  if (session.saas_role !== "store_owner") {
+    return true;
+  }
+
+  try {
+    const statusUrl = req.nextUrl.clone();
+
+    statusUrl.pathname =
+      "/api/account/agreement-status";
+    statusUrl.search = "";
+
+    const response = await fetch(
+      statusUrl.toString(),
+      {
+        headers: {
+          cookie:
+            req.headers.get("cookie") ||
+            "",
+        },
+        cache: "no-store",
+      }
+    );
+
+    if (!response.ok) {
+      return false;
+    }
+
+    const parsed: unknown = await response
+      .json()
+      .catch(() => null);
+
+    if (!isRecord(parsed)) {
+      return false;
+    }
+
+    const legal = parsed.legal;
+
+    return (
+      isRecord(legal) &&
+      legal.vendorAgreementAccepted === true
+    );
+  } catch {
+    return false;
+  }
+}
+
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
   const apiRequest = isApiPath(pathname);
@@ -441,24 +487,57 @@ export async function middleware(req: NextRequest) {
     return NextResponse.next();
   }
 
-  const locked = await getLockedFromMaster(
-    authorizedTenant.blog_id
-  );
+  const [
+    manuallyLocked,
+    status,
+    agreementAccepted,
+  ] = await Promise.all([
+    getLockedFromMaster(
+      authorizedTenant.blog_id
+    ),
+    getOnboardingStatus(req),
+    getAgreementAccepted(
+      req,
+      session
+    ),
+  ]);
 
-  if (locked) {
-    return NextResponse.redirect(
-      new URL("/billing/subscription", req.url)
-    );
+  const access = evaluateAccessPolicy({
+    role: session.saas_role,
+    agreementAccepted,
+    kycStatus:
+      status?.kyc_status ||
+      "not_started",
+    subscriptionStatus:
+      status?.subscription_status ||
+      "inactive",
+    trialEndsAt:
+      status?.trial_ends_at,
+    nextPaymentDate:
+      status?.next_payment_date,
+    manuallyLocked,
+  });
+
+  if (
+    access.dashboardMode ===
+    "agreement_required"
+  ) {
+    /*
+     * The verified server layout presents the
+     * mandatory agreement gate.
+     */
+    return NextResponse.next();
   }
 
-  const status = await getOnboardingStatus(req);
-
-  if (status?.subscription_status === "expired") {
-    const url = new URL("/onboarding", req.url);
+  if (access.dashboardMode === "restricted") {
+    const url = new URL(
+      "/billing/subscription",
+      req.url
+    );
 
     url.searchParams.set(
-      "next",
-      `${req.nextUrl.pathname}${req.nextUrl.search}`
+      "reason",
+      access.reason
     );
 
     return NextResponse.redirect(url);
