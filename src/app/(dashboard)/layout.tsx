@@ -3,6 +3,9 @@ import { redirect } from "next/navigation";
 import { Suspense } from "react";
 
 import WhatsappFab from "@/components/WhatsappFab";
+import {
+  evaluateAccessPolicy,
+} from "@/lib/accessPolicy";
 import LockedDashboardRedirect from "@/components/LockedDashboardRedirect";
 import VendorAgreementGate from "@/components/VendorAgreementGate";
 import DashboardShell from "@/components/dashboard-shell";
@@ -148,9 +151,15 @@ async function getDashboardSubscription(
           ? parsed.next_renewal_date
           : "";
 
+    const trialEndsAt =
+      typeof parsed.trial_ends_at === "string"
+        ? parsed.trial_ends_at
+        : "";
+
     return {
       status,
       nextPaymentDate,
+      trialEndsAt,
     };
   } catch {
     return null;
@@ -273,8 +282,26 @@ export default async function DashboardLayout({
       : Promise.resolve(true),
   ]);
 
+  const access = evaluateAccessPolicy({
+    role: session.saas_role,
+    agreementAccepted,
+    kycStatus: "not_started",
+    subscriptionStatus:
+      subscription?.status || "inactive",
+    trialEndsAt:
+      subscription?.trialEndsAt,
+    nextPaymentDate:
+      subscription?.nextPaymentDate,
+    manuallyLocked: locked,
+  });
+
+  const dashboardLocked =
+    access.dashboardMode ===
+    "restricted";
+
   const showAgreementGate =
-    requiresAgreement && !agreementAccepted;
+    access.dashboardMode ===
+    "agreement_required";
 
   return (
     <Suspense
@@ -289,10 +316,12 @@ export default async function DashboardLayout({
       >
         <>
           <LockedDashboardRedirect
-            locked={locked}
+            locked={dashboardLocked}
           />
 
-          <DashboardShell locked={locked}>
+          <DashboardShell
+            locked={dashboardLocked}
+          >
             {children}
             {showAgreementGate && (
               <VendorAgreementGate />
