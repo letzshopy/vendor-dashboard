@@ -1,27 +1,68 @@
-// src/lib/tenant.ts
+import { cookies } from "next/headers";
 
-export const AUTH_COOKIE = process.env.AUTH_COOKIE_NAME || "ls_vendor_auth";
-export const TENANT_COOKIE = process.env.TENANT_COOKIE_NAME || "ls_tenant";
+import {
+  findAuthorizedStore,
+  type SessionRole,
+  verifySessionToken,
+} from "./session";
+
+export const AUTH_COOKIE =
+  process.env.AUTH_COOKIE_NAME ||
+  "ls_vendor_auth";
+
+export const TENANT_COOKIE =
+  process.env.TENANT_COOKIE_NAME ||
+  "ls_tenant";
+
+const SESSION_SIGNING_SECRET =
+  process.env.DASHBOARD_SECRET || "";
+
+type JsonRecord = Record<string, unknown>;
 
 export type Tenant = {
   store_url: string;
+  blog_id: number;
+  store_name: string;
+  role: SessionRole;
+  email: string;
+
+  /*
+   * Retained temporarily for compatibility with
+   * src/lib/woo.ts.
+   *
+   * These credentials are never read from cookies or
+   * the signed session. WooCommerce credentials must
+   * continue to come from server environment values.
+   */
   wc_key?: string;
   wc_secret?: string;
-  role?: string;
-  email?: string;
-  blog_id?: number;
-  store_name?: string;
 };
 
-function safeJsonParse<T>(value: string): T | null {
+function isRecord(
+  value: unknown
+): value is JsonRecord {
+  return Boolean(
+    value &&
+      typeof value === "object" &&
+      !Array.isArray(value)
+  );
+}
+
+function parseJsonRecord(
+  value: string
+): JsonRecord | null {
   try {
-    return JSON.parse(value) as T;
+    const parsed: unknown = JSON.parse(value);
+
+    return isRecord(parsed) ? parsed : null;
   } catch {
     return null;
   }
 }
 
-function safeDecode(value: string): string {
+function decodeCookieValue(
+  value: string
+): string {
   try {
     return decodeURIComponent(value);
   } catch {
@@ -29,129 +70,95 @@ function safeDecode(value: string): string {
   }
 }
 
-function normalizeUrl(value: unknown): string {
-  const s = String(value || "").trim().replace(/\/+$/, "");
-  if (!s) return "";
-  if (!/^https?:\/\//i.test(s)) return "";
-  return s;
-}
-
-function base64UrlDecode(input: string): string {
-  try {
-    let b64 = input.replace(/-/g, "+").replace(/_/g, "/");
-    while (b64.length % 4) b64 += "=";
-    return Buffer.from(b64, "base64").toString("utf8");
-  } catch {
-    return "";
-  }
-}
-
-function extractTenantCandidate(obj: any): Tenant | null {
-  if (!obj || typeof obj !== "object") return null;
-
-  const directStoreUrl = normalizeUrl(obj.store_url);
-  if (directStoreUrl) {
-    return {
-      store_url: directStoreUrl,
-      wc_key: obj.wc_key || "",
-      wc_secret: obj.wc_secret || "",
-      role: obj.role || obj.saas_role || "",
-      email: obj.email || "",
-      blog_id: obj.blog_id,
-      store_name: obj.store_name || "",
-    };
+function parseTenantCookie(
+  rawValue: string
+): JsonRecord | null {
+  if (!rawValue) {
+    return null;
   }
 
-  const nestedTenantStoreUrl = normalizeUrl(obj?.tenant?.store_url);
-  if (nestedTenantStoreUrl) {
-    return {
-      store_url: nestedTenantStoreUrl,
-      wc_key: obj?.tenant?.wc_key || obj?.wc_key || "",
-      wc_secret: obj?.tenant?.wc_secret || obj?.wc_secret || "",
-      role: obj?.tenant?.role || obj?.role || obj?.saas_role || "",
-      email: obj?.tenant?.email || obj?.email || "",
-      blog_id: obj?.tenant?.blog_id,
-      store_name: obj?.tenant?.store_name || "",
-    };
-  }
+  const decodedOnce =
+    decodeCookieValue(rawValue);
 
-  const nestedStoreUrl = normalizeUrl(obj?.store?.url);
-  if (nestedStoreUrl) {
-    return {
-      store_url: nestedStoreUrl,
-      wc_key: obj?.wc_key || "",
-      wc_secret: obj?.wc_secret || "",
-      role: obj?.role || obj?.saas_role || "",
-      email: obj?.email || "",
-      blog_id: obj?.store?.blog_id,
-      store_name: obj?.store?.name || "",
-    };
-  }
+  const decodedTwice =
+    decodeCookieValue(decodedOnce);
 
-  const stores = Array.isArray(obj?.stores) ? obj.stores : [];
-  if (stores.length === 1) {
-    const only = stores[0];
-    const oneStoreUrl = normalizeUrl(only?.store_url);
-    if (oneStoreUrl) {
-      return {
-        store_url: oneStoreUrl,
-        role: obj?.role || obj?.saas_role || "",
-        email: obj?.email || "",
-        blog_id: only?.blog_id,
-        store_name: only?.store_name || "",
-      };
+  const attempts = [
+    rawValue,
+    decodedOnce,
+    decodedTwice,
+  ];
+
+  const checkedValues = new Set<string>();
+
+  for (const attempt of attempts) {
+    if (
+      !attempt ||
+      checkedValues.has(attempt)
+    ) {
+      continue;
+    }
+
+    checkedValues.add(attempt);
+
+    const parsed = parseJsonRecord(attempt);
+
+    if (parsed) {
+      return parsed;
     }
   }
 
   return null;
 }
 
-function parseTenantCookieValue(raw: string): Tenant | null {
-  if (!raw) return null;
-
-  const attempts = [raw, safeDecode(raw), safeDecode(safeDecode(raw))];
-
-  for (const attempt of attempts) {
-    const parsed = safeJsonParse<any>(attempt);
-    const tenant = extractTenantCandidate(parsed);
-    if (tenant?.store_url) return tenant;
+export async function getTenantFromCookies():
+  Promise<Tenant | null> {
+  if (!SESSION_SIGNING_SECRET) {
+    return null;
   }
 
-  return null;
-}
-
-function parseSignedAuthCookie(raw: string): Tenant | null {
-  if (!raw) return null;
-
-  const token = safeDecode(raw).trim();
-  const [body] = token.split(".");
-  if (!body) return null;
-
-  const decoded = base64UrlDecode(body);
-  if (!decoded) return null;
-
-  const parsed = safeJsonParse<any>(decoded);
-  const tenant = extractTenantCandidate(parsed);
-  if (tenant?.store_url) return tenant;
-
-  return null;
-}
-
-export async function getTenantFromCookies(): Promise<Tenant | null> {
-  const { cookies } = await import("next/headers");
   const cookieStore = await cookies();
 
-  const rawTenant = cookieStore.get(TENANT_COOKIE)?.value || "";
-  const rawAuth = cookieStore.get(AUTH_COOKIE)?.value || "";
+  const rawAuthToken =
+    cookieStore.get(AUTH_COOKIE)?.value || "";
 
-  const fromTenant = parseTenantCookieValue(rawTenant);
-  if (fromTenant?.store_url) return fromTenant;
+  const session = await verifySessionToken(
+    rawAuthToken,
+    SESSION_SIGNING_SECRET
+  );
 
-  const fromAuthJson = parseTenantCookieValue(rawAuth);
-  if (fromAuthJson?.store_url) return fromAuthJson;
+  if (
+    !session ||
+    session.saas_role === "master_admin"
+  ) {
+    return null;
+  }
 
-  const fromSignedAuth = parseSignedAuthCookie(rawAuth);
-  if (fromSignedAuth?.store_url) return fromSignedAuth;
+  const rawTenant =
+    cookieStore.get(TENANT_COOKIE)?.value || "";
 
-  return null;
+  const tenantCookie =
+    parseTenantCookie(rawTenant);
+
+  if (!tenantCookie) {
+    return null;
+  }
+
+  const authorizedStore =
+    findAuthorizedStore(session, {
+      blog_id: tenantCookie.blog_id,
+      store_url: tenantCookie.store_url,
+    });
+
+  if (!authorizedStore) {
+    return null;
+  }
+
+  return {
+    store_url: authorizedStore.store_url,
+    blog_id: authorizedStore.blog_id,
+    store_name: authorizedStore.store_name,
+    role: session.saas_role,
+    email: session.email,
+  };
 }
