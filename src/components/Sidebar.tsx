@@ -110,8 +110,30 @@ export default function Sidebar({
   const currentTab = searchParams.get("tab");
 
   const groups = useMemo(() => {
-    if (!locked) return ALL_GROUPS;
-    return ALL_GROUPS.filter((g) => g.key === "settings" || g.key === "billing");
+    if (!locked) {
+      return ALL_GROUPS;
+    }
+
+    return ALL_GROUPS
+      .filter((group) =>
+        [
+          "billing",
+          "support",
+          "settings",
+        ].includes(group.key)
+      )
+      .map((group) =>
+        group.key === "billing"
+          ? {
+              ...group,
+              items: group.items.filter(
+                (item) =>
+                  item.href ===
+                  "/billing/subscription"
+              ),
+            }
+          : group
+      );
   }, [locked]);
 
   const getInitialOpenState = () => {
@@ -174,8 +196,8 @@ export default function Sidebar({
       <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-3">
         {locked && (
           <div className="mb-3 rounded-2xl border border-amber-300/20 bg-amber-400/10 px-3 py-3 text-[13px] leading-5 text-amber-100">
-            Dashboard locked. Only Settings and Subscription are available until
-            LetzShopy unlocks your store.
+            Dashboard restricted. Settings, Subscription and Support remain available
+            while you complete the required steps.
           </div>
         )}
 
