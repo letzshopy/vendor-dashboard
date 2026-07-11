@@ -1,5 +1,12 @@
-import { NextRequest, NextResponse } from "next/server";
-import { getWpBaseUrl } from "@/lib/wpClient";
+import { NextResponse } from "next/server";
+
+import {
+  getWpBaseUrl,
+  wpAuthHeader,
+} from "@/lib/wpClient";
+
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 type WpSubscription = {
   plan?: string;
@@ -45,128 +52,108 @@ type WpAccountSettings = {
   };
 };
 
-function authHeader() {
-  const user = process.env.WP_USER || "";
-  const pass = (process.env.WP_APP_PASSWORD || "").replace(/\s+/g, "");
-  return "Basic " + Buffer.from(`${user}:${pass}`).toString("base64");
+const PRIVATE_RESPONSE_HEADERS = {
+  "Cache-Control":
+    "private, no-store, no-cache, must-revalidate, max-age=0",
+};
+
+function privateJson(
+  body: unknown,
+  status = 200
+): NextResponse {
+  return NextResponse.json(body, {
+    status,
+    headers: PRIVATE_RESPONSE_HEADERS,
+  });
 }
 
 function cleanBaseUrl(input: string): string {
   return input.replace(/\/$/, "");
 }
 
-function normalizePossibleStoreHost(raw: string): string {
-  let value = "";
-
-  try {
-    value = decodeURIComponent(raw || "").trim();
-  } catch {
-    value = String(raw || "").trim();
-  }
-
-  value = value.replace(/^"|"$/g, "").replace(/^'|'$/g, "");
-
-  if (!value) return "";
-
-  if (value.startsWith("http://") || value.startsWith("https://")) {
-    return cleanBaseUrl(value);
-  }
-
-  // If cookie stores full host like 7pleats.letzshopy.in
-  if (value.includes(".")) {
-    return `https://${value.replace(/^https?:\/\//, "").replace(/\/$/, "")}`;
-  }
-
-  // If cookie stores only slug like 7pleats
-  if (/^[a-z0-9-]+$/i.test(value)) {
-    return `https://${value}.letzshopy.in`;
-  }
-
-  return "";
-}
-
-async function resolveTenantWpBaseUrl(req: NextRequest): Promise<string> {
-  const possibleCookieNames = [
-    "ls_tenant",
-    "letz_tenant",
-    "ls_store",
-    "ls_store_url",
-    "letz_store_url",
-    "store_url",
-    "wp_base_url",
-  ];
-
-  for (const name of possibleCookieNames) {
-    const cookieValue = req.cookies.get(name)?.value;
-    const resolved = cookieValue ? normalizePossibleStoreHost(cookieValue) : "";
-    if (resolved && !resolved.includes("dashboard.letzshopy.in")) {
-      return resolved;
-    }
-  }
-
-  const possibleHeaderNames = [
-    "x-letz-store-url",
-    "x-letz-tenant",
-    "x-store-url",
-  ];
-
-  for (const name of possibleHeaderNames) {
-    const headerValue = req.headers.get(name) || "";
-    const resolved = headerValue ? normalizePossibleStoreHost(headerValue) : "";
-    if (resolved && !resolved.includes("dashboard.letzshopy.in")) {
-      return resolved;
-    }
-  }
-
-  return cleanBaseUrl(await getWpBaseUrl());
-}
-
 function normalizeDate(input?: string): string {
-  if (!input) return "";
+  if (!input) {
+    return "";
+  }
 
-  const s = String(input).trim();
-  if (!s) return "";
+  const value = String(input).trim();
 
-  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+  if (!value) {
+    return "";
+  }
 
-  const ddmmyyyy = /^(\d{2})-(\d{2})-(\d{4})$/;
-  const ddmmyyyySlash = /^(\d{2})\/(\d{2})\/(\d{4})$/;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return value;
+  }
 
-  let m = s.match(ddmmyyyy);
-  if (m) return `${m[3]}-${m[2]}-${m[1]}`;
+  const dayMonthYear =
+    /^(\d{2})-(\d{2})-(\d{4})$/;
 
-  m = s.match(ddmmyyyySlash);
-  if (m) return `${m[3]}-${m[2]}-${m[1]}`;
+  const dayMonthYearSlash =
+    /^(\d{2})\/(\d{2})\/(\d{4})$/;
 
-  const d = new Date(s);
-  if (!Number.isNaN(d.getTime())) {
-    return d.toISOString().slice(0, 10);
+  let match = value.match(dayMonthYear);
+
+  if (match) {
+    return `${match[3]}-${match[2]}-${match[1]}`;
+  }
+
+  match = value.match(dayMonthYearSlash);
+
+  if (match) {
+    return `${match[3]}-${match[2]}-${match[1]}`;
+  }
+
+  const date = new Date(value);
+
+  if (!Number.isNaN(date.getTime())) {
+    return date.toISOString().slice(0, 10);
   }
 
   return "";
 }
 
-function addMonths(isoDate: string, months: number): string {
-  const d = new Date(`${isoDate}T00:00:00`);
-  if (Number.isNaN(d.getTime())) return isoDate;
-  d.setMonth(d.getMonth() + months);
-  return d.toISOString().slice(0, 10);
+function addMonths(
+  isoDate: string,
+  months: number
+): string {
+  const date = new Date(`${isoDate}T00:00:00`);
+
+  if (Number.isNaN(date.getTime())) {
+    return isoDate;
+  }
+
+  date.setMonth(date.getMonth() + months);
+
+  return date.toISOString().slice(0, 10);
 }
 
-function addYears(isoDate: string, years: number): string {
-  const d = new Date(`${isoDate}T00:00:00`);
-  if (Number.isNaN(d.getTime())) return isoDate;
-  d.setFullYear(d.getFullYear() + years);
-  return d.toISOString().slice(0, 10);
+function addYears(
+  isoDate: string,
+  years: number
+): string {
+  const date = new Date(`${isoDate}T00:00:00`);
+
+  if (Number.isNaN(date.getTime())) {
+    return isoDate;
+  }
+
+  date.setFullYear(date.getFullYear() + years);
+
+  return date.toISOString().slice(0, 10);
 }
 
-function round2(n: number): number {
-  return Math.round(n * 100) / 100;
+function round2(value: number): number {
+  return Math.round(value * 100) / 100;
 }
 
 function buildPlanLabel(plan?: string): string {
-  const p = (plan || "").toLowerCase();
-  if (p === "premium") return "LetzShopy Premium Plan";
+  const normalizedPlan = (plan || "").toLowerCase();
+
+  if (normalizedPlan === "premium") {
+    return "LetzShopy Premium Plan";
+  }
+
   return "LetzShopy Standard Plan";
 }
 
@@ -176,93 +163,143 @@ function buildInvoiceId(
   billingCycle: string
 ): string {
   const safeDate = invoiceDate || "current";
-  return `sub-${safeDate}-${plan || "standard"}-${billingCycle || "yearly"}`;
+
+  return `sub-${safeDate}-${
+    plan || "standard"
+  }-${billingCycle || "yearly"}`;
 }
 
 async function fetchWpJson<T>(
   baseUrl: string,
   path: string
 ): Promise<T | null> {
-  const r = await fetch(`${cleanBaseUrl(baseUrl)}${path}`, {
-    cache: "no-store",
-    headers: {
-      Authorization: authHeader(),
-      Accept: "application/json",
-    },
-  });
+  const response = await fetch(
+    `${cleanBaseUrl(baseUrl)}${path}`,
+    {
+      cache: "no-store",
+      headers: {
+        ...wpAuthHeader(),
+        Accept: "application/json",
+      },
+    }
+  );
 
-  if (!r.ok) {
-    console.error("Subscription invoice WP fetch failed", {
-      baseUrl,
-      path,
-      status: r.status,
-      text: await r.text().catch(() => ""),
-    });
+  if (!response.ok) {
+    console.error(
+      "Subscription invoice WordPress request failed",
+      {
+        path,
+        status: response.status,
+      }
+    );
+
     return null;
   }
 
-  return (await r.json()) as T;
+  const parsed: unknown = await response
+    .json()
+    .catch(() => null);
+
+  return parsed as T | null;
 }
 
-export async function GET(req: NextRequest) {
+export async function GET() {
   try {
-    const wpBaseUrl = await resolveTenantWpBaseUrl(req);
+    /*
+     * The WordPress store URL must come only from the
+     * server-side tenant boundary.
+     *
+     * Never accept store URLs from request headers,
+     * alternate cookies, query parameters, or request
+     * bodies.
+     */
+    const wpBaseUrl = cleanBaseUrl(
+      await getWpBaseUrl()
+    );
 
-    // Safety: dashboard domain is not a vendor WP store.
-    if (wpBaseUrl.includes("dashboard.letzshopy.in")) {
-      return NextResponse.json([]);
-    }
-
-    const [subscription, account] = await Promise.all([
-      fetchWpJson<WpSubscription>(wpBaseUrl, "/wp-json/letz/v1/subscription"),
-      fetchWpJson<WpAccountSettings>(
-        wpBaseUrl,
-        "/wp-json/letz/v1/account-settings"
-      ),
-    ]);
+    const [subscription, account] =
+      await Promise.all([
+        fetchWpJson<WpSubscription>(
+          wpBaseUrl,
+          "/wp-json/letz/v1/subscription"
+        ),
+        fetchWpJson<WpAccountSettings>(
+          wpBaseUrl,
+          "/wp-json/letz/v1/account-settings"
+        ),
+      ]);
 
     if (!subscription) {
-      return NextResponse.json([]);
+      return privateJson([]);
     }
 
     const status = String(
-      subscription.billing_status || subscription.status || ""
+      subscription.billing_status ||
+        subscription.status ||
+        ""
     ).toLowerCase();
 
-    const amount = Number(subscription.amount || 0);
+    const amount = Number(
+      subscription.amount || 0
+    );
 
-    // Show invoice only for a real paid active subscription.
-    // Trial/inactive/reset vendors must show no invoices.
+    /*
+     * Trial, inactive, reset, or unpaid vendors must
+     * not receive a subscription invoice.
+     */
     if (status !== "active" || amount <= 0) {
-      return NextResponse.json([]);
+      return privateJson([]);
     }
 
     const invoiceDate =
-      normalizeDate(subscription.last_paid_date) ||
-      normalizeDate(subscription.last_billed_at) ||
-      normalizeDate(subscription.created_on) ||
+      normalizeDate(
+        subscription.last_paid_date
+      ) ||
+      normalizeDate(
+        subscription.last_billed_at
+      ) ||
+      normalizeDate(
+        subscription.created_on
+      ) ||
       new Date().toISOString().slice(0, 10);
 
     const periodFrom = invoiceDate;
 
     const cycle = String(
-      subscription.billing_cycle || subscription.period || "yearly"
+      subscription.billing_cycle ||
+        subscription.period ||
+        "yearly"
     ).toLowerCase();
 
-    const billingCycle = cycle === "monthly" ? "monthly" : "yearly";
+    const billingCycle =
+      cycle === "monthly"
+        ? "monthly"
+        : "yearly";
 
     const periodTo =
-      normalizeDate(subscription.next_renewal_date) ||
-      normalizeDate(subscription.next_renewal_at) ||
-      normalizeDate(subscription.next_payment_date) ||
+      normalizeDate(
+        subscription.next_renewal_date
+      ) ||
+      normalizeDate(
+        subscription.next_renewal_at
+      ) ||
+      normalizeDate(
+        subscription.next_payment_date
+      ) ||
       (billingCycle === "monthly"
         ? addMonths(periodFrom, 1)
         : addYears(periodFrom, 1));
 
     const gstRate = 18;
     const totalAmount = round2(amount);
-    const taxableAmount = round2(totalAmount / 1.18);
-    const gstAmount = round2(totalAmount - taxableAmount);
+
+    const taxableAmount = round2(
+      totalAmount / 1.18
+    );
+
+    const gstAmount = round2(
+      totalAmount - taxableAmount
+    );
 
     const billingName =
       account?.subscription?.billing_name ||
@@ -284,20 +321,31 @@ export async function GET(req: NextRequest) {
       account?.business?.address ||
       "";
 
+    const currentPlan =
+      subscription.plan ||
+      subscription.current_plan ||
+      "standard";
+
+    const planCode:
+      | "standard"
+      | "premium" =
+      currentPlan.toLowerCase() === "premium"
+        ? "premium"
+        : "standard";
+
     const invoice = {
       id: buildInvoiceId(
         invoiceDate,
-        subscription.plan || subscription.current_plan || "standard",
+        currentPlan,
         billingCycle
       ),
-      invoiceNumber: `LS-SUB-${invoiceDate.replaceAll("-", "")}`,
+      invoiceNumber: `LS-SUB-${invoiceDate.replaceAll(
+        "-",
+        ""
+      )}`,
       invoiceDate,
-      planCode:
-        (subscription.plan || subscription.current_plan || "").toLowerCase() ===
-        "premium"
-          ? "premium"
-          : ("standard" as "standard" | "premium"),
-      planLabel: buildPlanLabel(subscription.plan || subscription.current_plan),
+      planCode,
+      planLabel: buildPlanLabel(currentPlan),
       billingCycle,
       periodFrom,
       periodTo,
@@ -306,20 +354,35 @@ export async function GET(req: NextRequest) {
       gstAmount,
       totalAmount,
       currency: "INR",
-      gstNumber: account?.subscription?.gstin || "",
+      gstNumber:
+        account?.subscription?.gstin || "",
       billingName,
       billingAddress,
-      billingState: account?.business?.state || "",
+      billingState:
+        account?.business?.state || "",
       billingPhone,
       status: "paid" as const,
       paymentMode: "UPI",
       paymentReference:
-        subscription.payment_reference || subscription.utr || "",
+        subscription.payment_reference ||
+        subscription.utr ||
+        "",
     };
 
-    return NextResponse.json([invoice]);
-  } catch (error) {
-    console.error("subscription-invoices GET failed:", error);
-    return NextResponse.json([], { status: 200 });
+    return privateJson([invoice]);
+  } catch (error: unknown) {
+    console.error(
+      "Subscription invoice request failed:",
+      error instanceof Error
+        ? error.message
+        : "Unknown error"
+    );
+
+    /*
+     * Preserve the existing dashboard behaviour:
+     * invoice-loading failures return an empty list
+     * instead of breaking the settings screen.
+     */
+    return privateJson([]);
   }
 }
