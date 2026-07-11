@@ -288,9 +288,9 @@ export async function POST(
       PLAN_PRICES[plan][billingCycle];
 
     const paymentResponse = await fetch(
-      `${base}/wp-json/letz/v1/subscription`,
+      `${base}/wp-json/letz/v1/subscription/submit`,
       {
-        method: "PUT",
+        method: "POST",
         headers: {
           ...headers,
           "Content-Type":
@@ -298,17 +298,9 @@ export async function POST(
         },
         body: JSON.stringify({
           plan,
-          current_plan: plan,
           billing_cycle: billingCycle,
-          period: billingCycle,
-          billing_status:
-            "payment_submitted",
-          status: "payment_submitted",
-          amount,
-          payment_mode: "upi",
           payment_reference:
             paymentReference,
-          utr: paymentReference,
         }),
         cache: "no-store",
         signal: AbortSignal.timeout(12_000),
