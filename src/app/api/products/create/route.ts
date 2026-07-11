@@ -1,183 +1,713 @@
-// src/app/api/products/create/route.ts
-import { NextResponse } from "next/server";
-import { getWooClient } from "@/lib/woo";
 import {
-  ensureDb,
-  deleteExistingSkuFromLookup,
-  upsertProductLookup,
-} from "@/lib/db";
+  isAxiosError,
+  type AxiosInstance,
+} from "axios";
+import { NextResponse } from "next/server";
 
-function toStr(v: any) {
-  return v === undefined || v === null || v === "" ? "" : String(v);
+import { getWooClient } from "@/lib/woo";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
+const PRIVATE_RESPONSE_HEADERS = {
+  "Cache-Control":
+    "private, no-store, no-cache, must-revalidate, max-age=0",
+};
+
+type JsonRecord =
+  Record<string, unknown>;
+
+type CreatedProduct = {
+  id: number;
+  name: string;
+  permalink: string;
+  status: string;
+};
+
+type WooErrorDetails = {
+  message: string;
+  status: number;
+};
+
+function isRecord(
+  value: unknown
+): value is JsonRecord {
+  return Boolean(
+    value &&
+      typeof value === "object" &&
+      !Array.isArray(value)
+  );
 }
 
-function toNumOrUndef(v: any) {
-  const n = Number(v);
-  return Number.isFinite(n) ? n : undefined;
+function privateJson(
+  body: unknown,
+  status = 200
+): NextResponse {
+  return NextResponse.json(body, {
+    status,
+    headers:
+      PRIVATE_RESPONSE_HEADERS,
+  });
 }
 
-function buildMetaData(body: any) {
-  const meta_data: { key: string; value: string }[] = [];
+function readString(
+  value: unknown
+): string {
+  if (
+    value === undefined ||
+    value === null
+  ) {
+    return "";
+  }
 
-  const color = String(body?.color || "").trim();
-  if (color) {
-    meta_data.push({
-      key: "_ls_color",
-      value: color,
+  return String(value).trim();
+}
+
+function readNumber(
+  value: unknown
+): number | undefined {
+  if (
+    value === undefined ||
+    value === null ||
+    value === ""
+  ) {
+    return undefined;
+  }
+
+  const numberValue = Number(value);
+
+  return Number.isFinite(numberValue)
+    ? numberValue
+    : undefined;
+}
+
+function readBoolean(
+  value: unknown
+): boolean {
+  return value === true;
+}
+
+function pickValue<T extends string>(
+  value: unknown,
+  allowed: readonly T[],
+  fallback: T
+): T {
+  const normalized =
+    readString(value) as T;
+
+  return allowed.includes(normalized)
+    ? normalized
+    : fallback;
+}
+
+function normalizeCategories(
+  value: unknown
+): Array<{ id: number }> {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .map((item) => Number(item))
+    .filter(
+      (id) =>
+        Number.isInteger(id) &&
+        id > 0
+    )
+    .map((id) => ({ id }));
+}
+
+function normalizeTags(
+  value: unknown
+): Array<{ name: string }> {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  const names = value
+    .map((item) => {
+      if (typeof item === "string") {
+        return item.trim();
+      }
+
+      if (
+        isRecord(item) &&
+        typeof item.name === "string"
+      ) {
+        return item.name.trim();
+      }
+
+      return "";
+    })
+    .filter(Boolean);
+
+  return Array.from(
+    new Set(names)
+  ).map((name) => ({ name }));
+}
+
+function normalizeAttributes(
+  value: unknown
+): JsonRecord[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  const attributes: JsonRecord[] = [];
+
+  for (const item of value) {
+    if (!isRecord(item)) {
+      continue;
+    }
+
+    const id = Number(item.id);
+    const name = readString(item.name);
+
+    const options = Array.isArray(
+      item.options
+    )
+      ? item.options
+          .map(readString)
+          .filter(Boolean)
+      : [];
+
+    if (
+      (!Number.isInteger(id) ||
+        id <= 0) &&
+      !name
+    ) {
+      continue;
+    }
+
+    attributes.push({
+      ...(Number.isInteger(id) &&
+      id > 0
+        ? { id }
+        : {}),
+      ...(name ? { name } : {}),
+      visible: readBoolean(
+        item.visible
+      ),
+      variation: readBoolean(
+        item.variation
+      ),
+      options,
     });
   }
 
-  return meta_data;
+  return attributes;
 }
 
-function buildPayload(body: any, sku?: string) {
-  const categories = Array.isArray(body?.categories)
-    ? body.categories
-        .map((id: any) => Number(id))
-        .filter((n: number) => Number.isFinite(n) && n > 0)
-        .map((id: number) => ({ id }))
-    : [];
+function normalizeImages(
+  value: unknown
+): JsonRecord[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
 
-  const tags = Array.isArray(body?.tags)
-    ? body.tags
-        .map((t: any) => {
-          if (typeof t === "string") return t.trim();
-          if (t && typeof t === "object" && typeof t.name === "string") {
-            return t.name.trim();
-          }
-          return "";
-        })
-        .filter(Boolean)
-        .map((name: string) => ({ name }))
-    : [];
+  const images: JsonRecord[] = [];
 
-  const attributes = Array.isArray(body?.attributes)
-    ? body.attributes.map((a: any) => ({
-        ...(a?.id ? { id: Number(a.id) } : {}),
-        ...(a?.name ? { name: String(a.name) } : {}),
-        visible: !!a?.visible,
-        variation: !!a?.variation,
-        options: Array.isArray(a?.options) ? a.options.map(String) : [],
-      }))
-    : [];
+  for (const item of value) {
+    if (!isRecord(item)) {
+      continue;
+    }
 
-  const meta_data = buildMetaData(body);
+    const id = Number(item.id);
+    const src = readString(item.src);
+    const position = Number(
+      item.position
+    );
 
-  const payload: any = {
-    name: body?.name,
-    type: body?.type || "simple",
-    status: body?.status || "draft",
-    catalog_visibility: body?.catalog_visibility || "visible",
-    description: body?.description || "",
-    short_description: body?.short_description || "",
-    regular_price: toStr(body?.regular_price),
-    sale_price: toStr(body?.sale_price),
-    ...(body?.date_on_sale_from ? { date_on_sale_from: body.date_on_sale_from } : {}),
-    ...(body?.date_on_sale_to ? { date_on_sale_to: body.date_on_sale_to } : {}),
-    manage_stock: !!body?.manage_stock,
-    ...(body?.manage_stock
-      ? { stock_quantity: toNumOrUndef(body?.stock_quantity) ?? 0 }
-      : {}),
-    backorders: body?.backorders || "no",
-    tax_status: body?.tax_status || "taxable",
-    ...(body?.tax_class ? { tax_class: String(body.tax_class) } : {}),
-    ...(body?.weight ? { weight: toStr(body.weight) } : {}),
-    dimensions: body?.dimensions
-      ? {
-          length: toStr(body.dimensions.length),
-          width: toStr(body.dimensions.width),
-          height: toStr(body.dimensions.height),
-        }
-      : undefined,
-    images: Array.isArray(body?.images) ? body.images : [],
-    categories,
-    tags,
-    attributes,
-    grouped_products: Array.isArray(body?.grouped_products)
-      ? body.grouped_products
-          .map((n: any) => Number(n))
-          .filter((x: number) => Number.isFinite(x) && x > 0)
-      : undefined,
-    ...(meta_data.length ? { meta_data } : {}),
+    const hasValidId =
+      Number.isInteger(id) &&
+      id > 0;
+
+    const hasValidSource =
+      /^https?:\/\//i.test(src);
+
+    if (
+      !hasValidId &&
+      !hasValidSource
+    ) {
+      continue;
+    }
+
+    images.push({
+      ...(hasValidId
+        ? { id }
+        : {}),
+      ...(hasValidSource
+        ? { src }
+        : {}),
+      ...(Number.isInteger(position) &&
+      position >= 0
+        ? { position }
+        : {}),
+    });
+  }
+
+  return images;
+}
+
+function normalizeGroupedProducts(
+  value: unknown
+): number[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return Array.from(
+    new Set(
+      value
+        .map((item) => Number(item))
+        .filter(
+          (id) =>
+            Number.isInteger(id) &&
+            id > 0
+        )
+    )
+  );
+}
+
+function normalizeDimensions(
+  value: unknown
+): JsonRecord | null {
+  if (!isRecord(value)) {
+    return null;
+  }
+
+  const length = readString(
+    value.length
+  );
+
+  const width = readString(
+    value.width
+  );
+
+  const height = readString(
+    value.height
+  );
+
+  if (!length && !width && !height) {
+    return null;
+  }
+
+  return {
+    length,
+    width,
+    height,
+  };
+}
+
+function buildMetaData(
+  body: JsonRecord
+): Array<{
+  key: string;
+  value: string;
+}> {
+  const color = readString(
+    body.color
+  );
+
+  if (!color) {
+    return [];
+  }
+
+  return [
+    {
+      key: "_ls_color",
+      value: color,
+    },
+  ];
+}
+
+function buildProductPayload(
+  body: JsonRecord,
+  sku?: string
+): JsonRecord {
+  const manageStock = readBoolean(
+    body.manage_stock
+  );
+
+  const stockQuantity = readNumber(
+    body.stock_quantity
+  );
+
+  const dimensions =
+    normalizeDimensions(
+      body.dimensions
+    );
+
+  const groupedProducts =
+    normalizeGroupedProducts(
+      body.grouped_products
+    );
+
+  const metaData =
+    buildMetaData(body);
+
+  const payload: JsonRecord = {
+    name: readString(body.name),
+    type: pickValue(
+      body.type,
+      [
+        "simple",
+        "variable",
+        "grouped",
+      ] as const,
+      "simple"
+    ),
+    status: pickValue(
+      body.status,
+      [
+        "draft",
+        "publish",
+        "pending",
+        "private",
+      ] as const,
+      "draft"
+    ),
+    catalog_visibility:
+      pickValue(
+        body.catalog_visibility,
+        [
+          "visible",
+          "catalog",
+          "search",
+          "hidden",
+        ] as const,
+        "visible"
+      ),
+    description: readString(
+      body.description
+    ),
+    short_description: readString(
+      body.short_description
+    ),
+    regular_price: readString(
+      body.regular_price
+    ),
+    sale_price: readString(
+      body.sale_price
+    ),
+    manage_stock: manageStock,
+    backorders: pickValue(
+      body.backorders,
+      [
+        "no",
+        "notify",
+        "yes",
+      ] as const,
+      "no"
+    ),
+    tax_status: pickValue(
+      body.tax_status,
+      [
+        "taxable",
+        "shipping",
+        "none",
+      ] as const,
+      "taxable"
+    ),
+    images: normalizeImages(
+      body.images
+    ),
+    categories:
+      normalizeCategories(
+        body.categories
+      ),
+    tags: normalizeTags(
+      body.tags
+    ),
+    attributes:
+      normalizeAttributes(
+        body.attributes
+      ),
   };
 
-  if (sku) payload.sku = sku;
+  if (sku) {
+    payload.sku = sku;
+  }
+
+  const saleFrom = readString(
+    body.date_on_sale_from
+  );
+
+  const saleTo = readString(
+    body.date_on_sale_to
+  );
+
+  if (saleFrom) {
+    payload.date_on_sale_from =
+      saleFrom;
+  }
+
+  if (saleTo) {
+    payload.date_on_sale_to =
+      saleTo;
+  }
+
+  if (
+    manageStock &&
+    stockQuantity !== undefined
+  ) {
+    payload.stock_quantity =
+      stockQuantity;
+  }
+
+  const taxClass = readString(
+    body.tax_class
+  );
+
+  if (taxClass) {
+    payload.tax_class = taxClass;
+  }
+
+  const weight = readString(
+    body.weight
+  );
+
+  if (weight) {
+    payload.weight = weight;
+  }
+
+  if (dimensions) {
+    payload.dimensions =
+      dimensions;
+  }
+
+  if (
+    groupedProducts.length > 0
+  ) {
+    payload.grouped_products =
+      groupedProducts;
+  }
+
+  if (metaData.length > 0) {
+    payload.meta_data = metaData;
+  }
 
   return payload;
 }
 
-export async function POST(req: Request) {
+function extractCreatedProduct(
+  value: unknown
+): CreatedProduct | null {
+  if (!isRecord(value)) {
+    return null;
+  }
+
+  const id = Number(value.id);
+
+  if (
+    !Number.isInteger(id) ||
+    id <= 0
+  ) {
+    return null;
+  }
+
+  return {
+    id,
+    name: readString(value.name),
+    permalink: readString(
+      value.permalink
+    ),
+    status: readString(
+      value.status
+    ),
+  };
+}
+
+function extractWooError(
+  error: unknown
+): WooErrorDetails {
+  if (isAxiosError(error)) {
+    const responseData: unknown =
+      error.response?.data;
+
+    let message = "";
+
+    if (isRecord(responseData)) {
+      message =
+        readString(
+          responseData.message
+        ) ||
+        readString(
+          responseData.error
+        );
+    }
+
+    return {
+      message:
+        message ||
+        error.message ||
+        "WooCommerce request failed",
+      status:
+        error.response?.status ||
+        500,
+    };
+  }
+
+  if (error instanceof Error) {
+    return {
+      message: error.message,
+      status: 500,
+    };
+  }
+
+  return {
+    message:
+      "WooCommerce request failed",
+    status: 500,
+  };
+}
+
+function isSkuLookupFailure(
+  error: unknown
+): boolean {
+  const details =
+    extractWooError(error);
+
+  return (
+    /lookup/i.test(details.message) &&
+    /sku/i.test(details.message)
+  );
+}
+
+async function createProduct(
+  woo: AxiosInstance,
+  payload: JsonRecord
+): Promise<CreatedProduct> {
+  const response =
+    await woo.post(
+      "/products",
+      payload
+    );
+
+  const product =
+    extractCreatedProduct(
+      response.data
+    );
+
+  if (!product) {
+    throw new Error(
+      "WooCommerce created the product but returned an invalid response"
+    );
+  }
+
+  return product;
+}
+
+export async function POST(
+  request: Request
+) {
   try {
-    const woo = await getWooClient();
+    const bodyValue: unknown =
+      await request
+        .json()
+        .catch(() => null);
 
-    await ensureDb();
-
-    const body = await req.json().catch(() => null);
-    if (!body || typeof body !== "object") {
-      return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
+    if (!isRecord(bodyValue)) {
+      return privateJson(
+        {
+          error:
+            "Invalid request body",
+        },
+        400
+      );
     }
 
-    const sku = String((body as any).sku || "").trim();
+    const name = readString(
+      bodyValue.name
+    );
 
-    if (sku) {
-      await deleteExistingSkuFromLookup(sku);
+    if (!name) {
+      return privateJson(
+        {
+          error:
+            "Product name is required",
+        },
+        400
+      );
     }
+
+    const sku = readString(
+      bodyValue.sku
+    );
+
+    const woo =
+      await getWooClient();
+
+    const payload =
+      buildProductPayload(
+        bodyValue,
+        sku || undefined
+      );
 
     try {
-      const withSku = buildPayload(body, sku || undefined);
-      const { data } = await woo.post("/products", withSku);
+      const product =
+        await createProduct(
+          woo,
+          payload
+        );
 
-      await upsertProductLookup({
-        woo_id: Number(data.id),
-        sku: sku || "",
-        name: data.name || withSku.name || "",
-        status: data.status || withSku.status || "draft",
-      });
-
-      return NextResponse.json({
+      return privateJson({
         ok: true,
-        id: data.id,
-        permalink: data.permalink,
-        status: data.status,
+        id: product.id,
+        permalink:
+          product.permalink,
+        status:
+          product.status,
       });
-    } catch (err: any) {
-      const msg =
-        err?.response?.data?.message ||
-        err?.response?.data?.error ||
-        err?.message ||
-        "";
-
-      const looksLikeWooSkuBug = /lookup/i.test(msg) && /sku/i.test(msg);
-
-      if (!looksLikeWooSkuBug) {
-        throw err;
+    } catch (error: unknown) {
+      if (
+        !sku ||
+        !isSkuLookupFailure(error)
+      ) {
+        throw error;
       }
 
-      const noSku = buildPayload(body, undefined);
-      const { data } = await woo.post("/products", noSku);
+      /*
+       * Preserve the established operational
+       * fallback for the known WooCommerce SKU
+       * lookup-table failure.
+       *
+       * The local SQLite database was never able
+       * to repair the remote WordPress lookup
+       * table, so it is intentionally not used.
+       */
+      const payloadWithoutSku =
+        buildProductPayload(
+          bodyValue
+        );
 
-      await upsertProductLookup({
-        woo_id: Number(data.id),
-        sku: "",
-        name: data.name || noSku.name || "",
-        status: data.status || noSku.status || "draft",
-      });
+      const product =
+        await createProduct(
+          woo,
+          payloadWithoutSku
+        );
 
-      return NextResponse.json({
+      return privateJson({
         ok: true,
-        id: data.id,
-        permalink: data.permalink,
-        status: data.status,
-        note: "Created without SKU because Woo’s lookup table rejected the SKU.",
+        id: product.id,
+        permalink:
+          product.permalink,
+        status:
+          product.status,
+        note:
+          "Created without SKU because WooCommerce rejected the SKU lookup.",
       });
     }
-  } catch (e: any) {
-    const status = e?.response?.status || 500;
-    const msg =
-      e?.response?.data?.message ||
-      e?.response?.data?.error ||
-      e?.message ||
-      "Error";
-    return NextResponse.json({ error: String(msg) }, { status });
+  } catch (error: unknown) {
+    const details =
+      extractWooError(error);
+
+    return privateJson(
+      {
+        error: details.message,
+      },
+      details.status
+    );
   }
 }
