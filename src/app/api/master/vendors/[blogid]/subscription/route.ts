@@ -117,7 +117,7 @@ export async function GET(
       );
 
     const response = await fetch(
-      `${storeUrl}/wp-json/letz/v1/subscription`,
+      `${storeUrl}/wp-json/letz/v1/subscription/status`,
       {
         headers: {
           "x-letz-auth": INTERNAL_TOKEN,
