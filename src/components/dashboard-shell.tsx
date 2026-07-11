@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Topbar from "@/components/Topbar";
 import Sidebar from "@/components/Sidebar";
 import Footer from "@/components/layout/Footer";
+import SubscriptionAccessNotice from "@/components/subscription/SubscriptionAccessNotice";
 
 export default function DashboardShell({
   children,
@@ -59,6 +60,7 @@ export default function DashboardShell({
         <div className="flex min-w-0 flex-1 flex-col">
           <main className="min-w-0 flex-1">
             <div className="mx-auto flex w-full max-w-7xl flex-col gap-4 px-3 py-4 pb-24 sm:px-4 md:gap-6 md:px-6 md:py-6 md:pb-10 xl:px-8">
+              <SubscriptionAccessNotice />
               {children}
             </div>
           </main>
