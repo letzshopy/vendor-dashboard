@@ -88,7 +88,7 @@ export default function VendorKycReviewCard({
 
     try {
       const res = await fetch(
-        `/api/master/vendors/${blogid}/kyc?storeUrl=${encodeURIComponent(storeUrl)}&_ts=${Date.now()}`,
+        `/api/master/vendors/${blogid}/kyc?_ts=${Date.now()}`,
         {
           method: "GET",
           cache: "no-store",
@@ -296,7 +296,7 @@ export default function VendorKycReviewCard({
 
                     {doc.fileKey ? (
                       <a
-                        href={`/api/master/vendors/${blogid}/kyc?storeUrl=${encodeURIComponent(storeUrl || "")}&download=${encodeURIComponent(doc.fileKey)}&_ts=${Date.now()}`}
+                        href={`/api/master/vendors/${blogid}/kyc?download=${encodeURIComponent(doc.fileKey)}&_ts=${Date.now()}`}
                         target="_blank"
                         rel="noreferrer"
                         className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-100"
