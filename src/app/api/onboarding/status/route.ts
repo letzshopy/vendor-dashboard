@@ -1,60 +1,167 @@
 import { NextResponse } from "next/server";
+
 import { getWpBaseUrl } from "@/lib/wpClient";
 
-const TOKEN = process.env.LETZ_INTERNAL_TOKEN;
+const INTERNAL_TOKEN =
+  process.env.LETZ_INTERNAL_TOKEN || "";
+
+const PRIVATE_HEADERS = {
+  "Cache-Control":
+    "private, no-store, no-cache, must-revalidate, max-age=0",
+};
+
+type JsonRecord = Record<string, unknown>;
+
+function isRecord(value: unknown): value is JsonRecord {
+  return Boolean(
+    value &&
+      typeof value === "object" &&
+      !Array.isArray(value)
+  );
+}
+
+function textField(
+  source: JsonRecord,
+  ...keys: string[]
+): string {
+  for (const key of keys) {
+    if (typeof source[key] === "string") {
+      return source[key].trim();
+    }
+  }
+
+  return "";
+}
 
 export async function GET() {
   try {
-    if (!TOKEN) {
-      return NextResponse.json(
-        { ok: false, error: "LETZ_INTERNAL_TOKEN missing" },
-        { status: 500 }
-      );
-    }
-
-    const base = (await getWpBaseUrl()).replace(/\/$/, "");
-    const url = `${base}/wp-json/letz/v1/onboarding/status?_ts=${Date.now()}`;
-
-    const r = await fetch(url, {
-      headers: {
-        "x-letz-auth": TOKEN,
-      },
-      cache: "no-store",
-    });
-
-    const text = await r.text();
-
-    let json: any = null;
-    try {
-      json = JSON.parse(text);
-    } catch {
-      json = null;
-    }
-
-    if (!r.ok) {
+    if (!INTERNAL_TOKEN) {
       return NextResponse.json(
         {
           ok: false,
           error:
-            json?.message ||
-            json?.error ||
-            "Failed to fetch onboarding status",
-          details: json || text,
+            "Onboarding service is not configured.",
         },
-        { status: r.status || 500 }
+        {
+          status: 500,
+          headers: PRIVATE_HEADERS,
+        }
       );
     }
 
-    return NextResponse.json(json, {
-      status: 200,
-      headers: {
-        "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
-      },
-    });
-  } catch (e: any) {
+    const base = (
+      await getWpBaseUrl()
+    ).replace(/\/$/, "");
+
+    const headers = {
+      "x-letz-auth": INTERNAL_TOKEN,
+    };
+
+    const [
+      kycResponse,
+      subscriptionResponse,
+    ] = await Promise.all([
+      fetch(
+        `${base}/wp-json/letz/v1/kyc`,
+        {
+          headers,
+          cache: "no-store",
+          signal:
+            AbortSignal.timeout(12_000),
+        }
+      ),
+      fetch(
+        `${base}/wp-json/letz/v1/subscription/status`,
+        {
+          headers,
+          cache: "no-store",
+          signal:
+            AbortSignal.timeout(12_000),
+        }
+      ),
+    ]);
+
+    const [
+      kycValue,
+      subscriptionValue,
+    ]: unknown[] = await Promise.all([
+      kycResponse
+        .json()
+        .catch(() => null),
+      subscriptionResponse
+        .json()
+        .catch(() => null),
+    ]);
+
+    if (
+      !kycResponse.ok ||
+      !subscriptionResponse.ok ||
+      !isRecord(kycValue) ||
+      !isRecord(subscriptionValue)
+    ) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error:
+            "Could not load onboarding status.",
+        },
+        {
+          status: 502,
+          headers: PRIVATE_HEADERS,
+        }
+      );
+    }
+
     return NextResponse.json(
-      { ok: false, error: e?.message || "Status error" },
-      { status: 500 }
+      {
+        ok: true,
+        kyc_status:
+          textField(
+            kycValue,
+            "kycStatus",
+            "kyc_status"
+          ) || "not_started",
+        subscription_status:
+          textField(
+            subscriptionValue,
+            "billing_status",
+            "status"
+          ) || "inactive",
+        trial_ends_at:
+          textField(
+            subscriptionValue,
+            "trial_ends_at"
+          ),
+        next_payment_date:
+          textField(
+            subscriptionValue,
+            "next_payment_date",
+            "next_renewal_date"
+          ),
+      },
+      {
+        status: 200,
+        headers: PRIVATE_HEADERS,
+      }
+    );
+  } catch (error: unknown) {
+    console.error(
+      "Onboarding status failed:",
+      error instanceof Error
+        ? error.message
+        : "Unknown error"
+    );
+
+    return NextResponse.json(
+      {
+        ok: false,
+        error:
+          "Could not load onboarding status.",
+      },
+      {
+        status: 500,
+        headers: PRIVATE_HEADERS,
+      }
     );
   }
 }
