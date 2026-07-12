@@ -284,8 +284,26 @@ export async function POST(
       );
     }
 
+    const paidBefore =
+      isRecord(currentSubscription) &&
+      [
+        currentSubscription.last_paid_date,
+        currentSubscription.last_billed_at,
+      ].some(
+        (value) =>
+          typeof value === "string" &&
+          value.trim() !== ""
+      );
+
+    const setupFee =
+      billingCycle === "monthly" &&
+      !paidBefore
+        ? 5_000
+        : 0;
+
     const amount =
-      PLAN_PRICES[plan][billingCycle];
+      PLAN_PRICES[plan][billingCycle] +
+      setupFee;
 
     const paymentResponse = await fetch(
       `${base}/wp-json/letz/v1/subscription/submit`,
@@ -363,6 +381,7 @@ export async function POST(
         submittedStatus:
           "payment_submitted",
         amount,
+        setupFee,
         plan,
         billingCycle,
       },
