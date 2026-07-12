@@ -1,12 +1,18 @@
 "use client";
 
+import Image from "next/image";
 import {
   useCallback,
   useEffect,
   useMemo,
   useState,
 } from "react";
-import { Check, Crown, CreditCard, Globe, ShieldCheck } from "lucide-react";
+import {
+  Check,
+  Crown,
+  CreditCard,
+  ShieldCheck,
+} from "lucide-react";
 
 type Subscription = {
   plan?: string;
@@ -656,9 +662,11 @@ export default function BillingSubscriptionPage() {
           </div>
 
           <div className="rounded-[22px] border border-slate-200 bg-white p-3 text-center">
-            <img
+            <Image
               src={QR_SRC}
               alt="Subscription payment QR"
+              width={150}
+              height={150}
               className="mx-auto h-auto w-full max-w-[150px] rounded-lg"
             />
             <p className="mt-3 text-xs text-slate-500">
