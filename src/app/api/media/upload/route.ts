@@ -1,133 +1,294 @@
-import { NextRequest, NextResponse } from "next/server";
+import {
+  NextResponse,
+  type NextRequest,
+} from "next/server";
+
 import { getWpBaseUrl } from "@/lib/wpClient";
 
 export const dynamic = "force-dynamic";
 
-function requireInternalToken() {
-  const token = process.env.LETZ_INTERNAL_TOKEN || "";
+const INTERNAL_TOKEN =
+  process.env.LETZ_INTERNAL_TOKEN || "";
 
-  if (!token) {
-    throw new Error("Missing LETZ_INTERNAL_TOKEN in dashboard env");
-  }
+const MAX_UPLOAD_BYTES =
+  15 * 1024 * 1024;
 
-  return token;
+const ALLOWED_MIME_TYPES = new Set([
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/gif",
+]);
+
+const PRIVATE_HEADERS = {
+  "Cache-Control":
+    "private, no-store, no-cache, must-revalidate, max-age=0",
+};
+
+type JsonRecord = Record<string, unknown>;
+type MediaScope = "catalog" | "system";
+
+function isRecord(value: unknown): value is JsonRecord {
+  return Boolean(
+    value &&
+      typeof value === "object" &&
+      !Array.isArray(value)
+  );
 }
 
-function inferScope(req: NextRequest, explicitScope?: string | null) {
-  const s = String(explicitScope || "").toLowerCase().trim();
+function inferScope(
+  request: NextRequest,
+  explicitScope: FormDataEntryValue | null
+): MediaScope {
+  const scope = String(
+    explicitScope || ""
+  )
+    .trim()
+    .toLowerCase();
 
-  if (s === "catalog" || s === "system") {
-    return s;
+  if (
+    scope === "catalog" ||
+    scope === "system"
+  ) {
+    return scope;
   }
 
-  const ref = req.headers.get("referer") || "";
+  const referer =
+    request.headers.get("referer") || "";
 
   try {
-    const pathname = new URL(ref).pathname.toLowerCase();
+    const pathname =
+      new URL(referer).pathname
+        .toLowerCase();
 
-    if (
+    return (
       pathname.includes("/media") ||
       pathname.includes("/products") ||
-      pathname.includes("/add-product") ||
       pathname.includes("/categories")
-    ) {
-      return "catalog";
+    )
+      ? "catalog"
+      : "system";
+  } catch {
+    return "system";
+  }
+}
+
+export async function POST(
+  request: NextRequest
+) {
+  try {
+    if (!INTERNAL_TOKEN) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error:
+            "Media service is not configured.",
+        },
+        {
+          status: 500,
+          headers: PRIVATE_HEADERS,
+        }
+      );
+    }
+
+    const form = await request
+      .formData()
+      .catch(() => null);
+
+    const file = form?.get("file");
+
+    if (!(file instanceof File)) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error:
+            "Select an image to upload.",
+        },
+        {
+          status: 400,
+          headers: PRIVATE_HEADERS,
+        }
+      );
     }
 
     if (
-      pathname.includes("/settings") ||
-      pathname.includes("/payments") ||
-      pathname.includes("/account")
+      file.size <= 0 ||
+      file.size > MAX_UPLOAD_BYTES
     ) {
-      return "system";
-    }
-  } catch {
-    // ignore
-  }
-
-  return "system";
-}
-
-function purposeForScope(scope: "catalog" | "system") {
-  return scope === "catalog" ? "product_or_category" : "site_design_or_internal";
-}
-
-export async function POST(req: NextRequest) {
-  try {
-    const form = await req.formData();
-    const file = form.get("file") as File | null;
-
-    if (!(file instanceof File) || !file.name || file.size <= 0) {
-      return NextResponse.json({ error: "No file" }, { status: 400 });
-    }
-
-    const explicitScope = form.get("scope")?.toString() || "";
-    const scope = inferScope(req, explicitScope) as "catalog" | "system";
-
-    const base = (await getWpBaseUrl()).replace(/\/$/, "");
-    const token = requireInternalToken();
-
-    const fd = new FormData();
-    fd.append("file", file, file.name);
-    fd.append("scope", scope);
-    fd.append("purpose", purposeForScope(scope));
-
-    const res = await fetch(`${base}/wp-json/letz/v1/media/upload`, {
-      method: "POST",
-      headers: {
-        "X-Letz-Auth": token,
-        Accept: "application/json",
-      },
-      body: fd,
-      cache: "no-store",
-    });
-
-    const raw = await res.text();
-    let data: any = {};
-
-    try {
-      data = JSON.parse(raw);
-    } catch {
-      // non-JSON from WP
-    }
-
-    if (!res.ok) {
       return NextResponse.json(
         {
-          error: data?.error || data?.message || "WP media upload failed",
-          details: data || raw,
+          ok: false,
+          error:
+            "Images must be 15 MB or smaller.",
         },
-        { status: res.status }
+        {
+          status: 400,
+          headers: PRIVATE_HEADERS,
+        }
       );
     }
 
-    const id = Number(data?.id || data?.image_id || 0);
-    const url = String(data?.url || data?.source_url || data?.image_url || "");
-
-    if (!Number.isFinite(id) || id <= 0 || !url) {
+    if (
+      !ALLOWED_MIME_TYPES.has(file.type)
+    ) {
       return NextResponse.json(
         {
-          error: "WP upload ok but response lacked id/url",
-          details: data,
+          ok: false,
+          error:
+            "Only JPG, PNG, WebP and GIF images are allowed.",
         },
-        { status: 502 }
+        {
+          status: 400,
+          headers: PRIVATE_HEADERS,
+        }
       );
     }
 
-    return NextResponse.json({
-      id,
-      url,
-      source_url: url,
-      image_url: String(data?.image_url || url),
-      thumbnail: String(data?.thumbnail || data?.image_url || url),
-      scope,
-      protected: Boolean(data?.protected ?? scope === "system"),
-      item: data?.item || null,
-    });
-  } catch (e: any) {
+    const scope = inferScope(
+      request,
+      form?.get("scope") || null
+    );
+
+    const body = new FormData();
+
+    body.append(
+      "file",
+      file,
+      file.name.slice(0, 180)
+    );
+
+    body.append("scope", scope);
+    body.append(
+      "purpose",
+      scope === "catalog"
+        ? "product_or_category"
+        : "site_design_or_internal"
+    );
+
+    const base = (
+      await getWpBaseUrl()
+    ).replace(/\/$/, "");
+
+    const response = await fetch(
+      `${base}/wp-json/letz/v1/media/upload`,
+      {
+        method: "POST",
+        headers: {
+          "X-Letz-Auth":
+            INTERNAL_TOKEN,
+          Accept: "application/json",
+        },
+        body,
+        cache: "no-store",
+        signal: AbortSignal.timeout(30_000),
+      }
+    );
+
+    const parsed: unknown = await response
+      .json()
+      .catch(() => null);
+
+    if (
+      !response.ok ||
+      !isRecord(parsed)
+    ) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error:
+            "Media upload failed.",
+        },
+        {
+          status:
+            response.status >= 400 &&
+            response.status < 500
+              ? response.status
+              : 502,
+          headers: PRIVATE_HEADERS,
+        }
+      );
+    }
+
+    const id = Number(
+      parsed.id ??
+      parsed.image_id ??
+      0
+    );
+
+    const url = String(
+      parsed.url ??
+      parsed.source_url ??
+      parsed.image_url ??
+      ""
+    ).trim();
+
+    if (
+      !Number.isInteger(id) ||
+      id <= 0 ||
+      !/^https?:\/\//i.test(url)
+    ) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error:
+            "Media upload returned an invalid response.",
+        },
+        {
+          status: 502,
+          headers: PRIVATE_HEADERS,
+        }
+      );
+    }
+
+    const imageUrl =
+      typeof parsed.image_url ===
+      "string"
+        ? parsed.image_url
+        : url;
+
+    const thumbnail =
+      typeof parsed.thumbnail ===
+      "string"
+        ? parsed.thumbnail
+        : imageUrl;
+
     return NextResponse.json(
-      { error: e?.message || "Upload failed" },
-      { status: 500 }
+      {
+        id,
+        url,
+        source_url: url,
+        image_url: imageUrl,
+        thumbnail,
+        scope,
+        protected:
+          parsed.protected === true ||
+          scope === "system",
+        item: isRecord(parsed.item)
+          ? parsed.item
+          : null,
+      },
+      {
+        status: 200,
+        headers: PRIVATE_HEADERS,
+      }
+    );
+  } catch (error: unknown) {
+    console.error(
+      "Media upload failed:",
+      error instanceof Error
+        ? error.message
+        : "Unknown error"
+    );
+
+    return NextResponse.json(
+      {
+        ok: false,
+        error: "Media upload failed.",
+      },
+      {
+        status: 500,
+        headers: PRIVATE_HEADERS,
+      }
     );
   }
 }
