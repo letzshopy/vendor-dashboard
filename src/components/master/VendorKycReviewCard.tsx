@@ -87,6 +87,7 @@ function maskAccountNumber(v?: string) {
 export default function VendorKycReviewCard({
   blogid,
   vendorName,
+  storeUrl,
 }: {
   blogid: number;
   vendorName: string;
