@@ -4,6 +4,16 @@ import * as React from "react";
 import { useFormContext } from "react-hook-form";
 import type { PaymentsFormValues } from "@/types/payments";
 
+type JsonRecord = Record<string, unknown>;
+
+function isRecord(value: unknown): value is JsonRecord {
+  return Boolean(
+    value &&
+      typeof value === "object" &&
+      !Array.isArray(value)
+  );
+}
+
 export default function UPIPanel() {
   const { register, watch, setValue } = useFormContext<PaymentsFormValues>();
 
@@ -38,20 +48,30 @@ export default function UPIPanel() {
     try {
       const formData = new FormData();
       formData.append("file", file);
+      formData.append("purpose", "vendor_upi_qr");
 
-      const res = await fetch("/api/settings/upload", {
+      const res = await fetch("/api/media/upload", {
         method: "POST",
         body: formData,
       });
 
-      const data = await res.json().catch(() => ({}));
+      const parsed: unknown = await res.json().catch(() => null);
+      const data = isRecord(parsed) ? parsed : {};
+      const media = isRecord(data.media) ? data.media : {};
 
       if (!res.ok) {
-        throw new Error(data?.error || "QR upload failed");
+        throw new Error(
+          typeof data.error === "string"
+            ? data.error
+            : "QR upload failed"
+        );
       }
 
       const url =
-        data?.url || data?.source_url || data?.media?.source_url || "";
+        [data.url, data.source_url, media.source_url].find(
+          (value): value is string =>
+            typeof value === "string" && /^https?:\/\//i.test(value)
+        ) || "";
 
       if (!url) {
         throw new Error("Upload succeeded but image URL was missing");
@@ -68,8 +88,10 @@ export default function UPIPanel() {
         shouldTouch: true,
         shouldValidate: true,
       });
-    } catch (err: any) {
-      setUploadError(err?.message || "QR upload failed");
+    } catch (error: unknown) {
+      setUploadError(
+        error instanceof Error ? error.message : "QR upload failed"
+      );
     } finally {
       setUploading(false);
     }
