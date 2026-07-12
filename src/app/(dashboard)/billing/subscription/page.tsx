@@ -1,6 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import { Check, Crown, CreditCard, Globe, ShieldCheck } from "lucide-react";
 
 type Subscription = {
@@ -23,6 +28,25 @@ type Subscription = {
 
 type PlanKey = "standard" | "premium";
 type BillingCycle = "monthly" | "yearly";
+type JsonRecord = Record<string, unknown>;
+
+function isRecord(value: unknown): value is JsonRecord {
+  return Boolean(
+    value &&
+      typeof value === "object" &&
+      !Array.isArray(value)
+  );
+}
+
+function apiError(
+  value: unknown,
+  fallback: string
+): string {
+  return isRecord(value) &&
+    typeof value.error === "string"
+    ? value.error
+    : fallback;
+}
 
 const UPI_ID = "sindhiya4@ybl";
 const PAYEE_NAME = "Sindhiya Srinivasan";
@@ -123,50 +147,106 @@ export default function BillingSubscriptionPage() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
-  async function loadSubscription() {
+  const loadSubscription = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
 
-      const res = await fetch("/api/settings/subscription", {
-        cache: "no-store",
-      });
+      const response = await fetch(
+        "/api/settings/subscription",
+        {
+          cache: "no-store",
+        }
+      );
 
-      const data = await res.json().catch(() => ({}));
+      const value: unknown = await response
+        .json()
+        .catch(() => null);
 
-      if (!res.ok) {
-        throw new Error(data?.error || "Failed to load subscription");
+      if (!response.ok || !isRecord(value)) {
+        throw new Error(
+          apiError(
+            value,
+            "Failed to load subscription"
+          )
+        );
       }
+
+      const data = value as Subscription;
 
       setSub(data);
 
-      const existingPlan = data.plan || data.current_plan || "";
-      const existingCycle = data.billing_cycle || data.period || "";
-      const existingRef = data.payment_reference || data.utr || "";
+      const existingPlan =
+        data.plan ||
+        data.current_plan ||
+        "";
 
-      setSelectedPlan(normalizePlan(existingPlan));
-      setBillingCycle(normalizeCycle(existingCycle));
-      setUtr(existingRef);
-    } catch (e: any) {
-      console.error(e);
+      const existingCycle =
+        data.billing_cycle ||
+        data.period ||
+        "";
+
+      const existingReference =
+        data.payment_reference ||
+        data.utr ||
+        "";
+
+      setSelectedPlan(
+        normalizePlan(existingPlan)
+      );
+
+      setBillingCycle(
+        normalizeCycle(existingCycle)
+      );
+
+      setUtr(existingReference);
+    } catch (caught: unknown) {
+      console.error(
+        caught instanceof Error
+          ? caught.message
+          : "Subscription load failed"
+      );
+
       setError(
-        e?.message || "Could not load subscription details. Please try again."
+        caught instanceof Error
+          ? caught.message
+          : "Could not load subscription details. Please try again."
       );
     } finally {
       setLoading(false);
     }
-  }
-
-  useEffect(() => {
-    loadSubscription();
   }, []);
 
+  useEffect(() => {
+    void loadSubscription();
+  }, [loadSubscription]);
+
+  const isFirstPayment =
+    !sub?.last_paid_date &&
+    !sub?.last_billed_at;
+
+  const setupFee =
+    billingCycle === "monthly" &&
+    isFirstPayment
+      ? 5_000
+      : 0;
+
   const selectedAmount = useMemo(() => {
-    if (selectedPlan === "standard") {
-      return billingCycle === "yearly" ? 11000 : 999;
-    }
-    return billingCycle === "yearly" ? 16000 : 1399;
-  }, [selectedPlan, billingCycle]);
+    const planAmount =
+      selectedPlan === "standard"
+        ? billingCycle === "yearly"
+          ? 11_000
+          : 999
+        : billingCycle === "yearly"
+          ? 16_000
+          : 1_399;
+
+    return planAmount + setupFee;
+  }, [
+    selectedPlan,
+    billingCycle,
+    setupFee,
+  ]);
 
   const selectedPlanLabel = useMemo(() => {
     return selectedPlan === "standard"
@@ -210,10 +290,17 @@ export default function BillingSubscriptionPage() {
         body: JSON.stringify(payload),
       });
 
-      const data = await res.json().catch(() => ({}));
+      const data: unknown = await res
+        .json()
+        .catch(() => null);
 
       if (!res.ok) {
-        throw new Error(data?.error || "Failed to submit payment.");
+        throw new Error(
+          apiError(
+            data,
+            "Failed to submit payment."
+          )
+        );
       }
 
       setSuccess(
@@ -221,9 +308,17 @@ export default function BillingSubscriptionPage() {
       );
 
       await loadSubscription();
-    } catch (e: any) {
-      console.error(e);
-      setError(e?.message || "Failed to submit payment.");
+    } catch (caught: unknown) {
+      console.error(
+        caught instanceof Error
+          ? caught.message
+          : "Payment submission failed"
+      );
+      setError(
+        caught instanceof Error
+          ? caught.message
+          : "Failed to submit payment."
+      );
     } finally {
       setSaving(false);
     }
@@ -338,6 +433,14 @@ export default function BillingSubscriptionPage() {
             Yearly
           </button>
         </div>
+
+        <div className="border-t border-slate-100 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          {billingCycle === "yearly"
+            ? "Yearly offer: the ₹5,000 setup fee is fully waived."
+            : isFirstPayment
+              ? "First monthly payment includes a one-time ₹5,000 store setup fee."
+              : "The setup fee applies only to the first monthly payment and has already been completed."}
+        </div>
       </section>
 
       {/* Plans */}
@@ -372,22 +475,23 @@ export default function BillingSubscriptionPage() {
             / {billingCycle === "yearly" ? "year" : "month"}
           </div>
 
+          <div className="mt-3 rounded-xl bg-white/80 px-3 py-2 text-xs font-medium text-indigo-700">
+            Best for owners who manage daily store work through the dashboard.
+          </div>
+
           <ul className="mt-5 space-y-2.5">
-            <PlanFeature>Dedicated online store</PlanFeature>
-            <PlanFeature>1 .in domain included</PlanFeature>
-            <PlanFeature>Business email included</PlanFeature>
-            <PlanFeature>Vendor dashboard access</PlanFeature>
-            <PlanFeature>Unlimited product upload</PlanFeature>
-            <PlanFeature>Categories and collection management</PlanFeature>
-            <PlanFeature>Mobile-friendly storefront</PlanFeature>
+            <PlanFeature>Branded ecommerce storefront</PlanFeature>
+            <PlanFeature>One free .in domain, subject to availability</PlanFeature>
+            <PlanFeature>Business-owner dashboard access</PlanFeature>
+            <PlanFeature>Unlimited products and categories</PlanFeature>
             <PlanFeature>Cart, checkout and customer order flow</PlanFeature>
-            <PlanFeature>Order management dashboard</PlanFeature>
-            <PlanFeature>UPI payment support</PlanFeature>
-            <PlanFeature>Payment gateway support</PlanFeature>
-            <PlanFeature>Shipping settings and shipment workflow</PlanFeature>
-            <PlanFeature>Invoice generation</PlanFeature>
-            <PlanFeature>Pack slip generation</PlanFeature>
-            <PlanFeature>Hosting and technical maintenance</PlanFeature>
+            <PlanFeature>Payment gateway support and manual UPI option</PlanFeature>
+            <PlanFeature>SHIFT shipping integration, booking and labels</PlanFeature>
+            <PlanFeature>Order, customer, media, invoice and report tools</PlanFeature>
+            <PlanFeature>Basic product SEO and analytics foundation</PlanFeature>
+            <PlanFeature>Hosting, SSL, security and uptime care</PlanFeature>
+            <PlanFeature>Domain and DNS support</PlanFeature>
+            <PlanFeature>Monthly health review and technical guidance</PlanFeature>
           </ul>
 
           <button
@@ -433,18 +537,21 @@ export default function BillingSubscriptionPage() {
             / {billingCycle === "yearly" ? "year" : "month"}
           </div>
 
+          <div className="mt-3 rounded-xl bg-white/80 px-3 py-2 text-xs font-medium text-indigo-700">
+            Best for owners who want hands-on LetzShopy operational support.
+          </div>
+
           <ul className="mt-5 space-y-2.5">
-            <PlanFeature>Everything in Self-Managed plan</PlanFeature>
-            <PlanFeature>1 .in domain included</PlanFeature>
-            <PlanFeature>Business email included</PlanFeature>
-            <PlanFeature>Product upload by LetzShopy</PlanFeature>
-            <PlanFeature>Product categorisation by LetzShopy</PlanFeature>
-            <PlanFeature>Order processing support</PlanFeature>
-            <PlanFeature>WhatsApp / Instagram order entry support</PlanFeature>
-            <PlanFeature>Shipment workflow handled by LetzShopy</PlanFeature>
-            <PlanFeature>Daily store management by LetzShopy team</PlanFeature>
-            <PlanFeature>Priority operational support</PlanFeature>
-            <PlanFeature>Reporting support</PlanFeature>
+            <PlanFeature>Everything included in Self-Managed</PlanFeature>
+            <PlanFeature>Product upload and categorisation support</PlanFeature>
+            <PlanFeature>Product title, image order and description cleanup</PlanFeature>
+            <PlanFeature>Advanced product SEO improvement support</PlanFeature>
+            <PlanFeature>Order-processing workflow support</PlanFeature>
+            <PlanFeature>SHIFT booking, pickup and label support</PlanFeature>
+            <PlanFeature>Regular catalogue and store-operation support</PlanFeature>
+            <PlanFeature>Instagram feed integration on the storefront</PlanFeature>
+            <PlanFeature>Advanced SEO review and suggestions</PlanFeature>
+            <PlanFeature>Priority operational and technical support</PlanFeature>
           </ul>
 
           <button
@@ -479,7 +586,7 @@ export default function BillingSubscriptionPage() {
                 Amount to pay
               </div>
               <div className="mt-1 text-2xl font-bold text-slate-900">
-                ₹{selectedAmount}
+                ₹{selectedAmount.toLocaleString("en-IN")}
               </div>
             </div>
           </div>
@@ -540,6 +647,11 @@ export default function BillingSubscriptionPage() {
               <span className="font-semibold capitalize text-slate-900">
                 {billingCycle}
               </span>
+              {setupFee > 0 ? (
+                <span className="mt-2 block text-xs font-medium text-amber-700">
+                  Includes one-time setup fee: ₹5,000
+                </span>
+              ) : null}
             </div>
           </div>
 
