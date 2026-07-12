@@ -374,31 +374,6 @@ export async function POST(
       );
     }
 
-    const onboardingResponse = await fetch(
-      `${storeUrl}/wp-json/letz/v1/onboarding/set`,
-      {
-        method: "POST",
-        headers: {
-          ...headers,
-          "Content-Type":
-            "application/json",
-        },
-        body: JSON.stringify({
-          subscription_status:
-            persistedStatus,
-        }),
-        cache: "no-store",
-        signal: AbortSignal.timeout(12_000),
-      }
-    );
-
-    if (!onboardingResponse.ok) {
-      console.warn(
-        "Master subscription onboarding sync failed:",
-        onboardingResponse.status
-      );
-    }
-
     return NextResponse.json(
       {
         ok: true,
