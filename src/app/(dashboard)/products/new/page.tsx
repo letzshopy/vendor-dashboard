@@ -17,7 +17,6 @@ import {
   Truck,
   Wallet,
   X,
-  Palette,
 } from "lucide-react";
 import ProductImages, { type ImgItem } from "@/components/ProductImages";
 import TagPicker from "@/components/TagPicker";
@@ -26,13 +25,21 @@ type Cat = { id: number; name: string; parent: number };
 type Attr = { id: number; name: string; slug: string };
 type Term = { id: number; name: string; slug: string };
 type ProductType = "simple" | "variable" | "grouped";
+type JsonRecord = Record<string, unknown>;
+
+function isRecord(value: unknown): value is JsonRecord {
+  return Boolean(
+    value &&
+      typeof value === "object" &&
+      !Array.isArray(value)
+  );
+}
 
 type VRow = {
   key: string;
   attrs: { id?: number; name?: string; option: string }[];
   sku: string;
   regular_price: string;
-  sale_price: string;
   manage_stock: boolean;
   stock_quantity: number | "";
   backorders: "no" | "notify" | "yes";
@@ -295,10 +302,6 @@ export default function AddProductPage() {
   const [images, setImages] = useState<ImgItem[]>([]);
 
   const [regular, setRegular] = useState("");
-  const [sale, setSale] = useState("");
-  const [saleFrom, setSaleFrom] = useState("");
-  const [saleTo, setSaleTo] = useState("");
-  const [enableSalePrice, setEnableSalePrice] = useState(false);
 
   const [manageStock, setManageStock] = useState(true);
   const [stockQty, setStockQty] = useState<number | "">("");
@@ -419,7 +422,11 @@ export default function AddProductPage() {
   function toggleVarTerm(attrId: number, termName: string) {
     setVarChosenTerms((m) => {
       const cur = new Set(m[attrId] || []);
-      cur.has(termName) ? cur.delete(termName) : cur.add(termName);
+      if (cur.has(termName)) {
+        cur.delete(termName);
+      } else {
+        cur.add(termName);
+      }
       return { ...m, [attrId]: Array.from(cur) };
     });
   }
@@ -469,7 +476,6 @@ export default function AddProductPage() {
         attrs: attrsCombo,
         sku: autoSku,
         regular_price: "",
-        sale_price: "",
         manage_stock: true,
         stock_quantity: "",
         backorders: "no",
@@ -502,7 +508,7 @@ export default function AddProductPage() {
       if (!sku.trim()) throw new Error("SKU is required");
       if (skuErr) throw new Error(skuErr);
 
-      const basePayload: any = {
+      const basePayload: JsonRecord = {
         name: title,
         sku: sku.trim(),
         color: color.trim(),
@@ -513,12 +519,6 @@ export default function AddProductPage() {
         description: desc,
 
         regular_price: ptype === "simple" ? regular || undefined : undefined,
-        sale_price:
-          ptype === "simple" && enableSalePrice ? sale || undefined : undefined,
-        date_on_sale_from:
-          ptype === "simple" && enableSalePrice ? saleFrom || undefined : undefined,
-        date_on_sale_to:
-          ptype === "simple" && enableSalePrice ? saleTo || undefined : undefined,
 
         manage_stock: ptype === "simple" ? manageStock : false,
         stock_quantity:
@@ -562,30 +562,36 @@ export default function AddProductPage() {
       });
 
       const parentRaw = await res.text();
-      let parent: any = {};
+      let parent: JsonRecord = {};
       try {
-        parent = parentRaw ? JSON.parse(parentRaw) : {};
+        const parsed: unknown = parentRaw ? JSON.parse(parentRaw) : {};
+        parent = isRecord(parsed) ? parsed : {};
       } catch {
         parent = {};
       }
 
       if (!res.ok) {
-        throw new Error(parent?.error || "Create failed");
+        throw new Error(
+          typeof parent.error === "string"
+            ? parent.error
+            : "Create failed"
+        );
       }
 
-      if (!parent?.id) {
+      const parentId = Number(parent.id);
+
+      if (!Number.isInteger(parentId) || parentId <= 0) {
         throw new Error("Product created but ID missing");
       }
 
       if (ptype === "variable" && rows.length > 0) {
-        const vRes = await fetch(`/api/products/${parent.id}/variations`, {
+        const vRes = await fetch(`/api/products/${parentId}/variations`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             variations: rows.map((r) => ({
               sku: r.sku || undefined,
               regular_price: r.regular_price || undefined,
-              sale_price: r.sale_price || undefined,
               manage_stock: r.manage_stock,
               stock_quantity: r.manage_stock
                 ? Number(r.stock_quantity || 0)
@@ -597,15 +603,20 @@ export default function AddProductPage() {
         });
 
         const vRaw = await vRes.text();
-        let vJson: any = {};
+        let vJson: JsonRecord = {};
         try {
-          vJson = vRaw ? JSON.parse(vRaw) : {};
+          const parsed: unknown = vRaw ? JSON.parse(vRaw) : {};
+          vJson = isRecord(parsed) ? parsed : {};
         } catch {
           vJson = {};
         }
 
         if (!vRes.ok) {
-          throw new Error(vJson?.error || "Variations failed");
+          throw new Error(
+            typeof vJson.error === "string"
+              ? vJson.error
+              : "Variations failed"
+          );
         }
       }
 
@@ -623,10 +634,6 @@ export default function AddProductPage() {
       setTags([]);
       setSelectedCats([]);
       setRegular("");
-      setSale("");
-      setSaleFrom("");
-      setSaleTo("");
-      setEnableSalePrice(false);
       setManageStock(true);
       setStockQty("");
       setBackorders("no");
@@ -647,8 +654,12 @@ export default function AddProductPage() {
       setCatOpen(false);
       setMobileCatOpen(false);
       setMobileTagOpen(false);
-    } catch (e: any) {
-      setErr(e?.message || "Create failed");
+    } catch (error: unknown) {
+      setErr(
+        error instanceof Error
+          ? error.message
+          : "Create failed"
+      );
     } finally {
       setBusy(false);
     }
@@ -979,7 +990,7 @@ export default function AddProductPage() {
           <div className="grid gap-4 xl:grid-cols-[1.2fr_1fr]">
             <SectionCard
               title="Pricing"
-              hint="Regular price, optional sale price and sale schedule"
+              hint="Set the regular product price"
               icon={Wallet}
             >
               <div className="space-y-3">
@@ -992,43 +1003,6 @@ export default function AddProductPage() {
                   />
                 </FieldShell>
 
-                <ToggleCard
-                  checked={enableSalePrice}
-                  onChange={setEnableSalePrice}
-                  title="Enable sale price"
-                  hint="Show sale price and sale date fields"
-                />
-
-                {enableSalePrice && (
-                  <div className="grid gap-3 md:grid-cols-3">
-                    <FieldShell>
-                      <FieldLabel>Sale price</FieldLabel>
-                      <MobileField
-                        value={sale}
-                        onChange={(e) => setSale(e.target.value)}
-                        placeholder="e.g. 799"
-                      />
-                    </FieldShell>
-
-                    <FieldShell>
-                      <FieldLabel>Sale from</FieldLabel>
-                      <MobileField
-                        type="date"
-                        value={saleFrom}
-                        onChange={(e) => setSaleFrom(e.target.value)}
-                      />
-                    </FieldShell>
-
-                    <FieldShell>
-                      <FieldLabel>Sale to</FieldLabel>
-                      <MobileField
-                        type="date"
-                        value={saleTo}
-                        onChange={(e) => setSaleTo(e.target.value)}
-                      />
-                    </FieldShell>
-                  </div>
-                )}
               </div>
             </SectionCard>
 
@@ -1497,7 +1471,7 @@ export default function AddProductPage() {
                         </div>
                       </div>
 
-                      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
                         <FieldShell>
                           <FieldLabel>SKU</FieldLabel>
                           <MobileField
@@ -1514,16 +1488,6 @@ export default function AddProductPage() {
                             value={r.regular_price}
                             onChange={(e) =>
                               editRow(i, { regular_price: e.target.value })
-                            }
-                          />
-                        </FieldShell>
-
-                        <FieldShell>
-                          <FieldLabel>Sale price</FieldLabel>
-                          <MobileField
-                            value={r.sale_price}
-                            onChange={(e) =>
-                              editRow(i, { sale_price: e.target.value })
                             }
                           />
                         </FieldShell>

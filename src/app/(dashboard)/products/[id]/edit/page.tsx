@@ -9,6 +9,20 @@ type Attr = { id: number; name: string; slug: string };
 type Term = { id: number; name: string; slug: string };
 
 type ProductType = "simple" | "variable" | "grouped";
+type Backorders = "no" | "notify" | "yes";
+type JsonRecord = Record<string, unknown>;
+
+function isRecord(value: unknown): value is JsonRecord {
+  return Boolean(
+    value &&
+      typeof value === "object" &&
+      !Array.isArray(value)
+  );
+}
+
+function normalizeBackorders(value: unknown): Backorders {
+  return value === "notify" || value === "yes" ? value : "no";
+}
 
 type Prod = {
   id: number;
@@ -21,12 +35,9 @@ type Prod = {
   short_description?: string;
   description?: string;
   regular_price?: string;
-  sale_price?: string;
-  date_on_sale_from?: string | null;
-  date_on_sale_to?: string | null;
   manage_stock?: boolean;
   stock_quantity?: number | null;
-  backorders?: "no" | "notify" | "yes";
+  backorders?: Backorders;
   weight?: string | null;
   dimensions?: { length?: string; width?: string; height?: string } | null;
   categories?: { id: number; name: string }[];
@@ -49,10 +60,9 @@ type VRow = {
   attrs: { id?: number; name?: string; option: string }[];
   sku: string;
   regular_price: string;
-  sale_price: string;
   manage_stock: boolean;
   stock_quantity: number | "";
-  backorders: "no" | "notify" | "yes";
+  backorders: Backorders;
 };
 
 function indentCats(cats: Cat[]) {
@@ -142,9 +152,6 @@ export default function EditProductPage({
   const [images, setImages] = useState<ImgItem[]>([]);
 
   const [regular, setRegular] = useState("");
-  const [sale, setSale] = useState("");
-  const [saleFrom, setSaleFrom] = useState("");
-  const [saleTo, setSaleTo] = useState("");
 
   const [manageStock, setManageStock] = useState(false);
   const [stockQty, setStockQty] = useState<number | "">("");
@@ -224,9 +231,6 @@ export default function EditProductPage({
 
           if (prod.type === "simple") {
             setRegular(prod.regular_price || "");
-            setSale(prod.sale_price || "");
-            setSaleFrom((prod.date_on_sale_from as any) || "");
-            setSaleTo((prod.date_on_sale_to as any) || "");
             setManageStock(!!prod.manage_stock);
             setStockQty(prod.manage_stock ? (prod.stock_quantity ?? "") : "");
             setBackorders(prod.backorders || "no");
@@ -257,21 +261,68 @@ export default function EditProductPage({
             await Promise.all(attrIds.map((aid) => loadTerms(aid)));
 
             const vr = await fetch(`/api/products/${prod.id}/variations`);
-            const vj = await vr.json();
+            const parsed: unknown = await vr.json();
             if (vr.ok) {
-              const loadedRows: VRow[] = (vj.variations || []).map((v: any) => ({
-                id: v.id,
-                key: (v.attributes || [])
-                  .map((a: any) => `${a.name}=${a.option}`)
-                  .join("|"),
-                attrs: v.attributes || [],
-                sku: v.sku || "",
-                regular_price: v.regular_price || "",
-                sale_price: v.sale_price || "",
-                manage_stock: !!v.manage_stock,
-                stock_quantity: v.manage_stock ? (v.stock_quantity ?? "") : "",
-                backorders: (v.backorders as any) || "no",
-              }));
+              const variations =
+                isRecord(parsed) && Array.isArray(parsed.variations)
+                  ? parsed.variations
+                  : [];
+
+              const loadedRows: VRow[] = variations.map((value) => {
+                const variation = isRecord(value) ? value : {};
+                const attrs = Array.isArray(variation.attributes)
+                  ? variation.attributes
+                      .map((attribute) => {
+                        const item = isRecord(attribute) ? attribute : {};
+                        const option = String(item.option || "");
+                        const attrId = Number(item.id);
+
+                        return {
+                          id:
+                            Number.isInteger(attrId) && attrId > 0
+                              ? attrId
+                              : undefined,
+                          name:
+                            typeof item.name === "string"
+                              ? item.name
+                              : undefined,
+                          option,
+                        };
+                      })
+                      .filter((attribute) => attribute.option)
+                  : [];
+
+                const variationId = Number(variation.id);
+                const managesStock = variation.manage_stock === true;
+                const quantity = Number(variation.stock_quantity);
+
+                return {
+                  id:
+                    Number.isInteger(variationId) && variationId > 0
+                      ? variationId
+                      : undefined,
+                  key: attrs
+                    .map((attribute) =>
+                      `${attribute.name || ""}=${attribute.option}`
+                    )
+                    .join("|"),
+                  attrs,
+                  sku:
+                    typeof variation.sku === "string"
+                      ? variation.sku
+                      : "",
+                  regular_price:
+                    typeof variation.regular_price === "string"
+                      ? variation.regular_price
+                      : "",
+                  manage_stock: managesStock,
+                  stock_quantity:
+                    managesStock && Number.isFinite(quantity)
+                      ? quantity
+                      : "",
+                  backorders: normalizeBackorders(variation.backorders),
+                };
+              });
               setRows(loadedRows);
             }
           }
@@ -313,7 +364,11 @@ export default function EditProductPage({
   function toggleVarTerm(attrId: number, termName: string) {
     setVarChosenTerms((m) => {
       const cur = new Set(m[attrId] || []);
-      cur.has(termName) ? cur.delete(termName) : cur.add(termName);
+      if (cur.has(termName)) {
+        cur.delete(termName);
+      } else {
+        cur.add(termName);
+      }
       return { ...m, [attrId]: Array.from(cur) };
     });
   }
@@ -337,7 +392,11 @@ export default function EditProductPage({
     let combos: { id?: number; name?: string; option: string }[][] = [[]];
 
     for (const a of attrDefs) {
-      const next: any[] = [];
+      const next: {
+        id?: number;
+        name?: string;
+        option: string;
+      }[][] = [];
       for (const combo of combos) {
         for (const termName of a.terms) {
           next.push([...combo, { id: a.id, name: a.name, option: termName }]);
@@ -359,7 +418,6 @@ export default function EditProductPage({
         attrs: attrsCombo,
         sku: autoSku,
         regular_price: "",
-        sale_price: "",
         manage_stock: false,
         stock_quantity: "",
         backorders: "no",
@@ -404,7 +462,7 @@ export default function EditProductPage({
     try {
       if (!p) throw new Error("Product not loaded");
 
-      const basePayload: any = {
+      const basePayload: JsonRecord = {
         type: ptype,
         name: title,
         sku: sku || undefined,
@@ -414,11 +472,6 @@ export default function EditProductPage({
         short_description: shortDesc,
         description: desc,
         regular_price: ptype === "simple" ? regular || undefined : undefined,
-        sale_price: ptype === "simple" ? sale || undefined : undefined,
-        date_on_sale_from:
-          ptype === "simple" ? saleFrom || undefined : undefined,
-        date_on_sale_to:
-          ptype === "simple" ? saleTo || undefined : undefined,
         manage_stock: ptype === "simple" ? manageStock : undefined,
         stock_quantity:
           ptype === "simple" && manageStock
@@ -473,7 +526,6 @@ export default function EditProductPage({
               id: row.id,
               sku: row.sku || undefined,
               regular_price: row.regular_price || undefined,
-              sale_price: row.sale_price || undefined,
               manage_stock: row.manage_stock,
               stock_quantity: row.manage_stock
                 ? Number(row.stock_quantity || 0)
@@ -484,13 +536,25 @@ export default function EditProductPage({
           }),
         });
 
-        const vj = await vr.json();
-        if (!vr.ok) throw new Error(vj?.error || "Variations update failed");
+        const parsed: unknown = await vr.json().catch(() => null);
+        const result = isRecord(parsed) ? parsed : {};
+
+        if (!vr.ok) {
+          throw new Error(
+            typeof result.error === "string"
+              ? result.error
+              : "Variations update failed"
+          );
+        }
       }
 
       setMsg("Saved.");
-    } catch (e: any) {
-      setErr(e?.message || "Save failed");
+    } catch (error: unknown) {
+      setErr(
+        error instanceof Error
+          ? error.message
+          : "Save failed"
+      );
     } finally {
       setBusy(false);
     }
@@ -672,7 +736,9 @@ export default function EditProductPage({
                   <select
                     className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs focus:border-violet-400 focus:outline-none"
                     value={status}
-                    onChange={(e) => setStatus(e.target.value as any)}
+                    onChange={(e) =>
+                      setStatus(e.target.value as "draft" | "publish")
+                    }
                   >
                     <option value="draft">Draft</option>
                     <option value="publish">Published</option>
@@ -684,7 +750,15 @@ export default function EditProductPage({
                   <select
                     className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs focus:border-violet-400 focus:outline-none"
                     value={visibility}
-                    onChange={(e) => setVisibility(e.target.value as any)}
+                    onChange={(e) =>
+                      setVisibility(
+                        e.target.value as
+                          | "visible"
+                          | "catalog"
+                          | "search"
+                          | "hidden"
+                      )
+                    }
                   >
                     <option value="visible">Visible</option>
                     <option value="catalog">Catalog only</option>
@@ -736,7 +810,7 @@ export default function EditProductPage({
                     Pricing
                   </h2>
 
-                  <div className="grid gap-3 md:grid-cols-4">
+                  <div className="grid gap-3">
                     <div>
                       <label className="mb-1 block text-xs text-slate-600">
                         Regular price
@@ -749,41 +823,6 @@ export default function EditProductPage({
                       />
                     </div>
 
-                    <div>
-                      <label className="mb-1 block text-xs text-slate-600">
-                        Sale price
-                      </label>
-                      <input
-                        className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs focus:border-violet-400 focus:outline-none"
-                        value={sale}
-                        onChange={(e) => setSale(e.target.value)}
-                        placeholder="e.g. 799"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="mb-1 block text-xs text-slate-600">
-                        Sale from
-                      </label>
-                      <input
-                        type="date"
-                        className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs focus:border-violet-400 focus:outline-none"
-                        value={saleFrom}
-                        onChange={(e) => setSaleFrom(e.target.value)}
-                      />
-                    </div>
-
-                    <div>
-                      <label className="mb-1 block text-xs text-slate-600">
-                        Sale to
-                      </label>
-                      <input
-                        type="date"
-                        className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs focus:border-violet-400 focus:outline-none"
-                        value={saleTo}
-                        onChange={(e) => setSaleTo(e.target.value)}
-                      />
-                    </div>
                   </div>
                 </div>
 
@@ -827,7 +866,11 @@ export default function EditProductPage({
                         <select
                           className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs focus:border-violet-400 focus:outline-none"
                           value={backorders}
-                          onChange={(e) => setBackorders(e.target.value as any)}
+                          onChange={(e) =>
+                            setBackorders(
+                              normalizeBackorders(e.target.value)
+                            )
+                          }
                         >
                           <option value="no">Do not allow</option>
                           <option value="notify">Allow, but notify</option>
@@ -910,7 +953,14 @@ export default function EditProductPage({
                     <select
                       className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs focus:border-violet-400 focus:outline-none"
                       value={taxStatus}
-                      onChange={(e) => setTaxStatus(e.target.value as any)}
+                      onChange={(e) =>
+                        setTaxStatus(
+                          e.target.value as
+                            | "taxable"
+                            | "shipping"
+                            | "none"
+                        )
+                      }
                     >
                       <option value="taxable">Taxable</option>
                       <option value="shipping">Shipping only</option>
@@ -1058,7 +1108,13 @@ export default function EditProductPage({
                   <select
                     className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs focus:border-violet-400 focus:outline-none"
                     value={varChosenAttr}
-                    onChange={(e) => setVarChosenAttr(e.target.value as any)}
+                    onChange={(e) =>
+                      setVarChosenAttr(
+                        e.target.value === ""
+                          ? ""
+                          : Number(e.target.value)
+                      )
+                    }
                   >
                     <option value="">Select attribute…</option>
                     {attrs.map((a) => (
@@ -1143,7 +1199,6 @@ export default function EditProductPage({
                           <th className="px-3 py-2">Combination</th>
                           <th className="px-3 py-2">SKU</th>
                           <th className="px-3 py-2">Regular</th>
-                          <th className="px-3 py-2">Sale</th>
                           <th className="px-3 py-2">Manage</th>
                           <th className="px-3 py-2">Qty</th>
                           <th className="px-3 py-2">Backorders</th>
@@ -1176,15 +1231,6 @@ export default function EditProductPage({
                                   editRow(i, {
                                     regular_price: e.target.value,
                                   })
-                                }
-                              />
-                            </td>
-                            <td className="px-3 py-2">
-                              <input
-                                className="w-24 rounded-lg border border-slate-200 bg-slate-50 px-2 py-1 text-[11px] focus:border-violet-400 focus:outline-none"
-                                value={row.sale_price}
-                                onChange={(e) =>
-                                  editRow(i, { sale_price: e.target.value })
                                 }
                               />
                             </td>
@@ -1222,7 +1268,9 @@ export default function EditProductPage({
                                 value={row.backorders}
                                 onChange={(e) =>
                                   editRow(i, {
-                                    backorders: e.target.value as any,
+                                    backorders: normalizeBackorders(
+                                      e.target.value
+                                    ),
                                   })
                                 }
                               >
