@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Boxes, Plus } from "lucide-react";
+import { Plus } from "lucide-react";
 import { getWooClient } from "@/lib/woo";
 import ProductsClientTable from "@/components/ProductsClientTable";
 import ProductsFilters from "@/components/ProductsFilters";
@@ -34,7 +34,7 @@ async function getProducts(
     ptype?: "simple" | "variable" | "grouped" | "";
   }
 ): Promise<Product[]> {
-  const query: Record<string, any> = {
+  const query: Record<string, string | number> = {
     per_page: 100,
     orderby: "date",
     order: "desc",
@@ -71,7 +71,7 @@ export default async function ProductsPage({
 
   const category = sp.category || "";
   const stock = sp.stock || undefined;
-  const ptype = (sp.ptype as any) || "";
+  const ptype = sp.ptype || "";
 
   const woo = await getWooClient();
 
@@ -81,18 +81,18 @@ export default async function ProductsPage({
   ]);
 
   return (
-    <main className="mx-auto max-w-7xl px-3 py-3 md:px-4 md:py-5">
+    <main className="mx-auto w-full min-w-0 max-w-7xl overflow-x-hidden px-3 py-3 md:px-4 md:py-5">
       <div className="rounded-[26px] border border-white/80 bg-gradient-to-br from-white via-[#faf6ff] to-[#eef7ff] p-4 shadow-[0_14px_40px_rgba(15,23,42,0.06)] md:p-5">
         
 
-        <div className="mt-3 flex items-center justify-between gap-3">
+        <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <h1 className="text-[28px] font-semibold tracking-tight text-slate-900 md:text-[34px]">
             Products
           </h1>
 
           <Link
             href="/products/new"
-            className="inline-flex shrink-0 items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#8b5cff] to-[#ff7ac3] px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:brightness-105 md:px-5"
+            className="inline-flex w-full shrink-0 items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#8b5cff] to-[#ff7ac3] px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:brightness-105 sm:w-auto md:px-5"
           >
             <Plus className="h-4 w-4" />
             Add New Product
@@ -100,12 +100,12 @@ export default async function ProductsPage({
         </div>
       </div>
 
-      <section className="mt-4 space-y-4 md:space-y-5">
+      <section className="mt-4 min-w-0 space-y-4 md:space-y-5">
         <ProductsFilters
           categories={categories}
           initialCategory={category}
-          initialStock={(stock as any) || ""}
-          initialType={(ptype as any) || ""}
+          initialStock={stock || ""}
+          initialType={ptype || ""}
           rightSlot={
             <ProductsImportExportBar
               key="products-import-export"
