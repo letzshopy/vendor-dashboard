@@ -1,15 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   BadgePercent,
-  Building2,
-  CheckCircle2,
   MapPinned,
   ReceiptText,
   Save,
   Settings2,
-  ShieldCheck,
 } from "lucide-react";
 
 type TaxSettings = {
@@ -25,6 +22,8 @@ type TaxSettings = {
   trade_name: string;
   gst_slab: 0 | 5 | 12 | 18;
 };
+
+type JsonRecord = Record<string, unknown>;
 
 const IN_STATES = [
   { code: "AN", name: "Andaman and Nicobar Islands" },
@@ -78,6 +77,84 @@ const DEFAULT_TAX: TaxSettings = {
   trade_name: "",
   gst_slab: 18,
 };
+
+function isRecord(
+  value: unknown
+): value is JsonRecord {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    !Array.isArray(value)
+  );
+}
+
+function errorMessage(
+  error: unknown,
+  fallback: string
+): string {
+  return error instanceof Error &&
+    error.message
+    ? error.message
+    : fallback;
+}
+
+function normalizeTaxSettings(
+  value: unknown
+): TaxSettings {
+  const data = isRecord(value)
+    ? value
+    : {};
+  const slab = data.gst_slab;
+
+  return {
+    enable: data.enable === true,
+    prices_include_tax:
+      data.prices_include_tax === "no"
+        ? "no"
+        : "yes",
+    display_shop:
+      data.display_shop === "excl"
+        ? "excl"
+        : "incl",
+    display_cart:
+      data.display_cart === "excl"
+        ? "excl"
+        : "incl",
+    round_subtotal:
+      data.round_subtotal === "no"
+        ? "no"
+        : "yes",
+    based_on:
+      data.based_on === "billing"
+        ? "billing"
+        : data.based_on === "base"
+          ? "base"
+          : "shipping",
+    store_state:
+      typeof data.store_state === "string"
+        ? data.store_state
+        : DEFAULT_TAX.store_state,
+    gst_number:
+      typeof data.gst_number === "string"
+        ? data.gst_number
+        : "",
+    legal_name:
+      typeof data.legal_name === "string"
+        ? data.legal_name
+        : "",
+    trade_name:
+      typeof data.trade_name === "string"
+        ? data.trade_name
+        : "",
+    gst_slab:
+      slab === 0 ||
+      slab === 5 ||
+      slab === 12 ||
+      slab === 18
+        ? slab
+        : DEFAULT_TAX.gst_slab,
+  };
+}
 
 const inputClass =
   "h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-900 " +
@@ -152,40 +229,31 @@ export default function TaxTab() {
         setLoading(true);
         setErr("");
         const res = await fetch("/api/tax/settings", { cache: "no-store" });
-        const j = await res.json();
-        if (!res.ok) throw new Error(j?.error || "Failed to load tax settings");
+        const parsed: unknown =
+          await res.json().catch(() => null);
+        const response = isRecord(parsed)
+          ? parsed
+          : {};
 
-        const safe: TaxSettings = {
-          ...DEFAULT_TAX,
-          ...(j || {}),
-          enable: !!j?.enable,
-          prices_include_tax: j?.prices_include_tax === "no" ? "no" : "yes",
-          display_shop: j?.display_shop === "excl" ? "excl" : "incl",
-          display_cart: j?.display_cart === "excl" ? "excl" : "incl",
-          round_subtotal: j?.round_subtotal === "no" ? "no" : "yes",
-          based_on:
-            j?.based_on === "billing"
-              ? "billing"
-              : j?.based_on === "base"
-              ? "base"
-              : "shipping",
-          store_state: j?.store_state || "KA",
-          gst_number: j?.gst_number || "",
-          legal_name: j?.legal_name || "",
-          trade_name: j?.trade_name || "",
-          gst_slab:
-            j?.gst_slab === 0 ||
-            j?.gst_slab === 5 ||
-            j?.gst_slab === 12 ||
-            j?.gst_slab === 18
-              ? j.gst_slab
-              : 18,
-        };
+        if (!res.ok) {
+          throw new Error(
+            typeof response.error === "string"
+              ? response.error
+              : "Failed to load tax settings"
+          );
+        }
 
-        setSt(safe);
-      } catch (e: any) {
-        console.error(e);
-        setErr(e?.message || "Failed to load tax settings");
+        setSt(
+          normalizeTaxSettings(response)
+        );
+      } catch (error: unknown) {
+        console.error(error);
+        setErr(
+          errorMessage(
+            error,
+            "Failed to load tax settings"
+          )
+        );
         setSt(DEFAULT_TAX);
       } finally {
         setLoading(false);
@@ -207,42 +275,35 @@ export default function TaxTab() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(st),
       });
-      const j = await res.json();
-      if (!res.ok) throw new Error(j?.error || "Save failed");
+      const parsed: unknown =
+        await res.json().catch(() => null);
+      const response = isRecord(parsed)
+        ? parsed
+        : {};
 
-      if (j && typeof j === "object") {
-        setSt((prev) => ({
-          ...prev,
-          ...(j as Partial<TaxSettings>),
-        }));
+      if (!res.ok) {
+        throw new Error(
+          typeof response.error === "string"
+            ? response.error
+            : "Save failed"
+        );
       }
 
-      const ratePercent = Number(j?.gst_slab ?? st.gst_slab);
-      const want = st.enable ? ratePercent : 0;
-
-      try {
-        const r2 = await fetch("/api/tax/rate", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            ratePercent: want,
-            scope: "all",
-          }),
-        });
-        await r2.json().catch(() => null);
-        if (!r2.ok) {
-          console.warn("GST rate sync failed");
-        }
-      } catch (syncErr) {
-        console.warn("GST rate sync error", syncErr);
-      }
+      setSt(
+        normalizeTaxSettings(response)
+      );
 
       setSaveBanner("Tax settings saved successfully.");
       window.scrollTo({ top: 0, behavior: "smooth" });
       setTimeout(() => setSaveBanner(null), 4000);
-    } catch (e: any) {
-      console.error(e);
-      setErr(e?.message || "Save failed");
+    } catch (error: unknown) {
+      console.error(error);
+      setErr(
+        errorMessage(
+          error,
+          "Save failed"
+        )
+      );
     } finally {
       setSaving(false);
     }
