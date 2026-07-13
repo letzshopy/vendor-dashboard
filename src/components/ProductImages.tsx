@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 export type ImgItem = {
   id: number;
@@ -11,6 +11,12 @@ const MAX_FILE_SIZE_BYTES = 4 * 1024 * 1024;
 const MAX_DIMENSION = 1800;
 
 type JsonRecord = Record<string, unknown>;
+
+type PendingImage = {
+  key: string;
+  name: string;
+  url: string;
+};
 
 function isRecord(value: unknown): value is JsonRecord {
   return Boolean(value && typeof value === "object" && !Array.isArray(value));
@@ -215,7 +221,18 @@ export default function ProductImages({
   const [busyText, setBusyText] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [imageUrl, setImageUrl] = useState("");
+  const [pendingImages, setPendingImages] = useState<PendingImage[]>([]);
+  const [urlImporting, setUrlImporting] = useState(false);
+  const pendingRef = useRef<PendingImage[]>([]);
   const inputRef = useRef<HTMLInputElement | null>(null);
+
+  useEffect(() => {
+    return () => {
+      for (const pending of pendingRef.current) {
+        URL.revokeObjectURL(pending.url);
+      }
+    };
+  }, []);
 
   function appendImages(uploaded: ImgItem[]) {
     const next = [...value, ...uploaded].filter(
@@ -268,14 +285,23 @@ export default function ProductImages({
 
     setError(null);
     setBusy(true);
+    let currentPending: PendingImage[] = [];
+    const uploaded: ImgItem[] = [];
 
     try {
       const selected = Array.from(files).slice(
         0,
-        Math.max(0, max - value.length),
+        Math.max(0, max - value.length - pendingImages.length),
       );
 
-      const uploaded: ImgItem[] = [];
+      currentPending = selected.map((file, index) => ({
+        key: `${Date.now()}-${index}-${file.name}`,
+        name: file.name,
+        url: URL.createObjectURL(file),
+      }));
+
+      pendingRef.current = [...pendingRef.current, ...currentPending];
+      setPendingImages(pendingRef.current);
 
       for (const originalFile of selected) {
         let file = originalFile;
@@ -291,10 +317,30 @@ export default function ProductImages({
 
       appendImages(uploaded);
     } catch (caught: unknown) {
+      if (uploaded.length > 0) {
+        appendImages(uploaded);
+      }
+
       setError(
         caught instanceof Error ? caught.message : "Upload failed",
       );
     } finally {
+      const selectedKeys = new Set(
+        currentPending.map((item) => item.key),
+      );
+
+      const completed = pendingRef.current.filter((item) =>
+        selectedKeys.has(item.key),
+      );
+
+      for (const item of completed) {
+        URL.revokeObjectURL(item.url);
+      }
+
+      pendingRef.current = pendingRef.current.filter(
+        (item) => !selectedKeys.has(item.key),
+      );
+      setPendingImages(pendingRef.current);
       setBusy(false);
       setBusyText(null);
 
@@ -319,6 +365,7 @@ export default function ProductImages({
 
     setError(null);
     setBusy(true);
+    setUrlImporting(true);
     setBusyText("Importing image...");
 
     try {
@@ -344,6 +391,7 @@ export default function ProductImages({
           : "Image import failed",
       );
     } finally {
+      setUrlImporting(false);
       setBusy(false);
       setBusyText(null);
     }
@@ -406,7 +454,32 @@ export default function ProductImages({
           </div>
         ))}
 
-        {value.length < max && (
+        {pendingImages.map((image, index) => (
+          <div key={image.key} className="relative">
+            {/* Local object URL: intentionally not passed to next/image. */}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={image.url}
+              alt=""
+              className={`h-24 w-24 rounded border object-cover ${
+                value.length === 0 && index === 0
+                  ? "ring-2 ring-blue-500"
+                  : ""
+              }`}
+            />
+            <div className="absolute inset-0 grid place-items-center rounded bg-slate-950/45 px-2 text-center text-[10px] font-semibold text-white">
+              Uploading…
+            </div>
+          </div>
+        ))}
+
+        {urlImporting && (
+          <div className="grid h-24 w-24 animate-pulse place-items-center rounded border border-slate-300 bg-slate-100 px-2 text-center text-[10px] font-semibold text-slate-600">
+            Importing image…
+          </div>
+        )}
+
+        {value.length + pendingImages.length + (urlImporting ? 1 : 0) < max && (
           <label className="grid h-24 w-24 cursor-pointer place-items-center rounded border hover:bg-gray-50">
             <span className="text-sm">+ Upload</span>
             <input
@@ -421,7 +494,7 @@ export default function ProductImages({
         )}
       </div>
 
-      {value.length < max && (
+      {value.length + pendingImages.length + (urlImporting ? 1 : 0) < max && (
         <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50 p-3">
           <div className="mb-2 text-xs font-medium text-slate-700">
             Upload by URL

@@ -3,12 +3,12 @@ import {
   type NextRequest,
 } from "next/server";
 
-import {
-  getWpBaseUrl,
-  wpAuthHeader,
-} from "@/lib/wpClient";
+import { getWpBaseUrl } from "@/lib/wpClient";
 
 export const dynamic = "force-dynamic";
+
+const INTERNAL_TOKEN =
+  process.env.LETZ_INTERNAL_TOKEN || "";
 
 const PRIVATE_HEADERS = {
   "Cache-Control":
@@ -57,7 +57,8 @@ async function deleteCatalogMedia(
     {
       method: "POST",
       headers: {
-        ...wpAuthHeader(),
+        "X-Letz-Auth":
+          INTERNAL_TOKEN,
         "Content-Type":
           "application/json",
         Accept: "application/json",
@@ -101,6 +102,20 @@ function skippedFrom(
 async function handleDelete(
   ids: number[]
 ) {
+  if (!INTERNAL_TOKEN) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error:
+          "Media service is not configured.",
+      },
+      {
+        status: 500,
+        headers: PRIVATE_HEADERS,
+      }
+    );
+  }
+
   const base = (
     await getWpBaseUrl()
   ).replace(/\/$/, "");

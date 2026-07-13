@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  useEffect,
   useRef,
   useState,
   type ReactNode,
@@ -79,11 +80,34 @@ export default function ImageUploader({
   multiple = false,
 }: ImageUploaderProps) {
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const previewRef = useRef<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+
+  function clearPreview() {
+    if (previewRef.current) {
+      URL.revokeObjectURL(previewRef.current);
+      previewRef.current = null;
+    }
+
+    setPreviewUrl(null);
+  }
+
+  useEffect(() => {
+    return () => {
+      if (previewRef.current) {
+        URL.revokeObjectURL(previewRef.current);
+      }
+    };
+  }, []);
 
   async function handleFile(file: File) {
+    clearPreview();
+    const localPreview = URL.createObjectURL(file);
+    previewRef.current = localPreview;
+    setPreviewUrl(localPreview);
     setError(null);
     setLoading(true);
 
@@ -115,6 +139,7 @@ export default function ImageUploader({
         caught instanceof Error ? caught.message : "Upload failed",
       );
     } finally {
+      clearPreview();
       setLoading(false);
       setIsDragging(false);
     }
@@ -195,6 +220,21 @@ export default function ImageUploader({
         className="hidden"
         onChange={onInputChange}
       />
+
+      {previewUrl && (
+        <div className="relative mt-2 h-24 w-24 overflow-hidden rounded-xl border border-violet-200 bg-slate-100">
+          {/* Local object URL: intentionally not passed to next/image. */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={previewUrl}
+            alt="Upload preview"
+            className="h-full w-full object-cover"
+          />
+          <div className="absolute inset-0 grid place-items-center bg-slate-950/45 px-2 text-center text-[11px] font-semibold text-white">
+            Uploading…
+          </div>
+        </div>
+      )}
 
       {error && (
         <div className="text-[11px] text-rose-600">{error}</div>

@@ -131,7 +131,6 @@ export default function FeedbackFormClient({
 
       <form
         action={action}
-        encType="multipart/form-data"
         className="mt-5 rounded-[28px] border border-slate-200 bg-white p-4 shadow-sm md:p-5"
       >
         {feedback?.id ? (

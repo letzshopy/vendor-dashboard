@@ -383,6 +383,40 @@ async function uploadToWordPress({ file, purpose }: UploadInput) {
     throw new Error("Media upload returned an invalid response.");
   }
 
+  /*
+   * Confirm the media classification after upload. This second,
+   * idempotent write prevents catalog uploads from disappearing from the
+   * vendor Media Library and keeps system media protected even if an older
+   * runtime upload handler ignores the multipart classification fields.
+   */
+  const scopeResponse = await fetch(
+    `${base}/wp-json/letz/v1/media/mark-scope`,
+    {
+      method: "POST",
+      headers: {
+        "X-Letz-Auth": INTERNAL_TOKEN,
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+      body: JSON.stringify({ id, scope, purpose }),
+      cache: "no-store",
+      signal: AbortSignal.timeout(15_000),
+    },
+  );
+
+  const scopeResult: unknown = await scopeResponse
+    .json()
+    .catch(() => null);
+
+  if (
+    !scopeResponse.ok ||
+    !isRecord(scopeResult) ||
+    scopeResult.scope !== scope ||
+    scopeResult.protected !== (scope === "system")
+  ) {
+    throw new Error("Media classification failed.");
+  }
+
   const imageUrl =
     typeof parsed.image_url === "string" ? parsed.image_url : url;
 
@@ -398,7 +432,7 @@ async function uploadToWordPress({ file, purpose }: UploadInput) {
     filename: file.name,
     purpose,
     scope,
-    protected: parsed.protected === true || scope === "system",
+    protected: scopeResult.protected === true,
     item: isRecord(parsed.item) ? parsed.item : null,
   };
 }

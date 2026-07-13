@@ -84,6 +84,8 @@ export async function GET(
         "all",
         "image",
         "video",
+        "audio",
+        "doc",
         "application",
       ].includes(type)
     ) {

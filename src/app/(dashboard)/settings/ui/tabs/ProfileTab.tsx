@@ -112,9 +112,20 @@ export default function ProfileTab() {
   const [data, setData] = useState<ProfileData | null>(null);
   const [saving, setSaving] = useState(false);
   const [logoUploading, setLogoUploading] = useState(false);
+  const [logoPreviewUrl, setLogoPreviewUrl] = useState<string | null>(null);
   const [dirty, setDirty] = useState(false);
   const [saveBanner, setSaveBanner] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const logoPreviewRef = useRef<string | null>(null);
+
+  const clearLogoPreview = () => {
+    if (logoPreviewRef.current) {
+      URL.revokeObjectURL(logoPreviewRef.current);
+      logoPreviewRef.current = null;
+    }
+
+    setLogoPreviewUrl(null);
+  };
 
   const inputClass =
     "h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-900 " +
@@ -220,6 +231,14 @@ export default function ProfileTab() {
     return () => window.removeEventListener("beforeunload", handler);
   }, [dirty]);
 
+  useEffect(() => {
+    return () => {
+      if (logoPreviewRef.current) {
+        URL.revokeObjectURL(logoPreviewRef.current);
+      }
+    };
+  }, []);
+
   if (!data) {
     return (
       <div className="p-4 md:p-5">
@@ -265,6 +284,10 @@ export default function ProfileTab() {
   };
 
   const uploadLogo = async (file: File) => {
+    clearLogoPreview();
+    const localPreview = URL.createObjectURL(file);
+    logoPreviewRef.current = localPreview;
+    setLogoPreviewUrl(localPreview);
     setLogoUploading(true);
     try {
       const fd = new FormData();
@@ -278,6 +301,7 @@ export default function ProfileTab() {
       if (!r.ok) throw new Error(j.error || "Upload failed");
       markDirtyChange("business.logoUrl", j.url);
     } finally {
+      clearLogoPreview();
       setLogoUploading(false);
     }
   };
@@ -508,11 +532,11 @@ export default function ProfileTab() {
             </div>
 
             <div className="mt-4">
-              {data.business.logoUrl ? (
+              {logoPreviewUrl || data.business.logoUrl ? (
                 <div className="space-y-4">
                   <div className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white p-3">
                     <img
-                      src={data.business.logoUrl}
+                      src={logoPreviewUrl || data.business.logoUrl}
                       alt="Logo"
                       className="h-16 w-16 rounded-xl border border-slate-200 bg-white object-contain"
                     />
@@ -538,7 +562,10 @@ export default function ProfileTab() {
                     <button
                       type="button"
                       className="inline-flex h-11 items-center justify-center rounded-2xl border border-rose-200 bg-rose-50 px-4 text-sm font-semibold text-rose-700 hover:bg-rose-100"
-                      onClick={() => markDirtyChange("business.logoUrl", "")}
+                      onClick={() => {
+                        clearLogoPreview();
+                        markDirtyChange("business.logoUrl", "");
+                      }}
                     >
                       Remove
                     </button>
@@ -572,7 +599,14 @@ export default function ProfileTab() {
                 ref={fileRef}
                 type="file"
                 accept="image/*"
-                onChange={(e) => e.target.files?.[0] && uploadLogo(e.target.files[0])}
+                onChange={(event) => {
+                  const file = event.target.files?.[0];
+                  event.target.value = "";
+
+                  if (file) {
+                    void uploadLogo(file);
+                  }
+                }}
                 className="hidden"
               />
             </div>
