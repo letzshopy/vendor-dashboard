@@ -110,7 +110,7 @@ function ActionMenu({
   }, []);
 
   return (
-    <div className="relative" ref={wrapRef}>
+    <div className="relative shrink-0" ref={wrapRef}>
       <button
         type="button"
         onClick={() => setOpen((s) => !s)}
@@ -482,7 +482,7 @@ export default function ProductsClientTable({
   }
 
   return (
-    <div className="overflow-hidden rounded-[26px] border border-slate-200/80 bg-white shadow-[0_10px_30px_rgba(15,23,42,0.05)]">
+    <div className="w-full min-w-0 overflow-hidden rounded-[26px] border border-slate-200/80 bg-white shadow-[0_10px_30px_rgba(15,23,42,0.05)]">
       <div className="border-b border-slate-100 bg-gradient-to-r from-white via-[#faf7ff] to-[#f4fbff] px-4 py-4 md:px-5">
         <div className="flex items-center justify-between gap-3">
           <h2 className="text-[17px] font-semibold tracking-tight text-slate-900">
@@ -498,16 +498,16 @@ export default function ProductsClientTable({
           <div className="flex items-center gap-2 rounded-[22px] border border-slate-200 bg-slate-50 px-3 py-2.5 shadow-sm">
             <Search className="h-4 w-4 text-slate-400" />
             <input
-              className="w-full bg-transparent text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none"
+              className="min-w-0 w-full bg-transparent text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none"
               placeholder="Search by title or SKU…"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
             />
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-2">
             <select
-              className="h-11 flex-1 rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-700 shadow-sm focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-200"
+              className="h-11 min-w-0 w-full rounded-2xl border border-slate-200 bg-white px-3 text-sm text-slate-700 shadow-sm focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-200 sm:px-4"
               value={bulk}
               onChange={(e) => setBulk(e.target.value)}
             >
@@ -522,7 +522,7 @@ export default function ProductsClientTable({
             </select>
 
             <button
-              className="inline-flex h-11 shrink-0 items-center justify-center rounded-2xl bg-violet-600 px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-violet-700"
+              className="inline-flex h-11 shrink-0 items-center justify-center rounded-2xl bg-violet-600 px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-violet-700 sm:px-5"
               onClick={applyBulk}
             >
               Apply
@@ -554,7 +554,7 @@ export default function ProductsClientTable({
       {/* Mobile cards */}
       <div className="block md:hidden">
         {pageProducts.length > 0 ? (
-          <div className="space-y-2 p-3">
+          <div className="space-y-2 p-2.5 sm:p-3">
             {pageProducts.map((p) => {
               const img = p.images?.[0]?.src;
               const cats = (p.categories || []).map((c) => c.name).join(", ");
@@ -562,10 +562,10 @@ export default function ProductsClientTable({
               return (
                 <div
                   key={p.id}
-                  className="rounded-[20px] border border-slate-200 bg-white px-3 py-3 shadow-sm transition"
+                  className="min-w-0 rounded-[20px] border border-slate-200 bg-white px-2.5 py-3 shadow-sm transition sm:px-3"
                 >
-                  <div className="flex items-start gap-3">
-                    <div className="pt-2">
+                  <div className="flex min-w-0 items-start gap-2 sm:gap-3">
+                    <div className="shrink-0 pt-2">
                       <input
                         type="checkbox"
                         checked={checked.includes(p.id)}
@@ -577,10 +577,10 @@ export default function ProductsClientTable({
                       <img
                         src={img}
                         alt={p.name}
-                        className="h-14 w-14 shrink-0 rounded-2xl border border-slate-100 object-cover"
+                        className="h-12 w-12 shrink-0 rounded-2xl border border-slate-100 object-cover sm:h-14 sm:w-14"
                       />
                     ) : (
-                      <div className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl border border-dashed border-slate-200 bg-slate-50 text-[10px] text-slate-400">
+                      <div className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl border border-dashed border-slate-200 bg-slate-50 text-[10px] text-slate-400 sm:h-14 sm:w-14">
                         No image
                       </div>
                     )}
@@ -596,7 +596,7 @@ export default function ProductsClientTable({
       {p.name || "(no title)"}
     </Link>
 
-    <div className="mt-1 flex items-center gap-3">
+    <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
       <div className="text-base font-semibold text-slate-900">
         {p.price ? `₹${p.price}` : "—"}
       </div>
@@ -809,7 +809,7 @@ export default function ProductsClientTable({
             of <span className="font-semibold">{totalItems}</span> products
           </div>
 
-          <div className="flex items-center justify-between gap-2 md:justify-end">
+          <div className="flex flex-wrap items-center justify-between gap-2 md:justify-end">
             <button
               className="inline-flex items-center gap-1 rounded-full border border-slate-200 px-3 py-2 text-xs font-medium hover:bg-slate-50 disabled:opacity-40"
               disabled={currentPage <= 1}
