@@ -1,112 +1,341 @@
-import { NextResponse } from "next/server";
-import { getWpBaseUrl } from "@/lib/wpClient";
+import {
+  NextResponse,
+  type NextRequest,
+} from "next/server";
+
+import {
+  findAuthorizedStore,
+  verifySessionToken,
+  type SessionStore,
+} from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
-function getWpAuthEnv() {
-  const user = process.env.WP_USER || "";
-  const appPass = (process.env.WP_APP_PASSWORD || "").replace(/\s+/g, "");
+const AUTH_COOKIE_NAME =
+  process.env.AUTH_COOKIE_NAME || "ls_vendor_auth";
 
-  const missing: string[] = [];
-  if (!user) missing.push("WP_USER");
-  if (!appPass) missing.push("WP_APP_PASSWORD");
+const TENANT_COOKIE_NAME =
+  process.env.TENANT_COOKIE_NAME || "ls_tenant";
 
-  if (missing.length) throw new Error(`Missing env var(s): ${missing.join(", ")}`);
+const SESSION_SIGNING_SECRET =
+  process.env.DASHBOARD_SECRET || "";
 
-  const auth = Buffer.from(`${user}:${appPass}`).toString("base64");
-  return { auth };
+const INTERNAL_TOKEN =
+  process.env.LETZ_INTERNAL_TOKEN || "";
+
+const PRIVATE_HEADERS = {
+  "Cache-Control":
+    "private, no-store, no-cache, must-revalidate, max-age=0",
+};
+
+type JsonRecord = Record<string, unknown>;
+
+function isRecord(value: unknown): value is JsonRecord {
+  return Boolean(
+    value &&
+      typeof value === "object" &&
+      !Array.isArray(value)
+  );
 }
 
-async function deleteCatalogMedia(wpUrl: string, auth: string, ids: number[]) {
-  const r = await fetch(`${wpUrl}/wp-json/letz/v1/media/delete-catalog`, {
-    method: "POST",
-    headers: {
-      Authorization: `Basic ${auth}`,
-      "Content-Type": "application/json",
-      Accept: "application/json",
-    },
-    body: JSON.stringify({ ids }),
-    cache: "no-store",
+function privateJson(
+  body: JsonRecord,
+  status: number
+) {
+  return NextResponse.json(body, {
+    status,
+    headers: PRIVATE_HEADERS,
   });
-
-  const text = await r.text();
-  let data: any = {};
-
-  try {
-    data = JSON.parse(text);
-  } catch {
-    data = { raw: text };
-  }
-
-  if (!r.ok) {
-    throw new Error(data?.message || data?.error || `WP delete failed (${r.status}): ${text}`);
-  }
-
-  return data;
 }
 
-export async function POST(req: Request) {
+function parseTenantCookie(
+  rawValue: string | undefined
+): {
+  blog_id?: unknown;
+  store_url?: unknown;
+} | null {
+  if (!rawValue) {
+    return null;
+  }
+
   try {
-    const wpUrl = (await getWpBaseUrl()).replace(/\/$/, "");
-    const { auth } = getWpAuthEnv();
+    const parsed: unknown = JSON.parse(
+      decodeURIComponent(rawValue)
+    );
 
-    const { ids } = await req.json();
-
-    if (!Array.isArray(ids) || ids.length === 0) {
-      return NextResponse.json({ error: "ids (number[]) required" }, { status: 400 });
+    if (!isRecord(parsed)) {
+      return null;
     }
 
-    const cleanIds = ids
-      .map((raw) => Number(raw))
-      .filter((id) => Number.isFinite(id) && id > 0);
+    return {
+      blog_id: parsed.blog_id,
+      store_url: parsed.store_url,
+    };
+  } catch {
+    return null;
+  }
+}
 
-    if (!cleanIds.length) {
-      return NextResponse.json({ error: "No valid ids provided" }, { status: 400 });
-    }
-
-    const result = await deleteCatalogMedia(wpUrl, auth, cleanIds);
-
-    if (Array.isArray(result?.skipped) && result.skipped.length > 0) {
-      return NextResponse.json(
+async function authorizedStore(
+  request: NextRequest
+): Promise<
+  | { ok: true; store: SessionStore }
+  | { ok: false; response: NextResponse }
+> {
+  if (!SESSION_SIGNING_SECRET) {
+    return {
+      ok: false,
+      response: privateJson(
         {
           ok: false,
-          error: "Some media files are protected and were not deleted.",
-          deleted: result.deleted || [],
-          skipped: result.skipped,
+          error: "Dashboard authentication is not configured.",
         },
-        { status: 409 }
+        500
+      ),
+    };
+  }
+
+  const token =
+    request.cookies.get(AUTH_COOKIE_NAME)?.value || "";
+
+  const session = await verifySessionToken(
+    token,
+    SESSION_SIGNING_SECRET
+  );
+
+  if (!session) {
+    return {
+      ok: false,
+      response: privateJson(
+        {
+          ok: false,
+          error: "Authentication required.",
+        },
+        401
+      ),
+    };
+  }
+
+  const tenant = parseTenantCookie(
+    request.cookies.get(TENANT_COOKIE_NAME)?.value
+  );
+
+  const store = tenant
+    ? findAuthorizedStore(session, tenant)
+    : null;
+
+  if (!store) {
+    return {
+      ok: false,
+      response: privateJson(
+        {
+          ok: false,
+          error: "Select an authorized store.",
+        },
+        403
+      ),
+    };
+  }
+
+  return {
+    ok: true,
+    store,
+  };
+}
+
+function cleanIds(value: unknown): number[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return Array.from(
+    new Set(
+      value
+        .map(Number)
+        .filter(
+          (id) => Number.isInteger(id) && id > 0
+        )
+    )
+  ).slice(0, 100);
+}
+
+async function deleteCatalogMedia(
+  storeUrl: string,
+  ids: number[]
+): Promise<{
+  response: Response;
+  result: JsonRecord | null;
+}> {
+  const response = await fetch(
+    `${storeUrl.replace(/\/$/, "")}/wp-json/letz/v1/media/delete-catalog`,
+    {
+      method: "POST",
+      headers: {
+        "X-Letz-Auth": INTERNAL_TOKEN,
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+      body: JSON.stringify({ ids }),
+      cache: "no-store",
+      signal: AbortSignal.timeout(20_000),
+    }
+  );
+
+  const parsed: unknown = await response
+    .json()
+    .catch(() => null);
+
+  return {
+    response,
+    result: isRecord(parsed) ? parsed : null,
+  };
+}
+
+function arrayField(
+  result: JsonRecord,
+  field: "deleted" | "skipped"
+) {
+  return Array.isArray(result[field])
+    ? result[field]
+    : [];
+}
+
+async function handleDelete(
+  request: NextRequest,
+  ids: number[]
+) {
+  if (!INTERNAL_TOKEN) {
+    return privateJson(
+      {
+        ok: false,
+        error: "Media service is not configured.",
+      },
+      500
+    );
+  }
+
+  const authorization = await authorizedStore(request);
+
+  if (!authorization.ok) {
+    return authorization.response;
+  }
+
+  const { response, result } =
+    await deleteCatalogMedia(
+      authorization.store.store_url,
+      ids
+    );
+
+  if (!response.ok || !result) {
+    return privateJson(
+      {
+        ok: false,
+        error: "Media deletion failed.",
+      },
+      response.status >= 400 && response.status < 500
+        ? response.status
+        : 502
+    );
+  }
+
+  const deleted = arrayField(result, "deleted");
+  const skipped = arrayField(result, "skipped");
+
+  if (skipped.length > 0) {
+    return privateJson(
+      {
+        ok: false,
+        error: "Protected media cannot be deleted.",
+        deleted,
+        skipped,
+      },
+      409
+    );
+  }
+
+  return privateJson(
+    {
+      ok: true,
+      deleted,
+    },
+    200
+  );
+}
+
+export async function POST(
+  request: NextRequest
+) {
+  try {
+    const parsed: unknown = await request
+      .json()
+      .catch(() => null);
+
+    const ids = isRecord(parsed)
+      ? cleanIds(parsed.ids)
+      : [];
+
+    if (ids.length === 0) {
+      return privateJson(
+        {
+          ok: false,
+          error: "At least one valid media ID is required.",
+        },
+        400
       );
     }
 
-    return NextResponse.json({ ok: true, deleted: result.deleted || [] });
-  } catch (e: any) {
-    return NextResponse.json({ error: e?.message || "Unknown error" }, { status: 500 });
+    return await handleDelete(request, ids);
+  } catch (error: unknown) {
+    console.error(
+      "Bulk media deletion failed:",
+      error instanceof Error
+        ? error.message
+        : "Unknown error"
+    );
+
+    return privateJson(
+      {
+        ok: false,
+        error: "Media deletion failed.",
+      },
+      500
+    );
   }
 }
 
-export async function DELETE(req: Request) {
+export async function DELETE(
+  request: NextRequest
+) {
   try {
-    const wpUrl = (await getWpBaseUrl()).replace(/\/$/, "");
-    const { auth } = getWpAuthEnv();
+    const id = Number(
+      request.nextUrl.searchParams.get("id")
+    );
 
-    const url = new URL(req.url);
-    const id = Number(url.searchParams.get("id"));
-
-    if (!Number.isFinite(id) || id <= 0) {
-      return NextResponse.json({ error: "id required" }, { status: 400 });
-    }
-
-    const result = await deleteCatalogMedia(wpUrl, auth, [id]);
-
-    if (Array.isArray(result?.skipped) && result.skipped.length > 0) {
-      return NextResponse.json(
-        { ok: false, error: "This media file is protected and cannot be deleted.", skipped: result.skipped },
-        { status: 403 }
+    if (!Number.isInteger(id) || id <= 0) {
+      return privateJson(
+        {
+          ok: false,
+          error: "Invalid media ID.",
+        },
+        400
       );
     }
 
-    return NextResponse.json({ ok: true, deleted: result.deleted || [] });
-  } catch (e: any) {
-    return NextResponse.json({ error: e?.message || "Unknown error" }, { status: 500 });
+    return await handleDelete(request, [id]);
+  } catch (error: unknown) {
+    console.error(
+      "Media deletion failed:",
+      error instanceof Error
+        ? error.message
+        : "Unknown error"
+    );
+
+    return privateJson(
+      {
+        ok: false,
+        error: "Media deletion failed.",
+      },
+      500
+    );
   }
 }
