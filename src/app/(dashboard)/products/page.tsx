@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Boxes, Plus } from "lucide-react";
+import { Plus } from "lucide-react";
 import { getWooClient } from "@/lib/woo";
 import ProductsClientTable from "@/components/ProductsClientTable";
 import ProductsFilters from "@/components/ProductsFilters";
@@ -34,7 +34,7 @@ async function getProducts(
     ptype?: "simple" | "variable" | "grouped" | "";
   }
 ): Promise<Product[]> {
-  const query: Record<string, any> = {
+  const query: Record<string, string | number> = {
     per_page: 100,
     orderby: "date",
     order: "desc",
@@ -71,7 +71,7 @@ export default async function ProductsPage({
 
   const category = sp.category || "";
   const stock = sp.stock || undefined;
-  const ptype = (sp.ptype as any) || "";
+  const ptype = sp.ptype || "";
 
   const woo = await getWooClient();
 
@@ -104,8 +104,8 @@ export default async function ProductsPage({
         <ProductsFilters
           categories={categories}
           initialCategory={category}
-          initialStock={(stock as any) || ""}
-          initialType={(ptype as any) || ""}
+          initialStock={stock || ""}
+          initialType={ptype || ""}
           rightSlot={
             <ProductsImportExportBar
               key="products-import-export"
