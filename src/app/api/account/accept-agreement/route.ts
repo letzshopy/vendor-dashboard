@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 
-import { getWpBaseUrl } from "@/lib/wpClient";
+import { fetchInternalWp } from "@/lib/wpClient";
 import { verifySessionToken } from "@/lib/session";
 
 const AUTH_COOKIE_NAME =
@@ -10,21 +10,17 @@ const AUTH_COOKIE_NAME =
 const SESSION_SIGNING_SECRET =
   process.env.DASHBOARD_SECRET || "";
 
-function authHeader() {
-  const user = process.env.WP_USER;
-  const pass = (
-    process.env.WP_APP_PASSWORD || ""
-  ).replace(/\s+/g, "");
+const UPSTREAM_TIMEOUT_MS = 15_000;
 
-  if (!user || !pass) {
-    throw new Error(
-      "Missing WP_USER or WP_APP_PASSWORD environment variables."
-    );
-  }
+type JsonRecord = Record<string, unknown>;
 
+function isRecord(
+  value: unknown
+): value is JsonRecord {
   return (
-    "Basic " +
-    Buffer.from(`${user}:${pass}`).toString("base64")
+    typeof value === "object" &&
+    value !== null &&
+    !Array.isArray(value)
   );
 }
 
@@ -82,50 +78,81 @@ export async function POST() {
       );
     }
 
-    const base = (
-      await getWpBaseUrl()
-    ).replace(/\/$/, "");
-
-    const wpResponse = await fetch(
-      `${base}/wp-json/letz/v1/account/agreement/accept`,
+    const wpResponse = await fetchInternalWp(
+      "/wp-json/letz/v1/account/agreement/accept",
       {
         method: "POST",
         headers: {
-          Authorization: authHeader(),
           "Content-Type": "application/json",
-          "X-Letz-Dashboard-Key":
-            process.env.LETZ_DASHBOARD_API_KEY || "",
         },
-        cache: "no-store",
         body: JSON.stringify({
           version: "v1.0",
           accepted_by_email: session.email,
           saas_role: session.saas_role,
         }),
-      }
+      },
+      UPSTREAM_TIMEOUT_MS
     );
 
-    const responseText = await wpResponse.text();
+    const responsePayload: unknown =
+      await wpResponse
+        .json()
+        .catch(() => null);
 
-    return new NextResponse(responseText, {
-      status: wpResponse.status,
-      headers: {
-        "Content-Type": "application/json",
-        "Cache-Control": "no-store",
-      },
-    });
+    if (!wpResponse.ok) {
+      console.error(
+        `Agreement acceptance runtime request failed with status ${wpResponse.status}.`
+      );
+
+      return NextResponse.json(
+        {
+          ok: false,
+          error:
+            "Could not accept agreement.",
+        },
+        {
+          status:
+            wpResponse.status >= 400 &&
+            wpResponse.status < 500
+              ? 400
+              : 502,
+          headers: {
+            "Cache-Control": "no-store",
+          },
+        }
+      );
+    }
+
+    return NextResponse.json(
+      isRecord(responsePayload)
+        ? responsePayload
+        : { ok: true },
+      {
+        status: 200,
+        headers: {
+          "Cache-Control": "no-store",
+        },
+      }
+    );
   } catch (error: unknown) {
-    console.error("Agreement accept error:", error);
+    console.error(
+      "Agreement accept error:",
+      error instanceof Error
+        ? error.message
+        : "Unknown agreement error"
+    );
 
     return NextResponse.json(
       {
         ok: false,
-        error:
-          error instanceof Error
-            ? error.message
-            : "Could not accept agreement.",
+        error: "Could not accept agreement.",
       },
-      { status: 500 }
+      {
+        status: 502,
+        headers: {
+          "Cache-Control": "no-store",
+        },
+      }
     );
   }
 }

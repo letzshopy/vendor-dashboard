@@ -1,87 +1,77 @@
 import { NextResponse } from "next/server";
-import { getWpBaseUrl } from "@/lib/wpClient";
+
+import { fetchInternalWp } from "@/lib/wpClient";
 
 export const dynamic = "force-dynamic";
 
-function requireInternalToken(): string {
-  const token = process.env.LETZ_INTERNAL_TOKEN || "";
+type JsonRecord = Record<string, unknown>;
 
-  if (!token) {
-    throw new Error("Missing LETZ_INTERNAL_TOKEN in dashboard env");
-  }
-
-  return token;
-}
-
-function safeJson(text: string): any {
-  try {
-    return JSON.parse(text);
-  } catch {
-    return null;
-  }
-}
-
-function wpErrorMessage(
-  json: any,
-  text: string,
-  fallback: string
-): string {
+function isRecord(
+  value: unknown
+): value is JsonRecord {
   return (
-    json?.error ||
-    json?.message ||
-    json?.data?.message ||
-    text ||
-    fallback
+    typeof value === "object" &&
+    value !== null &&
+    !Array.isArray(value)
   );
+}
+
+function privateJson(
+  body: unknown,
+  status = 200
+): NextResponse {
+  return NextResponse.json(body, {
+    status,
+    headers: {
+      "Cache-Control": "no-store, private",
+    },
+  });
 }
 
 export async function GET() {
   try {
-    const base = (await getWpBaseUrl()).replace(/\/$/, "");
-    const token = requireInternalToken();
-
-    const response = await fetch(
-      `${base}/wp-json/letzshopy/v1/menus`,
-      {
-        headers: {
-          "X-Letz-Auth": token,
-          Accept: "application/json",
-        },
-        cache: "no-store",
-      }
+    const response = await fetchInternalWp(
+      "/wp-json/letzshopy/v1/menus",
+      { method: "GET" }
     );
 
-    const text = await response.text();
-    const json = safeJson(text);
+    const payload: unknown =
+      await response
+        .json()
+        .catch(() => null);
 
-    if (!response.ok) {
-      return NextResponse.json(
+    if (
+      !response.ok ||
+      !isRecord(payload)
+    ) {
+      console.error(
+        `Menu list request failed with status ${response.status}.`
+      );
+
+      return privateJson(
         {
-          error: wpErrorMessage(
-            json,
-            text,
-            "WP menus failed"
-          ),
-          details: json || text,
+          error:
+            "Failed to load store menus.",
         },
-        {
-          status: response.status || 500,
-        }
+        502
       );
     }
 
-    return NextResponse.json(
-      json || { menus: [] },
-      { status: 200 }
+    return privateJson(payload);
+  } catch (error: unknown) {
+    console.error(
+      "Menu list proxy failed:",
+      error instanceof Error
+        ? error.message
+        : "Unknown menu error"
     );
-  } catch (error: any) {
-    return NextResponse.json(
+
+    return privateJson(
       {
         error:
-          error?.message ||
-          "Menu list proxy error",
+          "Failed to load store menus.",
       },
-      { status: 500 }
+      502
     );
   }
 }

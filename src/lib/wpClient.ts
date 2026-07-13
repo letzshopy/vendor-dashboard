@@ -73,6 +73,24 @@ export function wpAuthHeader(): {
   };
 }
 
+export function wpInternalAuthHeader(): {
+  "X-Letz-Auth": string;
+} {
+  const token = (
+    process.env.LETZ_INTERNAL_TOKEN || ""
+  ).trim();
+
+  if (!token) {
+    throw new Error(
+      "Missing WordPress internal authentication configuration"
+    );
+  }
+
+  return {
+    "X-Letz-Auth": token,
+  };
+}
+
 export async function getWpBaseUrl():
   Promise<string> {
   const tenant =
@@ -107,6 +125,39 @@ export function getMasterWpBaseUrl():
     configuredBaseUrl,
     "master WordPress"
   );
+}
+
+export async function fetchInternalWp(
+  path: string,
+  init: RequestInit = {},
+  timeoutMs = 20_000
+): Promise<Response> {
+  if (!path.startsWith("/wp-json/")) {
+    throw new Error(
+      "Invalid internal WordPress API path"
+    );
+  }
+
+  const baseUrl = await getWpBaseUrl();
+  const headers = new Headers(init.headers);
+
+  headers.set(
+    "X-Letz-Auth",
+    wpInternalAuthHeader()["X-Letz-Auth"]
+  );
+
+  if (!headers.has("Accept")) {
+    headers.set("Accept", "application/json");
+  }
+
+  return fetch(`${baseUrl}${path}`, {
+    ...init,
+    headers,
+    cache: init.cache || "no-store",
+    signal:
+      init.signal ||
+      AbortSignal.timeout(timeoutMs),
+  });
 }
 
 export async function getWpClient():

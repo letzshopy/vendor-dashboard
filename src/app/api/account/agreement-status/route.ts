@@ -1,14 +1,10 @@
 import { NextResponse } from "next/server";
 import {
-  getWpBaseUrl,
-  wpAuthHeader,
+  fetchInternalWp,
 } from "@/lib/wpClient";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
-
-const DASHBOARD_API_KEY =
-  process.env.LETZ_DASHBOARD_API_KEY || "";
 
 const UPSTREAM_TIMEOUT_MS = 15_000;
 
@@ -47,37 +43,14 @@ function privateJson(
   });
 }
 
-function wordpressHeaders():
-  Record<string, string> {
-  const headers: Record<string, string> = {
-    Accept: "application/json",
-    ...wpAuthHeader(),
-  };
-
-  if (DASHBOARD_API_KEY) {
-    headers["X-Letz-Dashboard-Key"] =
-      DASHBOARD_API_KEY;
-  }
-
-  return headers;
-}
-
 export async function GET() {
   try {
-    const base = (
-      await getWpBaseUrl()
-    ).replace(/\/$/, "");
-
-    const response = await fetch(
-      `${base}/wp-json/letz/v1/account/agreement/status`,
+    const response = await fetchInternalWp(
+      "/wp-json/letz/v1/account/agreement/status",
       {
         method: "GET",
-        headers: wordpressHeaders(),
-        cache: "no-store",
-        signal: AbortSignal.timeout(
-          UPSTREAM_TIMEOUT_MS
-        ),
-      }
+      },
+      UPSTREAM_TIMEOUT_MS
     );
 
     if (!response.ok) {

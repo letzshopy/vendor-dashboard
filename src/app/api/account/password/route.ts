@@ -4,8 +4,7 @@ import {
   verifySessionToken,
 } from "@/lib/session";
 import {
-  getWpBaseUrl,
-  wpAuthHeader,
+  fetchInternalWp,
 } from "@/lib/wpClient";
 
 export const dynamic = "force-dynamic";
@@ -165,29 +164,20 @@ export async function POST(request: Request) {
   }
 
   try {
-    const base = (
-      await getWpBaseUrl()
-    ).replace(/\/$/, "");
-
-    const response = await fetch(
-      `${base}/wp-json/letz/v1/account/password`,
+    const response = await fetchInternalWp(
+      "/wp-json/letz/v1/account/password",
       {
         method: "POST",
         headers: {
-  Accept: "application/json",
-  ...wpAuthHeader(),
-  "Content-Type":
-    "application/json",
-},
+          "Content-Type":
+            "application/json",
+        },
         body: JSON.stringify({
           new_password: newPassword,
           login_email: session.email,
         }),
-        cache: "no-store",
-        signal: AbortSignal.timeout(
-          UPSTREAM_TIMEOUT_MS
-        ),
-      }
+      },
+      UPSTREAM_TIMEOUT_MS
     );
 
     if (!response.ok) {
