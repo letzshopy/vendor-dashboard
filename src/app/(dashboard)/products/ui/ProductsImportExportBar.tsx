@@ -16,11 +16,11 @@ export default function ProductsImportExportBar({
 
   return (
     <>
-      <div className="flex items-center gap-3">
+      <div className="grid w-full min-w-0 grid-cols-2 gap-2 sm:flex sm:w-auto sm:items-center">
         <button
           type="button"
           onClick={() => setShowImport(true)}
-          className="inline-flex items-center rounded-full border border-slate-200 bg-white px-4 py-1.5 text-xs font-medium text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-slate-50"
+          className="inline-flex min-w-0 items-center justify-center rounded-2xl border border-slate-200 bg-white px-3 py-2.5 text-xs font-medium text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-slate-50 sm:rounded-full sm:px-4 sm:py-1.5"
         >
           Import CSV
         </button>
@@ -28,7 +28,7 @@ export default function ProductsImportExportBar({
         <button
           type="button"
           onClick={() => setShowExport(true)}
-          className="inline-flex items-center rounded-full bg-slate-900 px-4 py-1.5 text-xs font-medium text-white shadow-sm transition hover:bg-slate-800"
+          className="inline-flex min-w-0 items-center justify-center rounded-2xl bg-slate-900 px-3 py-2.5 text-xs font-medium text-white shadow-sm transition hover:bg-slate-800 sm:rounded-full sm:px-4 sm:py-1.5"
         >
           Export CSV
         </button>
