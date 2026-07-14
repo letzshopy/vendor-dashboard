@@ -1,79 +1,51 @@
-import { NextResponse } from "next/server";
 import { getWooClient } from "@/lib/woo";
+import {
+  parseProductIds,
+  privateJson,
+  productErrorResponse,
+  productSummary,
+  readJsonObject,
+} from "@/lib/productPolicy";
 
-// POST body: { ids: number[], status: "instock" | "outofstock" }
-export async function POST(req: Request) {
+type StockStatus = "instock" | "outofstock";
+
+function parseStockStatus(value: unknown): StockStatus {
+  if (value !== "instock" && value !== "outofstock") {
+    throw new TypeError("Invalid stock status");
+  }
+
+  return value;
+}
+
+export async function POST(request: Request) {
   try {
+    const body = await readJsonObject(request);
+    const ids = parseProductIds(body.ids);
+    const status = parseStockStatus(body.status);
     const woo = await getWooClient();
-
-    const body = await req.json().catch(() => ({}));
-    const ids: number[] = Array.isArray(body?.ids) ? body.ids : [];
-    const status = body?.status;
-
-    if (ids.length === 0) {
-      return NextResponse.json(
-        { error: "No product ids provided" },
-        { status: 400 }
-      );
-    }
-
-    if (status !== "instock" && status !== "outofstock") {
-      return NextResponse.json(
-        { error: "Invalid stock status" },
-        { status: 400 }
-      );
-    }
-
-    const cleanIds = ids.map((id) => Number(id)).filter((id) => !!id);
-    if (cleanIds.length === 0) {
-      return NextResponse.json({ error: "No valid product ids" }, { status: 400 });
-    }
-
-    const chunkSize = 50;
-    const updated: any[] = [];
-    const errors: any[] = [];
-
-    for (let i = 0; i < cleanIds.length; i += chunkSize) {
-      const chunk = cleanIds.slice(i, i + chunkSize);
-
-      // Force manage_stock=false so stock_status applies cleanly
-      const updates = chunk.map((id) => ({
+    const response = await woo.post("/products/batch", {
+      update: ids.map((id) => ({
         id,
         manage_stock: false,
         stock_status: status,
-      }));
-
-      try {
-        const { data } = await woo.post("/products/batch", { update: updates });
-        if (Array.isArray(data?.update)) updated.push(...data.update);
-      } catch (e: any) {
-        errors.push({
-          chunk,
-          error:
-            e?.response?.data?.message ||
-            e?.response?.data?.error ||
-            e?.message ||
-            "Batch stock update failed",
-        });
-      }
-    }
-
-    return NextResponse.json({
-      ok: true,
-      updatedCount: updated.length,
-      updated,
-      errors,
+      })),
     });
-  } catch (e: any) {
-    const msg =
-      e?.response?.data?.message ||
-      e?.response?.data?.error ||
-      e?.message ||
-      "Bulk stock failed";
 
-    return NextResponse.json(
-      { error: msg },
-      { status: e?.response?.status || 500 }
-    );
+    const updates = response.data && typeof response.data === "object"
+      ? (response.data as { update?: unknown }).update
+      : null;
+
+    const products = Array.isArray(updates)
+      ? updates.map(productSummary).filter((item) => item !== null)
+      : [];
+
+    return privateJson({
+      ok: true,
+      requestedCount: ids.length,
+      updatedCount: products.length,
+      products,
+    });
+  } catch (error: unknown) {
+    return productErrorResponse(error, "Bulk stock update failed");
   }
 }
