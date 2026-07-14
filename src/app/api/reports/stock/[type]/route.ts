@@ -1,10 +1,20 @@
-// src/app/api/reports/stock/[type]/route.ts
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
+
+import {
+  privateReportJson,
+  records,
+  reportErrorResponse,
+  responsePages,
+  safeId,
+  safeNumber,
+  safeText,
+} from "@/lib/reportPolicy";
 import { getWooClient } from "@/lib/woo";
 
+export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
-// Match Next 15 expected shape: params is a Promise<{ type: string }>
 type RouteContext = {
   params: Promise<{ type: string }>;
 };
@@ -17,108 +27,77 @@ type StockRow = {
   stock_quantity: number | null;
 };
 
-function toInt(v: any, fallback = 0) {
-  const n = parseInt(String(v ?? ""), 10);
-  return Number.isFinite(n) ? n : fallback;
+function stockQuantity(value: unknown): number | null {
+  if (value === null || value === undefined || value === "") return null;
+  const quantity = safeNumber(value);
+  return Number.isFinite(quantity) ? quantity : null;
 }
 
-function toNumOrNull(v: any): number | null {
-  if (v === null || v === undefined || v === "") return null;
-  const n = Number(v);
-  return Number.isFinite(n) ? n : null;
-}
-
-function extractWooError(e: any, fallback: string) {
-  return (
-    e?.response?.data?.message ||
-    e?.response?.data?.error ||
-    e?.message ||
-    fallback
-  );
-}
-
-export async function GET(_req: NextRequest, context: RouteContext) {
+export async function GET(_request: NextRequest, { params }: RouteContext) {
   try {
-    const woo = await getWooClient();
-
-    const { type: rawType } = await context.params;
+    const { type: rawType } = await params;
     const type = String(rawType || "").toLowerCase();
-
-    // Runtime guard – only allow the three known values
-    if (!["low", "out", "most"].includes(type)) {
-      return NextResponse.json(
-        { error: "Invalid stock report type" },
-        { status: 400 }
-      );
+    if (!(["low", "out", "most"] as string[]).includes(type)) {
+      throw new TypeError("Invalid stock report type");
     }
 
-    const per = 100;
-
-    // Pull products (first few pages is fine for vendor dashboard)
+    const woo = await getWooClient();
     const first = await woo.get("/products", {
-      params: { per_page: per, page: 1, status: "publish" },
+      params: {
+        per_page: 100,
+        page: 1,
+        status: "publish",
+        _fields: "id,name,parent_id,stock_status,stock_quantity",
+      },
+    });
+    const products = records(first.data);
+    const totalPages = responsePages(first.headers, 5);
+
+    if (totalPages > 1) {
+      const remaining = await Promise.all(
+        Array.from({ length: totalPages - 1 }, (_, index) =>
+          woo.get("/products", {
+            params: {
+              per_page: 100,
+              page: index + 2,
+              status: "publish",
+              _fields: "id,name,parent_id,stock_status,stock_quantity",
+            },
+          }),
+        ),
+      );
+      for (const response of remaining) products.push(...records(response.data));
+    }
+
+    const rows: StockRow[] = products.flatMap((product) => {
+      const id = safeId(product.id);
+      if (!id) return [];
+      const parentId = safeId(product.parent_id);
+
+      return [{
+        id,
+        name: safeText(product.name, 300),
+        parent: parentId || null,
+        stock_status: safeText(product.stock_status, 40) || "instock",
+        stock_quantity: stockQuantity(product.stock_quantity),
+      }];
     });
 
-    let prods: any[] = Array.isArray(first.data) ? first.data : [];
-
-    const totalPages = Math.min(
-      toInt(first.headers?.["x-wp-totalpages"] ?? first.headers?.["X-WP-TotalPages"] ?? "1", 1),
-      5
-    );
-
-    const ps: Promise<any>[] = [];
-    for (let p = 2; p <= totalPages; p++) {
-      ps.push(
-        woo.get("/products", {
-          params: { per_page: per, page: p, status: "publish" },
-        })
-      );
-    }
-
-    if (ps.length) {
-      const rs = await Promise.allSettled(ps);
-      for (const r of rs) {
-        if (r.status === "fulfilled") {
-          const rows = Array.isArray(r.value?.data) ? r.value.data : [];
-          prods.push(...rows);
-        }
-      }
-    }
-
-    // Optional: if you DON'T want variations here, uncomment this:
-    // prods = prods.filter((p: any) => String(p?.type || "") !== "variation");
-
-    const rows: StockRow[] = prods.map((p: any) => ({
-      id: Number(p?.id || 0),
-      name: String(p?.name || ""),
-      parent: p?.parent_id ? Number(p.parent_id) : null,
-      stock_status: String(p?.stock_status || "instock"),
-      stock_quantity: toNumOrNull(p?.stock_quantity),
-    }));
-
-    let filtered: StockRow[] = rows;
-
+    let items: StockRow[];
     if (type === "low") {
-      filtered = rows
-        .filter(
-          (r) => r.stock_status === "instock" && (r.stock_quantity ?? 0) > 0
-        )
+      items = rows
+        .filter((row) => row.stock_status === "instock" && (row.stock_quantity ?? 0) > 0)
         .sort((a, b) => (a.stock_quantity ?? Infinity) - (b.stock_quantity ?? Infinity));
     } else if (type === "out") {
-      filtered = rows.filter((r) => r.stock_status === "outofstock");
+      items = rows.filter((row) => row.stock_status === "outofstock");
     } else {
-      // "most" → most stocked
-      filtered = rows
-        .filter((r) => (r.stock_quantity ?? -1) >= 0)
+      items = rows
+        .filter((row) => (row.stock_quantity ?? -1) >= 0)
         .sort((a, b) => (b.stock_quantity ?? -1) - (a.stock_quantity ?? -1));
     }
 
-    return NextResponse.json({ type, items: filtered });
-  } catch (e: any) {
-    const msg = extractWooError(e, "Failed to load stock report");
-    return NextResponse.json(
-      { error: msg },
-      { status: e?.response?.status || 500 }
-    );
+    return privateReportJson({ type, items });
+  } catch (error: unknown) {
+    return reportErrorResponse(error, "Failed to load stock report");
   }
 }

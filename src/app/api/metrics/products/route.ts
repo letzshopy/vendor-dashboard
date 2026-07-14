@@ -1,44 +1,56 @@
-// src/app/api/metrics/products/route.ts
-import { NextResponse } from "next/server";
+import {
+  privateReportJson,
+  records,
+  reportErrorResponse,
+  responsePages,
+  safeText,
+} from "@/lib/reportPolicy";
 import { getWooClient } from "@/lib/woo";
 
-type WooProduct = {
-  stock_status?: "instock" | "outofstock" | "onbackorder" | string;
-};
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 export async function GET() {
   try {
     const woo = await getWooClient();
-    // Fetch a batch. If you have >100 products, we can paginate later.
-    const res = await woo.get("/products", {
+    const first = await woo.get("/products", {
       params: {
         per_page: 100,
         page: 1,
         status: "publish",
+        _fields: "id,stock_status",
       },
     });
+    const products = records(first.data);
+    const totalPages = responsePages(first.headers, 20);
 
-    const products = (res.data || []) as WooProduct[];
+    if (totalPages > 1) {
+      const remaining = await Promise.all(
+        Array.from({ length: totalPages - 1 }, (_, index) =>
+          woo.get("/products", {
+            params: {
+              per_page: 100,
+              page: index + 2,
+              status: "publish",
+              _fields: "id,stock_status",
+            },
+          }),
+        ),
+      );
+      for (const response of remaining) products.push(...records(response.data));
+    }
 
     let inStock = 0;
     let outOfStock = 0;
-
-    for (const p of products) {
-      const st = (p.stock_status || "").toLowerCase();
-      if (st === "instock") inStock += 1;
-      else if (st === "outofstock") outOfStock += 1;
+    for (const product of products) {
+      const status = safeText(product.stock_status, 40).toLowerCase();
+      if (status === "instock") inStock += 1;
+      if (status === "outofstock") outOfStock += 1;
     }
 
-    return NextResponse.json({
-      total: products.length,
-      inStock,
-      outOfStock,
-    });
-  } catch (e: any) {
-    console.error("Failed to load product metrics", e?.response?.data || e);
-    return NextResponse.json(
-      { error: "Failed to load product metrics" },
-      { status: 500 }
-    );
+    return privateReportJson({ total: products.length, inStock, outOfStock });
+  } catch (error: unknown) {
+    return reportErrorResponse(error, "Failed to load product metrics");
   }
 }
