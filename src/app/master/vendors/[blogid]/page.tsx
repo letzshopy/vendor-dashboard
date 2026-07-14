@@ -2,77 +2,12 @@ import Link from "next/link";
 import DashboardAccessCard from "@/components/master/DashboardAccessCard";
 import VendorKycReviewCard from "@/components/master/VendorKycReviewCard";
 import MasterSubscriptionCard from "@/components/master/MasterSubscriptionCard";
+import {
+  fetchMasterVendorDetail,
+  type MasterVendorDetail,
+} from "@/lib/masterOperations";
 
 export const dynamic = "force-dynamic";
-
-type VendorDetail = {
-  blogid: number;
-  site: { name: string; url: string };
-  account_settings?: {
-    owner?: Record<string, string | undefined>;
-    contact?: Record<string, string | undefined>;
-    profile?: Record<string, string | undefined>;
-    business?: Record<string, string | undefined>;
-    company?: Record<string, string | undefined>;
-    shop?: Record<string, string | undefined>;
-  };
-  dashboard_access?: {
-    locked?: boolean;
-    locked_at?: string;
-    locked_by?: string;
-    unlocked_at?: string;
-    unlocked_by?: string;
-    storefront_suspended?: boolean;
-    storefront_suspended_at?: string;
-    storefront_suspended_by?: string;
-    storefront_restored_at?: string;
-    storefront_restored_by?: string;
-  };
-  payment_methods: { upi: boolean; easebuzz: boolean; cod: boolean };
-  shipping: { provider: "self" | "shift" | string };
-  counts: {
-    products: number;
-    orders: number;
-    media: number;
-    orders_by_status?: Record<string, number>;
-  };
-  tickets: { open: number; pending: number; closed: number };
-  subscription: {
-    plan?: string;
-    period?: string;
-    status?: string;
-    amount?: number | string;
-    payment_mode?: string;
-    payment_reference?: string;
-    last_paid_date?: string;
-    next_payment_date?: string;
-    last_billed_at?: string;
-    next_renewal_at?: string;
-  };
-  links: { store?: string; dashboard?: string };
-};
-
-async function getVendor(blogid: string) {
-  const WP_URL = process.env.MASTER_WP_URL!;
-  const key = process.env.MASTER_API_KEY!;
-
-  const res = await fetch(`${WP_URL}/wp-json/letz/v1/master-vendors/${blogid}`, {
-    cache: "no-store",
-    headers: {
-      Authorization: `Bearer ${key}`,
-      "X-Letz-Master-Key": key,
-    },
-  });
-
-  const text = await res.text();
-  if (!res.ok) {
-    throw new Error(
-      `Failed vendor detail: ${res.status}\n\n${text.slice(0, 2000)}`
-    );
-  }
-
-  return JSON.parse(text);
-}
 
 function Pill({ on }: { on: boolean }) {
   return (
@@ -95,7 +30,7 @@ export default async function VendorDetailPage({
   params: Promise<{ blogid: string }>;
 }) {
   const { blogid } = await params;
-  const data = (await getVendor(blogid)) as VendorDetail;
+  const data: MasterVendorDetail = await fetchMasterVendorDetail(blogid);
 
   const as = data.account_settings ?? {};
   const owner = as.owner ?? as.contact ?? as.profile ?? {};

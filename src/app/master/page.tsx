@@ -1,51 +1,11 @@
 // src/app/master/page.tsx
 import Link from "next/link";
-import { getMasterWpBaseUrl } from "@/lib/wpClient";
+import {
+  fetchMasterVendors,
+  type MasterVendor,
+} from "@/lib/masterOperations";
 
 export const dynamic = "force-dynamic";
-
-type MasterVendor = {
-  blog_id: number;
-  store_name: string;
-  store_url: string;
-  owner_email: string;
-  owner_name?: string;
-  plan: string;
-  status: string;
-  billing_state: string;
-};
-
-async function fetchMasterVendors(): Promise<MasterVendor[]> {
-  try {
-    const baseUrl = getMasterWpBaseUrl();
-
-    const url = `${baseUrl.replace(/\/$/, "")}/wp-json/letz/v1/master-vendors`;
-
-    const res = await fetch(url, {
-      headers: {
-        Authorization: `Bearer ${process.env.MASTER_API_KEY}`,
-        "X-Letz-Master-Key": process.env.MASTER_API_KEY || "",
-        Accept: "application/json",
-      },
-      cache: "no-store",
-    });
-
-    if (!res.ok) {
-      console.error(
-        "Failed to load master vendors",
-        res.status,
-        await res.text()
-      );
-      return [];
-    }
-
-    const data = await res.json();
-    return Array.isArray(data?.vendors) ? (data.vendors as MasterVendor[]) : [];
-  } catch (e) {
-    console.error("fetchMasterVendors error", e);
-    return [];
-  }
-}
 
 function computeMetrics(vendors: MasterVendor[]) {
   const totalVendors = vendors.length;

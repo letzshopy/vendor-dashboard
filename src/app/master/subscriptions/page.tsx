@@ -1,58 +1,11 @@
 // src/app/master/subscriptions/page.tsx
 import Link from "next/link";
-import { getMasterWpBaseUrl } from "@/lib/wpClient";
-
-type SubItem = {
-  blogId: number;
-  siteName: string;
-  siteUrl: string;
-
-  plan: string;
-  billingCycle: string;
-  billingStatus: string;
-
-  createdOn: string;
-  nextRenewalDate: string;
-  autopayEnabled: boolean;
-
-  daysToRenewal: number | null;
-  tag: "overdue" | "due_7" | "due_30" | "active" | "no_date" | "unknown";
-  isActive: boolean;
-};
-
-type SubsResponse = {
-  summary: {
-    activeVendors: number;
-    dueIn7Days: number;
-    dueIn30Days: number;
-    overdue: number;
-    total: number;
-  };
-  items: SubItem[];
-};
+import {
+  fetchMasterSubscriptions,
+  type MasterSubscriptionItem,
+} from "@/lib/masterOperations";
 
 export const dynamic = "force-dynamic";
-
-function masterHeaders() {
-  const key = process.env.MASTER_API_KEY;
-  return {
-    Accept: "application/json",
-    "Content-Type": "application/json",
-    ...(key ? { Authorization: `Bearer ${key}`, "X-Letz-Master-Key": key } : {}),
-  };
-}
-
-async function getSubs(): Promise<SubsResponse> {
-  const MASTER_WP_URL = getMasterWpBaseUrl();
-
-  const url = `${MASTER_WP_URL.replace(/\/$/, "")}/wp-json/letz/v1/master-subscriptions`;
-
-  const res = await fetch(url, { headers: masterHeaders(), cache: "no-store" });
-  const text = await res.text();
-  if (!res.ok) throw new Error(`Subscriptions API ${res.status}\n${text.slice(0, 2000)}`);
-
-  return JSON.parse(text);
-}
 
 function badge(tag: string) {
   const base =
@@ -73,7 +26,7 @@ function badge(tag: string) {
   }
 }
 
-function tagLabel(tag: SubItem["tag"]) {
+function tagLabel(tag: MasterSubscriptionItem["tag"]) {
   if (tag === "overdue") return "Overdue";
   if (tag === "due_7") return "Due in 7 days";
   if (tag === "due_30") return "Due in 30 days";
@@ -83,7 +36,7 @@ function tagLabel(tag: SubItem["tag"]) {
 }
 
 export default async function MasterSubscriptionsPage() {
-  const data = await getSubs();
+  const data = await fetchMasterSubscriptions();
 
   return (
     <div className="space-y-5">

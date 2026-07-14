@@ -1,60 +1,25 @@
 // src/app/master/subscriptions/export/route.ts
 import { NextResponse } from "next/server";
-import { getMasterWpBaseUrl } from "@/lib/wpClient";
-
-type SubItem = {
-  blogId: number;
-  siteName: string;
-  siteUrl: string;
-  plan: string;
-  billingCycle: string;
-  billingStatus: string;
-  createdOn: string;
-  nextRenewalDate: string;
-  autopayEnabled: boolean;
-  daysToRenewal: number | null;
-  tag: string;
-};
+import { fetchMasterSubscriptions } from "@/lib/masterOperations";
 
 export const dynamic = "force-dynamic";
 
-function masterHeaders() {
-  const key = process.env.MASTER_API_KEY;
-  return {
-    Accept: "application/json",
-    "Content-Type": "application/json",
-    ...(key ? { Authorization: `Bearer ${key}`, "X-Letz-Master-Key": key } : {}),
-  };
-}
-
 function csvEscape(v: unknown) {
-  const s = String(v ?? "");
+  let s = String(v ?? "")
+    .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, "")
+    .slice(0, 4_096);
+
+  if (/^[=+@-]/.test(s)) {
+    s = `'${s}`;
+  }
+
   if (/[,"\n]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
   return s;
 }
 
 export async function GET() {
   try {
-    // ✅ master-only base URL (never tenant)
-    const MASTER_WP_URL = getMasterWpBaseUrl();
-
-    const url = `${MASTER_WP_URL.replace(/\/$/, "")}/wp-json/letz/v1/master-subscriptions`;
-
-    const res = await fetch(url, {
-      headers: masterHeaders(),
-      cache: "no-store",
-    });
-
-    const text = await res.text();
-
-    if (!res.ok) {
-      return new NextResponse(
-        `Export failed: ${res.status}\n${text.slice(0, 2000)}`,
-        { status: 500 }
-      );
-    }
-
-    const json = JSON.parse(text) as { items: SubItem[] };
+    const data = await fetchMasterSubscriptions();
 
     const headers = [
       "blogId",
@@ -72,7 +37,7 @@ export async function GET() {
 
     const rows = [headers.join(",")];
 
-    for (const it of json.items || []) {
+    for (const it of data.items) {
       rows.push(
         [
           it.blogId,
@@ -101,9 +66,25 @@ export async function GET() {
       headers: {
         "Content-Type": "text/csv; charset=utf-8",
         "Content-Disposition": `attachment; filename="${filename}"`,
+        "Cache-Control": "private, no-store, max-age=0",
+        "X-Content-Type-Options": "nosniff",
       },
     });
-  } catch (e: any) {
-    return new NextResponse(e?.message || "Export failed", { status: 500 });
+  } catch (error: unknown) {
+    console.error(
+      "Master subscription export failed:",
+      error instanceof Error ? error.message : "Unknown export error"
+    );
+
+    return NextResponse.json(
+      { error: "Failed to export subscriptions." },
+      {
+        status: 502,
+        headers: {
+          "Cache-Control": "private, no-store, max-age=0",
+          "X-Content-Type-Options": "nosniff",
+        },
+      }
+    );
   }
 }
