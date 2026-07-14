@@ -1,165 +1,100 @@
-import { NextResponse } from "next/server";
 import { getWooClient } from "@/lib/woo";
+import { privateJson } from "@/lib/productPolicy";
+import {
+  customerSearchResult,
+  orderSearchResult,
+  productSearchResult,
+  records,
+  searchErrorResponse,
+  searchQuery,
+  searchScope,
+  type SearchResult,
+} from "@/lib/searchPolicy";
 
-type SearchScope = "products" | "orders" | "customers";
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
-type SearchResult = {
-  id: number | string;
-  label: string;
-  subLabel?: string;
-  url: string;
-};
-
-function asScope(v: any): SearchScope {
-  return v === "orders" || v === "customers" || v === "products"
-    ? v
-    : "products";
+function summarized(
+  value: unknown,
+  summarize: (item: unknown) => SearchResult | null,
+): SearchResult[] {
+  return records(value).flatMap((item) => {
+    const result = summarize(item);
+    return result ? [result] : [];
+  }).slice(0, 5);
 }
 
-function normalize(v: unknown): string {
-  return String(v || "").trim().toLowerCase();
-}
-
-export async function GET(req: Request) {
-  const woo = await getWooClient();
-
-  const { searchParams } = new URL(req.url);
-  const q = String(searchParams.get("q") || "").trim();
-  const scope = asScope(searchParams.get("scope"));
-
-  if (!q || q.length < 2) {
-    return NextResponse.json({ items: [] });
-  }
-
+export async function GET(request: Request) {
   try {
-    let items: SearchResult[] = [];
+    const url = new URL(request.url);
+    const query = searchQuery(url.searchParams.get("q"));
+    const scope = searchScope(url.searchParams.get("scope"));
+
+    if (query.length < 2) return privateJson({ items: [] });
+    const woo = await getWooClient();
 
     if (scope === "products") {
-      const { data } = await woo.get("/products", {
+      const response = await woo.get("/products", {
         params: {
-          search: q,
+          search: query,
           per_page: 5,
           status: "any",
           orderby: "date",
           order: "desc",
+          _fields: "id,name,sku",
         },
       });
-
-      const arr = Array.isArray(data) ? data : [];
-      items = arr.map((p: any) => ({
-        id: Number(p?.id || 0),
-        label: String(p?.name || "(no title)"),
-        subLabel: p?.sku ? `SKU: ${String(p.sku)}` : undefined,
-        url: `/products/${p?.id}`,
-      }));
+      return privateJson({ items: summarized(response.data, productSearchResult) });
     }
 
     if (scope === "orders") {
-      const isNum = /^\d+$/.test(q);
-
-      const primary = await woo
-        .get("/orders", {
+      let response;
+      try {
+        response = await woo.get("/orders", {
           params: {
-            search: q,
+            search: query,
             per_page: 5,
             orderby: "date",
             order: "desc",
+            _fields: "id,number,billing,total",
           },
-        })
-        .catch(() => ({ data: [] }));
-
-      let arr = Array.isArray((primary as any)?.data)
-        ? (primary as any).data
-        : [];
-
-      if (arr.length === 0 && isNum) {
-        const fallback = await woo
-          .get("/orders", {
-            params: { include: [Number(q)], per_page: 5 },
-          })
-          .catch(() => ({ data: [] }));
-
-        const farr = Array.isArray((fallback as any)?.data)
-          ? (fallback as any).data
-          : [];
-
-        arr = farr.length ? farr : arr;
+        });
+      } catch (error: unknown) {
+        if (!/^\d{1,10}$/.test(query)) throw error;
+        response = await woo.get("/orders", {
+          params: {
+            include: [Number(query)],
+            per_page: 5,
+            _fields: "id,number,billing,total",
+          },
+        });
       }
 
-      items = arr.map((o: any) => {
-        const name =
-          `${String(o?.billing?.first_name || "")} ${String(
-            o?.billing?.last_name || ""
-          )}`.trim();
-
-        const label = `Order #${o?.number || o?.id}`;
-        const subParts: string[] = [];
-        if (name) subParts.push(name);
-        if (o?.total) subParts.push(`₹${String(o.total)}`);
-
-        return {
-          id: Number(o?.id || 0),
-          label,
-          subLabel: subParts.length ? subParts.join(" • ") : undefined,
-          url: `/orders/${o?.id}`,
-        };
-      });
+      let items = summarized(response.data, orderSearchResult);
+      if (!items.length && /^\d{1,10}$/.test(query)) {
+        const fallback = await woo.get("/orders", {
+          params: {
+            include: [Number(query)],
+            per_page: 5,
+            _fields: "id,number,billing,total",
+          },
+        });
+        items = summarized(fallback.data, orderSearchResult);
+      }
+      return privateJson({ items });
     }
 
-    if (scope === "customers") {
-      const query = normalize(q);
-
-      const { data } = await woo.get("/customers", {
-        params: {
-          per_page: 50,
-          orderby: "registered_date",
-          order: "desc",
-        },
-      });
-
-      const arr = Array.isArray(data) ? data : [];
-
-      const filtered = arr.filter((c: any) => {
-        const firstName = normalize(c?.first_name);
-        const lastName = normalize(c?.last_name);
-        const fullName = normalize(
-          `${String(c?.first_name || "")} ${String(c?.last_name || "")}`
-        );
-        const email = normalize(c?.email);
-        const username = normalize(c?.username);
-
-        return (
-          firstName.includes(query) ||
-          lastName.includes(query) ||
-          fullName.includes(query) ||
-          email.includes(query) ||
-          username.includes(query)
-        );
-      });
-
-      items = filtered.slice(0, 5).map((c: any) => {
-        const name = `${String(c?.first_name || "")} ${String(
-          c?.last_name || ""
-        )}`.trim();
-        const email = c?.email ? String(c.email) : "";
-        const username = c?.username ? String(c.username) : "";
-
-        const subParts = [email, username].filter(Boolean);
-
-        return {
-          id: Number(c?.id || 0),
-          label: name || email || username || "Customer",
-          subLabel: subParts.length ? subParts.join(" • ") : undefined,
-          url: `/customers?search=${encodeURIComponent(email || name || username || "")}`,
-        };
-      });
-    }
-
-    items = items.filter((it) => it.id !== 0);
-
-    return NextResponse.json({ items });
-  } catch (error) {
-    console.error("Topbar search failed:", error);
-    return NextResponse.json({ items: [] });
+    const response = await woo.get("/customers", {
+      params: {
+        search: query,
+        per_page: 5,
+        orderby: "registered_date",
+        order: "desc",
+        _fields: "id,first_name,last_name,email,username",
+      },
+    });
+    return privateJson({ items: summarized(response.data, customerSearchResult) });
+  } catch (error: unknown) {
+    return searchErrorResponse(error);
   }
 }
