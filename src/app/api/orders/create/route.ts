@@ -1,148 +1,204 @@
-import { NextRequest, NextResponse } from "next/server";
 import { getWooClient } from "@/lib/woo";
+import {
+  isRecord,
+  logOrderError,
+  OrderRequestError,
+  parseAmount,
+  parseBoundedString,
+  parseEmail,
+  parsePositiveInteger,
+  privateJson,
+  readJsonObject,
+  requestErrorResponse,
+} from "@/lib/orderPolicy";
 
-type PaymentMethodInput = "cod" | "upi_paid" | "payment_pending";
+type PaymentMethodInput =
+  | "cod"
+  | "upi_paid"
+  | "payment_pending";
 
-type CreateOrderPayload = {
-  customer?: {
-    name?: string;
-    mobile?: string;
-    email?: string;
-    address1?: string;
-    city?: string;
-    state?: string;
-    pincode?: string;
-  };
-  items?: Array<{
-    product_id?: number;
-    quantity?: number;
-    unit_price?: number;
-  }>;
-  charges?: {
-    shipping?: number;
-    discount?: number;
-  };
-  payment?: {
-    method?: PaymentMethodInput;
-    transaction_id?: string;
-  };
-  note?: string;
-};
+const PAYMENT_METHODS = new Set<PaymentMethodInput>([
+  "cod",
+  "upi_paid",
+  "payment_pending",
+]);
 
-function cleanString(value: unknown): string {
-  return typeof value === "string" ? value.trim() : "";
+function recordOrEmpty(value: unknown): Record<string, unknown> {
+  return isRecord(value) ? value : {};
 }
 
-function cleanNumber(value: unknown): number {
-  const n = typeof value === "number" ? value : Number(value);
-  return Number.isFinite(n) ? n : 0;
+function parsePaymentMethod(value: unknown): PaymentMethodInput {
+  const method = parseBoundedString(
+    value ?? "cod",
+    "Payment method",
+    32,
+    { required: true }
+  ) as PaymentMethodInput;
+
+  if (!PAYMENT_METHODS.has(method)) {
+    throw new OrderRequestError("Payment method is invalid.");
+  }
+
+  return method;
 }
 
-export async function POST(req: NextRequest) {
+export async function POST(request: Request) {
   try {
-    const body = (await req.json()) as CreateOrderPayload;
+    const body = await readJsonObject(request, 128 * 1024);
+    const customer = recordOrEmpty(body.customer);
+    const charges = recordOrEmpty(body.charges);
+    const payment = recordOrEmpty(body.payment);
+    const rawItems = body.items;
 
-    const customer = body.customer || {};
-    const items = Array.isArray(body.items) ? body.items : [];
-    const charges = body.charges || {};
-    const payment = body.payment || {};
-
-    const customerName = cleanString(customer.name);
-    const mobile = cleanString(customer.mobile);
-    const email = cleanString(customer.email);
-    const address1 = cleanString(customer.address1);
-    const city = cleanString(customer.city);
-    const state = cleanString(customer.state);
-    const pincode = cleanString(customer.pincode);
-
-    const paymentMethod = (payment.method || "cod") as PaymentMethodInput;
-    const transactionId = cleanString(payment.transaction_id);
-    const orderNote = cleanString(body.note);
-
-    if (!customerName) {
-      return NextResponse.json({ error: "Customer name is required." }, { status: 400 });
-    }
-    if (!mobile) {
-      return NextResponse.json({ error: "Mobile number is required." }, { status: 400 });
-    }
-    if (!address1) {
-      return NextResponse.json({ error: "Address line 1 is required." }, { status: 400 });
-    }
-    if (!city) {
-      return NextResponse.json({ error: "City is required." }, { status: 400 });
-    }
-    if (!state) {
-      return NextResponse.json({ error: "State is required." }, { status: 400 });
-    }
-    if (!pincode) {
-      return NextResponse.json({ error: "Pincode is required." }, { status: 400 });
-    }
-
-    const validItems = items
-      .map((item) => ({
-        product_id: cleanNumber(item.product_id),
-        quantity: Math.max(1, cleanNumber(item.quantity)),
-        unit_price: Math.max(0, cleanNumber(item.unit_price)),
-      }))
-      .filter((item) => item.product_id > 0);
-
-    if (validItems.length === 0) {
-      return NextResponse.json(
-        { error: "At least one valid product is required." },
-        { status: 400 }
+    if (!Array.isArray(rawItems) || rawItems.length === 0) {
+      throw new OrderRequestError(
+        "At least one product is required."
       );
     }
+
+    if (rawItems.length > 50) {
+      throw new OrderRequestError(
+        "An order cannot contain more than 50 items."
+      );
+    }
+
+    const customerName = parseBoundedString(
+      customer.name,
+      "Customer name",
+      160,
+      { required: true }
+    );
+    const mobile = parseBoundedString(
+      customer.mobile,
+      "Mobile number",
+      30,
+      { required: true }
+    );
+    const email = parseEmail(customer.email);
+    const address = parseBoundedString(
+      customer.address1,
+      "Address line 1",
+      240,
+      { required: true }
+    );
+    const city = parseBoundedString(
+      customer.city,
+      "City",
+      100,
+      { required: true }
+    );
+    const state = parseBoundedString(
+      customer.state,
+      "State",
+      100,
+      { required: true }
+    );
+    const pincode = parseBoundedString(
+      customer.pincode,
+      "Pincode",
+      12,
+      { required: true }
+    );
+
+    if (!/^[+()\-\s0-9]{6,30}$/.test(mobile)) {
+      throw new OrderRequestError("Mobile number is invalid.");
+    }
+
+    if (!/^[A-Za-z0-9\-\s]{3,12}$/.test(pincode)) {
+      throw new OrderRequestError("Pincode is invalid.");
+    }
+
+    let merchandiseTotal = 0;
+    const lineItems = rawItems.map((raw, index) => {
+      if (!isRecord(raw)) {
+        throw new OrderRequestError(
+          `Order item ${index + 1} is invalid.`
+        );
+      }
+
+      const productId = parsePositiveInteger(
+        raw.product_id,
+        `Order item ${index + 1} product`,
+        2_147_483_647
+      );
+      const quantity = parsePositiveInteger(
+        raw.quantity,
+        `Order item ${index + 1} quantity`,
+        1_000
+      );
+      const unitPrice = parseAmount(
+        raw.unit_price,
+        `Order item ${index + 1} price`
+      );
+      const lineTotal = Math.round(
+        unitPrice * quantity * 100
+      ) / 100;
+
+      if (lineTotal > 10_000_000) {
+        throw new OrderRequestError(
+          `Order item ${index + 1} total is too large.`
+        );
+      }
+
+      merchandiseTotal += lineTotal;
+
+      return {
+        product_id: productId,
+        quantity,
+        subtotal: lineTotal.toFixed(2),
+        total: lineTotal.toFixed(2),
+      };
+    });
+    const shippingCharge = parseAmount(
+      charges.shipping ?? 0,
+      "Shipping charge"
+    );
+    const discount = parseAmount(
+      charges.discount ?? 0,
+      "Discount"
+    );
+
+    if (discount > merchandiseTotal + shippingCharge) {
+      throw new OrderRequestError(
+        "Discount cannot exceed the order value."
+      );
+    }
+
+    if (merchandiseTotal + shippingCharge > 10_000_000) {
+      throw new OrderRequestError("Order total is too large.");
+    }
+
+    const paymentMethod = parsePaymentMethod(payment.method);
+    const transactionId = parseBoundedString(
+      payment.transaction_id,
+      "Transaction ID / UTR",
+      120
+    );
+    const note = parseBoundedString(
+      body.note,
+      "Order note",
+      1_000,
+      { allowNewlines: true }
+    );
 
     if (paymentMethod === "upi_paid" && !transactionId) {
-      return NextResponse.json(
-        { error: "Transaction ID / UTR is required for UPI Paid." },
-        { status: 400 }
+      throw new OrderRequestError(
+        "Transaction ID / UTR is required for UPI Paid."
       );
     }
 
-    const shippingCharge = Math.max(0, cleanNumber(charges.shipping));
-    const discount = Math.max(0, cleanNumber(charges.discount));
-
     let status = "processing";
-    let wcPaymentMethod = "cod";
-    let wcPaymentMethodTitle = "Cash on Delivery";
+    let wooPaymentMethod = "cod";
+    let paymentTitle = "Cash on Delivery";
 
     if (paymentMethod === "upi_paid") {
-      status = "processing";
-      wcPaymentMethod = "letz_manual_upi";
-      wcPaymentMethodTitle = "UPI Paid";
+      wooPaymentMethod = "letz_manual_upi";
+      paymentTitle = "UPI Paid";
     } else if (paymentMethod === "payment_pending") {
       status = "on-hold";
-      wcPaymentMethod = "letz_payment_pending";
-      wcPaymentMethodTitle = "Payment Pending";
+      wooPaymentMethod = "letz_payment_pending";
+      paymentTitle = "Payment Pending";
     }
-
-    const lineItems = validItems.map((item) => ({
-      product_id: item.product_id,
-      quantity: item.quantity,
-      subtotal: item.unit_price.toFixed(2),
-      total: item.unit_price.toFixed(2),
-    }));
-
-    const feeLines =
-      shippingCharge > 0
-        ? [
-            {
-              name: "Shipping",
-              total: shippingCharge.toFixed(2),
-            },
-          ]
-        : [];
-
-    const couponLines =
-      discount > 0
-        ? [
-            {
-              code: "manual-discount",
-              discount: discount.toFixed(2),
-            },
-          ]
-        : [];
 
     const metaData: Array<{ key: string; value: string }> = [
       { key: "manual_order_source", value: "dashboard" },
@@ -150,21 +206,23 @@ export async function POST(req: NextRequest) {
     ];
 
     if (transactionId) {
-      metaData.push({ key: "payment_transaction_id", value: transactionId });
+      metaData.push({
+        key: "payment_transaction_id",
+        value: transactionId,
+      });
     }
 
     const woo = await getWooClient();
-
-    const payload = {
+    const { data } = await woo.post("/orders", {
       status,
-      payment_method: wcPaymentMethod,
-      payment_method_title: wcPaymentMethodTitle,
+      payment_method: wooPaymentMethod,
+      payment_method_title: paymentTitle,
       set_paid: paymentMethod === "upi_paid",
       billing: {
         first_name: customerName,
         last_name: "",
         company: "",
-        address_1: address1,
+        address_1: address,
         address_2: "",
         city,
         state,
@@ -177,7 +235,7 @@ export async function POST(req: NextRequest) {
         first_name: customerName,
         last_name: "",
         company: "",
-        address_1: address1,
+        address_1: address,
         address_2: "",
         city,
         state,
@@ -186,29 +244,40 @@ export async function POST(req: NextRequest) {
         phone: mobile,
       },
       line_items: lineItems,
-      fee_lines: feeLines,
-      coupon_lines: couponLines,
-      customer_note: orderNote || "",
+      fee_lines:
+        shippingCharge > 0
+          ? [
+              {
+                name: "Shipping",
+                total: shippingCharge.toFixed(2),
+              },
+            ]
+          : [],
+      coupon_lines:
+        discount > 0
+          ? [
+              {
+                code: "manual-discount",
+                discount: discount.toFixed(2),
+              },
+            ]
+          : [],
+      customer_note: note,
       meta_data: metaData,
-    };
+    });
+    const result = isRecord(data) ? data : {};
 
-    const { data } = await woo.post("/orders", payload);
-
-    return NextResponse.json({
+    return privateJson({
       ok: true,
       order: {
-        id: data?.id,
-        number: data?.number,
-        status: data?.status,
-        total: data?.total,
+        id: result.id,
+        number: result.number,
+        status: result.status,
+        total: result.total,
       },
     });
-  } catch (error: any) {
-    const message =
-      error?.response?.data?.message ||
-      error?.message ||
-      "Failed to create order.";
-
-    return NextResponse.json({ error: message }, { status: 500 });
+  } catch (error) {
+    logOrderError("create", error);
+    return requestErrorResponse(error, "Failed to create order.");
   }
 }

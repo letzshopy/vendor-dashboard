@@ -1,144 +1,223 @@
-// src/app/api/orders/[id]/edit/route.ts
-import { NextRequest, NextResponse } from "next/server";
 import { getWooClient } from "@/lib/woo";
-
-
-type Address = {
-  first_name?: string;
-  last_name?: string;
-  company?: string;
-  address_1?: string;
-  address_2?: string;
-  city?: string;
-  state?: string;
-  postcode?: string;
-  country?: string;
-  phone?: string;
-  email?: string;
-};
-
-type EditableLineItem = {
-  id?: number;
-  product_id?: number;
-  name?: string;
-  sku?: string;
-  quantity?: number;
-  price?: number;
-  isNew?: boolean;
-  removed?: boolean;
-};
-
-function sanitizeBilling(b: any): Address {
-  const src = (b || {}) as Address;
-  return {
-    first_name: src.first_name || "",
-    last_name: src.last_name || "",
-    company: src.company || "",
-    address_1: src.address_1 || "",
-    address_2: src.address_2 || "",
-    city: src.city || "",
-    state: src.state || "",
-    postcode: src.postcode || "",
-    country: src.country || "",
-    phone: src.phone || "",
-    email: src.email || "",
-  };
-}
-
-function sanitizeShipping(s: any): Address {
-  const src = (s || {}) as Address;
-  // Woo shipping object does NOT support phone/email → don’t send them
-  return {
-    first_name: src.first_name || "",
-    last_name: src.last_name || "",
-    company: src.company || "",
-    address_1: src.address_1 || "",
-    address_2: src.address_2 || "",
-    city: src.city || "",
-    state: src.state || "",
-    postcode: src.postcode || "",
-    country: src.country || "",
-  };
-}
+import {
+  isRecord,
+  logOrderError,
+  OrderRequestError,
+  parseAmount,
+  parseBoundedString,
+  parseEmail,
+  parseOrderId,
+  parsePositiveInteger,
+  privateJson,
+  readJsonObject,
+  requestErrorResponse,
+} from "@/lib/orderPolicy";
 
 type RouteParams = {
   params: Promise<{ id: string }>;
 };
 
-export async function PATCH(req: NextRequest, { params }: RouteParams) {
-  const { id } = await params;
-  const orderId = Number(id);
+type AddressPayload = Record<string, string>;
 
-  if (!Number.isFinite(orderId)) {
-    return NextResponse.json(
-      { error: "Invalid order ID" },
-      { status: 400 }
+const ADDRESS_LIMITS: Record<string, number> = {
+  first_name: 100,
+  last_name: 100,
+  company: 160,
+  address_1: 240,
+  address_2: 240,
+  city: 100,
+  state: 100,
+  postcode: 20,
+  country: 2,
+  phone: 30,
+  email: 254,
+};
+
+function parseAddress(
+  value: unknown,
+  field: string,
+  includeContact: boolean
+): AddressPayload {
+  if (!isRecord(value)) {
+    throw new OrderRequestError(`${field} is invalid.`);
+  }
+
+  const allowedKeys = Object.keys(ADDRESS_LIMITS).filter(
+    (key) => includeContact || (key !== "phone" && key !== "email")
+  );
+  const result: AddressPayload = {};
+
+  for (const key of allowedKeys) {
+    const raw = value[key];
+    result[key] =
+      key === "email"
+        ? parseEmail(raw)
+        : parseBoundedString(
+            raw,
+            `${field} ${key.replaceAll("_", " ")}`,
+            ADDRESS_LIMITS[key]
+          );
+  }
+
+  if (
+    result.country &&
+    !/^[A-Za-z]{2}$/.test(result.country)
+  ) {
+    throw new OrderRequestError(`${field} country is invalid.`);
+  }
+
+  if (
+    result.phone &&
+    !/^[+()\-\s0-9]{6,30}$/.test(result.phone)
+  ) {
+    throw new OrderRequestError(`${field} phone is invalid.`);
+  }
+
+  return result;
+}
+
+function parseLineItems(value: unknown): Array<Record<string, unknown>> {
+  if (!Array.isArray(value)) {
+    throw new OrderRequestError("Order items are invalid.");
+  }
+
+  if (value.length > 100) {
+    throw new OrderRequestError(
+      "An order cannot contain more than 100 items."
     );
   }
 
-  try {
-    const woo = await getWooClient();
-    const body = await req.json().catch(() => ({}));
-    const billing = body.billing || null;
-    const shipping = body.shipping || null;
-    const items: EditableLineItem[] = Array.isArray(body.items)
-      ? body.items
-      : [];
-
-    const payload: any = {};
-
-    // Only send allowed fields
-    if (billing) payload.billing = sanitizeBilling(billing);
-    if (shipping) payload.shipping = sanitizeShipping(shipping);
-
-    if (items.length) {
-      payload.line_items = items
-        .map((raw) => {
-          // New item that user later removed → ignore completely
-          if (raw.isNew && raw.removed) return null;
-
-          const qty = Number(raw.quantity || 0);
-          const price = Number(raw.price || 0);
-
-          // Existing item removed → send quantity=0
-          if (raw.id && raw.removed) {
-            return { id: raw.id, quantity: 0 };
-          }
-
-          const lineQty = qty || 1;
-          const lineTotal = lineQty * price;
-
-          const base: any = {
-            name: raw.name || "",
-            quantity: lineQty,
-            subtotal: lineTotal.toFixed(2),
-            total: lineTotal.toFixed(2),
-          };
-
-          if (raw.id && !raw.isNew) base.id = raw.id;
-          if (raw.product_id) base.product_id = raw.product_id;
-          if (raw.sku) base.sku = raw.sku;
-
-          return base;
-        })
-        .filter(Boolean);
+  return value.flatMap((raw, index) => {
+    if (!isRecord(raw)) {
+      throw new OrderRequestError(
+        `Order item ${index + 1} is invalid.`
+      );
     }
 
-    const { data } = await woo.put(`/orders/${orderId}`, payload);
-    return NextResponse.json(data);
-  } catch (err: any) {
-    // Try to surface WooCommerce REST error message
-    const wooData = err?.response?.data;
-    const message =
-      wooData?.message ||
-      err?.message ||
-      "Failed to update order";
+    const isNew = raw.isNew === true;
+    const removed = raw.removed === true;
 
-    console.error("Order edit error:", wooData || err);
+    if (isNew && removed) return [];
 
-    return NextResponse.json(
-      { error: message },
-      { status: err?.response?.status || 500 }
+    const id = raw.id
+      ? parsePositiveInteger(
+          raw.id,
+          `Order item ${index + 1} ID`,
+          2_147_483_647
+        )
+      : undefined;
+
+    if (removed) {
+      if (!id) {
+        throw new OrderRequestError(
+          `Order item ${index + 1} cannot be removed.`
+        );
+      }
+
+      return [{ id, quantity: 0 }];
+    }
+
+    const productId = raw.product_id
+      ? parsePositiveInteger(
+          raw.product_id,
+          `Order item ${index + 1} product`,
+          2_147_483_647
+        )
+      : undefined;
+    const quantity = parsePositiveInteger(
+      raw.quantity,
+      `Order item ${index + 1} quantity`,
+      10_000
     );
+    const price = parseAmount(
+      raw.price,
+      `Order item ${index + 1} price`
+    );
+    const name = parseBoundedString(
+      raw.name,
+      `Order item ${index + 1} name`,
+      240,
+      { required: true }
+    );
+    const sku = parseBoundedString(
+      raw.sku,
+      `Order item ${index + 1} SKU`,
+      100
+    );
+
+    if (isNew && !productId) {
+      throw new OrderRequestError(
+        `Order item ${index + 1} must reference a product.`
+      );
+    }
+
+    if (!isNew && !id) {
+      throw new OrderRequestError(
+        `Order item ${index + 1} ID is required.`
+      );
+    }
+
+    const total = (quantity * price).toFixed(2);
+    const item: Record<string, unknown> = {
+      name,
+      quantity,
+      subtotal: total,
+      total,
+    };
+
+    if (id && !isNew) item.id = id;
+    if (productId) item.product_id = productId;
+    if (sku) item.sku = sku;
+
+    return [item];
+  });
+}
+
+export async function PATCH(
+  request: Request,
+  { params }: RouteParams
+) {
+  try {
+    const { id } = await params;
+    const orderId = parseOrderId(id);
+    const body = await readJsonObject(request, 128 * 1024);
+    const payload: Record<string, unknown> = {};
+
+    if (Object.hasOwn(body, "billing")) {
+      payload.billing = parseAddress(
+        body.billing,
+        "Billing address",
+        true
+      );
+    }
+
+    if (Object.hasOwn(body, "shipping")) {
+      payload.shipping = parseAddress(
+        body.shipping,
+        "Shipping address",
+        false
+      );
+    }
+
+    if (Object.hasOwn(body, "items")) {
+      payload.line_items = parseLineItems(body.items);
+    }
+
+    if (Object.keys(payload).length === 0) {
+      throw new OrderRequestError(
+        "No editable order fields were provided."
+      );
+    }
+
+    const woo = await getWooClient();
+    const { data } = await woo.put(
+      `/orders/${orderId}`,
+      payload
+    );
+
+    return privateJson(data);
+  } catch (error) {
+    logOrderError("edit", error);
+    return requestErrorResponse(error, "Failed to update order.");
   }
 }
