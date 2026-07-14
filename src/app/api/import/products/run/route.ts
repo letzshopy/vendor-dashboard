@@ -1,367 +1,356 @@
-import { NextResponse } from "next/server";
+import { isAxiosError, type AxiosInstance } from "axios";
+
+import {
+  boundedText,
+  decimalValue,
+  enumValue,
+  ImportRequestError,
+  importErrorResponse,
+  integerValue,
+  isRecord,
+  optionalDateTime,
+  positiveId,
+  privateImportJson,
+  publicImageUrl,
+  pushRowError,
+  readProductImport,
+  records,
+  rowErrorReason,
+  type CsvRow,
+  type JsonRecord,
+} from "@/lib/importPolicy";
 import { getWooClient } from "@/lib/woo";
 
-
-export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
-type Row = Record<string, string>;
-type UpsertResult =
-  | { action: "create"; id: number }
-  | { action: "update"; id: number }
-  | { action: "skip"; reason: string }
-  | { action: "error"; reason: string };
+type UpsertResult = {
+  action: "create" | "update";
+  id: number;
+};
 
-/* ----------------------------- helpers ----------------------------- */
+const PRODUCT_TYPES = new Set(["simple", "external", "variable", "grouped"]);
+const PRODUCT_STATUSES = new Set(["publish", "draft", "pending", "private"]);
+const VISIBILITIES = new Set(["visible", "catalog", "search", "hidden"]);
+const BACKORDERS = new Set(["no", "notify", "yes"]);
 
-function asReason(e: any): string {
-  const msg =
-    e?.response?.data?.message ??
-    e?.response?.data?.error ??
-    e?.response?.data ??
-    e?.message ??
-    e;
-  return typeof msg === "string" ? msg : JSON.stringify(msg);
+function rowValue(row: CsvRow, ...keys: string[]): string {
+  for (const key of keys) {
+    const value = row[key.toLowerCase()];
+    if (value !== undefined && value.trim() !== "") return value.trim();
+  }
+  return "";
 }
 
-function detectDelimiter(sample: string): string {
-  const first = sample.split(/\r?\n/)[0] || "";
-  const counts = [
-    { d: ",", n: (first.match(/,/g) || []).length },
-    { d: ";", n: (first.match(/;/g) || []).length },
-    { d: "\t", n: (first.match(/\t/g) || []).length },
-  ].sort((a, b) => b.n - a.n);
-  return counts[0].n > 0 ? counts[0].d : ",";
+function booleanValue(value: string, field: string): boolean | null {
+  if (!value) return null;
+  const normalized = value.toLowerCase();
+  if (new Set(["1", "true", "yes", "y", "on"]).has(normalized)) return true;
+  if (new Set(["0", "false", "no", "n", "off"]).has(normalized)) return false;
+  throw new ImportRequestError(`${field} is invalid`);
 }
 
-function parseCsv(text: string, delimiter?: string): Row[] {
-  const lines = text
-    .split(/\r?\n/)
-    .map((l) => l.trim())
-    .filter((l) => l.length > 0);
-
-  if (!lines.length) return [];
-  const delim = delimiter || detectDelimiter(text);
-
-  const split = (line: string): string[] => {
-    const out: string[] = [];
-    let cur = "";
-    let q = false;
-    for (let i = 0; i < line.length; i++) {
-      const ch = line[i];
-      if (ch === '"') {
-        if (q && line[i + 1] === '"') {
-          cur += '"';
-          i++;
-        } else {
-          q = !q;
-        }
-      } else if (ch === delim && !q) {
-        out.push(cur);
-        cur = "";
-      } else {
-        cur += ch;
-      }
-    }
-    out.push(cur);
-    return out;
-  };
-
-  const headers = split(lines[0]).map((h) => h.trim());
-  const rows: Row[] = [];
-  for (let i = 1; i < lines.length; i++) {
-    const cols = split(lines[i]);
-    if (cols.every((c) => c.trim() === "")) continue;
-    const row: Row = {};
-    for (let j = 0; j < headers.length; j++) {
-      row[headers[j]] = (cols[j] ?? "").trim();
-    }
-    rows.push(row);
+function listValues(value: string, delimiter: RegExp, maximum: number): string[] {
+  const items = value.split(delimiter).map((item) => item.trim()).filter(Boolean);
+  if (items.length > maximum) {
+    throw new ImportRequestError(`A maximum of ${maximum} values is allowed in one field`);
   }
-  return rows;
+  return items;
 }
 
-function truthyFlag(v?: string) {
-  if (!v) return false;
-  const s = v.toLowerCase();
-  return s === "1" || s === "true" || s === "yes";
+function responseId(value: unknown): number {
+  return isRecord(value) ? positiveId(String(value.id || "")) || 0 : 0;
 }
 
-function buildPayloadFromRow(row: Record<string, string>) {
-  // Helper to get value by multiple alias headers (case-sensitive list)
-  const get = (...keys: string[]) => {
-    for (const k of keys) {
-      if (row[k] != null && String(row[k]).trim() !== "") return String(row[k]).trim();
+async function findProductBySku(woo: AxiosInstance, sku: string): Promise<JsonRecord | null> {
+  if (!sku) return null;
+  const response = await woo.get("/products", {
+    params: { sku, status: "any", per_page: 1, _fields: "id,sku,type" },
+  });
+  return records(response.data)[0] || null;
+}
+
+async function categoryIds(woo: AxiosInstance, raw: string): Promise<Array<{ id: number }>> {
+  if (!raw) return [];
+  const names = listValues(raw, /\|/, 50).map((name) =>
+    boundedText(name, "Category name", 200),
+  );
+  const ids: number[] = [];
+
+  for (const name of names) {
+    const response = await woo.get("/products/categories", {
+      params: { per_page: 50, search: name, _fields: "id,name" },
+    });
+    const exact = records(response.data).find((category) =>
+      boundedText(String(category.name || ""), "Category name", 200).toLowerCase() ===
+      name.toLowerCase(),
+    );
+    let id = exact ? positiveId(String(exact.id || ""), "Category ID") : null;
+
+    if (!id) {
+      const created = await woo.post("/products/categories", { name });
+      id = responseId(created.data) || null;
     }
-    return "";
-  };
-  const bool = (v?: string) => {
-    if (!v) return false;
-    const s = v.toLowerCase();
-    return s === "1" || s === "true" || s === "yes";
-  };
-
-  const type = get("type") || "simple";
-  const payload: any = { type };
-
-  // core
-  const name = get("name");
-  if (name) payload.name = name;
-
-  // prices / sale dates
-  const regularPrice = get("regular price");
-  if (regularPrice) payload.regular_price = String(regularPrice);
-  const salePrice = get("sale price");
-  if (salePrice) payload.sale_price = String(salePrice);
-  const saleFrom = get("sale from");
-  if (saleFrom) payload.date_on_sale_from = saleFrom; // accepts ISO or 'YYYY-MM-DD'
-  const saleTo = get("sale to");
-  if (saleTo) payload.date_on_sale_to = saleTo;
-
-  // stock
-  const manageStock = get("manage stock");
-  if (manageStock) payload.manage_stock = bool(manageStock);
-  const qty = get("quantity");
-  if (qty) payload.stock_quantity = Number(qty) || 0;
-  const backorder = get("backorder");
-  if (backorder) payload.backorders = backorder as any; // 'no' | 'notify' | 'yes'
-
-  // status & visibility
-  const status = get("status");
-  if (status) payload.status = status as any; // publish/draft/pending/private
-  const visibility = get("visibility");
-  if (visibility) payload.catalog_visibility = visibility as any; // visible/catalog/search/hidden
-
-  // descriptions
-  const shortDesc = get("short description");
-  if (shortDesc) payload.short_description = shortDesc;
-  const longDesc = get("Description");
-  if (longDesc) payload.description = longDesc;
-
-  // categories: pipe-separated names
-  const cat = get("category");
-  if (cat) {
-    const cats = cat
-      .split("|")
-      .map((s) => s.trim())
-      .filter(Boolean)
-      .map((name) => ({ name }));
-    if (cats.length) payload.categories = cats;
+    if (id) ids.push(id);
   }
 
-   // images: accept multiple URLs, comma-separated (also supports pipe)
-  const imgField = get("image url");
-  if (imgField) {
-    const urls = imgField
-      .split(/[,\|]/)          // comma is primary; pipe also works
-      .map((x) => x.trim())
-      .filter(Boolean);
-    if (urls.length) {
-      payload.images = urls.map((u) => ({ src: u }));
+  return Array.from(new Set(ids)).map((id) => ({ id }));
+}
+
+function attributePayload(row: CsvRow): JsonRecord[] {
+  const attributes: JsonRecord[] = [];
+  for (let index = 1; index <= 5; index += 1) {
+    const name = boundedText(
+      rowValue(row, `Attribute ${index} name`),
+      `Attribute ${index} name`,
+      100,
+    );
+    const rawValues = rowValue(row, `Attribute ${index} value(s)`);
+    if (!name && !rawValues) continue;
+    if (!name || !rawValues) {
+      throw new ImportRequestError(`Attribute ${index} requires both a name and values`);
     }
-  }
-
-  // dimensions & weight
-  const weight = get("weight");
-  if (weight) payload.weight = weight;
-  const length = get("length");
-  const width = get("width");
-  const height = get("height");
-  if (length || width || height) {
-    payload.dimensions = {
-      length: length || "",
-      width: width || "",
-      height: height || "",
-    };
-  }
-
-  // grouped products list (IDs/SKUs)
-  const grouped = get("Grouped products");
-  if (grouped) {
-    payload.grouped_products = grouped
-      .split(/[|,]/)
-      .map((s) => s.trim())
-      .filter(Boolean);
-  }
-
-  // attributes (1..5)
-  for (let i = 1; i <= 5; i++) {
-    const n = get(`Attribute ${i} name`);
-    const vs = get(`Attribute ${i} value(s)`);
-    if (!n || !vs) continue;
-    const visible = bool(get(`Attribute ${i} visible`));
-    // "global" is ignored in payload; we create local attrs (similar to Woo CSV)
-    payload.attributes = payload.attributes || [];
-    payload.attributes.push({
-      name: n,
-      options: vs.split("|").map((x) => x.trim()).filter(Boolean),
-      visible,
+    const options = listValues(rawValues, /\|/, 100).map((value) =>
+      boundedText(value, `Attribute ${index} value`, 100),
+    );
+    if (!options.length) throw new ImportRequestError(`Attribute ${index} has no values`);
+    const visible = booleanValue(
+      rowValue(row, `Attribute ${index} visible`),
+      `Attribute ${index} visibility`,
+    );
+    attributes.push({
+      name,
+      options,
+      visible: visible ?? false,
       variation: false,
     });
   }
-
-   // Persist CSV 'id' for round-trip reconciliation
-  const externalId = get("id");
-  if (externalId) {
-    payload.meta_data = payload.meta_data || [];
-    payload.meta_data.push({ key: "_external_id", value: externalId });
-  }
-
-  return payload;
+  return attributes;
 }
 
-/* ----------------------------- upsert ----------------------------- */
-/**
- * Rule (as requested):
- * - If `id` exists and matches → UPDATE that ID.
- * - If `id` exists but does NOT match any product → CREATE new.
- * - If no `id`:
- *    - If updateExisting is ON and SKU exists → UPDATE by SKU.
- *    - Else CREATE new. If duplicate SKU and updateExisting is OFF → auto-suffix and CREATE.
- */
-async function upsertProduct(row: Row, updateExisting: boolean): Promise<UpsertResult> {
-  const idRaw = row["id"]?.trim();
-  const sku = row["sku"]?.trim();
-  const name = row["name"]?.trim();
+async function productPayload(woo: AxiosInstance, row: CsvRow): Promise<{
+  payload: JsonRecord;
+  id: number | null;
+  sku: string;
+  name: string;
+  groupedReferences: string[];
+}> {
+  const id = positiveId(rowValue(row, "id"));
+  const sku = boundedText(rowValue(row, "sku"), "SKU", 100);
+  const name = boundedText(rowValue(row, "name"), "Product name", 200);
+  if (!id && !sku && !name) throw new ImportRequestError("Missing product ID, SKU, and name");
 
-  if (!idRaw && !sku && !name) {
-    return { action: "skip", reason: "Missing id/sku/name" };
+  const type = enumValue(rowValue(row, "type"), "Product type", PRODUCT_TYPES, "simple");
+  const payload: JsonRecord = { type };
+  if (name) payload.name = name;
+  if (sku) payload.sku = sku;
+
+  const regularPrice = decimalValue(
+    rowValue(row, "regular price", "regular_price"),
+    "Regular price",
+  );
+  const salePrice = decimalValue(
+    rowValue(row, "sale price", "sale_price"),
+    "Sale price",
+  );
+  if (regularPrice) payload.regular_price = regularPrice;
+  if (salePrice) payload.sale_price = salePrice;
+
+  const saleFrom = optionalDateTime(rowValue(row, "sale from", "date_on_sale_from"), "Sale start");
+  const saleTo = optionalDateTime(rowValue(row, "sale to", "date_on_sale_to"), "Sale end");
+  if (saleFrom) payload.date_on_sale_from = saleFrom;
+  if (saleTo) payload.date_on_sale_to = saleTo;
+
+  const manageStock = booleanValue(
+    rowValue(row, "manage stock", "manage_stock"),
+    "Manage stock",
+  );
+  const quantity = integerValue(
+    rowValue(row, "quantity", "stock_quantity"),
+    "Stock quantity",
+  );
+  if (manageStock !== null) payload.manage_stock = manageStock;
+  if (quantity !== null) payload.stock_quantity = quantity;
+
+  const backorders = enumValue(rowValue(row, "backorder", "backorders"), "Backorders", BACKORDERS);
+  const status = enumValue(rowValue(row, "status"), "Product status", PRODUCT_STATUSES);
+  const visibility = enumValue(rowValue(row, "visibility", "catalog_visibility"), "Visibility", VISIBILITIES);
+  if (backorders) payload.backorders = backorders;
+  if (status) payload.status = status;
+  if (visibility) payload.catalog_visibility = visibility;
+
+  const shortDescription = boundedText(
+    rowValue(row, "short description", "short_description"),
+    "Short description",
+    20_000,
+    true,
+  );
+  const description = boundedText(
+    rowValue(row, "Description", "description"),
+    "Description",
+    300_000,
+    true,
+  );
+  if (shortDescription) payload.short_description = shortDescription;
+  if (description) payload.description = description;
+
+  const rawCategories = rowValue(row, "category", "categories");
+  if (rawCategories) payload.categories = await categoryIds(woo, rawCategories);
+
+  const rawImages = rowValue(row, "image url", "images");
+  if (rawImages) {
+    const images = listValues(rawImages, /[,|]/, 20).map((url) => ({
+      src: publicImageUrl(url),
+    }));
+    if (images.length) payload.images = images;
   }
-  const woo = await getWooClient();
-  const payload = buildPayloadFromRow(row);
 
-  // If ID provided, try update; if not found → create
-  if (idRaw) {
-    if (/^\d+$/.test(idRaw)) {
-      const id = Number(idRaw);
-      try {
-        const { data } = await woo.put(`/products/${id}`, payload);
-        return { action: "update", id: data.id };
-      } catch (e: any) {
-        const reason = asReason(e);
-        // If not found/invalid → create
-        if (/not found|invalid id|no route|cannot update/i.test(reason)) {
-          try {
-            if (sku) (payload as any).sku = sku;
-            if (!payload.name && name) payload.name = name;
-            const { data: created } = await woo.post(`/products`, payload);
-            return { action: "create", id: created.id };
-          } catch (e2: any) {
-            const r2 = asReason(e2);
-            // duplicate SKU on create → if updateExisting ON, update by SKU; else auto-suffix and create
-            if (/sku/i.test(r2) && /exist/i.test(r2) && sku) {
-              if (updateExisting) {
-                const { data: existing } = await woo.get(`/products`, { params: { sku, status: "any" } });
-                if (Array.isArray(existing) && existing.length) {
-                  const target = existing[0];
-                  const { data: upd } = await woo.put(`/products/${target.id}`, payload);
-                  return { action: "update", id: upd.id };
-                }
-              } else {
-                const base = String(sku);
-                const suffix = Date.now().toString().slice(-4);
-                (payload as any).sku = `${base}-${suffix}`;
-                const { data: created2 } = await woo.post(`/products`, payload);
-                return { action: "create", id: created2.id };
-              }
-            }
-            return { action: "error", reason: r2 };
-          }
-        }
-        return { action: "error", reason };
-      }
-    }
-    // bad id format → fall through to SKU/update-or-create
-  }
+  const weight = decimalValue(rowValue(row, "weight"), "Weight", 1_000_000);
+  const length = decimalValue(rowValue(row, "length"), "Length", 1_000_000);
+  const width = decimalValue(rowValue(row, "width"), "Width", 1_000_000);
+  const height = decimalValue(rowValue(row, "height"), "Height", 1_000_000);
+  if (weight) payload.weight = weight;
+  if (length || width || height) payload.dimensions = {
+    length: length || "",
+    width: width || "",
+    height: height || "",
+  };
 
-  // No valid ID path: optionally update by SKU, else create
+  const attributes = attributePayload(row);
+  if (attributes.length) payload.attributes = attributes;
+  if (id) payload.meta_data = [{ key: "_external_id", value: String(id) }];
+
+  const groupedReferences = listValues(
+    rowValue(row, "Grouped products", "grouped_products"),
+    /[|,]/,
+    100,
+  ).map((reference) => boundedText(reference, "Grouped product reference", 100));
+
+  return { payload, id, sku, name, groupedReferences };
+}
+
+async function createProduct(
+  woo: AxiosInstance,
+  payload: JsonRecord,
+  sku: string,
+  name: string,
+  rowNumber: number,
+): Promise<UpsertResult> {
+  if (!name) throw new ImportRequestError("Product name is required when creating a product");
   try {
-    if (sku && updateExisting) {
-      const { data: existing } = await woo.get(`/products`, { params: { sku, status: "any" } });
-      if (Array.isArray(existing) && existing.length) {
-        const target = existing[0];
-        const { data } = await woo.put(`/products/${target.id}`, payload);
-        return { action: "update", id: data.id };
-      }
-    }
+    const response = await woo.post("/products", payload);
+    const id = responseId(response.data);
+    if (!id) throw new ImportRequestError("WooCommerce did not return a product ID");
+    return { action: "create", id };
+  } catch (error: unknown) {
+    const status = isAxiosError(error) ? Number(error.response?.status || 0) : 0;
+    if (!sku || (status !== 400 && status !== 409)) throw error;
+    const existing = await findProductBySku(woo, sku);
+    if (!existing) throw error;
+    const suffix = `${Date.now().toString(36)}-${rowNumber}`;
+    payload.sku = `${sku.slice(0, Math.max(1, 99 - suffix.length))}-${suffix}`;
+    const response = await woo.post("/products", payload);
+    const id = responseId(response.data);
+    if (!id) throw new ImportRequestError("WooCommerce did not return a product ID");
+    return { action: "create", id };
+  }
+}
 
-    if (sku) (payload as any).sku = sku;
-    if (!payload.name && name) payload.name = name;
+async function upsertProduct(
+  woo: AxiosInstance,
+  row: CsvRow,
+  updateExisting: boolean,
+  rowNumber: number,
+): Promise<UpsertResult> {
+  const { payload, id, sku, name, groupedReferences } = await productPayload(woo, row);
+  let result: UpsertResult;
 
-    const { data } = await woo.post(`/products`, payload);
-    return { action: "create", id: data.id };
-  } catch (e: any) {
-    const reason = asReason(e);
-    if (/sku/i.test(reason) && /exist/i.test(reason) && sku) {
-      if (updateExisting) {
-        try {
-          const { data: existing } = await woo.get(`/products`, { params: { sku, status: "any" } });
-          if (Array.isArray(existing) && existing.length) {
-            const target = existing[0];
-            const { data: upd } = await woo.put(`/products/${target.id}`, payload);
-            return { action: "update", id: upd.id };
-          }
-        } catch (e2: any) {
-          return { action: "error", reason: asReason(e2) };
-        }
+  if (updateExisting && id) {
+    try {
+      const response = await woo.put(`/products/${id}`, payload);
+      const updatedId = responseId(response.data);
+      if (!updatedId) throw new ImportRequestError("WooCommerce did not return a product ID");
+      result = { action: "update", id: updatedId };
+    } catch (error: unknown) {
+      if (!isAxiosError(error) || Number(error.response?.status || 0) !== 404) throw error;
+      const existing = sku ? await findProductBySku(woo, sku) : null;
+      const existingId = existing ? responseId(existing) : 0;
+      if (existingId) {
+        const response = await woo.put(`/products/${existingId}`, payload);
+        const updatedId = responseId(response.data);
+        if (!updatedId) throw new ImportRequestError("WooCommerce did not return a product ID");
+        result = { action: "update", id: updatedId };
       } else {
-        // auto-suffix to force-create
-        const base = String(sku);
-        (payload as any).sku = `${base}-${Date.now().toString().slice(-4)}`;
-        const { data: created } = await woo.post(`/products`, payload);
-        return { action: "create", id: created.id };
+        result = await createProduct(woo, payload, sku, name, rowNumber);
       }
     }
-    return { action: "error", reason };
+  } else if (updateExisting && sku) {
+    const existing = await findProductBySku(woo, sku);
+    const existingId = existing ? responseId(existing) : 0;
+    if (existingId) {
+      const response = await woo.put(`/products/${existingId}`, payload);
+      const updatedId = responseId(response.data);
+      if (!updatedId) throw new ImportRequestError("WooCommerce did not return a product ID");
+      result = { action: "update", id: updatedId };
+    } else {
+      result = await createProduct(woo, payload, sku, name, rowNumber);
+    }
+  } else {
+    result = await createProduct(woo, payload, sku, name, rowNumber);
   }
+
+  if (payload.type === "grouped" && groupedReferences.length) {
+    const groupedIds: number[] = [];
+    for (const reference of groupedReferences) {
+      const numericId = /^\d+$/.test(reference)
+        ? positiveId(reference, "Grouped product ID")
+        : null;
+      if (numericId) {
+        groupedIds.push(numericId);
+        continue;
+      }
+      const product = await findProductBySku(woo, reference);
+      const productId = product ? responseId(product) : 0;
+      if (productId) groupedIds.push(productId);
+    }
+    await woo.put(`/products/${result.id}`, {
+      grouped_products: Array.from(new Set(groupedIds)),
+    });
+  }
+
+  return result;
 }
 
-/* ----------------------------- route ----------------------------- */
-
-export async function POST(req: Request) {
+export async function POST(request: Request) {
   try {
-    const form = await req.formData();
-    const file = form.get("file") as File | null;
-    const updateExisting = (form.get("updateExisting") as string) === "true";
-    const delimiter = (form.get("delimiter") as string) || undefined;
-
-    if (!file) {
-      return NextResponse.json({ ok: false, error: "No file uploaded" }, { status: 400 });
-    }
-
-    const buf = Buffer.from(await file.arrayBuffer());
-    const text = buf.toString("utf-8");
-    const rows = parseCsv(text, delimiter);
-
+    const woo = await getWooClient();
+    const { rows, updateExisting } = await readProductImport(request);
     let created = 0;
     let updated = 0;
     let skipped = 0;
     const errors: Array<{ row: number; reason: string }> = [];
 
-    for (let i = 0; i < rows.length; i++) {
-      const r = rows[i];
-      const res = await upsertProduct(r, updateExisting);
-      if (res.action === "create") created++;
-      else if (res.action === "update") updated++;
-      else if (res.action === "skip") {
-        skipped++;
-        errors.push({ row: i + 2, reason: String(res.reason || "Skipped") });
-      } else if (res.action === "error") {
-        skipped++;
-        errors.push({ row: i + 2, reason: String(res.reason || "Error") });
-      } else {
-        skipped++;
-        errors.push({ row: i + 2, reason: "Unknown outcome" });
+    for (let index = 0; index < rows.length; index += 1) {
+      const rowNumber = index + 2;
+      try {
+        const result = await upsertProduct(woo, rows[index], updateExisting, rowNumber);
+        if (result.action === "create") created += 1;
+        else updated += 1;
+      } catch (error: unknown) {
+        skipped += 1;
+        pushRowError(errors, rowNumber, rowErrorReason(error));
       }
     }
 
-    return NextResponse.json({
+    return privateImportJson({
       ok: true,
       rows: rows.length,
       summary: { created, updated, skipped },
       errors,
+      errorsTruncated: skipped > errors.length,
     });
-  } catch (err: any) {
-    return NextResponse.json({ ok: false, error: asReason(err) }, { status: 500 });
+  } catch (error: unknown) {
+    return importErrorResponse(error, "Product import failed");
   }
 }

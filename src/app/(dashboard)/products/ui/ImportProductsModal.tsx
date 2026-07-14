@@ -39,6 +39,10 @@ export default function ImportProductsModal({
       alert("Please choose a CSV file to upload.");
       return;
     }
+    if (f.size > 4 * 1024 * 1024) {
+      alert("The CSV file must be 4 MB or smaller.");
+      return;
+    }
     const fd = new FormData();
     fd.append("file", f);
     fd.append("updateExisting", String(updateExisting));
@@ -53,8 +57,11 @@ export default function ImportProductsModal({
       });
       const data = (await res.json()) as Result;
       setResult(data);
-    } catch (e: any) {
-      setResult({ ok: false, error: e?.message || "Import failed" });
+    } catch (error: unknown) {
+      setResult({
+        ok: false,
+        error: error instanceof Error ? error.message : "Import failed",
+      });
     } finally {
       setUpdating(false);
     }
@@ -109,7 +116,7 @@ export default function ImportProductsModal({
               </span>
             </div>
             <div className="text-[11px] text-slate-500">
-              Maximum size: 20 MB. Use UTF-8 encoded CSV.
+              Maximum size: 4 MB and 500 product rows. Use UTF-8 encoded CSV.
             </div>
           </div>
 
