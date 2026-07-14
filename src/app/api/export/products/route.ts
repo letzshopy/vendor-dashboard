@@ -1,161 +1,148 @@
-import { NextResponse } from "next/server";
-import { getWooClient } from "@/lib/woo";
+import { NextRequest } from "next/server";
 
+import {
+  csvResponse,
+  ExportRequestError,
+  exportErrorResponse,
+  fetchExportCollection,
+  isRecord,
+  optionalEnum,
+  optionalPositiveInteger,
+  records,
+  safeText,
+  stringifyExportCsv,
+  type JsonRecord,
+} from "@/lib/exportPolicy";
+import { getWooClient } from "@/lib/woo";
 import { PRODUCT_CSV_COLUMNS } from "@/types/import";
 
+export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
-type P = {
-  id: number;
-  sku?: string;
-  name: string;
-  type: string;
-  status?: string;
-  catalog_visibility?: "visible" | "catalog" | "search" | "hidden";
-  regular_price?: string;
-  sale_price?: string;
-  date_on_sale_from?: string | null;
-  date_on_sale_to?: string | null;
-  manage_stock?: boolean;
-  stock_quantity?: number | null;
-  backorders?: "no" | "notify" | "yes";
-  short_description?: string;
-  description?: string;
-  categories?: { id: number; name: string }[];
-  images?: { src: string }[];
-  grouped_products?: (number | string)[];
-  attributes?: {
-    name: string;
-    visible?: boolean;
-    options?: string[];
-  }[];
-  weight?: string;
-  dimensions?: { length?: string; width?: string; height?: string };
-  meta_data?: { key: string; value: any }[];
-};
+const PRODUCT_TYPES = new Set(["simple", "grouped", "external", "variable"]);
+const STOCK_STATUSES = new Set(["instock", "outofstock", "onbackorder"]);
+const ALLOWED_COLUMNS = new Set<string>(PRODUCT_CSV_COLUMNS);
 
-function esc(v: any) {
-  if (v == null) return "";
-  const s = String(v);
-  if (/[",\n]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
-  return s;
+function firstRecord(value: unknown): JsonRecord | null {
+  const first = records(value)[0];
+  return first || null;
 }
 
-function first<T>(arr?: T[]) {
-  return Array.isArray(arr) && arr.length ? arr[0] : undefined;
+function externalId(product: JsonRecord): string {
+  const item = records(product.meta_data).find((entry) => entry.key === "_external_id");
+  return item ? safeText(item.value, 500) : "";
 }
 
-function getExternalId(p: P) {
-  const m = (p.meta_data || []).find((x) => x.key === "_external_id");
-  return m ? String(m.value ?? "") : "";
-}
-
-function attrCell(p: P, idx: number, key: "name" | "value" | "visible" | "global") {
-  const a = (p.attributes || [])[idx - 1];
-  if (!a) return "";
-  if (key === "name") return a.name || "";
-  if (key === "value") return (a.options || []).join("|");
-  if (key === "visible") return a.visible ? "1" : "0";
-  if (key === "global") return "0"; // exporting as local attributes
-  return "";
-}
-
-export async function GET(req: Request) {
-  const woo = await getWooClient();
-  const url = new URL(req.url);
-  const category = url.searchParams.get("category") || "";
-  const stock = url.searchParams.get("stock") || "";
-  const ptype = url.searchParams.get("ptype") || "";
-
-  const requestedCols = (url.searchParams.get("columns") || "")
-    .split(",")
-    .map((s) => s.trim())
-    .filter(Boolean);
-
-  // Use user selection if provided; otherwise use the full shared list
-  const cols = requestedCols.length
-    ? requestedCols.filter((c) => PRODUCT_CSV_COLUMNS.includes(c as any))
-    : [...PRODUCT_CSV_COLUMNS];
-
-  // fetch all products
-  const perPage = 100;
-  let page = 1;
-  const out: P[] = [];
-  while (true) {
-    const params: Record<string, any> = { per_page: perPage, page, status: "any" };
-    if (category) params.category = category;
-    if (stock) params.stock_status = stock;
-    if (ptype) params.type = ptype;
-
-    const { data } = await woo.get<P[]>("/products", { params });
-    if (!Array.isArray(data) || data.length === 0) break;
-    out.push(...data);
-    if (data.length < perPage) break;
-    page++;
+function attributeCell(
+  product: JsonRecord,
+  index: number,
+  field: "name" | "value" | "visible" | "global",
+): string {
+  const attribute = records(product.attributes)[index - 1];
+  if (!attribute) return "";
+  if (field === "name") return safeText(attribute.name, 150);
+  if (field === "value") {
+    return Array.isArray(attribute.options)
+      ? attribute.options.map((option) => safeText(option, 500)).filter(Boolean).join("|")
+      : "";
   }
+  if (field === "visible") return attribute.visible === true ? "1" : "0";
+  return "0";
+}
 
-  const header = cols.join(",");
-  const rows = out.map((p) => {
-    const dims = p.dimensions || {};
-    const firstImage = first(p.images)?.src ?? "";
-    const grouped = (p.grouped_products || []).join("|");
+export async function GET(request: NextRequest) {
+  try {
+    const searchParams = request.nextUrl.searchParams;
+    const category = optionalPositiveInteger(searchParams, "category");
+    const stock = optionalEnum(searchParams, "stock", STOCK_STATUSES);
+    const productType = optionalEnum(searchParams, "ptype", PRODUCT_TYPES);
+    const requestedColumns = String(searchParams.get("columns") || "")
+      .split(",")
+      .map((column) => column.trim())
+      .filter(Boolean);
+    const columns = requestedColumns.length
+      ? requestedColumns.filter((column) => ALLOWED_COLUMNS.has(column))
+      : [...PRODUCT_CSV_COLUMNS];
 
-    const map: Record<string, string> = {
-      "id": String(p.id ?? ""),
-      "sku": p.sku ?? "",
-      "name": p.name ?? "",
-      "type": p.type ?? "",
-      "category": (p.categories || []).map((c) => c.name).join("|"),
-      "status": p.status ?? "",
-      "visibility": p.catalog_visibility ?? "",
-      "short description": p.short_description ?? "",
-      "Description": p.description ?? "",
-      "regular price": p.regular_price ?? "",
-      "sale price": p.sale_price ?? "",
-      "sale from": p.date_on_sale_from ?? "",
-      "sale to": p.date_on_sale_to ?? "",
-      "manage stock": p.manage_stock ? "1" : "0",
-      "quantity": p.stock_quantity == null ? "" : String(p.stock_quantity),
-      "backorder": p.backorders ?? "",
-      "weight": p.weight ?? "",
-      "length": dims.length ?? "",
-      "width": dims.width ?? "",
-      "height": dims.height ?? "",
-      "image url": firstImage,
-      "Grouped products": grouped,
-      "Attribute 1 name": attrCell(p, 1, "name"),
-      "Attribute 1 value(s)": attrCell(p, 1, "value"),
-      "Attribute 1 visible": attrCell(p, 1, "visible"),
-      "Attribute 1 global": attrCell(p, 1, "global"),
-      "Attribute 2 name": attrCell(p, 2, "name"),
-      "Attribute 2 value(s)": attrCell(p, 2, "value"),
-      "Attribute 2 visible": attrCell(p, 2, "visible"),
-      "Attribute 2 global": attrCell(p, 2, "global"),
-      "Attribute 3 name": attrCell(p, 3, "name"),
-      "Attribute 3 value(s)": attrCell(p, 3, "value"),
-      "Attribute 3 visible": attrCell(p, 3, "visible"),
-      "Attribute 3 global": attrCell(p, 3, "global"),
-      "Attribute 4 name": attrCell(p, 4, "name"),
-      "Attribute 4 value(s)": attrCell(p, 4, "value"),
-      "Attribute 4 visible": attrCell(p, 4, "visible"),
-      "Attribute 4 global": attrCell(p, 4, "global"),
-      "Attribute 5 name": attrCell(p, 5, "name"),
-      "Attribute 5 value(s)": attrCell(p, 5, "value"),
-      "Attribute 5 visible": attrCell(p, 5, "visible"),
-      "Attribute 5 global": attrCell(p, 5, "global"),
-      "external_id": getExternalId(p),
-    };
+    if (!columns.length) {
+      throw new ExportRequestError("No valid export columns were selected");
+    }
 
-    return cols.map((c) => esc(map[c] ?? "")).join(",");
-  });
+    const woo = await getWooClient();
+    const products = await fetchExportCollection(woo, "/products", {
+      status: "any",
+      ...(category ? { category } : {}),
+      ...(stock ? { stock_status: stock } : {}),
+      ...(productType ? { type: productType } : {}),
+    });
 
-  const csv = [header, ...rows].join("\n");
-  return new NextResponse(csv, {
-    headers: {
-      "Content-Type": "text/csv; charset=utf-8",
-      "Content-Disposition": `attachment; filename="products-export-${new Date()
-        .toISOString()
-        .slice(0, 10)}.csv"`,
-    },
-  });
+    const rows = products.map((product) => {
+      const dimensions = isRecord(product.dimensions) ? product.dimensions : {};
+      const firstImage = firstRecord(product.images);
+      const groupedProducts = Array.isArray(product.grouped_products)
+        ? product.grouped_products.map((id) => safeText(id, 30)).filter(Boolean).join("|")
+        : "";
+      const values: Record<string, string> = {
+        id: safeText(product.id, 30),
+        sku: safeText(product.sku, 100),
+        name: safeText(product.name, 300),
+        type: safeText(product.type, 40),
+        category: records(product.categories)
+          .map((item) => safeText(item.name, 200))
+          .filter(Boolean)
+          .join("|"),
+        status: safeText(product.status, 40),
+        visibility: safeText(product.catalog_visibility, 40),
+        "short description": safeText(product.short_description),
+        Description: safeText(product.description),
+        "regular price": safeText(product.regular_price, 50),
+        "sale price": safeText(product.sale_price, 50),
+        "sale from": safeText(product.date_on_sale_from, 50),
+        "sale to": safeText(product.date_on_sale_to, 50),
+        "manage stock": product.manage_stock === true ? "1" : "0",
+        quantity: product.stock_quantity === null || product.stock_quantity === undefined
+          ? ""
+          : safeText(product.stock_quantity, 50),
+        backorder: safeText(product.backorders, 30),
+        weight: safeText(product.weight, 50),
+        length: safeText(dimensions.length, 50),
+        width: safeText(dimensions.width, 50),
+        height: safeText(dimensions.height, 50),
+        "image url": firstImage ? safeText(firstImage.src, 2_000) : "",
+        "Grouped products": groupedProducts,
+        "Attribute 1 name": attributeCell(product, 1, "name"),
+        "Attribute 1 value(s)": attributeCell(product, 1, "value"),
+        "Attribute 1 visible": attributeCell(product, 1, "visible"),
+        "Attribute 1 global": attributeCell(product, 1, "global"),
+        "Attribute 2 name": attributeCell(product, 2, "name"),
+        "Attribute 2 value(s)": attributeCell(product, 2, "value"),
+        "Attribute 2 visible": attributeCell(product, 2, "visible"),
+        "Attribute 2 global": attributeCell(product, 2, "global"),
+        "Attribute 3 name": attributeCell(product, 3, "name"),
+        "Attribute 3 value(s)": attributeCell(product, 3, "value"),
+        "Attribute 3 visible": attributeCell(product, 3, "visible"),
+        "Attribute 3 global": attributeCell(product, 3, "global"),
+        "Attribute 4 name": attributeCell(product, 4, "name"),
+        "Attribute 4 value(s)": attributeCell(product, 4, "value"),
+        "Attribute 4 visible": attributeCell(product, 4, "visible"),
+        "Attribute 4 global": attributeCell(product, 4, "global"),
+        "Attribute 5 name": attributeCell(product, 5, "name"),
+        "Attribute 5 value(s)": attributeCell(product, 5, "value"),
+        "Attribute 5 visible": attributeCell(product, 5, "visible"),
+        "Attribute 5 global": attributeCell(product, 5, "global"),
+        external_id: externalId(product),
+      };
+
+      return columns.map((column) => values[column] || "");
+    });
+
+    const date = new Date().toISOString().slice(0, 10);
+    return csvResponse(
+      stringifyExportCsv([columns, ...rows]),
+      `products-export-${date}.csv`,
+    );
+  } catch (error: unknown) {
+    return exportErrorResponse(error, "Product export failed");
+  }
 }

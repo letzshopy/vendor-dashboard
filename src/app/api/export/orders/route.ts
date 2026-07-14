@@ -1,239 +1,199 @@
-// src/app/api/export/orders/route.ts
-import { NextResponse } from "next/server";
+import type { AxiosInstance } from "axios";
+import { NextRequest } from "next/server";
+
+import {
+  csvResponse,
+  ExportRequestError,
+  exportErrorResponse,
+  fetchExportCollection,
+  isRecord,
+  optionalDate,
+  optionalEnum,
+  optionalPositiveInteger,
+  records,
+  safeId,
+  safeText,
+  stringifyExportCsv,
+} from "@/lib/exportPolicy";
 import { getWooClient } from "@/lib/woo";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
-// ---------- small helpers ----------
-const q = (s: string) => `"${(s ?? "").replace(/"/g, '""')}"`;
-
-const ALLOWED_STATUSES = new Set([
-  "pending", "processing", "on-hold",
-  "completed", "cancelled", "refunded", "failed",
+const ORDER_STATUSES = new Set([
+  "all", "any", "pending", "processing", "on-hold", "completed",
+  "cancelled", "refunded", "failed",
 ]);
+const PRESETS = new Set(["today", "yesterday", "this_week", "this_month", "last_month"]);
 
-function normStatus(raw?: string): string | undefined {
-  if (!raw) return undefined;
-  const s = raw.trim().toLowerCase();
-  if (s === "all" || s === "any") return undefined;
-  return ALLOWED_STATUSES.has(s) ? s : undefined;
-}
+function presetRange(preset: string): { from: string; to: string } | null {
+  if (!preset) return null;
+  const now = new Date();
+  const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+  const format = (date: Date) => date.toISOString().slice(0, 10);
 
-function presetRange(preset?: string): { from?: string; to?: string } {
-  const today = new Date();
-  const d0 = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()));
-  const fmt = (d: Date) => d.toISOString().slice(0, 10);
-
-  switch ((preset || "").toLowerCase()) {
-    case "today": {
-      const from = fmt(d0), to = fmt(d0);
-      return { from, to };
-    }
-    case "yesterday": {
-      const y = new Date(d0); y.setUTCDate(y.getUTCDate() - 1);
-      const from = fmt(y), to = fmt(y);
-      return { from, to };
-    }
-    case "this_week": {
-      const start = new Date(d0);
-      const dow = start.getUTCDay() || 7; // Monday start
-      start.setUTCDate(start.getUTCDate() - (dow - 1));
-      const end = new Date(start); end.setUTCDate(start.getUTCDate() + 6);
-      return { from: fmt(start), to: fmt(end) };
-    }
-    case "this_month": {
-      const start = new Date(Date.UTC(d0.getUTCFullYear(), d0.getUTCMonth(), 1));
-      const end = new Date(Date.UTC(d0.getUTCFullYear(), d0.getUTCMonth() + 1, 0));
-      return { from: fmt(start), to: fmt(end) };
-    }
-    case "last_month": {
-      const start = new Date(Date.UTC(d0.getUTCFullYear(), d0.getUTCMonth() - 1, 1));
-      const end = new Date(Date.UTC(d0.getUTCFullYear(), d0.getUTCMonth(), 0));
-      return { from: fmt(start), to: fmt(end) };
-    }
-    default:
-      return {};
+  if (preset === "today") return { from: format(today), to: format(today) };
+  if (preset === "yesterday") {
+    const yesterday = new Date(today);
+    yesterday.setUTCDate(yesterday.getUTCDate() - 1);
+    return { from: format(yesterday), to: format(yesterday) };
   }
+  if (preset === "this_week") {
+    const start = new Date(today);
+    const weekday = start.getUTCDay() || 7;
+    start.setUTCDate(start.getUTCDate() - (weekday - 1));
+    const end = new Date(start);
+    end.setUTCDate(end.getUTCDate() + 6);
+    return { from: format(start), to: format(end) };
+  }
+  if (preset === "this_month") {
+    const start = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), 1));
+    const end = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth() + 1, 0));
+    return { from: format(start), to: format(end) };
+  }
+  const start = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth() - 1, 1));
+  const end = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), 0));
+  return { from: format(start), to: format(end) };
 }
 
-function within(date_gmt?: string, from?: string, to?: string) {
+function inDateRange(value: unknown, from: string, to: string): boolean {
   if (!from && !to) return true;
-  if (!date_gmt) return false;
-  const t = Date.parse(date_gmt + "Z");
-  if (from) {
-    const tf = Date.parse(from + "T00:00:00Z");
-    if (t < tf) return false;
-  }
-  if (to) {
-    const tt = Date.parse(to + "T23:59:59Z");
-    if (t > tt) return false;
-  }
+  const raw = safeText(value, 50);
+  if (!raw) return false;
+  const time = Date.parse(`${raw.replace(/Z$/i, "")}Z`);
+  if (!Number.isFinite(time)) return false;
+  if (from && time < Date.parse(`${from}T00:00:00Z`)) return false;
+  if (to && time > Date.parse(`${to}T23:59:59Z`)) return false;
   return true;
 }
 
-function chunk<T>(arr: T[], size: number): T[][] {
-  const out: T[][] = [];
-  for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
-  return out;
+function chunks<T>(items: T[], size: number): T[][] {
+  const output: T[][] = [];
+  for (let index = 0; index < items.length; index += size) {
+    output.push(items.slice(index, index + size));
+  }
+  return output;
 }
 
-// product_id -> set(category_id)
-async function fetchProductCategoryMap(productIds: number[]): Promise<Map<number, Set<number>>> {
-  const woo = await getWooClient();
-  const map = new Map<number, Set<number>>();
-  const dedup = Array.from(new Set(productIds.filter((n) => Number.isFinite(n))));
-  if (dedup.length === 0) return map;
+async function productCategoryMap(
+  woo: AxiosInstance,
+  productIds: number[],
+): Promise<Map<number, Set<number>>> {
+  const output = new Map<number, Set<number>>();
+  const uniqueIds = Array.from(new Set(productIds.filter((id) => id > 0)));
 
-  for (const ids of chunk(dedup, 100)) {
-    const { data } = await woo.get("/products", {
-      params: {
+  for (const ids of chunks(uniqueIds, 100)) {
+    const products = await fetchExportCollection(
+      woo,
+      "/products",
+      {
         include: ids.join(","),
-        per_page: Math.min(ids.length, 100),
         status: "any",
         orderby: "id",
         order: "asc",
+        _fields: "id,categories",
       },
-    });
-    if (Array.isArray(data)) {
-      for (const p of data) {
-        const pid = Number(p?.id);
-        const cats: any[] = Array.isArray(p?.categories) ? p.categories : [];
-        map.set(pid, new Set<number>(cats.map((c: any) => Number(c?.id)).filter(Number.isFinite)));
-      }
+      1,
+    );
+    for (const product of products) {
+      const productId = safeId(product.id);
+      if (!productId) continue;
+      const categoryIds = records(product.categories)
+        .map((category) => safeId(category.id))
+        .filter(Boolean);
+      output.set(productId, new Set(categoryIds));
     }
   }
-  return map;
+
+  return output;
 }
 
-// ---------- route ----------
-export const dynamic = "force-dynamic";
-
-export async function GET(req: Request) {
+export async function GET(request: NextRequest) {
   try {
-    const woo = await getWooClient();
-    const url = new URL(req.url);
-    const statusRaw = url.searchParams.get("status") || undefined;
-    const preset = url.searchParams.get("preset") || undefined;
-    const fromQ = url.searchParams.get("from") || undefined;
-    const toQ = url.searchParams.get("to") || undefined;
-    const catRaw = url.searchParams.get("category") || ""; // category id
-
-    const status = normStatus(statusRaw);
-    const { from: pFrom, to: pTo } = presetRange(preset);
-    const from = fromQ ?? pFrom;
-    const to = toQ ?? pTo;
-
-    // 1) fetch orders
-    const PER = 100;
-    const MAX_PAGES = 50;
-    const orders: any[] = [];
-    for (let page = 1; page <= MAX_PAGES; page++) {
-      const { data } = await woo.get("/orders", {
-        params: {
-          per_page: PER,
-          page,
-          orderby: "date",
-          order: "desc",
-          status: status ?? "any",
-        },
-      });
-      if (!Array.isArray(data) || data.length === 0) break;
-      orders.push(...data);
-      if (data.length < PER) break;
+    const searchParams = request.nextUrl.searchParams;
+    const rawStatus = optionalEnum(searchParams, "status", ORDER_STATUSES);
+    const preset = optionalEnum(searchParams, "preset", PRESETS);
+    const explicitFrom = optionalDate(searchParams, "from");
+    const explicitTo = optionalDate(searchParams, "to");
+    const categoryId = optionalPositiveInteger(searchParams, "category");
+    const presetDates = presetRange(preset);
+    const from = explicitFrom || presetDates?.from || "";
+    const to = explicitTo || presetDates?.to || "";
+    if (from && to && from > to) {
+      throw new ExportRequestError("The start date must not be after the end date");
     }
 
-    // 2) date filter
-    let rows = orders.filter((o) => within(o.date_created_gmt, from, to));
+    const status = rawStatus === "all" || rawStatus === "any" ? "" : rawStatus;
+    const woo = await getWooClient();
+    const orders = await fetchExportCollection(woo, "/orders", {
+      orderby: "date",
+      order: "desc",
+      status: status || "any",
+    });
+    let filtered = orders.filter((order) =>
+      inDateRange(order.date_created_gmt || order.date_created, from, to),
+    );
 
-    // 3) category filter (by product's categories)
-    const catId = Number(catRaw);
-    if (Number.isFinite(catId) && catId > 0) {
-      const productIds: number[] = [];
-      for (const o of rows) {
-        for (const li of o?.line_items || []) {
-          const pid = Number(li?.product_id);
-          if (Number.isFinite(pid)) productIds.push(pid);
-        }
-      }
-      const prodCatMap = await fetchProductCategoryMap(productIds);
-      rows = rows.filter((o) =>
-        (o?.line_items || []).some((li: any) => {
-          const pid = Number(li?.product_id);
-          const set = prodCatMap.get(pid);
-          return set ? set.has(catId) : false;
-        })
+    if (categoryId) {
+      const productIds = filtered.flatMap((order) =>
+        records(order.line_items).map((item) => safeId(item.product_id)).filter(Boolean),
+      );
+      const categoriesByProduct = await productCategoryMap(woo, productIds);
+      filtered = filtered.filter((order) =>
+        records(order.line_items).some((item) =>
+          categoriesByProduct.get(safeId(item.product_id))?.has(categoryId) === true,
+        ),
       );
     }
 
-    // 4) CSV headers exactly as requested
     const headers = [
-      "id",
-      "number",
-      "date",
-      "status",
-      "payment_method",
-      "payment_title",
-      "currency",
-      "total",
-      "customer_name",
-      "customer_email",
-      "customer_phone",
-      "billing_address_1",
-      "billing_city",
-      "billing_state",
-      "billing_postcode",
-      "billing_country",
-      "shipping_address_1",
-      "shipping_city",
-      "shipping_state",
-      "shipping_postcode",
-      "shipping_country",
-      "items",
+      "id", "number", "date", "status", "payment_method", "payment_title",
+      "currency", "total", "customer_name", "customer_email", "customer_phone",
+      "billing_address_1", "billing_city", "billing_state", "billing_postcode",
+      "billing_country", "shipping_address_1", "shipping_city", "shipping_state",
+      "shipping_postcode", "shipping_country", "items",
     ];
-
-    const lines: string[] = [headers.join(",")];
-
-    for (const o of rows) {
-      const itemsStr = (o?.line_items || [])
-        .map((li: any) => `${li?.name || ""} x ${li?.quantity ?? ""}`)
+    const rows = filtered.map((order) => {
+      const billing = isRecord(order.billing) ? order.billing : {};
+      const shipping = isRecord(order.shipping) ? order.shipping : {};
+      const items = records(order.line_items)
+        .map((item) => `${safeText(item.name, 300)} x ${safeText(item.quantity, 30)}`)
         .join("; ");
+      const customerName = [
+        safeText(billing.first_name, 100),
+        safeText(billing.last_name, 100),
+      ].filter(Boolean).join(" ");
+      const id = safeId(order.id);
 
-      const line = [
-        String(o?.id ?? ""),
-        String(o?.number ?? o?.id ?? ""),
-        String(o?.date_created ?? "").slice(0, 19),
-        String(o?.status ?? ""),
-        String(o?.payment_method ?? ""),
-        String(o?.payment_method_title ?? ""),
-        String(o?.currency ?? ""),
-        String(o?.total ?? ""),
-        `${o?.billing?.first_name || ""} ${o?.billing?.last_name || ""}`.trim(),
-        String(o?.billing?.email ?? ""),
-        String(o?.billing?.phone ?? ""),
-        String(o?.billing?.address_1 ?? ""),
-        String(o?.billing?.city ?? ""),
-        String(o?.billing?.state ?? ""),
-        String(o?.billing?.postcode ?? ""),
-        String(o?.billing?.country ?? ""),
-        String(o?.shipping?.address_1 ?? ""),
-        String(o?.shipping?.city ?? ""),
-        String(o?.shipping?.state ?? ""),
-        String(o?.shipping?.postcode ?? ""),
-        String(o?.shipping?.country ?? ""),
-        itemsStr,
-      ].map(q).join(",");
-
-      lines.push(line);
-    }
-
-    const csv = lines.join("\r\n");
-    return new NextResponse(csv, {
-      headers: {
-        "Content-Type": "text/csv; charset=utf-8",
-        "Content-Disposition": 'attachment; filename="orders-export.csv"',
-      },
+      return [
+        id || "",
+        safeText(order.number, 100) || (id ? String(id) : ""),
+        safeText(order.date_created, 50).slice(0, 19),
+        safeText(order.status, 40),
+        safeText(order.payment_method, 100),
+        safeText(order.payment_method_title, 200),
+        safeText(order.currency, 20),
+        safeText(order.total, 50),
+        customerName,
+        safeText(billing.email, 254),
+        safeText(billing.phone, 50),
+        safeText(billing.address_1, 500),
+        safeText(billing.city, 150),
+        safeText(billing.state, 100),
+        safeText(billing.postcode, 30),
+        safeText(billing.country, 20),
+        safeText(shipping.address_1, 500),
+        safeText(shipping.city, 150),
+        safeText(shipping.state, 100),
+        safeText(shipping.postcode, 30),
+        safeText(shipping.country, 20),
+        items,
+      ];
     });
-  } catch (err: any) {
-    const msg = err?.response?.data || err?.message || "Export failed";
-    return NextResponse.json({ ok: false, error: msg }, { status: 500 });
+
+    return csvResponse(stringifyExportCsv([headers, ...rows]), "orders-export.csv");
+  } catch (error: unknown) {
+    return exportErrorResponse(error, "Export failed");
   }
 }
