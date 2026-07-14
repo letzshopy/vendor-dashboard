@@ -1,5 +1,6 @@
 export const MEDIA_PURPOSE_SCOPE = {
   product_image: "catalog",
+  category_image: "catalog",
   media_library: "catalog",
   profile_logo: "system",
   vendor_upi_qr: "system",

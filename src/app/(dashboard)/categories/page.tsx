@@ -10,6 +10,7 @@ type Cat = {
   parent: number;
   description?: string;
   count?: number;
+  image?: { id: number; src: string } | null;
 };
 
 export const dynamic = "force-dynamic";
@@ -32,6 +33,7 @@ async function fetchCategories(): Promise<Cat[]> {
           hide_empty: false,
           orderby: "name",
           order: "asc",
+          _fields: "id,name,slug,parent,description,count,image",
         },
       });
 

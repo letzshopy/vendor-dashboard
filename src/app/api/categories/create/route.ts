@@ -1,14 +1,24 @@
-import { NextResponse } from "next/server";
 import { getWooClient } from "@/lib/woo";
+import {
+  categoryPayload,
+  categorySummary,
+  privateJson,
+  readJsonObject,
+  taxonomyErrorResponse,
+} from "@/lib/taxonomyPolicy";
 
-
-export async function POST(req: Request) {
+export async function POST(request: Request) {
   try {
+    const body = await readJsonObject(request);
+    const payload = categoryPayload(body);
     const woo = await getWooClient();
-    const body = await req.json();
-    const { data } = await woo.post("/products/categories", body);
-    return NextResponse.json({ category: data });
-  } catch (e: any) {
-    return NextResponse.json({ error: e?.response?.data?.message || e?.message || "Create failed" }, { status: 500 });
+    const response = await woo.post("/products/categories", payload);
+    const category = categorySummary(response.data);
+
+    if (!category) throw new Error("WooCommerce returned an invalid category");
+
+    return privateJson({ category });
+  } catch (error: unknown) {
+    return taxonomyErrorResponse(error, "Category creation failed");
   }
 }

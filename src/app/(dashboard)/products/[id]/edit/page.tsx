@@ -3,6 +3,7 @@
 import { use, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import ProductImages, { type ImgItem } from "@/components/ProductImages";
+import TagPicker from "@/components/TagPicker";
 
 type Cat = { id: number; name: string; parent: number };
 type Attr = { id: number; name: string; slug: string };
@@ -176,7 +177,7 @@ export default function EditProductPage({
     return flatCats.filter((c) => c.name.toLowerCase().includes(q));
   }, [flatCats, catQuery]);
 
-  const [tagsInput, setTagsInput] = useState("");
+  const [tags, setTags] = useState<string[]>([]);
 
   const [varAttrRows, setVarAttrRows] = useState<number[]>([]);
   const [varChosenAttr, setVarChosenAttr] = useState<number | "">("");
@@ -227,7 +228,7 @@ export default function EditProductPage({
             }))
           );
           setSelectedCats((prod.categories || []).map((c) => c.id));
-          setTagsInput((prod.tags || []).map((t) => t.name).join(", "));
+          setTags((prod.tags || []).map((tag) => tag.name));
 
           if (prod.type === "simple") {
             setRegular(prod.regular_price || "");
@@ -487,11 +488,7 @@ export default function EditProductPage({
             : undefined,
         images: images.map((im, idx) => ({ id: im.id, position: idx })),
         categories: selectedCats.map((id) => ({ id })),
-        tags: tagsInput
-          .split(",")
-          .map((s) => s.trim())
-          .filter(Boolean)
-          .map((name) => ({ name })),
+        tags: tags.map((name) => ({ name })),
       };
 
       if (ptype === "variable") {
@@ -1085,12 +1082,11 @@ export default function EditProductPage({
                 </div>
 
                 <div>
-                  <ReqLabel>Tags (comma-separated)</ReqLabel>
-                  <input
-                    className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs focus:border-violet-400 focus:outline-none"
-                    value={tagsInput}
-                    onChange={(e) => setTagsInput(e.target.value)}
-                    placeholder="e.g. festive, saree, cotton"
+                  <ReqLabel>Product tags</ReqLabel>
+                  <TagPicker
+                    value={tags}
+                    onChange={setTags}
+                    placeholder="Type a tag, then press comma or Enter"
                   />
                 </div>
               </div>

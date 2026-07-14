@@ -1,58 +1,44 @@
-import { NextResponse } from "next/server";
-import { getWooClient } from "@/lib/woo";
+import type { AxiosInstance } from "axios";
 
-function extractWooError(e: any, fallback: string) {
-  return (
-    e?.response?.data?.message ||
-    e?.response?.data?.error ||
-    e?.message ||
-    fallback
-  );
+import { getWooClient } from "@/lib/woo";
+import {
+  privateJson,
+  tagSummary,
+  taxonomyErrorResponse,
+} from "@/lib/taxonomyPolicy";
+
+async function getTags(woo: AxiosInstance): Promise<unknown[]> {
+  const tags: unknown[] = [];
+
+  for (let page = 1; page <= 20; page += 1) {
+    const response = await woo.get("/products/tags", {
+      params: {
+        per_page: 100,
+        page,
+        orderby: "name",
+        order: "asc",
+        hide_empty: false,
+        _fields: "id,name,slug,description,count",
+      },
+    });
+
+    if (!Array.isArray(response.data) || response.data.length === 0) break;
+    tags.push(...response.data);
+    if (response.data.length < 100) break;
+  }
+
+  return tags;
 }
 
 export async function GET() {
   try {
     const woo = await getWooClient();
+    const tags = (await getTags(woo))
+      .map(tagSummary)
+      .filter((item) => item !== null);
 
-    const PER_PAGE = 100;
-    const MAX_PAGES = 20; // safety cap (max 2000 tags)
-
-    const all: any[] = [];
-    let page = 1;
-
-    while (page <= MAX_PAGES) {
-      const { data } = await woo.get("/products/tags", {
-        params: {
-          per_page: PER_PAGE,
-          page,
-          orderby: "name",
-          order: "asc",
-          hide_empty: false,
-        },
-      });
-
-      const rows = Array.isArray(data) ? data : [];
-      if (!rows.length) break;
-
-      all.push(...rows);
-
-      if (rows.length < PER_PAGE) break;
-      page++;
-    }
-
-    const tags = all.map((t: any) => ({
-      id: Number(t?.id || 0),
-      name: String(t?.name || ""),
-      slug: String(t?.slug || ""),
-      count: Number(t?.count || 0),
-    }));
-
-    return NextResponse.json({ tags });
-  } catch (e: any) {
-    const msg = extractWooError(e, "Fetch failed");
-    return NextResponse.json(
-      { error: msg, tags: [] },
-      { status: e?.response?.status || 500 }
-    );
+    return privateJson({ tags });
+  } catch (error: unknown) {
+    return taxonomyErrorResponse(error, "Unable to load tags");
   }
 }

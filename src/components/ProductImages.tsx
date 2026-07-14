@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 
+import MediaLibraryPicker from "@/components/MediaLibraryPicker";
+
 export type ImgItem = {
   id: number;
   url: string;
@@ -223,6 +225,8 @@ export default function ProductImages({
   const [imageUrl, setImageUrl] = useState("");
   const [pendingImages, setPendingImages] = useState<PendingImage[]>([]);
   const [urlImporting, setUrlImporting] = useState(false);
+  const [addOpen, setAddOpen] = useState(false);
+  const [libraryOpen, setLibraryOpen] = useState(false);
   const pendingRef = useRef<PendingImage[]>([]);
   const inputRef = useRef<HTMLInputElement | null>(null);
 
@@ -282,6 +286,8 @@ export default function ProductImages({
     const files = event.target.files;
 
     if (!files || files.length === 0) return;
+
+    setAddOpen(false);
 
     setError(null);
     setBusy(true);
@@ -384,6 +390,7 @@ export default function ProductImages({
 
       appendImages([item]);
       setImageUrl("");
+      setAddOpen(false);
     } catch (caught: unknown) {
       setError(
         caught instanceof Error
@@ -480,57 +487,105 @@ export default function ProductImages({
         )}
 
         {value.length + pendingImages.length + (urlImporting ? 1 : 0) < max && (
-          <label className="grid h-24 w-24 cursor-pointer place-items-center rounded border hover:bg-gray-50">
-            <span className="text-sm">+ Upload</span>
-            <input
-              ref={inputRef}
-              type="file"
-              accept="image/jpeg,image/png,image/webp,image/gif"
-              multiple
-              className="hidden"
-              onChange={pickFiles}
-            />
-          </label>
+          <button
+            type="button"
+            onClick={() => setAddOpen(true)}
+            className="grid h-24 w-24 place-items-center rounded border hover:bg-gray-50"
+          >
+            <span className="text-sm">+ Add images</span>
+          </button>
         )}
       </div>
 
-      {value.length + pendingImages.length + (urlImporting ? 1 : 0) < max && (
-        <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50 p-3">
-          <div className="mb-2 text-xs font-medium text-slate-700">
-            Upload by URL
-          </div>
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/jpeg,image/png,image/webp,image/gif"
+        multiple
+        className="hidden"
+        onChange={pickFiles}
+      />
 
-          <div className="flex flex-col gap-2 sm:flex-row">
-            <input
-              type="url"
-              inputMode="url"
-              value={imageUrl}
-              onChange={(event) => setImageUrl(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === "Enter") {
-                  event.preventDefault();
-                  void importImageUrl();
-                }
-              }}
-              placeholder="https://example.com/product-image.jpg"
-              className="min-w-0 flex-1 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-              disabled={busy}
-            />
-            <button
-              type="button"
-              onClick={() => void importImageUrl()}
-              disabled={busy || !imageUrl.trim()}
-              className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              Import image
-            </button>
-          </div>
+      {addOpen && (
+        <div className="fixed inset-0 z-[250] grid place-items-center bg-slate-950/60 p-3 backdrop-blur-sm">
+          <div className="w-full max-w-lg rounded-3xl bg-white p-5 shadow-2xl md:p-6">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h3 className="font-semibold text-slate-900">Add product images</h3>
+                <p className="mt-1 text-xs text-slate-500">
+                  Upload a file, reuse Media Library, or import a public URL.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setAddOpen(false)}
+                className="grid h-9 w-9 place-items-center rounded-xl border text-slate-600"
+              >
+                ✕
+              </button>
+            </div>
 
-          <p className="mt-2 text-xs text-slate-500">
-            The image is securely copied into your Media Library.
-          </p>
+            <div className="mt-5 grid gap-3 sm:grid-cols-2">
+              <button
+                type="button"
+                onClick={() => inputRef.current?.click()}
+                className="rounded-2xl border border-violet-200 bg-violet-50 px-4 py-4 text-left"
+              >
+                <span className="block text-sm font-semibold text-violet-800">Upload from device</span>
+                <span className="mt-1 block text-xs text-violet-700/75">Choose JPG, PNG, WebP or GIF.</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setAddOpen(false);
+                  setLibraryOpen(true);
+                }}
+                className="rounded-2xl border border-sky-200 bg-sky-50 px-4 py-4 text-left"
+              >
+                <span className="block text-sm font-semibold text-sky-800">Choose Media Library</span>
+                <span className="mt-1 block text-xs text-sky-700/75">Reuse an already uploaded image.</span>
+              </button>
+            </div>
+
+            <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-3">
+              <label className="mb-2 block text-xs font-semibold text-slate-700">Import from image URL</label>
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <input
+                  type="url"
+                  inputMode="url"
+                  value={imageUrl}
+                  onChange={(event) => setImageUrl(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      event.preventDefault();
+                      void importImageUrl();
+                    }
+                  }}
+                  placeholder="https://example.com/image.jpg"
+                  className="min-w-0 flex-1 rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm outline-none"
+                  disabled={busy}
+                />
+                <button
+                  type="button"
+                  onClick={() => void importImageUrl()}
+                  disabled={busy || !imageUrl.trim()}
+                  className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+                >
+                  Import
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
+
+      <MediaLibraryPicker
+        open={libraryOpen}
+        remaining={Math.max(0, max - value.length - pendingImages.length)}
+        excludedIds={value.map((image) => image.id)}
+        onClose={() => setLibraryOpen(false)}
+        onSelect={appendImages}
+      />
 
       <div className="mt-2 text-xs text-slate-500">
         Large images are automatically optimized before upload.
