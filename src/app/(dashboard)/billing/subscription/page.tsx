@@ -32,6 +32,25 @@ type Subscription = {
   last_billed_at?: string;
 };
 
+type DomainRenewal = {
+  enabled?: boolean;
+  service_type?: string;
+  service_label?: string;
+  domain_name?: string;
+  annual_amount?: number;
+  amount?: number;
+  renewal_date?: string;
+  next_renewal_date?: string;
+  invoice_date?: string;
+  grace_ends_at?: string;
+  status?: string;
+  payment_status?: string;
+  payment_reference?: string;
+  payment_submitted_at?: string;
+  days_to_renewal?: number | null;
+  strong_message?: string;
+};
+
 type PlanKey = "standard" | "premium";
 type BillingCycle = "monthly" | "yearly";
 type JsonRecord = Record<string, unknown>;
@@ -90,6 +109,20 @@ function prettyStatus(raw?: string) {
   return v.charAt(0).toUpperCase() + v.slice(1).replace(/_/g, " ");
 }
 
+function prettyDomainStatus(raw?: string) {
+  const v = (raw || "").toLowerCase().trim();
+  if (!v) return "-";
+  if (v === "payment_submitted") return "Payment Submitted";
+  if (v === "configuration_required") return "Configuration Required";
+  if (v === "payment_due") return "Payment Due";
+  if (v === "overdue_grace") return "Overdue — Grace Active";
+  if (v === "grace_expired") return "Grace Period Expired";
+  if (v === "critical") return "Critical";
+  if (v === "upcoming") return "Upcoming";
+  if (v === "active") return "Active";
+  return v.charAt(0).toUpperCase() + v.slice(1).replace(/_/g, " ");
+}
+
 function formatDate(raw?: string) {
   if (!raw) return "-";
   return raw;
@@ -145,10 +178,12 @@ export default function BillingSubscriptionPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [sub, setSub] = useState<Subscription | null>(null);
+  const [domain, setDomain] = useState<DomainRenewal | null>(null);
 
   const [billingCycle, setBillingCycle] = useState<BillingCycle>("yearly");
   const [selectedPlan, setSelectedPlan] = useState<PlanKey>("standard");
   const [utr, setUtr] = useState("");
+  const [domainUtr, setDomainUtr] = useState("");
 
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -223,9 +258,42 @@ export default function BillingSubscriptionPage() {
     }
   }, []);
 
+  const loadDomainRenewal = useCallback(async () => {
+    try {
+      const response = await fetch(
+        "/api/settings/domain-renewal",
+        { cache: "no-store" }
+      );
+
+      const value: unknown = await response
+        .json()
+        .catch(() => null);
+
+      if (!response.ok || !isRecord(value)) {
+        setDomain(null);
+        return;
+      }
+
+      const data = value as DomainRenewal;
+      setDomain(data);
+
+      if (data.payment_reference) {
+        setDomainUtr(data.payment_reference);
+      }
+    } catch (caught: unknown) {
+      console.error(
+        caught instanceof Error
+          ? caught.message
+          : "Domain renewal load failed"
+      );
+      setDomain(null);
+    }
+  }, []);
+
   useEffect(() => {
     void loadSubscription();
-  }, [loadSubscription]);
+    void loadDomainRenewal();
+  }, [loadSubscription, loadDomainRenewal]);
 
   const isFirstPayment =
     !sub?.last_paid_date &&
@@ -267,6 +335,20 @@ export default function BillingSubscriptionPage() {
   const currentNextDate =
     sub?.next_payment_date || sub?.next_renewal_date || "";
   const currentPaymentRef = sub?.payment_reference || sub?.utr || "";
+  const domainEnabled = domain?.enabled === true;
+  const domainStatus = domain?.payment_status || domain?.status || "";
+  const domainAmount = domain?.annual_amount || domain?.amount || 0;
+  const domainRenewalDate =
+    domain?.renewal_date || domain?.next_renewal_date || "";
+  const domainPending =
+    String(domainStatus).toLowerCase() === "payment_submitted";
+  const domainActionNeeded = [
+    "upcoming",
+    "payment_due",
+    "critical",
+    "overdue_grace",
+    "grace_expired",
+  ].includes(String(domainStatus).toLowerCase());
 
   async function submitPayment() {
     setError(null);
@@ -324,6 +406,62 @@ export default function BillingSubscriptionPage() {
         caught instanceof Error
           ? caught.message
           : "Failed to submit payment."
+      );
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function submitDomainRenewalPayment() {
+    setError(null);
+    setSuccess(null);
+
+    if (!domainUtr.trim()) {
+      setError("Enter UTR / transaction number for domain renewal.");
+      return;
+    }
+
+    try {
+      setSaving(true);
+
+      const res = await fetch("/api/settings/domain-renewal/submit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          payment_reference: domainUtr.trim(),
+          utr: domainUtr.trim(),
+          payment_mode: "upi",
+        }),
+      });
+
+      const data: unknown = await res
+        .json()
+        .catch(() => null);
+
+      if (!res.ok) {
+        throw new Error(
+          apiError(
+            data,
+            "Failed to submit domain renewal payment."
+          )
+        );
+      }
+
+      setSuccess(
+        "Domain renewal payment submitted successfully. LetzShopy team will verify and update the renewal."
+      );
+
+      await loadDomainRenewal();
+    } catch (caught: unknown) {
+      console.error(
+        caught instanceof Error
+          ? caught.message
+          : "Domain renewal payment submission failed"
+      );
+      setError(
+        caught instanceof Error
+          ? caught.message
+          : "Failed to submit domain renewal payment."
       );
     } finally {
       setSaving(false);
@@ -405,6 +543,95 @@ export default function BillingSubscriptionPage() {
           value={currentPaymentRef || "-"}
         />
       </div>
+
+      {domainEnabled ? (
+        <section className="overflow-hidden rounded-[26px] border border-slate-200/80 bg-white shadow-[0_10px_30px_rgba(15,23,42,0.05)]">
+          <div className="border-b border-slate-100 bg-gradient-to-r from-white via-[#fff7ed] to-[#fff1f2] px-4 py-4">
+            <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+              <div>
+                <h2 className="text-[16px] font-semibold text-slate-900">
+                  Domain Renewal Service
+                </h2>
+                <p className="mt-1 text-sm text-slate-500">
+                  Separate yearly service payment for your custom domain renewal.
+                </p>
+              </div>
+
+              <span className="inline-flex rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-800">
+                {prettyDomainStatus(domainStatus)}
+              </span>
+            </div>
+          </div>
+
+          <div className="grid gap-3 p-4 md:grid-cols-2 xl:grid-cols-4">
+            <SummaryStat
+              label="Domain"
+              value={domain?.domain_name || "-"}
+            />
+            <SummaryStat
+              label="Yearly Amount"
+              value={`₹${Number(domainAmount || 0).toLocaleString("en-IN")}`}
+            />
+            <SummaryStat
+              label="Renewal Date"
+              value={formatDate(domainRenewalDate)}
+            />
+            <SummaryStat
+              label="Grace Ends"
+              value={formatDate(domain?.grace_ends_at)}
+            />
+          </div>
+
+          {domain?.strong_message ? (
+            <div className="mx-4 mb-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+              {domain.strong_message}
+            </div>
+          ) : null}
+
+          {domainPending ? (
+            <div className="mx-4 mb-4 rounded-2xl border border-indigo-200 bg-indigo-50 px-4 py-3 text-sm text-indigo-800">
+              Domain renewal payment is submitted and awaiting LetzShopy verification.
+              Reference: {domain?.payment_reference || "-"}
+            </div>
+          ) : null}
+
+          {domainActionNeeded && !domainPending ? (
+            <div className="border-t border-slate-100 p-4">
+              <div className="grid gap-4 lg:grid-cols-[1fr_320px]">
+                <div className="rounded-2xl border border-rose-100 bg-rose-50 px-4 py-3 text-sm text-rose-800">
+                  <div className="font-semibold">
+                    Important: custom domain renewal is time-sensitive
+                  </div>
+                  <p className="mt-1">
+                    If the renewal payment is delayed, your custom domain and domain email may stop working.
+                    Your LetzShopy subdomain access will remain separate from this service.
+                  </p>
+                </div>
+
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                  <label className="mb-1 block text-xs font-medium text-slate-600">
+                    Domain renewal UTR / transaction number
+                  </label>
+                  <input
+                    value={domainUtr}
+                    onChange={(event) => setDomainUtr(event.target.value)}
+                    placeholder="Enter UPI reference"
+                    className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-900"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => void submitDomainRenewalPayment()}
+                    disabled={saving}
+                    className="mt-3 w-full rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60"
+                  >
+                    {saving ? "Submitting..." : "Submit domain renewal payment"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          ) : null}
+        </section>
+      ) : null}
 
       {/* Billing cycle */}
       <section className="overflow-hidden rounded-[26px] border border-slate-200/80 bg-white shadow-[0_10px_30px_rgba(15,23,42,0.05)]">

@@ -2,6 +2,7 @@ import Link from "next/link";
 import DashboardAccessCard from "@/components/master/DashboardAccessCard";
 import VendorKycReviewCard from "@/components/master/VendorKycReviewCard";
 import MasterSubscriptionCard from "@/components/master/MasterSubscriptionCard";
+import MasterDomainRenewalCard from "@/components/master/MasterDomainRenewalCard";
 import {
   fetchMasterVendorDetail,
   type MasterVendorDetail,
@@ -152,6 +153,11 @@ export default async function VendorDetailPage({
   initial={sub}
   storeUrl={data.site?.url || ""}
 />
+
+        <MasterDomainRenewalCard
+          blogid={data.blogid}
+          storeUrl={data.site?.url || ""}
+        />
 
         <div className="rounded-2xl border border-white/10 bg-white p-4 shadow-sm">
           <div className="mb-3 font-semibold text-slate-900">
