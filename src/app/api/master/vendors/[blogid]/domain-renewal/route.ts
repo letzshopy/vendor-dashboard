@@ -54,6 +54,28 @@ function safeDomainRenewal(value: unknown): JsonRecord | null {
   };
 }
 
+function domainRenewalPayload(value: unknown): JsonRecord | null {
+  if (!isRecord(value)) return null;
+
+  const candidate = isRecord(value.domain_renewal)
+    ? value.domain_renewal
+    : value;
+
+  if (candidate.service_type !== "domain_renewal") return null;
+
+  return safeDomainRenewal(candidate);
+}
+
+function upstreamError(value: unknown, fallback: string): string {
+  if (!isRecord(value)) return fallback;
+
+  const message = value.message ?? value.error;
+
+  return typeof message === "string" && message.trim()
+    ? message.trim()
+    : fallback;
+}
+
 function normalizeDomain(value: unknown): string {
   return String(value || "")
     .trim()
@@ -91,14 +113,14 @@ export async function GET(
     const { blogid } = await context.params;
     const storeUrl = await resolveMasterVendorStoreUrl(blogid);
 
-    const response = await fetch(`${storeUrl}/wp-json/letz/v1/domain-renewal/status`, {
+    const response = await fetch(`${storeUrl}/wp-json/letz/v1/domain-renewal/status/?_ts=${Date.now()}`, {
       headers: { "x-letz-auth": INTERNAL_TOKEN },
       cache: "no-store",
       signal: AbortSignal.timeout(12_000),
     });
 
     const parsed = await readJson(response);
-    const service = safeDomainRenewal(parsed);
+    const service = domainRenewalPayload(parsed);
 
     if (!response.ok || !service) {
       return NextResponse.json(
@@ -161,7 +183,7 @@ export async function POST(
     const { blogid } = await context.params;
     const storeUrl = await resolveMasterVendorStoreUrl(blogid);
 
-    const response = await fetch(`${storeUrl}/wp-json/letz/v1/domain-renewal/update`, {
+    const response = await fetch(`${storeUrl}/wp-json/letz/v1/domain-renewal/update/`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${MASTER_API_KEY}`,
@@ -179,15 +201,37 @@ export async function POST(
     });
 
     const parsed = await readJson(response);
+    const service = domainRenewalPayload(parsed);
 
-    if (!response.ok) {
+    if (!response.ok || !isRecord(parsed) || parsed.ok !== true || !service) {
       return NextResponse.json(
-        { ok: false, error: "Could not update domain renewal service." },
+        {
+          ok: false,
+          error: upstreamError(parsed, "Could not update domain renewal service."),
+        },
         { status: response.status >= 400 && response.status < 500 ? response.status : 502, headers: PRIVATE_HEADERS }
       );
     }
 
-    return NextResponse.json(parsed, { status: 200, headers: PRIVATE_HEADERS });
+    const persistedAmount = Number(service.annual_amount ?? service.amount ?? 0);
+    const persistedDate = normalizeDate(service.renewal_date ?? service.next_renewal_date);
+    const persisted =
+      service.enabled === enabled &&
+      textField(service, "domain_name") === domainName &&
+      Math.abs(persistedAmount - annualAmount) < 0.01 &&
+      persistedDate === renewalDate;
+
+    if (!persisted) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: "WordPress did not persist the submitted domain renewal settings.",
+        },
+        { status: 502, headers: PRIVATE_HEADERS }
+      );
+    }
+
+    return NextResponse.json(service, { status: 200, headers: PRIVATE_HEADERS });
   } catch (error: unknown) {
     console.error("Master domain renewal update failed:", error instanceof Error ? error.message : "Unknown error");
 

@@ -336,7 +336,7 @@ export default function BillingSubscriptionPage() {
     sub?.next_payment_date || sub?.next_renewal_date || "";
   const currentPaymentRef = sub?.payment_reference || sub?.utr || "";
   const domainEnabled = domain?.enabled === true;
-  const domainStatus = domain?.payment_status || domain?.status || "";
+  const domainStatus = domain?.status || domain?.payment_status || "";
   const domainAmount = domain?.annual_amount || domain?.amount || 0;
   const domainRenewalDate =
     domain?.renewal_date || domain?.next_renewal_date || "";
@@ -609,6 +609,21 @@ export default function BillingSubscriptionPage() {
                 </div>
 
                 <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                  <div className="mb-4 rounded-xl border border-indigo-100 bg-indigo-50 px-3 py-3 text-sm text-slate-800">
+                    <div className="font-semibold text-slate-950">
+                      Pay ₹{Number(domainAmount || 0).toLocaleString("en-IN")} by UPI
+                    </div>
+                    <div className="mt-1 text-xs text-slate-600">
+                      UPI ID: <span className="font-semibold text-slate-900">{UPI_ID}</span>
+                    </div>
+                    <div className="mt-1 text-xs text-slate-600">
+                      Payment number: <span className="font-semibold text-slate-900">{PAYMENT_NUMBER}</span>
+                    </div>
+                    <div className="mt-1 text-xs text-slate-600">
+                      Payee: <span className="font-semibold text-slate-900">{PAYEE_NAME}</span>
+                    </div>
+                  </div>
+
                   <label className="mb-1 block text-xs font-medium text-slate-600">
                     Domain renewal UTR / transaction number
                   </label>

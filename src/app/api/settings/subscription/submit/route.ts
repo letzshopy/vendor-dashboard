@@ -209,7 +209,7 @@ export async function POST(
       subscriptionResponse,
     ] = await Promise.all([
       fetch(
-        `${base}/wp-json/letz/v1/kyc`,
+        `${base}/wp-json/letz/v1/kyc/?_ts=${Date.now()}`,
         {
           headers,
           cache: "no-store",
@@ -218,7 +218,7 @@ export async function POST(
         }
       ),
       fetch(
-        `${base}/wp-json/letz/v1/subscription`,
+        `${base}/wp-json/letz/v1/subscription/status/?_ts=${Date.now()}`,
         {
           headers,
           cache: "no-store",
@@ -306,7 +306,7 @@ export async function POST(
       setupFee;
 
     const paymentResponse = await fetch(
-      `${base}/wp-json/letz/v1/subscription/submit`,
+      `${base}/wp-json/letz/v1/subscription/submit/`,
       {
         method: "POST",
         headers: {
@@ -351,7 +351,7 @@ export async function POST(
     }
 
     const onboardingResponse = await fetch(
-      `${base}/wp-json/letz/v1/onboarding/set`,
+      `${base}/wp-json/letz/v1/onboarding/set/`,
       {
         method: "POST",
         headers: {

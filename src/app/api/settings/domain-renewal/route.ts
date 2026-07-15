@@ -66,7 +66,7 @@ export async function GET() {
     }
 
     const base = (await getWpBaseUrl()).replace(/\/$/, "");
-    const response = await fetch(`${base}/wp-json/letz/v1/domain-renewal/status`, {
+    const response = await fetch(`${base}/wp-json/letz/v1/domain-renewal/status/?_ts=${Date.now()}`, {
       method: "GET",
       headers: { "x-letz-auth": INTERNAL_TOKEN },
       cache: "no-store",

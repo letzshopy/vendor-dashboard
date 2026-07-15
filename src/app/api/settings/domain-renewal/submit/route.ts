@@ -58,7 +58,7 @@ export async function POST(request: NextRequest) {
     const headers = { "x-letz-auth": INTERNAL_TOKEN };
 
     const currentResponse = await fetch(
-      `${base}/wp-json/letz/v1/domain-renewal/status`,
+      `${base}/wp-json/letz/v1/domain-renewal/status/?_ts=${Date.now()}`,
       {
         headers,
         cache: "no-store",
@@ -82,7 +82,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const response = await fetch(`${base}/wp-json/letz/v1/domain-renewal/submit`, {
+    const response = await fetch(`${base}/wp-json/letz/v1/domain-renewal/submit/`, {
       method: "POST",
       headers: {
         ...headers,

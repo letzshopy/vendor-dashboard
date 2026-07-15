@@ -47,7 +47,7 @@ export async function POST(
     const { blogid } = await context.params;
     const storeUrl = await resolveMasterVendorStoreUrl(blogid);
 
-    const response = await fetch(`${storeUrl}/wp-json/letz/v1/domain-renewal/review`, {
+    const response = await fetch(`${storeUrl}/wp-json/letz/v1/domain-renewal/review/`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${MASTER_API_KEY}`,
