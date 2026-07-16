@@ -75,7 +75,7 @@ const ALL_GROUPS: Group[] = [
     icon: ReceiptIndianRupee,
     items: [
       { href: "/billing/subscription", label: "Subscription", ready: true },
-      { href: "/subscription-bills", label: "Subscription Invoices", ready: true },
+      { href: "/subscription-bills", label: "Billing Invoices", ready: true },
       { href: "/order-invoices", label: "Order Invoices", ready: true },
       { href: "/reports", label: "Reports", ready: true },
     ],

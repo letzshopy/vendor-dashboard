@@ -55,6 +55,10 @@ type NotificationItem = {
   message: string;
 };
 
+type NotificationResponse = {
+  items?: unknown;
+};
+
 type SearchScope = "products" | "orders" | "customers";
 
 type SearchResult = {
@@ -263,11 +267,16 @@ export default function Topbar({ onToggleSidebar }: TopbarProps) {
           return;
         }
 
-        const json: any = await res.json();
+        const json: unknown = await res.json();
         if (cancelled) return;
 
-        const rawItems: NotificationItem[] = Array.isArray(json?.items)
-          ? json.items
+        const parsed =
+          json && typeof json === "object" && !Array.isArray(json)
+            ? (json as NotificationResponse)
+            : {};
+
+        const rawItems: NotificationItem[] = Array.isArray(parsed.items)
+          ? (parsed.items as NotificationItem[])
           : [];
 
         setNotifications(rawItems);
@@ -755,7 +764,7 @@ export default function Topbar({ onToggleSidebar }: TopbarProps) {
                       }}
                       className="block w-full px-3 py-3 text-left hover:bg-[#f6f1ff]"
                     >
-                      <div className="text-[15px]">Subscription Invoices</div>
+                      <div className="text-[15px]">Billing Invoices</div>
                     </button>
 
                     <hr className="my-1 border-slate-100" />

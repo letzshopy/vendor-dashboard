@@ -16,7 +16,7 @@ function statusBadge(status: SubscriptionInvoice["status"]) {
   return (
     <span className={classes}>
       <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-      Paid
+      {status === "paid" ? "Paid" : status}
     </span>
   );
 }
@@ -120,6 +120,11 @@ export default function SubscriptionInvoicesClient({
 
                 <div className="mt-3 flex flex-wrap items-center gap-2">
                   {statusBadge(inv.status)}
+                  <span className="rounded-full bg-indigo-50 px-2.5 py-1 text-[11px] font-medium text-indigo-700">
+                    {inv.serviceType === "domain_renewal"
+                      ? "Domain Renewal"
+                      : "Subscription"}
+                  </span>
                   <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-medium capitalize text-slate-700">
                     {inv.billingCycle}
                   </span>
@@ -164,7 +169,7 @@ export default function SubscriptionInvoicesClient({
               <FileText className="h-6 w-6" />
             </div>
             <div className="mt-4 text-sm font-semibold text-slate-700">
-              No paid subscription invoices found yet.
+              No paid billing invoices found yet.
             </div>
           </div>
         )}
@@ -182,7 +187,7 @@ export default function SubscriptionInvoicesClient({
                 Date
               </th>
               <th className="border-b border-slate-100 px-4 py-3 text-left text-xs font-semibold">
-                Plan
+                Service
               </th>
               <th className="border-b border-slate-100 px-4 py-3 text-left text-xs font-semibold">
                 Billing Cycle
@@ -209,7 +214,7 @@ export default function SubscriptionInvoicesClient({
                   colSpan={8}
                   className="px-3 py-10 text-center text-sm text-slate-500"
                 >
-                  No paid subscription invoices found yet.
+                  No paid billing invoices found yet.
                 </td>
               </tr>
             )}
