@@ -157,11 +157,22 @@ export async function GET() {
 
     const base = await tenantBase();
 
+    const kycEndpoint = new URL(
+      `${base}/wp-json/letz/v1/kyc`
+    );
+
+    kycEndpoint.searchParams.set(
+      "_ts",
+      Date.now().toString()
+    );
+
     const response = await fetch(
-      `${base}/wp-json/letz/v1/kyc`,
+      kycEndpoint,
       {
         headers: {
           "x-letz-auth": INTERNAL_TOKEN,
+          "Cache-Control": "no-cache",
+          Pragma: "no-cache",
         },
         cache: "no-store",
         signal: AbortSignal.timeout(15_000),

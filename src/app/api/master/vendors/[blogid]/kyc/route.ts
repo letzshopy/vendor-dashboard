@@ -185,14 +185,25 @@ export async function GET(
       );
     }
 
+    const kycEndpoint = new URL(
+      `${storeUrl}/wp-json/letz/v1/kyc`
+    );
+
+    kycEndpoint.searchParams.set(
+      "_ts",
+      Date.now().toString()
+    );
+
     const response = await fetch(
-      `${storeUrl}/wp-json/letz/v1/kyc`,
+      kycEndpoint,
       {
         method: "GET",
         headers: {
           Accept: "application/json",
           "x-letz-auth":
             INTERNAL_TOKEN,
+          "Cache-Control": "no-cache",
+          Pragma: "no-cache",
         },
         cache: "no-store",
         signal: AbortSignal.timeout(

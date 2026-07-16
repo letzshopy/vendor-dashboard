@@ -8,24 +8,15 @@ import { getWpBaseUrl } from "@/lib/wpClient";
 const INTERNAL_TOKEN =
   process.env.LETZ_INTERNAL_TOKEN || "";
 
+const UPSTREAM_TIMEOUT_MS = 15_000;
+
 const PRIVATE_HEADERS = {
   "Cache-Control":
     "private, no-store, no-cache, must-revalidate, max-age=0",
 };
 
-const PLAN_PRICES = {
-  standard: {
-    monthly: 999,
-    yearly: 11_000,
-  },
-  premium: {
-    monthly: 1_399,
-    yearly: 16_000,
-  },
-} as const;
-
-type PlanKey = keyof typeof PLAN_PRICES;
-type BillingCycle = keyof typeof PLAN_PRICES.standard;
+type PlanKey = "standard" | "premium";
+type BillingCycle = "monthly" | "yearly";
 type JsonRecord = Record<string, unknown>;
 
 function isRecord(value: unknown): value is JsonRecord {
@@ -82,36 +73,91 @@ async function readJson(
   return response.json().catch(() => null);
 }
 
-function statusFrom(
-  value: unknown
+function upstreamError(
+  value: unknown,
+  fallback: string
 ): string {
   if (!isRecord(value)) {
-    return "";
+    return fallback;
   }
 
-  const status =
-    value.billing_status ??
-    value.status;
+  for (const key of ["error", "message"]) {
+    const candidate = value[key];
 
-  return typeof status === "string"
-    ? status.trim().toLowerCase()
-    : "";
+    if (
+      typeof candidate === "string" &&
+      candidate.trim()
+    ) {
+      return candidate.trim();
+    }
+  }
+
+  return fallback;
 }
 
-function kycStatusFrom(
-  value: unknown
+function textField(
+  source: JsonRecord,
+  ...keys: string[]
 ): string {
-  if (!isRecord(value)) {
-    return "";
+  for (const key of keys) {
+    const value = source[key];
+
+    if (typeof value === "string") {
+      return value.trim();
+    }
   }
 
-  const status =
-    value.kycStatus ??
-    value.kyc_status;
+  return "";
+}
 
-  return typeof status === "string"
-    ? status.trim().toLowerCase()
-    : "";
+function numericField(
+  source: JsonRecord,
+  key: string
+): number {
+  const value = Number(source[key]);
+
+  return Number.isFinite(value)
+    ? value
+    : 0;
+}
+
+async function syncOnboarding(
+  base: string,
+  headers: Record<string, string>
+): Promise<void> {
+  try {
+    const response = await fetch(
+      `${base}/wp-json/letz/v1/onboarding/set`,
+      {
+        method: "POST",
+        headers: {
+          ...headers,
+          "Content-Type":
+            "application/json",
+        },
+        body: JSON.stringify({
+          subscription_status:
+            "payment_submitted",
+        }),
+        cache: "no-store",
+        signal: AbortSignal.timeout(5_000),
+      }
+    );
+
+    if (!response.ok) {
+      console.warn(
+        "Subscription onboarding sync failed:",
+        response.status
+      );
+    }
+  } catch (error: unknown) {
+    console.warn(
+      "Subscription onboarding sync failed:",
+      error instanceof Error
+        ? error.message
+        : "Unknown error"
+    );
+  }
 }
 
 export async function POST(
@@ -202,111 +248,18 @@ export async function POST(
 
     const headers = {
       "x-letz-auth": INTERNAL_TOKEN,
+      "Cache-Control": "no-cache",
+      Pragma: "no-cache",
     };
 
-    const [
-      kycResponse,
-      subscriptionResponse,
-    ] = await Promise.all([
-      fetch(
-        `${base}/wp-json/letz/v1/kyc/?_ts=${Date.now()}`,
-        {
-          headers,
-          cache: "no-store",
-          signal:
-            AbortSignal.timeout(12_000),
-        }
-      ),
-      fetch(
-        `${base}/wp-json/letz/v1/subscription/status/?_ts=${Date.now()}`,
-        {
-          headers,
-          cache: "no-store",
-          signal:
-            AbortSignal.timeout(12_000),
-        }
-      ),
-    ]);
-
-    const [
-      kyc,
-      currentSubscription,
-    ] = await Promise.all([
-      readJson(kycResponse),
-      readJson(subscriptionResponse),
-    ]);
-
-    if (
-      !kycResponse.ok ||
-      kycStatusFrom(kyc) !== "approved"
-    ) {
-      return NextResponse.json(
-        {
-          ok: false,
-          error:
-            "KYC approval is required before submitting a subscription payment.",
-        },
-        {
-          status: 403,
-          headers: PRIVATE_HEADERS,
-        }
-      );
-    }
-
-    if (!subscriptionResponse.ok) {
-      return NextResponse.json(
-        {
-          ok: false,
-          error:
-            "Could not verify the current subscription.",
-        },
-        {
-          status: 502,
-          headers: PRIVATE_HEADERS,
-        }
-      );
-    }
-
-    if (
-      statusFrom(currentSubscription) ===
-      "payment_submitted"
-    ) {
-      return NextResponse.json(
-        {
-          ok: false,
-          error:
-            "A subscription payment is already awaiting verification.",
-        },
-        {
-          status: 409,
-          headers: PRIVATE_HEADERS,
-        }
-      );
-    }
-
-    const paidBefore =
-      isRecord(currentSubscription) &&
-      [
-        currentSubscription.last_paid_date,
-        currentSubscription.last_billed_at,
-      ].some(
-        (value) =>
-          typeof value === "string" &&
-          value.trim() !== ""
-      );
-
-    const setupFee =
-      billingCycle === "monthly" &&
-      !paidBefore
-        ? 5_000
-        : 0;
-
-    const amount =
-      PLAN_PRICES[plan][billingCycle] +
-      setupFee;
-
+    /*
+     * WordPress is the sole authority for KYC eligibility,
+     * pending-payment state, pricing and setup fees. A single
+     * request avoids races and transport failures caused by
+     * redundant preflight requests.
+     */
     const paymentResponse = await fetch(
-      `${base}/wp-json/letz/v1/subscription/submit/`,
+      `${base}/wp-json/letz/v1/subscription/submit`,
       {
         method: "POST",
         headers: {
@@ -321,69 +274,69 @@ export async function POST(
             paymentReference,
         }),
         cache: "no-store",
-        signal: AbortSignal.timeout(12_000),
+        signal: AbortSignal.timeout(
+          UPSTREAM_TIMEOUT_MS
+        ),
       }
     );
 
-    const subscription = await readJson(
+    const value = await readJson(
       paymentResponse
     );
 
     if (
       !paymentResponse.ok ||
-      !isRecord(subscription)
+      !isRecord(value)
     ) {
+      const clientError =
+        paymentResponse.status >= 400 &&
+        paymentResponse.status < 500;
+
       return NextResponse.json(
         {
           ok: false,
-          error:
-            "Could not submit the subscription payment.",
+          error: clientError
+            ? upstreamError(
+                value,
+                "Could not submit the subscription payment."
+              )
+            : "Could not submit the subscription payment.",
         },
         {
-          status:
-            paymentResponse.status >= 400 &&
-            paymentResponse.status < 500
-              ? paymentResponse.status
-              : 502,
+          status: clientError
+            ? paymentResponse.status
+            : 502,
           headers: PRIVATE_HEADERS,
         }
       );
     }
 
-    const onboardingResponse = await fetch(
-      `${base}/wp-json/letz/v1/onboarding/set/`,
-      {
-        method: "POST",
-        headers: {
-          ...headers,
-          "Content-Type":
-            "application/json",
-        },
-        body: JSON.stringify({
-          subscription_status:
-            "payment_submitted",
-        }),
-        cache: "no-store",
-        signal: AbortSignal.timeout(12_000),
-      }
-    );
-
-    if (!onboardingResponse.ok) {
-      console.warn(
-        "Subscription onboarding sync failed:",
-        onboardingResponse.status
-      );
-    }
+    await syncOnboarding(base, headers);
 
     return NextResponse.json(
       {
         ok: true,
         submittedStatus:
-          "payment_submitted",
-        amount,
-        setupFee,
-        plan,
-        billingCycle,
+          textField(
+            value,
+            "billing_status",
+            "status"
+          ) || "payment_submitted",
+        amount: numericField(
+          value,
+          "amount"
+        ),
+        setupFee: numericField(
+          value,
+          "setup_fee"
+        ),
+        plan:
+          textField(value, "plan") || plan,
+        billingCycle:
+          textField(
+            value,
+            "billing_cycle"
+          ) || billingCycle,
       },
       {
         status: 200,
@@ -391,6 +344,12 @@ export async function POST(
       }
     );
   } catch (error: unknown) {
+    const timedOut =
+      error instanceof Error &&
+      ["AbortError", "TimeoutError"].includes(
+        error.name
+      );
+
     console.error(
       "Subscription submission failed:",
       error instanceof Error
@@ -401,11 +360,12 @@ export async function POST(
     return NextResponse.json(
       {
         ok: false,
-        error:
-          "Could not submit the subscription payment.",
+        error: timedOut
+          ? "The subscription service timed out. Please try again."
+          : "The subscription service could not be reached. Please try again.",
       },
       {
-        status: 500,
+        status: timedOut ? 504 : 502,
         headers: PRIVATE_HEADERS,
       }
     );

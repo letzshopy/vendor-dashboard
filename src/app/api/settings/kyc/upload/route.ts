@@ -43,6 +43,7 @@ function normalizeDocumentType(
   const aliases: Record<string, string> = {
     aadhaar: "aadhaar",
     pan: "pan",
+    cheque: "cancelled_cheque",
     cancelledcheque:
       "cancelled_cheque",
     cancelled_cheque:

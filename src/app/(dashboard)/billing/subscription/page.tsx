@@ -5,6 +5,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import {
@@ -187,6 +188,7 @@ export default function BillingSubscriptionPage() {
 
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const feedbackRef = useRef<HTMLDivElement | null>(null);
 
   const loadSubscription = useCallback(async () => {
     try {
@@ -295,6 +297,19 @@ export default function BillingSubscriptionPage() {
     void loadDomainRenewal();
   }, [loadSubscription, loadDomainRenewal]);
 
+  useEffect(() => {
+    if (!error && !success) return;
+
+    const frame = window.requestAnimationFrame(() => {
+      feedbackRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      });
+    });
+
+    return () => window.cancelAnimationFrame(frame);
+  }, [error, success]);
+
   const isFirstPayment =
     !sub?.last_paid_date &&
     !sub?.last_billed_at;
@@ -383,12 +398,13 @@ export default function BillingSubscriptionPage() {
         .catch(() => null);
 
       if (!res.ok) {
-        throw new Error(
+        setError(
           apiError(
             data,
             "Failed to submit payment."
           )
         );
+        return;
       }
 
       setSuccess(
@@ -397,11 +413,6 @@ export default function BillingSubscriptionPage() {
 
       await loadSubscription();
     } catch (caught: unknown) {
-      console.error(
-        caught instanceof Error
-          ? caught.message
-          : "Payment submission failed"
-      );
       setError(
         caught instanceof Error
           ? caught.message
@@ -439,12 +450,13 @@ export default function BillingSubscriptionPage() {
         .catch(() => null);
 
       if (!res.ok) {
-        throw new Error(
+        setError(
           apiError(
             data,
             "Failed to submit domain renewal payment."
           )
         );
+        return;
       }
 
       setSuccess(
@@ -453,11 +465,6 @@ export default function BillingSubscriptionPage() {
 
       await loadDomainRenewal();
     } catch (caught: unknown) {
-      console.error(
-        caught instanceof Error
-          ? caught.message
-          : "Domain renewal payment submission failed"
-      );
       setError(
         caught instanceof Error
           ? caught.message
@@ -503,13 +510,22 @@ export default function BillingSubscriptionPage() {
       </div>
 
       {error && (
-        <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+        <div
+          ref={feedbackRef}
+          role="alert"
+          className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700"
+        >
           {error}
         </div>
       )}
 
       {success && (
-        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+        <div
+          ref={feedbackRef}
+          role="status"
+          aria-live="polite"
+          className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700"
+        >
           {success}
         </div>
       )}

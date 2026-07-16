@@ -6,13 +6,6 @@ import {
 import {
   resolveMasterVendorStoreUrl,
 } from "@/lib/masterVendor";
-import {
-  calculateApprovedRenewalDate,
-  type BillingCycle,
-} from "@/lib/subscriptionPolicy";
-
-const INTERNAL_TOKEN =
-  process.env.LETZ_INTERNAL_TOKEN || "";
 
 const MASTER_API_KEY =
   process.env.MASTER_API_KEY || "";
@@ -32,7 +25,9 @@ type ReviewStatus =
   | "inactive"
   | "trial";
 
-function isRecord(value: unknown): value is JsonRecord {
+function isRecord(
+  value: unknown
+): value is JsonRecord {
   return Boolean(
     value &&
       typeof value === "object" &&
@@ -69,50 +64,15 @@ function textField(
 ): string {
   for (const key of keys) {
     if (typeof source[key] === "string") {
-      return source[key].trim();
+      const value = source[key].trim();
+
+      if (value) {
+        return value;
+      }
     }
   }
 
   return "";
-}
-
-function billingCycleFrom(
-  subscription: JsonRecord
-): BillingCycle | null {
-  const cycle = textField(
-    subscription,
-    "billing_cycle",
-    "period"
-  ).toLowerCase();
-
-  return cycle === "monthly" ||
-    cycle === "yearly"
-    ? cycle
-    : null;
-}
-
-function subscriptionStatusFrom(
-  subscription: JsonRecord
-): string {
-  return textField(
-    subscription,
-    "billing_status",
-    "status"
-  ).toLowerCase();
-}
-
-function kycStatusFrom(
-  value: unknown
-): string {
-  if (!isRecord(value)) {
-    return "";
-  }
-
-  return textField(
-    value,
-    "kycStatus",
-    "kyc_status"
-  ).toLowerCase();
 }
 
 async function readJson(
@@ -130,15 +90,12 @@ export async function POST(
   }
 ) {
   try {
-    if (
-      !INTERNAL_TOKEN ||
-      !MASTER_API_KEY
-    ) {
+    if (!MASTER_API_KEY) {
       return NextResponse.json(
         {
           ok: false,
           error:
-            "Subscription services are not configured.",
+            "Subscription review is not configured.",
         },
         {
           status: 500,
@@ -180,158 +137,12 @@ export async function POST(
         blogid
       );
 
-    const headers = {
-      "x-letz-auth": INTERNAL_TOKEN,
-    };
-
-    const [
-      subscriptionResponse,
-      kycResponse,
-    ] = await Promise.all([
-      fetch(
-        `${storeUrl}/wp-json/letz/v1/subscription`,
-        {
-          headers,
-          cache: "no-store",
-          signal:
-            AbortSignal.timeout(12_000),
-        }
-      ),
-      fetch(
-        `${storeUrl}/wp-json/letz/v1/kyc`,
-        {
-          headers,
-          cache: "no-store",
-          signal:
-            AbortSignal.timeout(12_000),
-        }
-      ),
-    ]);
-
-    const [
-      subscriptionValue,
-      kycValue,
-    ] = await Promise.all([
-      readJson(subscriptionResponse),
-      readJson(kycResponse),
-    ]);
-
-    if (
-      !subscriptionResponse.ok ||
-      !isRecord(subscriptionValue)
-    ) {
-      return NextResponse.json(
-        {
-          ok: false,
-          error:
-            "Could not verify the vendor subscription.",
-        },
-        {
-          status: 502,
-          headers: PRIVATE_HEADERS,
-        }
-      );
-    }
-
-    if (requestedStatus === "active") {
-      if (
-        !kycResponse.ok ||
-        kycStatusFrom(kycValue) !==
-          "approved"
-      ) {
-        return NextResponse.json(
-          {
-            ok: false,
-            error:
-              "KYC must be approved before the subscription can be activated.",
-          },
-          {
-            status: 409,
-            headers: PRIVATE_HEADERS,
-          }
-        );
-      }
-
-      if (
-        subscriptionStatusFrom(
-          subscriptionValue
-        ) !== "payment_submitted"
-      ) {
-        return NextResponse.json(
-          {
-            ok: false,
-            error:
-              "Only a submitted payment can be activated.",
-          },
-          {
-            status: 409,
-            headers: PRIVATE_HEADERS,
-          }
-        );
-      }
-    }
-
-    const cycle =
-      billingCycleFrom(
-        subscriptionValue
-      );
-
-    if (
-      requestedStatus === "active" &&
-      !cycle
-    ) {
-      return NextResponse.json(
-        {
-          ok: false,
-          error:
-            "The submitted billing cycle is invalid.",
-        },
-        {
-          status: 409,
-          headers: PRIVATE_HEADERS,
-        }
-      );
-    }
-
-    const today =
-      new Date().toISOString().slice(0, 10);
-
-    const persistedStatus =
-      requestedStatus === "rejected"
-        ? "inactive"
-        : requestedStatus;
-
-    const payload: JsonRecord = {
-      status: persistedStatus,
-      billing_status: persistedStatus,
-    };
-
-    if (
-      requestedStatus === "active" &&
-      cycle
-    ) {
-      const nextPaymentDate =
-        calculateApprovedRenewalDate({
-          billingCycle: cycle,
-          approvedAt: new Date(),
-          currentPaidThrough:
-            textField(
-              subscriptionValue,
-              "next_payment_date",
-              "next_renewal_date"
-            ),
-        });
-
-      payload.last_paid_date = today;
-      payload.last_billed_at = today;
-      payload.next_payment_date =
-        nextPaymentDate;
-      payload.next_renewal_date =
-        nextPaymentDate;
-      payload.next_renewal_at =
-        nextPaymentDate;
-    }
-
+    /*
+     * WordPress is the single authority for this transition.
+     * Its subscription/review callback atomically checks the
+     * persisted KYC status, current payment status and billing
+     * cycle before calculating dates and saving the result.
+     */
     const reviewResponse = await fetch(
       `${storeUrl}/wp-json/letz/v1/subscription/review`,
       {
@@ -343,24 +154,39 @@ export async function POST(
             MASTER_API_KEY,
           "Content-Type":
             "application/json",
+          Accept: "application/json",
+          "Cache-Control":
+            "no-cache, no-store",
+          Pragma: "no-cache",
         },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({
+          status: requestedStatus,
+        }),
         cache: "no-store",
-        signal: AbortSignal.timeout(12_000),
+        signal: AbortSignal.timeout(
+          12_000
+        ),
       }
     );
 
     const reviewedSubscription =
       await readJson(reviewResponse);
 
-    if (
-      !reviewResponse.ok ||
-      !isRecord(reviewedSubscription)
-    ) {
+    if (!reviewResponse.ok) {
+      const upstreamError =
+        isRecord(reviewedSubscription)
+          ? textField(
+              reviewedSubscription,
+              "message",
+              "error"
+            )
+          : "";
+
       return NextResponse.json(
         {
           ok: false,
           error:
+            upstreamError ||
             "Could not update the vendor subscription.",
         },
         {
@@ -373,6 +199,30 @@ export async function POST(
         }
       );
     }
+
+    if (!isRecord(reviewedSubscription)) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error:
+            "The vendor subscription response is invalid.",
+        },
+        {
+          status: 502,
+          headers: PRIVATE_HEADERS,
+        }
+      );
+    }
+
+    const persistedStatus =
+      textField(
+        reviewedSubscription,
+        "billing_status",
+        "status"
+      ) ||
+      (requestedStatus === "rejected"
+        ? "inactive"
+        : requestedStatus);
 
     return NextResponse.json(
       {
