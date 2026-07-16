@@ -29,9 +29,14 @@ async function getBaseUrl(): Promise<string> {
 }
 
 async function getCustomers(params: URLSearchParams) {
+  const requestHeaders = await headers();
+  const cookieHeader = requestHeaders.get("cookie");
   const base = await getBaseUrl();
   const res = await fetch(`${base}/api/customers?${params.toString()}`, {
     cache: "no-store",
+    headers: cookieHeader
+      ? { cookie: cookieHeader }
+      : undefined,
   });
   if (!res.ok) throw new Error("Failed to load customers");
   return res.json() as Promise<{

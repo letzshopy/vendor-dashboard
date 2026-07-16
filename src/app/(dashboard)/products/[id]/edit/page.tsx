@@ -13,6 +13,51 @@ type ProductType = "simple" | "variable" | "grouped";
 type Backorders = "no" | "notify" | "yes";
 type JsonRecord = Record<string, unknown>;
 
+type ProductImage = {
+  id?: unknown;
+  src?: unknown;
+  url?: unknown;
+};
+
+function productImagePayload(
+  items: Array<{ id?: unknown }>
+): Array<{ id: number; position: number }> {
+  return items
+    .map((item) => Number(item.id))
+    .filter((id) => Number.isSafeInteger(id) && id > 0)
+    .map((id, position) => ({ id, position }));
+}
+
+function productImagesFromResponse(product: {
+  images?: Array<ProductImage | string>;
+  image_objects?: ProductImage[];
+}): ImgItem[] {
+  const source =
+    Array.isArray(product.image_objects) && product.image_objects.length > 0
+      ? product.image_objects
+      : product.images;
+
+  if (!Array.isArray(source)) return [];
+
+  return source
+    .flatMap((item): ImgItem[] => {
+      if (!isRecord(item)) return [];
+
+      const id = Number(item.id);
+      const url =
+        typeof item.src === "string"
+          ? item.src
+          : typeof item.url === "string"
+            ? item.url
+            : "";
+
+      return Number.isSafeInteger(id) && id > 0 && url
+        ? [{ id, url }]
+        : [];
+    })
+    .slice(0, 5);
+}
+
 function isRecord(value: unknown): value is JsonRecord {
   return Boolean(
     value &&
@@ -43,7 +88,8 @@ type Prod = {
   dimensions?: { length?: string; width?: string; height?: string } | null;
   categories?: { id: number; name: string }[];
   tags?: { id: number; name: string }[];
-  images?: { id: number; src: string }[];
+  images?: Array<ProductImage | string>;
+  image_objects?: ProductImage[];
   attributes?: {
     id?: number;
     name?: string;
@@ -192,6 +238,20 @@ export default function EditProductPage({
     { id: number; name: string; sku: string }[]
   >([]);
   const searchDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const saveMessageRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!msg) return;
+
+    const frame = requestAnimationFrame(() => {
+      saveMessageRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      });
+    });
+
+    return () => cancelAnimationFrame(frame);
+  }, [msg]);
 
   useEffect(() => {
     (async () => {
@@ -221,12 +281,7 @@ export default function EditProductPage({
           setVisibility(prod.catalog_visibility || "visible");
           setShortDesc(prod.short_description || "");
           setDesc(prod.description || "");
-          setImages(
-            (prod.images || []).slice(0, 5).map((im) => ({
-              id: im.id,
-              url: im.src,
-            }))
-          );
+          setImages(productImagesFromResponse(prod));
           setSelectedCats((prod.categories || []).map((c) => c.id));
           setTags((prod.tags || []).map((tag) => tag.name));
 
@@ -486,7 +541,7 @@ export default function EditProductPage({
           ptype !== "grouped" && (length || width || height)
             ? { length, width, height }
             : undefined,
-        images: images.map((im, idx) => ({ id: im.id, position: idx })),
+        images: productImagePayload(images),
         categories: selectedCats.map((id) => ({ id })),
         tags: tags.map((name) => ({ name })),
       };
@@ -637,7 +692,10 @@ export default function EditProductPage({
       </div>
 
       {msg && (
-        <div className="mb-4 flex items-center justify-between gap-3 rounded-2xl border border-emerald-100 bg-emerald-50/90 px-4 py-3 text-xs text-emerald-800 shadow-sm md:text-sm">
+        <div
+          ref={saveMessageRef}
+          className="mb-4 flex items-center justify-between gap-3 rounded-2xl border border-emerald-100 bg-emerald-50/90 px-4 py-3 text-xs text-emerald-800 shadow-sm md:text-sm"
+        >
           <div className="flex items-start gap-3">
             <div className="mt-0.5 flex h-6 w-6 items-center justify-center rounded-full bg-emerald-500/10">
               <span className="text-base leading-none">✓</span>

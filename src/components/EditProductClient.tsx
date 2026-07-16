@@ -57,6 +57,15 @@ type VRow = {
 };
 
 /** ===== Helpers ===== */
+function productImagePayload(
+  items: Array<{ id?: unknown }>
+): Array<{ id: number; position: number }> {
+  return items
+    .map((item) => Number(item.id))
+    .filter((id) => Number.isSafeInteger(id) && id > 0)
+    .map((id, position) => ({ id, position }));
+}
+
 function indentCats(cats: Cat[]) {
   const byParent: Record<number, Cat[]> = {};
   cats.forEach((c) => {
@@ -173,7 +182,7 @@ export default function EditProductClient({
       visibility: prod.catalog_visibility || "visible",
       short_description: prod.short_description || "",
       description: prod.description || "",
-      images: (prod.images || []).map((im, idx) => ({ id: im.id, position: idx })),
+      images: productImagePayload(prod.images || []),
       categories: (prod.categories || []).map((c) => ({ id: c.id })),
       tags: (prod.tags || []).map((t) => ({ name: t.name })),
       weight: prod.weight || "",
@@ -207,7 +216,7 @@ export default function EditProductClient({
       visibility,
       short_description: shortDesc,
       description: desc,
-      images: images.map((im, idx) => ({ id: im.id, position: idx })),
+      images: productImagePayload(images),
       categories: selectedCats.map((id) => ({ id })),
       tags: tagsInput.split(",").map((s) => s.trim()).filter(Boolean).map((name) => ({ name })),
       weight,
@@ -499,7 +508,7 @@ export default function EditProductClient({
         backorders: ptype === "simple" ? backorders : undefined,
         weight: ptype !== "grouped" ? (weight || undefined) : undefined,
         dimensions: ptype !== "grouped" && (length || width || height) ? { length, width, height } : undefined,
-        images: images.map((im, idx) => ({ id: im.id, position: idx })),
+        images: productImagePayload(images),
         categories: selectedCats.map((id) => ({ id })),
         tags: tagsInput.split(",").map((s) => s.trim()).filter(Boolean).map((name) => ({ name })),
       };

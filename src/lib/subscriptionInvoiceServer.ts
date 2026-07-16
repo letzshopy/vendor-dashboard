@@ -2,8 +2,6 @@ import "server-only";
 
 import {
   fetchInternalWp,
-  getWpBaseUrl,
-  wpAuthHeader,
 } from "@/lib/wpClient";
 import type { SubscriptionInvoice } from "@/lib/subscription-invoices";
 
@@ -63,10 +61,6 @@ function isRecord(value: unknown): value is JsonRecord {
 
 function text(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
-}
-
-function cleanBaseUrl(input: string): string {
-  return input.replace(/\/$/, "");
 }
 
 function normalizeDate(input?: string): string {
@@ -142,40 +136,6 @@ function billingIdentity(account: WpAccountSettings | null): BillingIdentity {
       "",
     gstNumber: account?.subscription?.gstin || "",
   };
-}
-
-async function fetchWpJson<T>(
-  baseUrl: string,
-  path: string,
-  extraHeaders: Record<string, string> = {}
-): Promise<T | null> {
-  try {
-    const response = await fetch(`${cleanBaseUrl(baseUrl)}${path}`, {
-      cache: "no-store",
-      headers: {
-        ...wpAuthHeader(),
-        ...extraHeaders,
-        Accept: "application/json",
-      },
-      signal: AbortSignal.timeout(12_000),
-    });
-
-    if (!response.ok) {
-      console.error("Billing invoice WordPress request failed", {
-        path,
-        status: response.status,
-      });
-      return null;
-    }
-
-    return (await response.json().catch(() => null)) as T | null;
-  } catch (error: unknown) {
-    console.error(
-      "Billing invoice WordPress request failed",
-      error instanceof Error ? error.message : "Unknown error"
-    );
-    return null;
-  }
 }
 
 async function fetchInternalBillingJson<T>(path: string): Promise<T | null> {
@@ -326,14 +286,11 @@ function buildDomainInvoices(
 }
 
 export async function getBillingInvoices(): Promise<SubscriptionInvoice[]> {
-  const wpBaseUrl = cleanBaseUrl(await getWpBaseUrl());
-
   const [subscription, account, domainRenewal] = await Promise.all([
     fetchInternalBillingJson<WpSubscription>(
       "/wp-json/letz/v1/subscription/status/"
     ),
-    fetchWpJson<WpAccountSettings>(
-      wpBaseUrl,
+    fetchInternalBillingJson<WpAccountSettings>(
       "/wp-json/letz/v1/account-settings"
     ),
     fetchInternalBillingJson<unknown>(
