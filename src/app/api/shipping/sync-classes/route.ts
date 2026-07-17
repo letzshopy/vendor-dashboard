@@ -6,6 +6,19 @@ function safeAppPass(pass?: string) {
   return (pass || "").replace(/\s+/g, "");
 }
 
+function internalToken() {
+  const token = (
+    process.env.LETZ_INTERNAL_TOKEN || ""
+  ).trim();
+
+  if (!token) {
+    throw new Error(
+      "Missing LETZ_INTERNAL_TOKEN in dashboard env"
+    );
+  }
+
+  return token;
+}
 async function wpUrl(path: string) {
   const base = (await getWpBaseUrl()).replace(/\/+$/, "");
   return `${base}${path}`;
@@ -19,6 +32,7 @@ function wpHeaders(extra: Record<string, string> = {}) {
     "Content-Type": "application/json",
     Accept: "application/json",
     "X-Letz-Dashboard-Key": process.env.LETZ_DASHBOARD_API_KEY || "",
+    "X-Letz-Auth": internalToken(),
     ...extra,
   };
 
