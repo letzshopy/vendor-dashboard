@@ -5,10 +5,78 @@ import MasterSubscriptionCard from "@/components/master/MasterSubscriptionCard";
 
 export const dynamic = "force-dynamic";
 
+const INTERNAL_TOKEN = process.env.LETZ_INTERNAL_TOKEN || "";
+
+type JsonRecord = Record<string, unknown>;
+
+function isRecord(value: unknown): value is JsonRecord {
+  return Boolean(value && typeof value === "object" && !Array.isArray(value));
+}
+
+function textField(source: JsonRecord, ...keys: string[]): string {
+  for (const key of keys) {
+    if (typeof source[key] === "string") {
+      return source[key].trim();
+    }
+  }
+
+  return "";
+}
+
+async function fetchAuthoritativeSubscription(
+  storeUrl: string
+): Promise<VendorDetail["subscription"]> {
+  if (!INTERNAL_TOKEN) {
+    throw new Error("Subscription services are not configured.");
+  }
+
+  const response = await fetch(
+    `${storeUrl.replace(/\/$/, "")}/wp-json/letz/v1/subscription/status/?_ts=${Date.now()}`,
+    {
+      headers: {
+        "x-letz-auth": INTERNAL_TOKEN,
+      },
+      cache: "no-store",
+      signal: AbortSignal.timeout(12_000),
+    }
+  );
+
+  const parsed: unknown = await response.json().catch(() => null);
+
+  if (!response.ok || !isRecord(parsed)) {
+    throw new Error("Could not load the authoritative vendor subscription.");
+  }
+
+  const amount = parsed.amount;
+
+  return {
+    plan: textField(parsed, "current_plan", "plan"),
+    period: textField(parsed, "billing_cycle", "period"),
+    status: textField(parsed, "billing_status", "status"),
+    amount:
+      typeof amount === "number" || typeof amount === "string" ? amount : 0,
+    payment_mode: textField(parsed, "payment_mode"),
+    payment_reference: textField(parsed, "payment_reference", "utr"),
+    last_paid_date: textField(parsed, "last_paid_date", "last_billed_at"),
+    next_payment_date: textField(
+      parsed,
+      "next_payment_date",
+      "next_renewal_date",
+      "next_renewal_at"
+    ),
+    last_billed_at: textField(parsed, "last_billed_at"),
+    next_renewal_at: textField(
+      parsed,
+      "next_renewal_at",
+      "next_renewal_date"
+    ),
+  };
+}
+
 type VendorDetail = {
   blogid: number;
   site: { name: string; url: string };
-  account_settings: any;
+  account_settings: Record<string, Record<string, string | undefined> | undefined>;
   dashboard_access?: {
     locked?: boolean;
     locked_at?: string;
@@ -89,7 +157,11 @@ export default async function VendorDetailPage({
   const owner = as.owner ?? as.contact ?? as.profile ?? {};
   const business = as.business ?? as.company ?? as.shop ?? {};
   const access = data.dashboard_access ?? {};
-  const sub = data.subscription ?? {};
+  if (!data.site?.url) {
+    throw new Error("Vendor store URL is unavailable.");
+  }
+
+  const sub = await fetchAuthoritativeSubscription(data.site.url);
 
   return (
     <div className="space-y-5 p-6">

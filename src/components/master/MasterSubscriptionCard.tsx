@@ -126,10 +126,10 @@ export default function MasterSubscriptionCard({
   const [err, setErr] = useState<string | null>(null);
 
   const suggestedAmount = useMemo(() => {
-    if (plan === "standard" && period === "monthly") return 625;
-    if (plan === "standard" && period === "yearly") return 7500;
-    if (plan === "premium" && period === "monthly") return 999;
-    return 12000;
+    if (plan === "standard" && period === "monthly") return 999;
+    if (plan === "standard" && period === "yearly") return 11000;
+    if (plan === "premium" && period === "monthly") return 1399;
+    return 16000;
   }, [plan, period]);
 
   function applySuggestedAmount() {
