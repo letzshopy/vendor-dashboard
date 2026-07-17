@@ -1,26 +1,19 @@
 import { notFound } from "next/navigation";
 import type { SubscriptionInvoice } from "@/lib/subscription-invoices";
+import { getBillingInvoices } from "@/lib/subscriptionInvoiceServer";
 import InvoiceDetailClient from "./InvoiceDetailClient";
 
 export const dynamic = "force-dynamic";
 
 async function getInvoice(id: string): Promise<SubscriptionInvoice | null> {
   try {
-    const baseUrl =
-      process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
-
-    const res = await fetch(`${baseUrl}/api/subscription-invoices/${id}`, {
-      cache: "no-store",
-    });
-
-    if (!res.ok) {
-      return null;
-    }
-
-    const data = await res.json();
-    return data ?? null;
-  } catch (error) {
-    console.error("Failed to load subscription invoice:", error);
+    const invoices = await getBillingInvoices();
+    return invoices.find((invoice) => invoice.id === id) || null;
+  } catch (error: unknown) {
+    console.error(
+      "Failed to load billing invoice:",
+      error instanceof Error ? error.message : "Unknown error"
+    );
     return null;
   }
 }

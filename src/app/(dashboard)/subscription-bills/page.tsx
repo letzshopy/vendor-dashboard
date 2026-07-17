@@ -1,32 +1,17 @@
-import { cookies } from "next/headers";
 import SubscriptionInvoicesClient from "./SubscriptionInvoicesClient";
-import type { SubscriptionInvoice } from "@/lib/subscription-invoices";
+import { getBillingInvoices } from "@/lib/subscriptionInvoiceServer";
 import { ReceiptText } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
-async function getInvoices(): Promise<SubscriptionInvoice[]> {
+async function getInvoices() {
   try {
-    const baseUrl =
-      process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
-
-    const cookieHeader = (await cookies()).toString();
-
-    const res = await fetch(`${baseUrl}/api/subscription-invoices`, {
-      cache: "no-store",
-      headers: {
-        Cookie: cookieHeader,
-      },
-    });
-
-    if (!res.ok) {
-      return [];
-    }
-
-    const data = await res.json();
-    return Array.isArray(data) ? (data as SubscriptionInvoice[]) : [];
-  } catch (error) {
-    console.error("Failed to load subscription invoices:", error);
+    return await getBillingInvoices();
+  } catch (error: unknown) {
+    console.error(
+      "Failed to load billing invoices:",
+      error instanceof Error ? error.message : "Unknown error"
+    );
     return [];
   }
 }
@@ -41,11 +26,11 @@ export default async function SubscriptionBillsPage() {
           <div className="min-w-0">
             <div className="inline-flex items-center gap-2 rounded-full bg-indigo-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-indigo-700">
               <ReceiptText className="h-3.5 w-3.5" />
-              Subscription Bills
+              Billing Invoices
             </div>
 
             <h1 className="mt-3 text-[24px] font-semibold tracking-tight text-slate-900 md:text-[30px]">
-              Subscription Invoices
+              Subscription &amp; Domain Invoices
             </h1>
           </div>
 

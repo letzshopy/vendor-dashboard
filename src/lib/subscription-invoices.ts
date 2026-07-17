@@ -1,10 +1,15 @@
 export type SubscriptionInvoiceStatus = "paid";
 
+export type BillingServiceType = "subscription" | "domain_renewal";
+
 export type SubscriptionInvoice = {
   id: string;
   invoiceNumber: string;
   invoiceDate: string; // ISO date
-  planCode: "standard" | "premium";
+  serviceType: BillingServiceType;
+  serviceLabel: string;
+  domainName?: string;
+  planCode?: "standard" | "premium";
   planLabel: string;
   billingCycle: "monthly" | "yearly";
   periodFrom: string; // ISO date

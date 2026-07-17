@@ -14,9 +14,75 @@ export default function InvoiceDetailClient({
   invoice: SubscriptionInvoice;
 }) {
   const router = useRouter();
+  const isDomainRenewal = invoice.serviceType === "domain_renewal";
 
   const handlePrint = () => {
-    window.print();
+    const invoiceElement = document.getElementById("billing-invoice-print");
+
+    if (!invoiceElement) return;
+
+    const printWindow = window.open("", "_blank", "width=900,height=1200");
+
+    if (!printWindow) {
+      window.alert("Please allow pop-ups to print or save this invoice as PDF.");
+      return;
+    }
+
+    const styles = Array.from(
+      document.querySelectorAll('link[rel="stylesheet"], style')
+    )
+      .map((node) => node.outerHTML)
+      .join("\n");
+
+    printWindow.document.open();
+    printWindow.document.write(`<!doctype html>
+      <html>
+        <head>
+          <meta charset="utf-8" />
+          <meta name="viewport" content="width=device-width, initial-scale=1" />
+          <base href="${document.baseURI}" />
+          <title>${invoice.invoiceNumber}</title>
+          ${styles}
+          <style>
+            @page { size: A4 portrait; margin: 12mm; }
+            html, body {
+              margin: 0 !important;
+              padding: 0 !important;
+              background: #fff !important;
+            }
+            body {
+              -webkit-print-color-adjust: exact;
+              print-color-adjust: exact;
+            }
+            #billing-invoice-print {
+              width: 100% !important;
+              max-width: none !important;
+              margin: 0 !important;
+              padding: 0 !important;
+              border: 0 !important;
+              border-radius: 0 !important;
+              box-shadow: none !important;
+            }
+          </style>
+        </head>
+        <body>${invoiceElement.outerHTML}</body>
+      </html>`);
+    printWindow.document.close();
+
+    const printInvoice = () => {
+      printWindow.focus();
+      printWindow.print();
+    };
+
+    printWindow.addEventListener("afterprint", () => printWindow.close(), {
+      once: true,
+    });
+
+    if (printWindow.document.readyState === "complete") {
+      window.setTimeout(printInvoice, 250);
+    } else {
+      printWindow.addEventListener("load", printInvoice, { once: true });
+    }
   };
 
   return (
@@ -56,11 +122,16 @@ export default function InvoiceDetailClient({
         </div>
       </div>
 
-      <div className="rounded-[26px] border border-slate-200/80 bg-white p-5 shadow-[0_10px_30px_rgba(15,23,42,0.05)] print:border-none print:bg-white print:p-0 print:shadow-none sm:p-6">
+      <div
+        id="billing-invoice-print"
+        className="rounded-[26px] border border-slate-200/80 bg-white p-5 shadow-[0_10px_30px_rgba(15,23,42,0.05)] print:border-none print:bg-white print:p-0 print:shadow-none sm:p-6"
+      >
         <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <h1 className="text-xl font-semibold text-slate-900">
-              LetzShopy Subscription Invoice
+              {isDomainRenewal
+                ? "LetzShopy Domain Renewal Invoice"
+                : "LetzShopy Subscription Invoice"}
             </h1>
             <div className="mt-1 text-sm text-slate-600">
               LetzShopy
@@ -119,11 +190,16 @@ export default function InvoiceDetailClient({
 
           <div className="rounded-[22px] border border-slate-200 bg-slate-50 p-4">
             <div className="font-semibold text-slate-900">
-              Subscription Details
+              {isDomainRenewal ? "Domain Service Details" : "Subscription Details"}
             </div>
             <div className="mt-2 font-medium text-slate-900">
               {invoice.planLabel}
             </div>
+            {isDomainRenewal && invoice.domainName ? (
+              <div className="mt-2 text-slate-600">
+                Domain: <span className="font-medium text-slate-900">{invoice.domainName}</span>
+              </div>
+            ) : null}
             <div className="mt-2 capitalize text-slate-600">
               Billing Cycle: {invoice.billingCycle}
             </div>
@@ -154,7 +230,8 @@ export default function InvoiceDetailClient({
                     {invoice.planLabel}
                   </div>
                   <div className="mt-0.5 text-[12px] text-slate-500">
-                    Subscription from {formatInvoiceDate(invoice.periodFrom)} to{" "}
+                    {isDomainRenewal ? "Renewal service" : "Subscription"} from{" "}
+                    {formatInvoiceDate(invoice.periodFrom)} to{" "}
                     {formatInvoiceDate(invoice.periodTo)}
                   </div>
                 </td>
@@ -192,7 +269,8 @@ export default function InvoiceDetailClient({
         </div>
 
         <div className="mt-6 text-[11px] text-slate-500">
-          This is a system generated tax invoice for your LetzShopy subscription.
+          This is a system generated tax invoice for your LetzShopy{" "}
+          {isDomainRenewal ? "domain renewal service" : "subscription"}.
           For any queries, please contact{" "}
           <span className="font-medium">support@letzshopy.in</span>.
         </div>
