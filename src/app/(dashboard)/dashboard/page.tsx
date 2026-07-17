@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState, type ComponentType } from "react";
 import RenewalNotice from "@/components/subscription/RenewalNotice";
 import { useDashboardSubscription } from "@/components/subscription/SubscriptionContext";
@@ -19,8 +20,6 @@ import {
   PackagePlus,
   ReceiptText,
   ShoppingBag,
-  Sparkles,
-  Store,
   Truck,
   Wallet,
 } from "lucide-react";
@@ -54,6 +53,18 @@ type OrdersSummary = {
     status: string;
     date_created: string;
   }[];
+};
+
+type DomainRenewalNotice = {
+  enabled?: boolean;
+  domain_name?: string;
+  annual_amount?: number;
+  amount?: number;
+  renewal_date?: string;
+  next_renewal_date?: string;
+  status?: string;
+  payment_status?: string;
+  strong_message?: string;
 };
 
 function formatMoney(num: number): string {
@@ -103,6 +114,8 @@ export default function DashboardPage() {
   const [orderStats, setOrderStats] = useState<OrdersSummary | null>(null);
   const [orderLoading, setOrderLoading] = useState(true);
   const [orderErr, setOrderErr] = useState<string | null>(null);
+  const [domainRenewal, setDomainRenewal] =
+    useState<DomainRenewalNotice | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -126,6 +139,38 @@ export default function DashboardPage() {
     }
 
     loadProducts();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadDomainRenewal() {
+      try {
+        const response = await fetch("/api/settings/domain-renewal", {
+          cache: "no-store",
+        });
+
+        const value: unknown = await response.json().catch(() => null);
+
+        if (
+          !cancelled &&
+          response.ok &&
+          value &&
+          typeof value === "object" &&
+          !Array.isArray(value)
+        ) {
+          setDomainRenewal(value as DomainRenewalNotice);
+        }
+      } catch {
+        // Keep the dashboard usable if the optional domain service is unavailable.
+      }
+    }
+
+    void loadDomainRenewal();
 
     return () => {
       cancelled = true;
@@ -165,6 +210,21 @@ export default function DashboardPage() {
   const outOfStock = productMetrics?.outOfStock ?? 0;
   const pendingUpi = orderStats?.pendingOnHold ?? 0;
   const processingOrders = orderStats?.statusLast30?.processing ?? 0;
+  const domainRenewalStatus = String(
+    domainRenewal?.status ||
+      domainRenewal?.payment_status ||
+      ""
+  ).toLowerCase();
+  const showDomainRenewalNotice =
+    domainRenewal?.enabled === true &&
+    [
+      "upcoming",
+      "payment_due",
+      "critical",
+      "overdue_grace",
+      "grace_expired",
+      "payment_submitted",
+    ].includes(domainRenewalStatus);
 
   const quickHighlights = useMemo(
     () => [
@@ -249,6 +309,48 @@ export default function DashboardPage() {
           />
         </section>
       )}
+
+      {showDomainRenewalNotice ? (
+        <section className="rounded-[24px] border border-amber-300 bg-gradient-to-r from-amber-50 via-orange-50 to-rose-50 p-4 shadow-sm">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div className="flex min-w-0 items-start gap-3">
+              <span className="mt-0.5 inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-amber-100 text-amber-700">
+                <AlertTriangle className="h-5 w-5" />
+              </span>
+              <div>
+                <h2 className="font-semibold text-slate-950">
+                  {domainRenewalStatus === "payment_submitted"
+                    ? "Domain renewal payment submitted"
+                    : "Domain renewal payment required"}
+                </h2>
+                <p className="mt-1 text-sm leading-6 text-slate-700">
+                  {domainRenewal?.strong_message ||
+                    `${domainRenewal?.domain_name || "Your domain"} requires renewal payment.`}
+                </p>
+                <p className="mt-1 text-xs font-medium text-slate-600">
+                  {domainRenewal?.domain_name || "Domain"} · ₹
+                  {Number(
+                    domainRenewal?.annual_amount || domainRenewal?.amount || 0
+                  ).toLocaleString("en-IN")} · Renewal{" "}
+                  {domainRenewal?.renewal_date ||
+                    domainRenewal?.next_renewal_date ||
+                    "-"}
+                </p>
+              </div>
+            </div>
+
+            <Link
+              href="/billing/subscription"
+              className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800"
+            >
+              {domainRenewalStatus === "payment_submitted"
+                ? "View payment status"
+                : "Pay domain renewal"}
+              <ArrowRight className="h-4 w-4" />
+            </Link>
+          </div>
+        </section>
+      ) : null}
 
       <WelcomePanel greeting={getGreeting()} />
 
@@ -582,13 +684,13 @@ function ProductsOverviewCard(props: {
           
         </div>
 
-        <a
+        <Link
           href="/products"
           className="inline-flex items-center gap-1 rounded-full bg-[#f3eeff] px-3 py-1.5 text-xs font-semibold text-[#7a4cf0] hover:bg-[#ece4ff]"
         >
           Manage
           <ArrowRight className="h-3.5 w-3.5" />
-        </a>
+        </Link>
       </div>
 
       {loading && <LoadingBlock />}
@@ -739,13 +841,13 @@ function OrdersStatusCard(props: {
           <p className="mt-1 text-xs text-slate-500">Last 30 days overview</p>
         </div>
 
-        <a
+        <Link
           href="/orders"
           className="inline-flex items-center gap-1 rounded-full bg-[#f3eeff] px-3 py-1.5 text-xs font-semibold text-[#7a4cf0] hover:bg-[#ece4ff]"
         >
           View all
           <ArrowRight className="h-3.5 w-3.5" />
-        </a>
+        </Link>
       </div>
 
       {loading && <LoadingBlock />}
@@ -988,13 +1090,13 @@ function RecentOrdersCard(props: {
           </p>
         </div>
 
-        <a
+        <Link
           href="/orders"
           className="inline-flex items-center gap-1 rounded-full bg-[#f3eeff] px-3 py-1.5 text-xs font-semibold text-[#7a4cf0] hover:bg-[#ece4ff]"
         >
           View all
           <ArrowRight className="h-3.5 w-3.5" />
-        </a>
+        </Link>
       </div>
 
       {loading && <LoadingBlock />}
