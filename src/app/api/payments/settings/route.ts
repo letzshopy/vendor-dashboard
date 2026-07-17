@@ -51,6 +51,13 @@ type SaveBody = {
   };
 };
 
+type WooGateway = {
+  id?: unknown;
+  title?: unknown;
+  description?: unknown;
+  enabled?: unknown;
+};
+
 function requireInternalToken() {
   const token = process.env.LETZ_INTERNAL_TOKEN || "";
   if (!token) {
@@ -59,7 +66,7 @@ function requireInternalToken() {
   return token;
 }
 
-function boolValue(value: any, fallback = false) {
+function boolValue(value: unknown, fallback = false) {
   if (value === true || value === 1 || value === "1" || value === "true" || value === "yes" || value === "on") {
     return true;
   }
@@ -71,7 +78,7 @@ function boolValue(value: any, fallback = false) {
   return fallback;
 }
 
-function cleanStatus(value: any): OrderSuccessStatus {
+function cleanStatus(value: unknown): OrderSuccessStatus {
   const v = String(value || "").trim();
 
   if (v === "completed") return "completed";
@@ -132,11 +139,11 @@ function normalizeBody(body: SaveBody | null | undefined): Required<SaveBody> {
   };
 }
 
-async function getPaymentsOption(): Promise<any> {
+async function getPaymentsOption(): Promise<unknown> {
   const wpBase = (await getWpBaseUrl()).replace(/\/$/, "");
   const token = requireInternalToken();
 
-  const res = await fetch(`${wpBase}/wp-json/letz/v2/payments/settings`, {
+  const res = await fetch(`${wpBase}/wp-json/letz/v2/payments/settings?_ts=${Date.now()}`, {
     method: "GET",
     headers: {
       Accept: "application/json",
@@ -153,7 +160,9 @@ async function getPaymentsOption(): Promise<any> {
   return res.json();
 }
 
-async function setPaymentsOption(value: any) {
+async function setPaymentsOption(
+  value: Required<SaveBody>
+): Promise<Required<SaveBody>> {
   const wpBase = (await getWpBaseUrl()).replace(/\/$/, "");
   const token = requireInternalToken();
 
@@ -173,9 +182,30 @@ async function setPaymentsOption(value: any) {
     console.error("Failed to save payments settings via WP:", txt);
     throw new Error(txt || "Could not persist payments settings");
   }
+
+  const payload = await res.json().catch(() => null) as {
+    ok?: unknown;
+    settings?: SaveBody;
+  } | null;
+
+  if (!payload || payload.ok !== true || !payload.settings) {
+    throw new Error("WordPress did not confirm the payments settings save");
+  }
+
+  return normalizeBody(payload.settings);
 }
 
-function findEasebuzzGateway(gateways: any[], hint: string): any | undefined {
+function settingsMatch(
+  expected: Required<SaveBody>,
+  actual: Required<SaveBody>
+): boolean {
+  return JSON.stringify(expected) === JSON.stringify(actual);
+}
+
+function findEasebuzzGateway(
+  gateways: WooGateway[],
+  hint: string
+): WooGateway | undefined {
   const h = (hint || "easebuzz").toLowerCase();
 
   let gw = gateways.find((g) => String(g.id || "").toLowerCase().includes(h));
@@ -207,9 +237,14 @@ export async function GET() {
     const safe = normalizeBody((state || {}) as SaveBody);
 
     return NextResponse.json(safe);
-  } catch (e: any) {
+  } catch (e: unknown) {
     return NextResponse.json(
-      { error: e?.message || "Failed to load payments settings" },
+      {
+        error:
+          e instanceof Error
+            ? e.message
+            : "Failed to load payments settings",
+      },
       { status: 500 }
     );
   }
@@ -226,7 +261,11 @@ async function handleSave(req: Request) {
      * Save dashboard settings first.
      * Important: method toggles stay stored even when global payments are off.
      */
-    await setPaymentsOption(body);
+    const savedByWordPress = await setPaymentsOption(body);
+
+    if (!settingsMatch(body, savedByWordPress)) {
+      throw new Error("WordPress returned different payments settings after save");
+    }
 
     /*
      * Checkout visibility should respect global Accept Payments.
@@ -243,14 +282,19 @@ async function handleSave(req: Request) {
     };
 
     const { data: gateways } = await woo.get("/payment_gateways");
-    const list = Array.isArray(gateways) ? gateways : [];
+    const list: WooGateway[] = Array.isArray(gateways)
+      ? gateways.filter(
+          (gateway): gateway is WooGateway =>
+            typeof gateway === "object" && gateway !== null
+        )
+      : [];
 
-    const byId: Record<string, any> = {};
-    list.forEach((g: any) => {
+    const byId: Record<string, WooGateway> = {};
+    list.forEach((g) => {
       byId[String(g.id)] = g;
     });
 
-    const updates: Promise<any>[] = [];
+    const updates: Promise<unknown>[] = [];
 
     const maybeToggle = (id: string, want: boolean) => {
       const gw = byId[id];
@@ -285,16 +329,29 @@ async function handleSave(req: Request) {
       await Promise.all(updates);
     }
 
+    const verified = normalizeBody(
+      (await getPaymentsOption()) as SaveBody
+    );
+
+    if (!settingsMatch(body, verified)) {
+      throw new Error("Payments settings verification failed after save");
+    }
+
     return NextResponse.json({
       ok: true,
-      settings: body,
+      settings: verified,
       effectiveGateways: enableMap,
     });
-  } catch (e: any) {
+  } catch (e: unknown) {
     console.error("payments/settings SAVE error", e);
 
     return NextResponse.json(
-      { error: e?.message || "Save failed" },
+      {
+        error:
+          e instanceof Error
+            ? e.message
+            : "Save failed",
+      },
       { status: 500 }
     );
   }
