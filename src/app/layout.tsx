@@ -3,8 +3,6 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { Suspense } from "react";
 
-import LookupGuard from "./_debug/lookup-guard";
-import LookupMuzzle from "./_debug/lookup-muzzle";
 import PwaRegister from "@/components/pwa/PwaRegister";
 
 export const metadata: Metadata = {
@@ -55,12 +53,6 @@ export default function RootLayout({
       >
         <PwaRegister />
 
-        {process.env.NODE_ENV !== "production" && (
-          <>
-            <LookupGuard />
-            <LookupMuzzle />
-          </>
-        )}
 
         <Suspense
           fallback={
