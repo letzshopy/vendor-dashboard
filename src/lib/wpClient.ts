@@ -1,81 +1,182 @@
-// src/lib/wpClient.ts
-import axios, { AxiosInstance } from "axios";
-import { getTenantFromCookies } from "./tenant";
+import axios, {
+  type AxiosInstance,
+} from "axios";
 
-function normalizeBase(url: string) {
-  return String(url || "").trim().replace(/\/+$/, "");
-}
+import {
+  getTenantFromCookies,
+} from "./tenant";
 
-export function wpAuthHeader() {
-  const token = process.env.WP_AUTH;
-  if (token) return { Authorization: `Basic ${token}` };
+function normalizeBaseUrl(
+  rawUrl: string,
+  sourceName: string
+): string {
+  const value = String(rawUrl || "")
+    .trim()
+    .replace(/\/+$/, "");
 
-  const user = process.env.WP_USER || "";
-  const pass = (process.env.WP_APP_PASSWORD || "").replace(/\s+/g, "");
-  const missing: string[] = [];
-
-  if (!user) missing.push("WP_USER");
-  if (!pass) missing.push("WP_APP_PASSWORD");
-
-  if (missing.length) {
+  if (!/^https?:\/\//i.test(value)) {
     throw new Error(
-      `Missing WP auth env. Provide WP_AUTH or ${missing.join(", ")}`
+      `Invalid ${sourceName} URL configuration`
     );
   }
 
-  const auth = Buffer.from(`${user}:${pass}`).toString("base64");
-  return { Authorization: `Basic ${auth}` };
+  return value;
 }
 
-export async function getWpBaseUrl(): Promise<string> {
-  const tenant = await getTenantFromCookies();
+export function wpAuthHeader(): {
+  Authorization: string;
+} {
+  const configuredToken =
+    process.env.WP_AUTH || "";
 
-  if (tenant?.store_url) {
-    return normalizeBase(tenant.store_url);
+  if (configuredToken) {
+    return {
+      Authorization:
+        `Basic ${configuredToken}`,
+    };
   }
 
-  const fallback = process.env.WP_URL || process.env.SITE_URL || "";
-  if (fallback) {
-    return normalizeBase(fallback);
+  const user = process.env.WP_USER || "";
+
+  const password = (
+    process.env.WP_APP_PASSWORD || ""
+  ).replace(/\s+/g, "");
+
+  const missingVariables: string[] = [];
+
+  if (!user) {
+    missingVariables.push("WP_USER");
   }
 
-  throw new Error(
-    "Missing vendor WP base URL (tenant cookie / WP_URL / SITE_URL)"
+  if (!password) {
+    missingVariables.push(
+      "WP_APP_PASSWORD"
+    );
+  }
+
+  if (missingVariables.length > 0) {
+    throw new Error(
+      `Missing WordPress authentication configuration: ${
+        missingVariables.join(", ")
+      }`
+    );
+  }
+
+  const encodedCredentials =
+    Buffer.from(
+      `${user}:${password}`
+    ).toString("base64");
+
+  return {
+    Authorization:
+      `Basic ${encodedCredentials}`,
+  };
+}
+
+export function wpInternalAuthHeader(): {
+  "X-Letz-Auth": string;
+} {
+  const token = (
+    process.env.LETZ_INTERNAL_TOKEN || ""
+  ).trim();
+
+  if (!token) {
+    throw new Error(
+      "Missing WordPress internal authentication configuration"
+    );
+  }
+
+  return {
+    "X-Letz-Auth": token,
+  };
+}
+
+export async function getWpBaseUrl():
+  Promise<string> {
+  const tenant =
+    await getTenantFromCookies();
+
+  if (!tenant) {
+    throw new Error(
+      "No verified and authorized vendor tenant is selected"
+    );
+  }
+
+  return normalizeBaseUrl(
+    tenant.store_url,
+    "vendor WordPress"
   );
 }
 
-export function getMasterWpBaseUrl(): string {
-  const base =
+export function getMasterWpBaseUrl():
+  string {
+  const configuredBaseUrl =
     process.env.MASTER_WP_URL ||
     process.env.MASTER_SITE_URL ||
-    process.env.WP_URL ||
-    process.env.SITE_URL ||
     "";
 
-  if (!base) {
+  if (!configuredBaseUrl) {
     throw new Error(
-      "Missing MASTER_WP_URL (or MASTER_SITE_URL / WP_URL / SITE_URL) in env"
+      "Missing master WordPress URL configuration"
     );
   }
 
-  return normalizeBase(base);
+  return normalizeBaseUrl(
+    configuredBaseUrl,
+    "master WordPress"
+  );
 }
 
-export async function getWpClient(): Promise<AxiosInstance> {
-  const base = await getWpBaseUrl();
+export async function fetchInternalWp(
+  path: string,
+  init: RequestInit = {},
+  timeoutMs = 20_000
+): Promise<Response> {
+  if (!path.startsWith("/wp-json/")) {
+    throw new Error(
+      "Invalid internal WordPress API path"
+    );
+  }
+
+  const baseUrl = await getWpBaseUrl();
+  const headers = new Headers(init.headers);
+
+  headers.set(
+    "X-Letz-Auth",
+    wpInternalAuthHeader()["X-Letz-Auth"]
+  );
+
+  if (!headers.has("Accept")) {
+    headers.set("Accept", "application/json");
+  }
+
+  return fetch(`${baseUrl}${path}`, {
+    ...init,
+    headers,
+    cache: init.cache || "no-store",
+    signal:
+      init.signal ||
+      AbortSignal.timeout(timeoutMs),
+  });
+}
+
+export async function getWpClient():
+  Promise<AxiosInstance> {
+  const baseUrl = await getWpBaseUrl();
 
   return axios.create({
-    baseURL: `${base}/wp-json`,
+    baseURL: `${baseUrl}/wp-json`,
     headers: wpAuthHeader(),
     timeout: 60000,
   });
 }
 
-export function getMasterWpClient(): AxiosInstance {
-  const base = getMasterWpBaseUrl();
+export function getMasterWpClient():
+  AxiosInstance {
+  const baseUrl = getMasterWpBaseUrl();
 
   return axios.create({
-    baseURL: `${base}/wp-json`,
+    baseURL: `${baseUrl}/wp-json`,
     headers: wpAuthHeader(),
     timeout: 60000,
   });

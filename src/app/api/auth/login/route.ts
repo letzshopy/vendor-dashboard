@@ -1,211 +1,658 @@
 import { NextResponse } from "next/server";
-import crypto from "crypto";
 
-const AUTH_COOKIE_NAME = process.env.AUTH_COOKIE_NAME || "ls_vendor_auth";
-const TENANT_COOKIE_NAME = process.env.TENANT_COOKIE_NAME || "ls_tenant";
-const ROLE_COOKIE_NAME = "ls_role";
-const SESSION_SIGNING_SECRET = process.env.DASHBOARD_SECRET;
-const MASTER_WP_URL = process.env.MASTER_WP_URL;
+import {
+  SESSION_TTL_MS,
+  type SessionRole,
+  type SessionStore,
+  signSessionPayload,
+} from "@/lib/session";
 
-type MasterStore = {
-  blog_id: number;
-  store_name: string;
-  store_url: string;
+const AUTH_COOKIE_NAME =
+  process.env.AUTH_COOKIE_NAME ||
+  "ls_vendor_auth";
+
+const TENANT_COOKIE_NAME =
+  process.env.TENANT_COOKIE_NAME ||
+  "ls_tenant";
+
+const LEGACY_ROLE_COOKIE_NAME =
+  "ls_role";
+
+const SESSION_SIGNING_SECRET =
+  process.env.DASHBOARD_SECRET || "";
+
+const MASTER_WP_URL =
+  process.env.MASTER_WP_URL || "";
+
+const SESSION_MAX_AGE_SECONDS =
+  Math.floor(SESSION_TTL_MS / 1000);
+
+const PRIVATE_RESPONSE_HEADERS = {
+  "Cache-Control":
+    "private, no-store, no-cache, must-revalidate, max-age=0",
 };
 
-type MasterLoginOk = {
-  ok: true;
-  role: "master_admin" | "vendor_admin" | "store_owner";
-  stores: MasterStore[];
+const ALLOWED_ROLES: SessionRole[] = [
+  "master_admin",
+  "vendor_admin",
+  "store_owner",
+];
+
+type JsonRecord = Record<string, unknown>;
+
+type LoginMode =
+  | "json"
+  | "form";
+
+type LoginRequestBody = {
+  email: string;
+  password: string;
+  nextPath: string;
+  mode: LoginMode;
 };
 
-type MasterLoginErr = { ok: false; message?: string };
+type MasterLoginSuccess = {
+  role: SessionRole;
+  stores: SessionStore[];
+};
 
-function b64url(input: Buffer | string) {
-  const buf = Buffer.isBuffer(input) ? input : Buffer.from(input);
-  return buf
-    .toString("base64")
-    .replace(/=/g, "")
-    .replace(/\+/g, "-")
-    .replace(/\//g, "_");
+function isRecord(
+  value: unknown
+): value is JsonRecord {
+  return Boolean(
+    value &&
+      typeof value === "object" &&
+      !Array.isArray(value)
+  );
 }
 
-function sign(payload: any, secret: string) {
-  const json = JSON.stringify(payload);
-  const body = b64url(json);
-  const sig = crypto.createHmac("sha256", secret).update(body).digest();
-  return `${body}.${b64url(sig)}`;
+function normalizeBaseUrl(
+  rawUrl: string
+): string {
+  const value = String(rawUrl || "")
+    .trim()
+    .replace(/\/+$/, "");
+
+  if (!/^https?:\/\//i.test(value)) {
+    return "";
+  }
+
+  return value;
 }
 
-function normalizeBase(url: string) {
-  return String(url || "").replace(/\/+$/, "");
+function normalizeStoreUrl(
+  rawUrl: unknown
+): string {
+  return normalizeBaseUrl(
+    String(rawUrl || "")
+  );
 }
 
-async function readBody(req: Request) {
-  const contentType = req.headers.get("content-type") || "";
+function normalizeStores(
+  value: unknown
+): SessionStore[] | null {
+  if (!Array.isArray(value)) {
+    return null;
+  }
 
-  if (contentType.includes("application/json")) {
-    const body = await req.json().catch(() => null);
+  const stores: SessionStore[] = [];
+  const storeKeys = new Set<string>();
+
+  for (const rawStore of value) {
+    if (!isRecord(rawStore)) {
+      return null;
+    }
+
+    const blogId = Number(
+      rawStore.blog_id
+    );
+
+    const storeName = String(
+      rawStore.store_name || ""
+    ).trim();
+
+    const storeUrl = normalizeStoreUrl(
+      rawStore.store_url
+    );
+
+    if (
+      !Number.isInteger(blogId) ||
+      blogId <= 0 ||
+      !storeUrl
+    ) {
+      return null;
+    }
+
+    const storeKey =
+      `${blogId}:${storeUrl}`;
+
+    if (storeKeys.has(storeKey)) {
+      continue;
+    }
+
+    storeKeys.add(storeKey);
+
+    stores.push({
+      blog_id: blogId,
+      store_name: storeName,
+      store_url: storeUrl,
+    });
+  }
+
+  return stores;
+}
+
+function parseMasterLoginSuccess(
+  value: unknown
+): MasterLoginSuccess | null {
+  if (
+    !isRecord(value) ||
+    value.ok !== true
+  ) {
+    return null;
+  }
+
+  const rawRole = value.role;
+
+  if (
+    typeof rawRole !== "string" ||
+    !ALLOWED_ROLES.includes(
+      rawRole as SessionRole
+    )
+  ) {
+    return null;
+  }
+
+  const stores = normalizeStores(
+    value.stores
+  );
+
+  if (!stores) {
+    return null;
+  }
+
+  return {
+    role: rawRole as SessionRole,
+    stores,
+  };
+}
+
+function normalizeNextPath(
+  rawValue: unknown
+): string {
+  const value = String(rawValue || "")
+    .trim();
+
+  if (
+    !value ||
+    !value.startsWith("/") ||
+    value.startsWith("//") ||
+    value.includes("\\")
+  ) {
+    return "";
+  }
+
+  try {
+    const internalOrigin =
+      "https://dashboard.internal";
+
+    const parsed = new URL(
+      value,
+      internalOrigin
+    );
+
+    if (parsed.origin !== internalOrigin) {
+      return "";
+    }
+
+    const pathname = parsed.pathname;
+
+    if (
+      pathname === "/signin" ||
+      pathname.startsWith("/signin/") ||
+      pathname === "/master" ||
+      pathname.startsWith("/master/") ||
+      pathname === "/api" ||
+      pathname.startsWith("/api/")
+    ) {
+      return "";
+    }
+
+    return (
+      parsed.pathname +
+      parsed.search
+    );
+  } catch {
+    return "";
+  }
+}
+
+async function readBody(
+  request: Request
+): Promise<LoginRequestBody> {
+  const contentType =
+    request.headers.get("content-type") ||
+    "";
+
+  if (
+    contentType.includes(
+      "application/json"
+    )
+  ) {
+    const parsed: unknown = await request
+      .json()
+      .catch(() => null);
+
+    const body = isRecord(parsed)
+      ? parsed
+      : {};
+
     return {
-      email: body?.email?.trim() || "",
-      password: body?.password || "",
-      next: body?.next || "",
-      mode: "json" as const,
+      email: String(
+        body.email || ""
+      ).trim(),
+      password: String(
+        body.password || ""
+      ),
+      nextPath: normalizeNextPath(
+        body.next
+      ),
+      mode: "json",
     };
   }
 
-  const form = await req.formData().catch(() => null);
+  const form = await request
+    .formData()
+    .catch(() => null);
+
   return {
-    email: String(form?.get("email") || "").trim(),
-    password: String(form?.get("password") || ""),
-    next: String(form?.get("next") || ""),
-    mode: "form" as const,
+    email: String(
+      form?.get("email") || ""
+    ).trim(),
+    password: String(
+      form?.get("password") || ""
+    ),
+    nextPath: normalizeNextPath(
+      form?.get("next")
+    ),
+    mode: "form",
   };
 }
 
-function setCommonCookies(
-  res: NextResponse,
-  role: "master_admin" | "vendor_admin" | "store_owner",
-  authToken: string
-) {
-  res.cookies.set(AUTH_COOKIE_NAME, authToken, {
-    httpOnly: true,
-    sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
-    path: "/",
-    maxAge: 60 * 60 * 8,
-  });
+function createSigninErrorUrl(
+  requestUrl: string,
+  message: string,
+  nextPath: string
+): URL {
+  const signinUrl = new URL(
+    "/signin",
+    requestUrl
+  );
 
-  res.cookies.set(ROLE_COOKIE_NAME, role, {
-    httpOnly: false,
-    sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
+  signinUrl.searchParams.set(
+    "error",
+    message
+  );
+
+  if (nextPath) {
+    signinUrl.searchParams.set(
+      "next",
+      nextPath
+    );
+  }
+
+  return signinUrl;
+}
+
+function clearCookie(
+  response: NextResponse,
+  name: string
+) {
+  response.cookies.set({
+    name,
+    value: "",
     path: "/",
-    maxAge: 60 * 60 * 8,
+    expires: new Date(0),
+    maxAge: 0,
   });
 }
 
-function setTenantCookie(res: NextResponse, store: MasterStore) {
+function setAuthSessionCookie(
+  response: NextResponse,
+  authToken: string
+) {
+  response.cookies.set(
+    AUTH_COOKIE_NAME,
+    authToken,
+    {
+      httpOnly: true,
+      sameSite: "lax",
+      secure:
+        process.env.NODE_ENV ===
+        "production",
+      path: "/",
+      maxAge:
+        SESSION_MAX_AGE_SECONDS,
+    }
+  );
+}
+
+function setTenantCookie(
+  response: NextResponse,
+  store: SessionStore
+) {
   const tenantPayload = {
     blog_id: store.blog_id,
     store_name: store.store_name,
-    store_url: normalizeBase(store.store_url),
+    store_url: store.store_url,
   };
 
-  res.cookies.set(TENANT_COOKIE_NAME, encodeURIComponent(JSON.stringify(tenantPayload)), {
-    httpOnly: true,
-    sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
-    path: "/",
-    maxAge: 60 * 60 * 8,
-  });
+  response.cookies.set(
+    TENANT_COOKIE_NAME,
+    encodeURIComponent(
+      JSON.stringify(tenantPayload)
+    ),
+    {
+      httpOnly: true,
+      sameSite: "lax",
+      secure:
+        process.env.NODE_ENV ===
+        "production",
+      path: "/",
+      maxAge:
+        SESSION_MAX_AGE_SECONDS,
+    }
+  );
 }
 
-export async function POST(req: Request) {
+function setLoginSessionState(
+  response: NextResponse,
+  authToken: string,
+  selectedStore?: SessionStore
+) {
+  /*
+   * Every login starts with clean selector state.
+   * The editable legacy role cookie is deleted and
+   * is never issued again.
+   */
+  clearCookie(
+    response,
+    TENANT_COOKIE_NAME
+  );
+
+  clearCookie(
+    response,
+    LEGACY_ROLE_COOKIE_NAME
+  );
+
+  setAuthSessionCookie(
+    response,
+    authToken
+  );
+
+  if (selectedStore) {
+    setTenantCookie(
+      response,
+      selectedStore
+    );
+  }
+}
+
+function loginErrorResponse(
+  request: Request,
+  mode: LoginMode,
+  message: string,
+  nextPath: string,
+  status: number
+): NextResponse {
+  if (mode === "form") {
+    return NextResponse.redirect(
+      createSigninErrorUrl(
+        request.url,
+        message,
+        nextPath
+      ),
+      303
+    );
+  }
+
+  return NextResponse.json(
+    {
+      ok: false,
+      error: message,
+    },
+    {
+      status,
+      headers:
+        PRIVATE_RESPONSE_HEADERS,
+    }
+  );
+}
+
+function getRedirectPath(
+  role: SessionRole,
+  stores: SessionStore[],
+  nextPath: string
+): string {
+  if (role === "master_admin") {
+    return "/master";
+  }
+
+  if (stores.length !== 1) {
+    return "/select-store";
+  }
+
+  return nextPath || "/dashboard";
+}
+
+export async function POST(
+  request: Request
+) {
   try {
     if (!SESSION_SIGNING_SECRET) {
       return NextResponse.json(
-        { ok: false, error: "Server auth not configured (DASHBOARD_SECRET missing)." },
-        { status: 500 }
+        {
+          ok: false,
+          error:
+            "Server authentication is not configured.",
+        },
+        {
+          status: 500,
+          headers:
+            PRIVATE_RESPONSE_HEADERS,
+        }
       );
     }
 
-    if (!MASTER_WP_URL) {
+    const masterBaseUrl =
+      normalizeBaseUrl(
+        MASTER_WP_URL
+      );
+
+    if (!masterBaseUrl) {
       return NextResponse.json(
-        { ok: false, error: "MASTER_WP_URL missing in env." },
-        { status: 500 }
+        {
+          ok: false,
+          error:
+            "Master authentication service is not configured.",
+        },
+        {
+          status: 500,
+          headers:
+            PRIVATE_RESPONSE_HEADERS,
+        }
       );
     }
 
-    const { email, password, next, mode } = await readBody(req);
+    const {
+      email,
+      password,
+      nextPath,
+      mode,
+    } = await readBody(request);
 
     if (!email || !password) {
-      if (mode === "form") {
-        return NextResponse.redirect(new URL("/signin?error=missing", req.url), 303);
-      }
-      return NextResponse.json(
-        { ok: false, error: "Email and password are required." },
-        { status: 400 }
+      return loginErrorResponse(
+        request,
+        mode,
+        "Email and password are required.",
+        nextPath,
+        400
       );
     }
 
-    const masterBase = normalizeBase(MASTER_WP_URL);
-    const wpRes = await fetch(`${masterBase}/wp-json/letz/v1/auth/login`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      cache: "no-store",
-      body: JSON.stringify({ email, password }),
-    });
+    const wordpressResponse =
+      await fetch(
+        `${masterBaseUrl}/wp-json/letz/v1/auth/login`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type":
+              "application/json",
+          },
+          cache: "no-store",
+          body: JSON.stringify({
+            email,
+            password,
+          }),
+        }
+      );
 
-    const wpText = await wpRes.text();
-    let wpJson: MasterLoginOk | MasterLoginErr | null = null;
+    const responseText =
+      await wordpressResponse.text();
+
+    let parsedResponse: unknown = null;
+
     try {
-      wpJson = JSON.parse(wpText);
-    } catch {}
-
-    if (!wpRes.ok || !wpJson || (wpJson as any).ok !== true) {
-      const msg = (wpJson as any)?.message || "Invalid email or password.";
-      if (mode === "form") {
-        return NextResponse.redirect(
-          new URL(`/signin?error=${encodeURIComponent(msg)}`, req.url),
-          303
-        );
-      }
-      return NextResponse.json({ ok: false, error: msg }, { status: 401 });
+      parsedResponse = JSON.parse(
+        responseText
+      );
+    } catch {
+      parsedResponse = null;
     }
 
-    const { role, stores } = wpJson as MasterLoginOk;
+    const loginResult =
+      parseMasterLoginSuccess(
+        parsedResponse
+      );
 
-    let redirect = "/signin";
-    if (role === "master_admin") {
-      redirect = "/master";
-    } else if (role === "vendor_admin") {
-      redirect = stores.length === 1 ? (next || "/dashboard") : "/select-store";
-    } else if (role === "store_owner") {
-      redirect = stores.length === 1 ? (next || "/dashboard") : "/select-store";
+    if (
+      !wordpressResponse.ok ||
+      !loginResult
+    ) {
+      return loginErrorResponse(
+        request,
+        mode,
+        "Invalid email or password.",
+        nextPath,
+        401
+      );
     }
 
-    const token = sign(
-      {
-        v: 4,
-        email,
-        saas_role: role,
+    const {
+      role,
+      stores,
+    } = loginResult;
+
+    const redirectPath =
+      getRedirectPath(
+        role,
         stores,
-        iat: Date.now(),
-      },
-      SESSION_SIGNING_SECRET
-    );
+        nextPath
+      );
+
+    const issuedAt = Date.now();
+
+    const authToken =
+      await signSessionPayload(
+        {
+          v: 4,
+          email:
+            email.toLowerCase(),
+          saas_role: role,
+          stores,
+          iat: issuedAt,
+          exp:
+            issuedAt +
+            SESSION_TTL_MS,
+        },
+        SESSION_SIGNING_SECRET
+      );
+
+    const selectedStore =
+      role !== "master_admin" &&
+      stores.length === 1
+        ? stores[0]
+        : undefined;
 
     if (mode === "json") {
-      const res = NextResponse.json({
-        ok: true,
-        saas_role: role,
-        redirect,
-        storesCount: stores?.length || 0,
-      });
+      const response =
+        NextResponse.json(
+          {
+            ok: true,
+            saas_role: role,
+            redirect:
+              redirectPath,
+            storesCount:
+              stores.length,
+          },
+          {
+            headers:
+              PRIVATE_RESPONSE_HEADERS,
+          }
+        );
 
-      setCommonCookies(res, role, token);
+      setLoginSessionState(
+        response,
+        authToken,
+        selectedStore
+      );
 
-      if (stores?.length === 1) {
-        setTenantCookie(res, stores[0]);
-      }
-
-      return res;
+      return response;
     }
 
-    const res = NextResponse.redirect(new URL(redirect, req.url), 303);
+    const response =
+      NextResponse.redirect(
+        new URL(
+          redirectPath,
+          request.url
+        ),
+        303
+      );
 
-    setCommonCookies(res, role, token);
+    response.headers.set(
+      "Cache-Control",
+      PRIVATE_RESPONSE_HEADERS[
+        "Cache-Control"
+      ]
+    );
 
-    if (stores?.length === 1) {
-      setTenantCookie(res, stores[0]);
-    }
+    setLoginSessionState(
+      response,
+      authToken,
+      selectedStore
+    );
 
-    return res;
-  } catch (e: any) {
+    return response;
+  } catch (error: unknown) {
+    console.error(
+      "Dashboard login failed:",
+      error instanceof Error
+        ? error.message
+        : "Unknown error"
+    );
+
     return NextResponse.json(
-      { ok: false, error: e?.message || "Login failed." },
-      { status: 500 }
+      {
+        ok: false,
+        error:
+          "Unable to sign in right now.",
+      },
+      {
+        status: 500,
+        headers:
+          PRIVATE_RESPONSE_HEADERS,
+      }
     );
   }
 }
