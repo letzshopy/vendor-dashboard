@@ -300,7 +300,7 @@ export default function SigninPage() {
 
                       {forgotDone && (
                         <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
-                          Password reset email sent to registered email id.
+                          If an eligible LetzShopy account exists for this email, a reset link will be sent. Check your inbox and spam folder. Contact LetzShopy Support if it does not arrive.
                         </div>
                       )}
 
