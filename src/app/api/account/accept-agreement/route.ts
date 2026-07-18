@@ -1,104 +1,158 @@
 import { NextResponse } from "next/server";
-import crypto from "crypto";
 import { cookies } from "next/headers";
-import { getWpBaseUrl } from "@/lib/wpClient";
 
-const AUTH_COOKIE_NAME = process.env.AUTH_COOKIE_NAME || "ls_vendor_auth";
-const ROLE_COOKIE_NAME = "ls_role";
-const DASHBOARD_SECRET = process.env.DASHBOARD_SECRET || "";
+import { fetchInternalWp } from "@/lib/wpClient";
+import { verifySessionToken } from "@/lib/session";
 
-function b64urlToBuffer(input: string) {
-  const padded = input.replace(/-/g, "+").replace(/_/g, "/");
-  const padLen = (4 - (padded.length % 4)) % 4;
-  return Buffer.from(padded + "=".repeat(padLen), "base64");
-}
+const AUTH_COOKIE_NAME =
+  process.env.AUTH_COOKIE_NAME || "ls_vendor_auth";
 
-function verifySignedToken(token: string, secret: string) {
-  try {
-    const [body, sig] = token.split(".");
-    if (!body || !sig || !secret) return null;
+const SESSION_SIGNING_SECRET =
+  process.env.DASHBOARD_SECRET || "";
 
-    const expected = crypto.createHmac("sha256", secret).update(body).digest();
-    const actual = b64urlToBuffer(sig);
+const UPSTREAM_TIMEOUT_MS = 15_000;
 
-    if (expected.length !== actual.length) return null;
-    if (!crypto.timingSafeEqual(expected, actual)) return null;
+type JsonRecord = Record<string, unknown>;
 
-    return JSON.parse(b64urlToBuffer(body).toString("utf8"));
-  } catch {
-    return null;
-  }
-}
-
-function authHeader() {
-  const user = process.env.WP_USER;
-  const pass = (process.env.WP_APP_PASSWORD || "").replace(/\s+/g, "");
-
-  if (!user || !pass) {
-    throw new Error("Missing WP_USER or WP_APP_PASSWORD environment variables.");
-  }
-
-  return "Basic " + Buffer.from(`${user}:${pass}`).toString("base64");
+function isRecord(
+  value: unknown
+): value is JsonRecord {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    !Array.isArray(value)
+  );
 }
 
 export async function POST() {
   try {
-    const cookieStore = await cookies();
-    const role = cookieStore.get(ROLE_COOKIE_NAME)?.value || "";
-
-    if (role !== "store_owner") {
+    if (!SESSION_SIGNING_SECRET) {
       return NextResponse.json(
         {
           ok: false,
-          error: "Only store owners can accept the Vendor Agreement.",
+          error:
+            "Server authentication is not configured.",
         },
-        { status: 403 }
+        { status: 500 }
       );
     }
 
-    const authToken = cookieStore.get(AUTH_COOKIE_NAME)?.value || "";
-    const session = verifySignedToken(authToken, DASHBOARD_SECRET);
+    const cookieStore = await cookies();
 
-    const acceptedByEmail =
-      typeof session?.email === "string" ? session.email.trim() : "";
+    const authToken =
+      cookieStore.get(AUTH_COOKIE_NAME)?.value || "";
 
-    const base = (await getWpBaseUrl()).replace(/\/$/, "");
+    const session = await verifySessionToken(
+      authToken,
+      SESSION_SIGNING_SECRET
+    );
 
-    const wpRes = await fetch(
-      `${base}/wp-json/letz/v1/account/agreement/accept`,
+    if (!session) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: "Invalid or expired session.",
+        },
+        {
+          status: 401,
+          headers: {
+            "Cache-Control": "no-store",
+          },
+        }
+      );
+    }
+
+    if (session.saas_role !== "store_owner") {
+      return NextResponse.json(
+        {
+          ok: false,
+          error:
+            "Only store owners can accept the Vendor Agreement.",
+        },
+        {
+          status: 403,
+          headers: {
+            "Cache-Control": "no-store",
+          },
+        }
+      );
+    }
+
+    const wpResponse = await fetchInternalWp(
+      "/wp-json/letz/v1/account/agreement/accept",
       {
         method: "POST",
         headers: {
-          Authorization: authHeader(),
           "Content-Type": "application/json",
-          "X-Letz-Dashboard-Key": process.env.LETZ_DASHBOARD_API_KEY || "",
         },
-        cache: "no-store",
         body: JSON.stringify({
           version: "v1.0",
-          accepted_by_email: acceptedByEmail,
-          saas_role: role,
+          accepted_by_email: session.email,
+          saas_role: session.saas_role,
         }),
-      }
+      },
+      UPSTREAM_TIMEOUT_MS
     );
 
-    const text = await wpRes.text();
+    const responsePayload: unknown =
+      await wpResponse
+        .json()
+        .catch(() => null);
 
-    return new NextResponse(text, {
-      status: wpRes.status,
-      headers: {
-        "Content-Type": "application/json",
-      },
-    });
-  } catch (error: any) {
-    console.error("Agreement accept error:", error);
+    if (!wpResponse.ok) {
+      console.error(
+        `Agreement acceptance runtime request failed with status ${wpResponse.status}.`
+      );
+
+      return NextResponse.json(
+        {
+          ok: false,
+          error:
+            "Could not accept agreement.",
+        },
+        {
+          status:
+            wpResponse.status >= 400 &&
+            wpResponse.status < 500
+              ? 400
+              : 502,
+          headers: {
+            "Cache-Control": "no-store",
+          },
+        }
+      );
+    }
+
+    return NextResponse.json(
+      isRecord(responsePayload)
+        ? responsePayload
+        : { ok: true },
+      {
+        status: 200,
+        headers: {
+          "Cache-Control": "no-store",
+        },
+      }
+    );
+  } catch (error: unknown) {
+    console.error(
+      "Agreement accept error:",
+      error instanceof Error
+        ? error.message
+        : "Unknown agreement error"
+    );
 
     return NextResponse.json(
       {
         ok: false,
-        error: error?.message || "Could not accept agreement.",
+        error: "Could not accept agreement.",
       },
-      { status: 500 }
+      {
+        status: 502,
+        headers: {
+          "Cache-Control": "no-store",
+        },
+      }
     );
   }
 }

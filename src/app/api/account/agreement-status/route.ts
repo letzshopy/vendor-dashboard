@@ -1,50 +1,121 @@
 import { NextResponse } from "next/server";
-import { getWpBaseUrl } from "@/lib/wpClient";
+import {
+  fetchInternalWp,
+} from "@/lib/wpClient";
 
-function authHeader() {
-  const user = process.env.WP_USER!;
-  const pass = (process.env.WP_APP_PASSWORD || "").replace(/\s+/g, "");
-  return "Basic " + Buffer.from(`${user}:${pass}`).toString("base64");
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
+const UPSTREAM_TIMEOUT_MS = 15_000;
+
+type JsonRecord = Record<string, unknown>;
+
+function isRecord(
+  value: unknown
+): value is JsonRecord {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    !Array.isArray(value)
+  );
 }
 
-function wpHeaders() {
-  return {
-    Authorization: authHeader(),
-    "Content-Type": "application/json",
-    "X-Letz-Dashboard-Key": process.env.LETZ_DASHBOARD_API_KEY || "",
-  };
+function boundedString(
+  value: unknown,
+  maxLength: number
+): string {
+  return typeof value === "string"
+    ? value.trim().slice(0, maxLength)
+    : "";
+}
+
+function privateJson(
+  body: JsonRecord,
+  status = 200
+): NextResponse<JsonRecord> {
+  return NextResponse.json(body, {
+    status,
+    headers: {
+      "Cache-Control": "no-store, private",
+      Pragma: "no-cache",
+      Expires: "0",
+    },
+  });
 }
 
 export async function GET() {
   try {
-    const base = (await getWpBaseUrl()).replace(/\/$/, "");
-
-    const wpRes = await fetch(
-      `${base}/wp-json/letz/v1/account/agreement/status`,
+    const response = await fetchInternalWp(
+      "/wp-json/letz/v1/account/agreement/status",
       {
         method: "GET",
-        headers: wpHeaders(),
-        cache: "no-store",
-      }
+      },
+      UPSTREAM_TIMEOUT_MS
     );
 
-    const text = await wpRes.text();
+    if (!response.ok) {
+      console.error(
+        `Agreement status request failed with status ${response.status}.`
+      );
 
-    return new NextResponse(text, {
-      status: wpRes.status,
-      headers: {
-        "Content-Type": "application/json",
+      return privateJson(
+        {
+          ok: false,
+          error:
+            "Failed to load agreement status.",
+        },
+        502
+      );
+    }
+
+    const payload: unknown =
+      await response.json();
+
+    const root = isRecord(payload)
+      ? payload
+      : {};
+
+    const legal = isRecord(root.legal)
+      ? root.legal
+      : {};
+
+    return privateJson({
+      ok: true,
+      legal: {
+        vendorAgreementAccepted:
+          legal.vendorAgreementAccepted ===
+            true ||
+          legal.vendorAgreementAccepted ===
+            1 ||
+          legal.vendorAgreementAccepted ===
+            "1",
+        vendorAgreementAcceptedAt:
+          boundedString(
+            legal.vendorAgreementAcceptedAt,
+            80
+          ),
+        vendorAgreementVersion:
+          boundedString(
+            legal.vendorAgreementVersion,
+            40
+          ),
       },
     });
-  } catch (error: any) {
-    console.error("Agreement status proxy error:", error);
+  } catch (error: unknown) {
+    console.error(
+      "Agreement status request failed:",
+      error instanceof Error
+        ? error.message
+        : "Unknown agreement status error"
+    );
 
-    return NextResponse.json(
+    return privateJson(
       {
         ok: false,
-        error: error?.message || "Failed to load agreement status.",
+        error:
+          "Failed to load agreement status.",
       },
-      { status: 500 }
+      502
     );
   }
 }
