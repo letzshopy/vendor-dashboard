@@ -1,188 +1,201 @@
-// src/app/api/products/bulk-update/route.ts
-import { NextResponse } from "next/server";
 import { getWooClient } from "@/lib/woo";
+import {
+  boundedString,
+  isRecord,
+  type JsonRecord,
+  normalizeProductUpdate,
+  parseProductId,
+  parseProductIds,
+  privateJson,
+  productErrorResponse,
+  productSummary,
+  readJsonObject,
+} from "@/lib/productPolicy";
 
-type BulkPatch = Partial<{
-  status: "draft" | "publish";
-  catalog_visibility: "visible" | "catalog" | "search" | "hidden";
-  regular_price: string;
-  sale_price: string;
-  date_on_sale_from: string; // YYYY-MM-DD
-  date_on_sale_to: string; // YYYY-MM-DD
-  manage_stock: boolean;
-  stock_quantity: number;
-  backorders: "no" | "notify" | "yes";
-  categories: { ids: number[]; op: "replace" | "add" | "remove" };
-  tags: { names: string[]; op: "replace" | "append" | "remove" };
-}>;
+type CategoryChange = {
+  ids: number[];
+  op: "replace" | "add" | "remove";
+};
 
-/**
- * POST /api/products/bulk-update
- * Body: { ids: number[], patch: BulkPatch }
- */
-export async function POST(req: Request) {
+type TagChange = {
+  names: string[];
+  op: "replace" | "append" | "remove";
+};
+
+const SCALAR_KEYS = [
+  "status",
+  "catalog_visibility",
+  "regular_price",
+  "sale_price",
+  "date_on_sale_from",
+  "date_on_sale_to",
+  "manage_stock",
+  "stock_quantity",
+  "backorders",
+] as const;
+
+function parseCategoryChange(value: unknown): CategoryChange | null {
+  if (value === undefined) return null;
+  if (!isRecord(value) || !Array.isArray(value.ids)) {
+    throw new TypeError("Invalid category update");
+  }
+
+  if (!["replace", "add", "remove"].includes(String(value.op))) {
+    throw new TypeError("Invalid category operation");
+  }
+
+  if (value.ids.length > 100) {
+    throw new RangeError("Too many categories");
+  }
+
+  return {
+    ids: Array.from(new Set(value.ids.map(parseProductId))),
+    op: value.op as CategoryChange["op"],
+  };
+}
+
+function parseTagChange(value: unknown): TagChange | null {
+  if (value === undefined) return null;
+  if (!isRecord(value) || !Array.isArray(value.names)) {
+    throw new TypeError("Invalid tag update");
+  }
+
+  if (!["replace", "append", "remove"].includes(String(value.op))) {
+    throw new TypeError("Invalid tag operation");
+  }
+
+  if (value.names.length > 100) {
+    throw new RangeError("Too many tags");
+  }
+
+  return {
+    names: Array.from(new Set(value.names.map((name) =>
+      boundedString(name, "Tag name", 100)
+    ))),
+    op: value.op as TagChange["op"],
+  };
+}
+
+function readExistingCategoryIds(product: JsonRecord | undefined): number[] {
+  if (!product || !Array.isArray(product.categories)) return [];
+
+  return product.categories.flatMap((item) => {
+    if (!isRecord(item)) return [];
+    const id = Number(item.id);
+    return Number.isSafeInteger(id) && id > 0 ? [id] : [];
+  });
+}
+
+function readExistingTagNames(product: JsonRecord | undefined): string[] {
+  if (!product || !Array.isArray(product.tags)) return [];
+
+  return product.tags.flatMap((item) => {
+    if (!isRecord(item) || typeof item.name !== "string") return [];
+    const name = item.name.trim();
+    return name ? [name] : [];
+  });
+}
+
+async function fetchExistingProducts(
+  ids: number[],
+  needsCategories: boolean,
+  needsTags: boolean
+): Promise<Map<number, JsonRecord>> {
+  const woo = await getWooClient();
+  const result = new Map<number, JsonRecord>();
+  const fields = ["id", needsCategories ? "categories" : "", needsTags ? "tags" : ""]
+    .filter(Boolean)
+    .join(",");
+
+  for (let offset = 0; offset < ids.length; offset += 20) {
+    const chunk = ids.slice(offset, offset + 20);
+    const responses = await Promise.all(chunk.map((id) =>
+      woo.get(`/products/${id}`, { params: { _fields: fields } })
+    ));
+
+    for (const response of responses) {
+      if (!isRecord(response.data)) continue;
+      const id = Number(response.data.id);
+      if (Number.isSafeInteger(id) && id > 0) result.set(id, response.data);
+    }
+  }
+
+  return result;
+}
+
+export async function POST(request: Request) {
   try {
-    const woo = await getWooClient();
+    const body = await readJsonObject(request);
+    const ids = parseProductIds(body.ids);
 
-    const body = await req.json().catch(() => ({}));
-    const idsRaw: any[] = Array.isArray(body?.ids) ? body.ids : [];
-    const patch: BulkPatch = body?.patch && typeof body.patch === "object" ? body.patch : {};
-
-    if (idsRaw.length === 0) {
-      return NextResponse.json({ error: "No product ids" }, { status: 400 });
+    if (!isRecord(body.patch)) {
+      throw new TypeError("Invalid product update");
     }
 
-    const ids = idsRaw.map((x) => Number(x)).filter((n) => !!n);
-    if (ids.length === 0) {
-      return NextResponse.json({ error: "No valid product ids" }, { status: 400 });
+    const scalarSource: JsonRecord = {};
+    for (const key of SCALAR_KEYS) {
+      if (key in body.patch) scalarSource[key] = body.patch[key];
     }
 
-    const needsExisting =
-      (patch?.categories && patch.categories.op !== "replace") ||
-      (patch?.tags && patch.tags.op !== "replace");
+    const scalarPatch = Object.keys(scalarSource).length > 0
+      ? normalizeProductUpdate(scalarSource)
+      : {};
+    const categoryChange = parseCategoryChange(body.patch.categories);
+    const tagChange = parseTagChange(body.patch.tags);
 
-    // Helper: fetch products (used only for add/remove/append ops)
-    async function fetchProducts(productIds: number[]) {
-      const out: any[] = [];
-      const chunkSize = 20;
-
-      for (let i = 0; i < productIds.length; i += chunkSize) {
-        const ch = productIds.slice(i, i + chunkSize);
-
-        // bounded concurrency per chunk
-        const res = await Promise.all(
-          ch.map((id) =>
-            woo
-              .get(`/products/${id}`)
-              .then((r: any) => r?.data)
-              .catch(() => null)
-          )
-        );
-
-        res.forEach((p) => p && out.push(p));
-      }
-      return out;
+    if (Object.keys(scalarPatch).length === 0 && !categoryChange && !tagChange) {
+      throw new TypeError("Nothing to update");
     }
 
-    let existing: any[] | null = null;
-    if (needsExisting) existing = await fetchProducts(ids);
+    const needsCategories = Boolean(categoryChange && categoryChange.op !== "replace");
+    const needsTags = Boolean(tagChange && tagChange.op !== "replace");
+    const existing = needsCategories || needsTags
+      ? await fetchExistingProducts(ids, needsCategories, needsTags)
+      : new Map<number, JsonRecord>();
 
-    const scalarKeys: Array<keyof BulkPatch> = [
-      "status",
-      "catalog_visibility",
-      "regular_price",
-      "sale_price",
-      "date_on_sale_from",
-      "date_on_sale_to",
-      "manage_stock",
-      "stock_quantity",
-      "backorders",
-    ];
-
-    // Build update array per product
     const updates = ids.map((id) => {
-      const u: any = { id };
+      const update: JsonRecord = { id, ...scalarPatch };
+      const current = existing.get(id);
 
-      // simple scalar fields
-      for (const k of scalarKeys) {
-        const v: any = (patch as any)[k];
-        if (v !== undefined && v !== null && v !== "") {
-          u[k] = v;
-        }
+      if (categoryChange) {
+        const categories = categoryChange.op === "replace"
+          ? new Set(categoryChange.ids)
+          : new Set(readExistingCategoryIds(current));
+
+        if (categoryChange.op === "add") categoryChange.ids.forEach((item) => categories.add(item));
+        if (categoryChange.op === "remove") categoryChange.ids.forEach((item) => categories.delete(item));
+        update.categories = Array.from(categories).map((categoryId) => ({ id: categoryId }));
       }
 
-      // categories
-      if (patch?.categories) {
-        const catIds = Array.isArray(patch.categories.ids)
-          ? patch.categories.ids.map((x) => Number(x)).filter((n) => !!n)
-          : [];
-        const op = patch.categories.op;
+      if (tagChange) {
+        const tags = tagChange.op === "replace"
+          ? new Set(tagChange.names)
+          : new Set(readExistingTagNames(current));
 
-        if (op === "replace") {
-          u.categories = catIds.map((cid) => ({ id: cid }));
-        } else if (existing) {
-          const cur: number[] =
-            existing.find((p) => Number(p?.id) === id)?.categories?.map((c: any) => Number(c?.id)) ||
-            [];
-          const next = new Set<number>(cur.filter((n) => !!n));
-
-          if (op === "add") catIds.forEach((cid) => next.add(cid));
-          if (op === "remove") catIds.forEach((cid) => next.delete(cid));
-
-          u.categories = Array.from(next).map((cid) => ({ id: cid }));
-        }
+        if (tagChange.op === "append") tagChange.names.forEach((name) => tags.add(name));
+        if (tagChange.op === "remove") tagChange.names.forEach((name) => tags.delete(name));
+        update.tags = Array.from(tags).map((name) => ({ name }));
       }
 
-      // tags (Woo accepts { name } and will create if missing)
-      if (patch?.tags) {
-        const names = Array.isArray(patch.tags.names)
-          ? patch.tags.names.map((n) => String(n || "").trim()).filter(Boolean)
-          : [];
-        const op = patch.tags.op;
-
-        if (op === "replace") {
-          u.tags = names.map((n) => ({ name: n }));
-        } else if (existing) {
-          const curNames: string[] =
-            (existing.find((p) => Number(p?.id) === id)?.tags || [])
-              .map((t: any) => String(t?.name || "").trim())
-              .filter(Boolean);
-
-          const set = new Set<string>(curNames);
-
-          if (op === "append") names.forEach((n) => set.add(n));
-          if (op === "remove") names.forEach((n) => set.delete(n));
-
-          u.tags = Array.from(set).map((n) => ({ name: n }));
-        }
-      }
-
-      return u;
+      return update;
     });
 
-    if (updates.length === 0) {
-      return NextResponse.json({ error: "Nothing to update" }, { status: 400 });
-    }
+    const woo = await getWooClient();
+    const response = await woo.post("/products/batch", { update: updates });
+    const responseUpdates = isRecord(response.data) && Array.isArray(response.data.update)
+      ? response.data.update
+      : [];
+    const products = responseUpdates
+      .map(productSummary)
+      .filter((item) => item !== null);
 
-    // Woo batch update (chunk into 50)
-    const chunkSize = 50;
-    const updated: any[] = [];
-    const errors: any[] = [];
-
-    for (let i = 0; i < updates.length; i += chunkSize) {
-      const chunk = updates.slice(i, i + chunkSize);
-
-      try {
-        const { data } = await woo.post("/products/batch", { update: chunk });
-        if (Array.isArray(data?.update)) updated.push(...data.update);
-      } catch (e: any) {
-        errors.push({
-          chunkIds: chunk.map((u: any) => u.id),
-          error:
-            e?.response?.data?.message ||
-            e?.response?.data?.error ||
-            e?.message ||
-            "Batch update failed",
-        });
-      }
-    }
-
-    return NextResponse.json({
+    return privateJson({
       ok: true,
-      updatedCount: updated.length,
-      updated,
-      errors,
+      requestedCount: ids.length,
+      updatedCount: products.length,
+      products,
     });
-  } catch (e: any) {
-    const msg =
-      e?.response?.data?.message ||
-      e?.response?.data?.error ||
-      e?.message ||
-      "Bulk update failed";
-
-    return NextResponse.json(
-      { error: msg },
-      { status: e?.response?.status || 500 }
-    );
+  } catch (error: unknown) {
+    return productErrorResponse(error, "Bulk product update failed");
   }
 }

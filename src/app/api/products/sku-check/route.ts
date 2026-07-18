@@ -1,47 +1,34 @@
-// src/app/api/products/sku-check/route.ts
+import { getWooClient } from "@/lib/woo";
+import {
+  boundedString,
+  privateJson,
+  productErrorResponse,
+} from "@/lib/productPolicy";
+
 export const runtime = "nodejs";
 
-import { NextResponse } from "next/server";
-import { getWooClient } from "@/lib/woo";
-
-export async function GET(req: Request) {
+export async function GET(request: Request) {
   try {
+    const { searchParams } = new URL(request.url);
+    const sku = boundedString(searchParams.get("sku"), "SKU", 100);
     const woo = await getWooClient();
-
-    const { searchParams } = new URL(req.url);
-    const sku = String(searchParams.get("sku") || "").trim();
-
-    if (!sku) {
-      return NextResponse.json(
-        { error: "Missing sku" },
-        { status: 400 }
-      );
-    }
-
-    const { data } = await woo.get("/products", {
+    const response = await woo.get("/products", {
       params: {
         per_page: 1,
         sku,
         status: "any",
+        _fields: "id",
       },
     });
 
-    const exists =
-      Array.isArray(data) &&
-      data.length > 0 &&
-      Number(data[0]?.id) > 0;
+    const exists = Array.isArray(response.data) &&
+      response.data.some((item: unknown) => {
+        if (!item || typeof item !== "object") return false;
+        return Number((item as { id?: unknown }).id) > 0;
+      });
 
-    return NextResponse.json({ exists });
-  } catch (e: any) {
-    const msg =
-      e?.response?.data?.message ||
-      e?.response?.data?.error ||
-      e?.message ||
-      "Error";
-
-    return NextResponse.json(
-      { error: String(msg) },
-      { status: e?.response?.status || 500 }
-    );
+    return privateJson({ exists });
+  } catch (error: unknown) {
+    return productErrorResponse(error, "SKU availability check failed");
   }
 }
