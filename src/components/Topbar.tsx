@@ -55,7 +55,11 @@ type NotificationItem = {
   message: string;
 };
 
-type SearchScope = "products" | "orders" | "customers";
+type NotificationResponse = {
+  items?: unknown;
+};
+
+type SearchScope = "products" | "orders";
 
 type SearchResult = {
   id: number | string;
@@ -141,15 +145,7 @@ function storeInitials(normalizedStore: string): string {
 }
 
 function mobileScopeLabel(scope: SearchScope): string {
-  switch (scope) {
-    case "orders":
-      return "Search orders...";
-    case "customers":
-      return "Search customers...";
-    case "products":
-    default:
-      return "Search products...";
-  }
+  return scope === "orders" ? "Search orders..." : "Search products...";
 }
 
 export default function Topbar({ onToggleSidebar }: TopbarProps) {
@@ -263,11 +259,16 @@ export default function Topbar({ onToggleSidebar }: TopbarProps) {
           return;
         }
 
-        const json: any = await res.json();
+        const json: unknown = await res.json();
         if (cancelled) return;
 
-        const rawItems: NotificationItem[] = Array.isArray(json?.items)
-          ? json.items
+        const parsed =
+          json && typeof json === "object" && !Array.isArray(json)
+            ? (json as NotificationResponse)
+            : {};
+
+        const rawItems: NotificationItem[] = Array.isArray(parsed.items)
+          ? (parsed.items as NotificationItem[])
           : [];
 
         setNotifications(rawItems);
@@ -382,8 +383,6 @@ export default function Topbar({ onToggleSidebar }: TopbarProps) {
 
     if (searchScope === "orders") {
       url = `/orders?search=${encodeURIComponent(q)}`;
-    } else if (searchScope === "customers") {
-      url = `/customers?search=${encodeURIComponent(q)}`;
     } else {
       url = `/products?search=${encodeURIComponent(q)}`;
     }
@@ -404,11 +403,7 @@ export default function Topbar({ onToggleSidebar }: TopbarProps) {
   const searchDropdown = showSearchDropdown && (
     <div className="absolute left-0 right-0 top-full z-30 mt-2 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl shadow-slate-200">
       <div className="border-b border-slate-100 px-3 py-2 text-[11px] font-medium uppercase tracking-wide text-slate-500">
-        {searchScope === "products"
-          ? "Products"
-          : searchScope === "orders"
-          ? "Orders"
-          : "Customers"}{" "}
+        {searchScope === "orders" ? "Orders" : "Products"}{" "}
         matching “{search.trim()}”
       </div>
 
@@ -525,14 +520,14 @@ export default function Topbar({ onToggleSidebar }: TopbarProps) {
               >
                 <option value="products">Products</option>
                 <option value="orders">Orders</option>
-                <option value="customers">Customers</option>
+
               </select>
 
               <SearchIcon className="mr-2 h-4 w-4 text-[#7B3EF3]" />
               <input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search products, orders, customers…"
+                placeholder="Search products or orders…"
                 className="h-8 flex-1 bg-transparent text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none"
               />
               {isSearching && (
@@ -831,7 +826,7 @@ export default function Topbar({ onToggleSidebar }: TopbarProps) {
           >
             <option value="products">Products</option>
             <option value="orders">Orders</option>
-            <option value="customers">Customers</option>
+
           </select>
 
           <ChevronDown className="pointer-events-none absolute left-1/2 top-1/2 h-4 w-4 -translate-x-1/2 -translate-y-1/2 text-[#27346D]" />
@@ -841,11 +836,7 @@ export default function Topbar({ onToggleSidebar }: TopbarProps) {
 
     <div className="mt-1 text-center text-[11px] font-medium text-indigo-100/80">
       Searching in{" "}
-      {searchScope === "products"
-        ? "Products"
-        : searchScope === "orders"
-        ? "Orders"
-        : "Customers"}
+      {searchScope === "orders" ? "Orders" : "Products"}
     </div>
 
     {searchDropdown}
