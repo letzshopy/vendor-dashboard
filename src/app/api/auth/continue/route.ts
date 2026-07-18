@@ -1,48 +1,91 @@
-import { NextResponse } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
+import {
+  findAuthorizedStore,
+  verifySessionToken,
+} from "@/lib/session";
 
-const AUTH_COOKIE_NAME = process.env.AUTH_COOKIE_NAME || "ls_vendor_auth";
-const ROLE_COOKIE_NAME = "ls_role";
-const TENANT_COOKIE_NAME = process.env.TENANT_COOKIE_NAME || "ls_tenant";
+const AUTH_COOKIE_NAME =
+  process.env.AUTH_COOKIE_NAME || "ls_vendor_auth";
 
-export async function GET(req: Request) {
-  const cookieHeader = req.headers.get("cookie") || "";
+const TENANT_COOKIE_NAME =
+  process.env.TENANT_COOKIE_NAME || "ls_tenant";
 
-  const authMatch = cookieHeader.match(
-    new RegExp(`${AUTH_COOKIE_NAME}=([^;]+)`)
-  );
-  const roleMatch = cookieHeader.match(
-    new RegExp(`${ROLE_COOKIE_NAME}=([^;]+)`)
-  );
-  const tenantMatch = cookieHeader.match(
-    new RegExp(`${TENANT_COOKIE_NAME}=([^;]+)`)
-  );
+const SESSION_SIGNING_SECRET =
+  process.env.DASHBOARD_SECRET || "";
 
-  const authToken = authMatch?.[1] || "";
-  const role = decodeURIComponent(roleMatch?.[1] || "");
-  const tenant = tenantMatch?.[1] || "";
-
-  // not logged in
-  if (!authToken || authToken.length < 10) {
-    return NextResponse.redirect(new URL("/signin", req.url), 302);
+function parseTenantCookie(rawValue: string | undefined) {
+  if (!rawValue) {
+    return null;
   }
 
-  if (role === "master_admin") {
-    return NextResponse.redirect(new URL("/master", req.url), 302);
-  }
+  try {
+    const parsed: unknown = JSON.parse(
+      decodeURIComponent(rawValue)
+    );
 
-  if (role === "vendor_admin") {
-    return NextResponse.redirect(new URL("/select-store", req.url), 302);
-  }
-
-  if (role === "store_owner") {
-    // if tenant cookie exists, go directly to dashboard
-    if (tenant) {
-      return NextResponse.redirect(new URL("/dashboard", req.url), 302);
+    if (!parsed || typeof parsed !== "object") {
+      return null;
     }
 
-    // if somehow no tenant cookie, let them choose
-    return NextResponse.redirect(new URL("/select-store", req.url), 302);
+    return parsed as Record<string, unknown>;
+  } catch {
+    return null;
+  }
+}
+
+export async function GET(req: NextRequest) {
+  const signinUrl = new URL("/signin", req.url);
+
+  if (!SESSION_SIGNING_SECRET) {
+    return NextResponse.redirect(signinUrl, 302);
   }
 
-  return NextResponse.redirect(new URL("/signin", req.url), 302);
+  const rawToken =
+    req.cookies.get(AUTH_COOKIE_NAME)?.value || "";
+
+  const session = await verifySessionToken(
+    rawToken,
+    SESSION_SIGNING_SECRET
+  );
+
+  if (!session) {
+    return NextResponse.redirect(signinUrl, 302);
+  }
+
+  if (session.saas_role === "master_admin") {
+    return NextResponse.redirect(
+      new URL("/master", req.url),
+      302
+    );
+  }
+
+  if (session.saas_role === "vendor_admin") {
+    return NextResponse.redirect(
+      new URL("/select-store", req.url),
+      302
+    );
+  }
+
+  const tenant = parseTenantCookie(
+    req.cookies.get(TENANT_COOKIE_NAME)?.value
+  );
+
+  const authorizedStore = tenant
+    ? findAuthorizedStore(session, {
+        blog_id: tenant.blog_id,
+        store_url: tenant.store_url,
+      })
+    : null;
+
+  if (authorizedStore) {
+    return NextResponse.redirect(
+      new URL("/dashboard", req.url),
+      302
+    );
+  }
+
+  return NextResponse.redirect(
+    new URL("/select-store", req.url),
+    302
+  );
 }
