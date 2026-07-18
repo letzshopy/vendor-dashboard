@@ -1,56 +1,45 @@
-import { NextResponse } from "next/server";
+import type { AxiosInstance } from "axios";
+
 import { getWooClient } from "@/lib/woo";
+import {
+  privateJson,
+  productErrorResponse,
+} from "@/lib/productPolicy";
+import { trashedProductSummary } from "@/lib/productReadPolicy";
 
-async function getAllTrashedProducts(woo: any) {
-  const all: any[] = [];
-  let page = 1;
-  const PER_PAGE = 100;
-  const MAX_PAGES = 25; // safety cap
+async function getAllTrashedProducts(woo: AxiosInstance): Promise<unknown[]> {
+  const products: unknown[] = [];
 
-  while (page <= MAX_PAGES) {
-    const { data } = await woo.get("/products", {
+  for (let page = 1; page <= 25; page += 1) {
+    const response = await woo.get("/products", {
       params: {
         status: "trash",
-        per_page: PER_PAGE,
+        per_page: 100,
         page,
         orderby: "date",
         order: "desc",
+        _fields: "id,name,sku,date_created,date_modified",
       },
     });
 
-    if (!Array.isArray(data) || data.length === 0) break;
-    all.push(...data);
-    if (data.length < PER_PAGE) break;
-    page++;
+    if (!Array.isArray(response.data) || response.data.length === 0) break;
+    products.push(...response.data);
+    if (response.data.length < 100) break;
   }
 
-  return all;
+  return products;
 }
 
 export async function GET() {
   try {
     const woo = await getWooClient();
+    const products = await getAllTrashedProducts(woo);
+    const items = products
+      .map(trashedProductSummary)
+      .filter((item) => item !== null);
 
-    const data = await getAllTrashedProducts(woo);
-
-    const items = (data || []).map((p: any) => ({
-      id: Number(p?.id || 0),
-      name: String(p?.name || ""),
-      sku: String(p?.sku || ""),
-      date: p?.date_created || p?.date_modified || null,
-    }));
-
-    return NextResponse.json({ items });
-  } catch (e: any) {
-    const msg =
-      e?.response?.data?.message ||
-      e?.response?.data?.error ||
-      e?.message ||
-      "Failed to load trash";
-
-    return NextResponse.json(
-      { error: msg },
-      { status: e?.response?.status || 500 }
-    );
+    return privateJson({ items });
+  } catch (error: unknown) {
+    return productErrorResponse(error, "Failed to load product trash");
   }
 }

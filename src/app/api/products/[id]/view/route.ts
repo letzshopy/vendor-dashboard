@@ -1,40 +1,27 @@
-// src/app/api/products/[id]/view/route.ts
-import { NextRequest, NextResponse } from "next/server";
 import { getWooClient } from "@/lib/woo";
+import {
+  parseProductId,
+  privateJson,
+  productErrorResponse,
+} from "@/lib/productPolicy";
+import { productDetail } from "@/lib/productReadPolicy";
 
 type RouteContext = {
   params: Promise<{ id: string }>;
 };
 
-function getMetaValue(metaData: any[], key: string) {
-  if (!Array.isArray(metaData)) return "";
-  const row = metaData.find((m) => m?.key === key);
-  return row?.value ? String(row.value) : "";
-}
-
-export async function GET(_req: NextRequest, context: RouteContext) {
+export async function GET(_request: Request, context: RouteContext) {
   try {
-    const woo = await getWooClient();
     const { id } = await context.params;
+    const productId = parseProductId(id);
+    const woo = await getWooClient();
+    const response = await woo.get(`/products/${productId}`);
+    const product = productDetail(response.data);
 
-    const { data } = await woo.get(`/products/${id}`);
+    if (!product) throw new Error("WooCommerce returned an invalid product");
 
-    return NextResponse.json({
-      product: {
-        ...data,
-        color: getMetaValue(data?.meta_data, "_ls_color"),
-      },
-    });
-  } catch (e: any) {
-    return NextResponse.json(
-      {
-        error:
-          e?.response?.data ||
-          e?.response?.data?.message ||
-          e?.message ||
-          "Fetch failed",
-      },
-      { status: 500 }
-    );
+    return privateJson({ product });
+  } catch (error: unknown) {
+    return productErrorResponse(error, "Failed to load product");
   }
 }

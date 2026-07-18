@@ -1,55 +1,53 @@
-import { NextResponse } from "next/server";
 import { getWooClient } from "@/lib/woo";
+import {
+  boundedString,
+  privateJson,
+  productErrorResponse,
+} from "@/lib/productPolicy";
+import { productSearchSummary } from "@/lib/productReadPolicy";
 
-// Search WooCommerce products by name OR exact SKU
-export async function GET(req: Request) {
+export async function GET(request: Request) {
   try {
+    const { searchParams } = new URL(request.url);
+    const rawQuery = searchParams.get("q");
+
+    if (!rawQuery || !rawQuery.trim()) {
+      return privateJson({ results: [] });
+    }
+
+    const query = boundedString(rawQuery, "Search query", 100);
     const woo = await getWooClient();
-
-    const { searchParams } = new URL(req.url);
-    const q = String(searchParams.get("q") || "").trim();
-
-    if (!q) return NextResponse.json({ results: [] });
-
-    const paramsBase = { per_page: 20, status: "any" as const };
-
-    const [byNameRes, bySkuRes] = await Promise.all([
-      woo
-        .get("/products", { params: { ...paramsBase, search: q } })
-        .catch(() => ({ data: [] })),
-      woo
-        .get("/products", { params: { ...paramsBase, sku: q } })
-        .catch(() => ({ data: [] })),
+    const commonParams = {
+      per_page: 20,
+      status: "any",
+      _fields: "id,name,sku,price,regular_price,sale_price,images",
+    };
+    const [nameResult, skuResult] = await Promise.allSettled([
+      woo.get("/products", { params: { ...commonParams, search: query } }),
+      woo.get("/products", { params: { ...commonParams, sku: query } }),
     ]);
 
-    const byName = Array.isArray((byNameRes as any)?.data) ? (byNameRes as any).data : [];
-    const bySku = Array.isArray((bySkuRes as any)?.data) ? (bySkuRes as any).data : [];
+    if (nameResult.status === "rejected" && skuResult.status === "rejected") {
+      throw nameResult.reason;
+    }
 
-    const map = new Map<number, any>();
-    for (const p of byName) if (p?.id) map.set(Number(p.id), p);
-    for (const p of bySku) if (p?.id) map.set(Number(p.id), p);
+    const candidates: unknown[] = [];
+    if (nameResult.status === "fulfilled" && Array.isArray(nameResult.value.data)) {
+      candidates.push(...nameResult.value.data);
+    }
+    if (skuResult.status === "fulfilled" && Array.isArray(skuResult.value.data)) {
+      candidates.push(...skuResult.value.data);
+    }
 
-    const results = Array.from(map.values()).map((p) => ({
-      id: Number(p.id),
-      name: String(p.name || ""),
-      sku: String(p.sku || ""),
-      price: String(p.price || ""),
-      regular_price: String(p.regular_price || ""),
-      sale_price: String(p.sale_price || ""),
-      image: p?.images?.[0]?.src || "",
-    }));
+    const results = new Map<number, ReturnType<typeof productSearchSummary>>();
 
-    return NextResponse.json({ results });
-  } catch (e: any) {
-    const msg =
-      e?.response?.data?.message ||
-      e?.response?.data?.error ||
-      e?.message ||
-      "search failed";
+    for (const candidate of candidates) {
+      const summary = productSearchSummary(candidate);
+      if (summary) results.set(Number(summary.id), summary);
+    }
 
-    return NextResponse.json(
-      { error: msg, results: [] },
-      { status: e?.response?.status || 500 }
-    );
+    return privateJson({ results: Array.from(results.values()) });
+  } catch (error: unknown) {
+    return productErrorResponse(error, "Product search failed");
   }
 }
