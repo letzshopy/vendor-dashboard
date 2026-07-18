@@ -1,61 +1,30 @@
-import { NextResponse } from "next/server";
 import { getWooClient } from "@/lib/woo";
-
-function cleanIds(value: unknown): number[] {
-  if (!Array.isArray(value)) return [];
-
-  return Array.from(
-    new Set(
-      value
-        .map((item) => Number(item))
-        .filter((num) => Number.isInteger(num) && num > 0)
-    )
-  ).slice(0, 6);
-}
+import {
+  parseSeoIds,
+  privateJson,
+  readJsonObject,
+  seoResponse,
+  taxonomyErrorResponse,
+} from "@/lib/taxonomyPolicy";
 
 export async function GET() {
   try {
     const woo = await getWooClient();
-
-    const { data } = await woo.get("/letzshopy/seo-categories");
-
-    return NextResponse.json(
-      data || { ok: true, selectedIds: [], min: 3, max: 6 }
-    );
-  } catch (e: any) {
-    const status = e?.response?.status || 500;
-    const msg =
-      e?.response?.data?.message ||
-      e?.response?.data?.error ||
-      e?.message ||
-      "Unable to load SEO categories";
-
-    return NextResponse.json({ ok: false, error: String(msg) }, { status });
+    const response = await woo.get("/letzshopy/seo-categories");
+    return privateJson(seoResponse(response.data));
+  } catch (error: unknown) {
+    return taxonomyErrorResponse(error, "Unable to load SEO categories");
   }
 }
 
-export async function POST(req: Request) {
+export async function POST(request: Request) {
   try {
-    const body = await req.json().catch(() => ({}));
-    const ids = cleanIds(body?.ids);
-
+    const body = await readJsonObject(request);
+    const ids = parseSeoIds(body.ids);
     const woo = await getWooClient();
-
-    const { data } = await woo.post("/letzshopy/seo-categories", {
-      ids,
-    });
-
-    return NextResponse.json(
-      data || { ok: true, selectedIds: ids, min: 3, max: 6 }
-    );
-  } catch (e: any) {
-    const status = e?.response?.status || 500;
-    const msg =
-      e?.response?.data?.message ||
-      e?.response?.data?.error ||
-      e?.message ||
-      "Unable to save SEO categories";
-
-    return NextResponse.json({ ok: false, error: String(msg) }, { status });
+    const response = await woo.post("/letzshopy/seo-categories", { ids });
+    return privateJson(seoResponse(response.data, ids));
+  } catch (error: unknown) {
+    return taxonomyErrorResponse(error, "Unable to save SEO categories");
   }
 }

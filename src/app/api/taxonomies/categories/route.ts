@@ -1,57 +1,46 @@
-import { NextResponse } from "next/server";
 import { getWooClient } from "@/lib/woo";
+import {
+  categorySummary,
+  privateJson,
+  taxonomyErrorResponse,
+} from "@/lib/taxonomyPolicy";
 
-function extractWooError(e: any, fallback: string) {
-  return (
-    e?.response?.data?.message ||
-    e?.response?.data?.error ||
-    e?.message ||
-    fallback
-  );
-}
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 export async function GET() {
   try {
     const woo = await getWooClient();
+    const all: unknown[] = [];
 
-    const PER_PAGE = 100;
-    const MAX_PAGES = 20; // safety cap (max 2000 categories)
-
-    const all: any[] = [];
-    let page = 1;
-
-    while (page <= MAX_PAGES) {
-      const { data } = await woo.get("/products/categories", {
+    for (let page = 1; page <= 20; page += 1) {
+      const response = await woo.get("/products/categories", {
         params: {
-          per_page: PER_PAGE,
+          per_page: 100,
           page,
           hide_empty: false,
           orderby: "name",
           order: "asc",
+          _fields: "id,name,parent",
         },
       });
-
-      const rows = Array.isArray(data) ? data : [];
+      const rows = Array.isArray(response.data) ? response.data : [];
       if (!rows.length) break;
-
       all.push(...rows);
-
-      if (rows.length < PER_PAGE) break;
-      page++;
+      if (rows.length < 100) break;
     }
 
-    const items = all.map((c: any) => ({
-      id: Number(c?.id || 0),
-      name: String(c?.name || ""),
-      parent: Number(c?.parent || 0),
-    }));
+    const items = all.flatMap((item) => {
+      const summary = categorySummary(item);
+      return summary ? [{
+        id: Number(summary.id),
+        name: String(summary.name || ""),
+        parent: Number(summary.parent || 0),
+      }] : [];
+    });
 
-    return NextResponse.json({ items });
-  } catch (e: any) {
-    const msg = extractWooError(e, "Failed to load categories");
-    return NextResponse.json(
-      { error: msg },
-      { status: e?.response?.status || 500 }
-    );
+    return privateJson({ items });
+  } catch (error: unknown) {
+    return taxonomyErrorResponse(error, "Unable to load categories");
   }
 }

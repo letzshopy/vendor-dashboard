@@ -1,16 +1,29 @@
-import { NextResponse } from "next/server";
 import { getWooClient } from "@/lib/woo";
+import {
+  attributeId,
+  attributeSummary,
+  attributeTermPayload,
+  attributeTermSummary,
+  summaries,
+} from "@/lib/attributePolicy";
+import {
+  privateJson,
+  readJsonObject,
+  taxonomyErrorResponse,
+} from "@/lib/taxonomyPolicy";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
-export async function GET(req: Request) {
+export async function GET(request: Request) {
   try {
     const woo = await getWooClient();
-    const { searchParams } = new URL(req.url);
-    const id = searchParams.get("id");
+    const rawId = new URL(request.url).searchParams.get("id");
 
-    if (id) {
-      // Woo attribute terms do NOT support orderby=menu_order; use name/asc
-      const { data } = await woo.get(`/products/attributes/${id}/terms`, {
+    if (rawId !== null) {
+      const id = attributeId(rawId);
+      const response = await woo.get(`/products/attributes/${id}/terms`, {
         params: {
           per_page: 100,
           hide_empty: false,
@@ -18,48 +31,32 @@ export async function GET(req: Request) {
           order: "asc",
         },
       });
-      return NextResponse.json({ terms: data || [] });
-    } else {
-      // List attributes for the page bootstrap
-      const { data } = await woo.get("/products/attributes", {
-        params: { per_page: 100, orderby: "name", order: "asc" },
-      });
-      return NextResponse.json({ attributes: data || [] });
+      return privateJson({ terms: summaries(response.data, attributeTermSummary) });
     }
-  } catch (e: any) {
-    const status = e?.response?.status || 500;
-    const msg =
-      e?.response?.data?.message ||
-      e?.response?.data?.error ||
-      e?.message ||
-      "Error";
-    return NextResponse.json({ error: String(msg) }, { status });
+
+    const response = await woo.get("/products/attributes", {
+      params: { per_page: 100, orderby: "name", order: "asc" },
+    });
+    return privateJson({ attributes: summaries(response.data, attributeSummary) });
+  } catch (error: unknown) {
+    return taxonomyErrorResponse(error, "Unable to load attributes");
   }
 }
 
-export async function POST(req: Request) {
+export async function POST(request: Request) {
   try {
-    const woo = await getWooClient(); 
-    const body = await req.json();
-    const id = body.id;
-    if (!id) return NextResponse.json({ error: "Missing attribute id" }, { status: 400 });
+    const body = await readJsonObject(request);
+    const id = attributeId(body.id);
+    const woo = await getWooClient();
+    const response = await woo.post(
+      `/products/attributes/${id}/terms`,
+      attributeTermPayload(body),
+    );
+    const term = attributeTermSummary(response.data);
+    if (!term) throw new Error("Invalid attribute term response");
 
-    // Allowed fields for attribute term create: name, slug, description
-    const payload: any = {
-      name: body.name,
-      slug: body.slug || body.name?.toLowerCase().replace(/\s+/g, "-"),
-    };
-    if (body.description) payload.description = body.description;
-
-    const { data } = await woo.post(`/products/attributes/${id}/terms`, payload);
-    return NextResponse.json({ ok: true, term: data });
-  } catch (e: any) {
-    const status = e?.response?.status || 500;
-    const msg =
-      e?.response?.data?.message ||
-      e?.response?.data?.error ||
-      e?.message ||
-      "Error";
-    return NextResponse.json({ error: String(msg) }, { status });
+    return privateJson({ ok: true, term });
+  } catch (error: unknown) {
+    return taxonomyErrorResponse(error, "Unable to save attribute term");
   }
 }
