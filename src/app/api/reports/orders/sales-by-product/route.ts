@@ -1,38 +1,64 @@
-// src/app/api/reports/orders/sales-by-product/route.ts
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
+
 import { fetchOrdersRange } from "@/lib/fetch-orders-range";
+import {
+  privateReportJson,
+  records,
+  reportErrorResponse,
+  reportRange,
+  safeId,
+  safeNumber,
+  safeText,
+} from "@/lib/reportPolicy";
 
+export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
-export async function GET(req: NextRequest) {
-  const { searchParams } = new URL(req.url);
-  const date_from = searchParams.get("date_from") || "";
-  const date_to = searchParams.get("date_to") || "";
-  const status = searchParams.get("status") || "all";
+type ProductTotals = {
+  product_id: number;
+  name: string;
+  sku: string;
+  qty: number;
+  total: number;
+};
 
-  const orders = await fetchOrdersRange({ date_from, date_to, status });
+export async function GET(request: NextRequest) {
+  try {
+    const range = reportRange(request.nextUrl.searchParams);
+    const orders = await fetchOrdersRange(range);
+    const totalsByProduct = new Map<number, ProductTotals>();
 
-  type Row = { product_id: number; name: string; sku?: string; qty: number; total: number };
-  const map = new Map<number, Row>();
-
-  for (const o of orders) {
-    for (const li of o.line_items || []) {
-      const id = Number(li.product_id || 0);
-      const r = map.get(id) || { product_id: id, name: li.name || "(unknown)", sku: li.sku || "", qty: 0, total: 0 };
-      r.qty += Number(li.quantity || 0);
-      r.total += Number.parseFloat(li.total || "0") || 0;
-      map.set(id, r);
+    for (const order of orders) {
+      for (const item of records(order.line_items)) {
+        const productId = safeId(item.product_id);
+        if (!productId) continue;
+        const row = totalsByProduct.get(productId) || {
+          product_id: productId,
+          name: safeText(item.name, 300) || "(unknown)",
+          sku: safeText(item.sku, 100),
+          qty: 0,
+          total: 0,
+        };
+        row.qty += Math.max(0, safeNumber(item.quantity));
+        row.total += safeNumber(item.total);
+        totalsByProduct.set(productId, row);
+      }
     }
+
+    const rows = Array.from(totalsByProduct.values())
+      .map((row) => ({ ...row, total: Number(row.total.toFixed(2)) }))
+      .sort((a, b) => b.total - a.total);
+
+    return privateReportJson({
+      range,
+      rows,
+      totals: {
+        qty: rows.reduce((sum, row) => sum + row.qty, 0),
+        total: Number(rows.reduce((sum, row) => sum + row.total, 0).toFixed(2)),
+      },
+    });
+  } catch (error: unknown) {
+    return reportErrorResponse(error, "Failed to build sales-by-product report");
   }
-
-  const rows = Array.from(map.values()).sort((a, b) => b.total - a.total);
-
-  return NextResponse.json({
-    range: { date_from, date_to, status },
-    rows,
-    totals: {
-      qty: rows.reduce((n, r) => n + r.qty, 0),
-      total: Number(rows.reduce((n, r) => n + r.total, 0).toFixed(2)),
-    },
-  });
 }
