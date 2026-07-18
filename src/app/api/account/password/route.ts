@@ -1,45 +1,220 @@
+import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
-import { getWpBaseUrl } from "@/lib/wpClient";
+import {
+  verifySessionToken,
+} from "@/lib/session";
+import {
+  fetchInternalWp,
+} from "@/lib/wpClient";
 
-function authHeader() {
-  const user = process.env.WP_USER;
-  const pass = (process.env.WP_APP_PASSWORD || "").replace(/\s+/g, "");
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
-  if (!user || !pass) {
-    throw new Error("Missing WP_USER or WP_APP_PASSWORD environment variables.");
-  }
+const AUTH_COOKIE_NAME =
+  process.env.AUTH_COOKIE_NAME ||
+  "ls_vendor_auth";
 
-  return "Basic " + Buffer.from(`${user}:${pass}`).toString("base64");
+const SESSION_SIGNING_SECRET =
+  process.env.DASHBOARD_SECRET || "";
+
+const MAX_REQUEST_BYTES = 4_096;
+const MIN_PASSWORD_LENGTH = 8;
+const MAX_PASSWORD_LENGTH = 256;
+const UPSTREAM_TIMEOUT_MS = 15_000;
+
+type JsonRecord = Record<string, unknown>;
+
+function isRecord(
+  value: unknown
+): value is JsonRecord {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    !Array.isArray(value)
+  );
 }
 
-export async function POST(req: Request) {
+function privateJson(
+  body: JsonRecord,
+  status: number
+): NextResponse<JsonRecord> {
+  return NextResponse.json(body, {
+    status,
+    headers: {
+      "Cache-Control": "no-store, private",
+      Pragma: "no-cache",
+      Expires: "0",
+    },
+  });
+}
+
+function validatePassword(
+  value: unknown
+): string | null {
+  if (
+    typeof value !== "string" ||
+    value.length < MIN_PASSWORD_LENGTH ||
+    value.length > MAX_PASSWORD_LENGTH ||
+    /[\u0000-\u001f\u007f]/.test(value)
+  ) {
+    return null;
+  }
+
+  return value;
+}
+
+export async function POST(request: Request) {
+  if (!SESSION_SIGNING_SECRET) {
+    return privateJson(
+      {
+        error:
+          "Password service is not configured.",
+      },
+      500
+    );
+  }
+
+  const cookieStore = await cookies();
+  const token =
+    cookieStore.get(AUTH_COOKIE_NAME)
+      ?.value || "";
+
+  const session =
+    await verifySessionToken(
+      token,
+      SESSION_SIGNING_SECRET
+    );
+
+  if (!session) {
+    return privateJson(
+      { error: "Authentication required." },
+      401
+    );
+  }
+
+  /*
+   * Store owners may update only their own store login password.
+   * Shared vendor-admin and master-admin identities are managed
+   * centrally because they may span multiple stores.
+   */
+  if (session.saas_role !== "store_owner") {
+    return privateJson(
+      {
+        error:
+          "Password changes for this account are managed by LetzShopy support.",
+      },
+      403
+    );
+  }
+
+  const contentLength = Number(
+    request.headers.get("content-length") ||
+      "0"
+  );
+
+  if (
+    !Number.isFinite(contentLength) ||
+    contentLength < 0 ||
+    contentLength > MAX_REQUEST_BYTES
+  ) {
+    return privateJson(
+      {
+        error:
+          "Invalid password update request.",
+      },
+      400
+    );
+  }
+
+  let body: unknown;
+
   try {
-    const base = (await getWpBaseUrl()).replace(/\/$/, "");
-    const body = await req.text();
-
-    const wpRes = await fetch(`${base}/wp-json/letz/v1/account/password`, {
-      method: "POST",
-      headers: {
-        Authorization: authHeader(),
-        "Content-Type": "application/json",
+    body = await request.json();
+  } catch {
+    return privateJson(
+      {
+        error:
+          "Invalid password update request.",
       },
-      body,
-      cache: "no-store",
-    });
+      400
+    );
+  }
 
-    const text = await wpRes.text();
-
-    return new NextResponse(text, {
-      status: wpRes.status,
-      headers: {
-        "Content-Type": "application/json",
+  if (!isRecord(body)) {
+    return privateJson(
+      {
+        error:
+          "Invalid password update request.",
       },
-    });
-  } catch (error: any) {
-    console.error("Password proxy error:", error);
-    return NextResponse.json(
-      { error: error?.message || "Password update failed" },
-      { status: 500 }
+      400
+    );
+  }
+
+  const newPassword =
+    validatePassword(body.new_password);
+
+  if (!newPassword) {
+    return privateJson(
+      {
+        error:
+          "Password must be between 8 and 256 characters and must not contain control characters.",
+      },
+      400
+    );
+  }
+
+  try {
+    const response = await fetchInternalWp(
+      "/wp-json/letz/v1/account/password",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type":
+            "application/json",
+        },
+        body: JSON.stringify({
+          new_password: newPassword,
+          login_email: session.email,
+        }),
+      },
+      UPSTREAM_TIMEOUT_MS
+    );
+
+    if (!response.ok) {
+      console.error(
+        `Password update runtime request failed with status ${response.status}.`
+      );
+
+      return privateJson(
+        {
+          error:
+            "Password update failed.",
+        },
+        response.status >= 400 &&
+          response.status < 500
+          ? 400
+          : 502
+      );
+    }
+
+    return privateJson(
+      { ok: true },
+      200
+    );
+  } catch (error: unknown) {
+    console.error(
+      "Password update proxy failed:",
+      error instanceof Error
+        ? error.message
+        : "Unknown password update error"
+    );
+
+    return privateJson(
+      {
+        error:
+          "Password update failed.",
+      },
+      502
     );
   }
 }
