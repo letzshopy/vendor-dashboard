@@ -1,71 +1,11 @@
 // src/app/master/support-tickets/[id]/page.tsx
 import Link from "next/link";
-import { getMasterWpBaseUrl } from "@/lib/wpClient";
-
-type TicketDetail = {
-  ticket: {
-    id: number;
-    title: string;
-    status: string;
-    priority: string;
-    content: string;
-    createdAt: string;
-    updatedAt: string;
-    responseCount: number;
-  };
-  conversations: Array<{
-    id: number;
-    ticket_id: number;
-    person_id: number;
-    conversation_type: string;
-    content: string;
-    created_at: string;
-  }>;
-  attachments: Array<{
-    id: number;
-    ticket_id: number;
-    person_id: number;
-    conversation_id: number;
-    file_type: string;
-    full_url: string;
-    title: string;
-    file_size: string;
-    created_at: string;
-  }>;
-};
+import {
+  fetchMasterTicket,
+  getMasterSupportAdminUrl,
+} from "@/lib/masterSupportOperations";
 
 export const dynamic = "force-dynamic";
-
-function masterHeaders() {
-  const key = process.env.MASTER_API_KEY;
-  // NOTE: Next.js server component can set headers directly
-  return {
-    Accept: "application/json",
-    "Content-Type": "application/json",
-    ...(key ? { Authorization: `Bearer ${key}`, "X-Letz-Master-Key": key } : {}),
-  };
-}
-
-async function getTicket(id: string): Promise<TicketDetail> {
-  const MASTER_WP_URL = getMasterWpBaseUrl();
-
-  const url = `${MASTER_WP_URL.replace(
-    /\/$/,
-    ""
-  )}/wp-json/letz/v1/master-tickets/${encodeURIComponent(id)}`;
-
-  const res = await fetch(url, {
-    headers: masterHeaders(),
-    cache: "no-store",
-  });
-
-  const text = await res.text();
-  if (!res.ok) {
-    throw new Error(`Ticket detail API ${res.status}\n\n${text.slice(0, 2000)}`);
-  }
-
-  return JSON.parse(text);
-}
 
 function pill(text: string) {
   return (
@@ -82,12 +22,11 @@ type Props = {
 export default async function MasterTicketDetailPage({ params }: Props) {
   const { id } = await params;
 
-  const data = await getTicket(id);
+  const data = await fetchMasterTicket(id);
 
   const t = data.ticket;
 
-  // ✅ Make admin URL master-aware (no hardcoded domain)
-  const adminUrl = `${getMasterWpBaseUrl()}/wp-admin/admin.php?page=fluent-support#/tickets`;
+  const adminUrl = getMasterSupportAdminUrl();
 
   return (
     <div className="space-y-4">
@@ -97,7 +36,7 @@ export default async function MasterTicketDetailPage({ params }: Props) {
             Support Tickets
           </div>
           <h1 className="text-2xl font-semibold tracking-tight">
-            #{t.id} — {t.title}
+            #{t.id} ΓÇö {t.title}
           </h1>
           <div className="mt-2 flex flex-wrap gap-2">
             {pill(`Status: ${t.status}`)}
@@ -166,7 +105,7 @@ export default async function MasterTicketDetailPage({ params }: Props) {
               >
                 <div className="flex items-center justify-between text-xs text-slate-500">
                   <span>
-                    {c.conversation_type || "message"} • Person #{c.person_id}
+                    {c.conversation_type || "message"} ΓÇó Person #{c.person_id}
                   </span>
                   <span>{c.created_at}</span>
                 </div>
