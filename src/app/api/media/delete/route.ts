@@ -3,22 +3,9 @@ import {
   type NextRequest,
 } from "next/server";
 
-import {
-  findAuthorizedStore,
-  verifySessionToken,
-  type SessionStore,
-} from "@/lib/session";
+import { getWpBaseUrl } from "@/lib/wpClient";
 
 export const dynamic = "force-dynamic";
-
-const AUTH_COOKIE_NAME =
-  process.env.AUTH_COOKIE_NAME || "ls_vendor_auth";
-
-const TENANT_COOKIE_NAME =
-  process.env.TENANT_COOKIE_NAME || "ls_tenant";
-
-const SESSION_SIGNING_SECRET =
-  process.env.DASHBOARD_SECRET || "";
 
 const INTERNAL_TOKEN =
   process.env.LETZ_INTERNAL_TOKEN || "";
@@ -38,112 +25,9 @@ function isRecord(value: unknown): value is JsonRecord {
   );
 }
 
-function privateJson(
-  body: JsonRecord,
-  status: number
-) {
-  return NextResponse.json(body, {
-    status,
-    headers: PRIVATE_HEADERS,
-  });
-}
-
-function parseTenantCookie(
-  rawValue: string | undefined
-): {
-  blog_id?: unknown;
-  store_url?: unknown;
-} | null {
-  if (!rawValue) {
-    return null;
-  }
-
-  try {
-    const parsed: unknown = JSON.parse(
-      decodeURIComponent(rawValue)
-    );
-
-    if (!isRecord(parsed)) {
-      return null;
-    }
-
-    return {
-      blog_id: parsed.blog_id,
-      store_url: parsed.store_url,
-    };
-  } catch {
-    return null;
-  }
-}
-
-async function authorizedStore(
-  request: NextRequest
-): Promise<
-  | { ok: true; store: SessionStore }
-  | { ok: false; response: NextResponse }
-> {
-  if (!SESSION_SIGNING_SECRET) {
-    return {
-      ok: false,
-      response: privateJson(
-        {
-          ok: false,
-          error: "Dashboard authentication is not configured.",
-        },
-        500
-      ),
-    };
-  }
-
-  const token =
-    request.cookies.get(AUTH_COOKIE_NAME)?.value || "";
-
-  const session = await verifySessionToken(
-    token,
-    SESSION_SIGNING_SECRET
-  );
-
-  if (!session) {
-    return {
-      ok: false,
-      response: privateJson(
-        {
-          ok: false,
-          error: "Authentication required.",
-        },
-        401
-      ),
-    };
-  }
-
-  const tenant = parseTenantCookie(
-    request.cookies.get(TENANT_COOKIE_NAME)?.value
-  );
-
-  const store = tenant
-    ? findAuthorizedStore(session, tenant)
-    : null;
-
-  if (!store) {
-    return {
-      ok: false,
-      response: privateJson(
-        {
-          ok: false,
-          error: "Select an authorized store.",
-        },
-        403
-      ),
-    };
-  }
-
-  return {
-    ok: true,
-    store,
-  };
-}
-
-function cleanIds(value: unknown): number[] {
+function cleanIds(
+  value: unknown
+): number[] {
   if (!Array.isArray(value)) {
     return [];
   }
@@ -153,26 +37,30 @@ function cleanIds(value: unknown): number[] {
       value
         .map(Number)
         .filter(
-          (id) => Number.isInteger(id) && id > 0
+          (id) =>
+            Number.isInteger(id) &&
+            id > 0
         )
     )
   ).slice(0, 100);
 }
 
 async function deleteCatalogMedia(
-  storeUrl: string,
+  base: string,
   ids: number[]
 ): Promise<{
   response: Response;
   result: JsonRecord | null;
 }> {
   const response = await fetch(
-    `${storeUrl.replace(/\/$/, "")}/wp-json/letz/v1/media/delete-catalog`,
+    `${base}/wp-json/letz/v1/media/delete-catalog`,
     {
       method: "POST",
       headers: {
-        "X-Letz-Auth": INTERNAL_TOKEN,
-        "Content-Type": "application/json",
+        "X-Letz-Auth":
+          INTERNAL_TOKEN,
+        "Content-Type":
+          "application/json",
         Accept: "application/json",
       },
       body: JSON.stringify({ ids }),
@@ -187,78 +75,103 @@ async function deleteCatalogMedia(
 
   return {
     response,
-    result: isRecord(parsed) ? parsed : null,
+    result: isRecord(parsed)
+      ? parsed
+      : null,
   };
 }
 
-function arrayField(
-  result: JsonRecord,
-  field: "deleted" | "skipped"
-) {
-  return Array.isArray(result[field])
-    ? result[field]
+function deletedFrom(
+  result: JsonRecord | null
+): unknown[] {
+  return result &&
+    Array.isArray(result.deleted)
+    ? result.deleted
+    : [];
+}
+
+function skippedFrom(
+  result: JsonRecord | null
+): unknown[] {
+  return result &&
+    Array.isArray(result.skipped)
+    ? result.skipped
     : [];
 }
 
 async function handleDelete(
-  request: NextRequest,
   ids: number[]
 ) {
   if (!INTERNAL_TOKEN) {
-    return privateJson(
+    return NextResponse.json(
       {
         ok: false,
-        error: "Media service is not configured.",
+        error:
+          "Media service is not configured.",
       },
-      500
+      {
+        status: 500,
+        headers: PRIVATE_HEADERS,
+      }
     );
   }
 
-  const authorization = await authorizedStore(request);
-
-  if (!authorization.ok) {
-    return authorization.response;
-  }
+  const base = (
+    await getWpBaseUrl()
+  ).replace(/\/$/, "");
 
   const { response, result } =
     await deleteCatalogMedia(
-      authorization.store.store_url,
+      base,
       ids
     );
 
   if (!response.ok || !result) {
-    return privateJson(
+    return NextResponse.json(
       {
         ok: false,
-        error: "Media deletion failed.",
+        error:
+          "Media deletion failed.",
       },
-      response.status >= 400 && response.status < 500
-        ? response.status
-        : 502
+      {
+        status:
+          response.status >= 400 &&
+          response.status < 500
+            ? response.status
+            : 502,
+        headers: PRIVATE_HEADERS,
+      }
     );
   }
 
-  const deleted = arrayField(result, "deleted");
-  const skipped = arrayField(result, "skipped");
+  const skipped = skippedFrom(result);
 
   if (skipped.length > 0) {
-    return privateJson(
+    return NextResponse.json(
       {
         ok: false,
-        error: "Protected media cannot be deleted.",
-        deleted,
+        error:
+          "Protected media cannot be deleted.",
+        deleted:
+          deletedFrom(result),
         skipped,
       },
-      409
+      {
+        status: 409,
+        headers: PRIVATE_HEADERS,
+      }
     );
   }
 
-  return privateJson(
+  return NextResponse.json(
     {
       ok: true,
-      deleted,
+      deleted: deletedFrom(result),
     },
-    200
+    {
+      status: 200,
+      headers: PRIVATE_HEADERS,
+    }
   );
 }
 
@@ -270,21 +183,26 @@ export async function POST(
       .json()
       .catch(() => null);
 
-    const ids = isRecord(parsed)
-      ? cleanIds(parsed.ids)
-      : [];
+    const ids =
+      isRecord(parsed)
+        ? cleanIds(parsed.ids)
+        : [];
 
     if (ids.length === 0) {
-      return privateJson(
+      return NextResponse.json(
         {
           ok: false,
-          error: "At least one valid media ID is required.",
+          error:
+            "At least one valid media ID is required.",
         },
-        400
+        {
+          status: 400,
+          headers: PRIVATE_HEADERS,
+        }
       );
     }
 
-    return await handleDelete(request, ids);
+    return await handleDelete(ids);
   } catch (error: unknown) {
     console.error(
       "Bulk media deletion failed:",
@@ -293,12 +211,16 @@ export async function POST(
         : "Unknown error"
     );
 
-    return privateJson(
+    return NextResponse.json(
       {
         ok: false,
-        error: "Media deletion failed.",
+        error:
+          "Media deletion failed.",
       },
-      500
+      {
+        status: 500,
+        headers: PRIVATE_HEADERS,
+      }
     );
   }
 }
@@ -308,20 +230,28 @@ export async function DELETE(
 ) {
   try {
     const id = Number(
-      request.nextUrl.searchParams.get("id")
+      request.nextUrl.searchParams.get(
+        "id"
+      )
     );
 
-    if (!Number.isInteger(id) || id <= 0) {
-      return privateJson(
+    if (
+      !Number.isInteger(id) ||
+      id <= 0
+    ) {
+      return NextResponse.json(
         {
           ok: false,
           error: "Invalid media ID.",
         },
-        400
+        {
+          status: 400,
+          headers: PRIVATE_HEADERS,
+        }
       );
     }
 
-    return await handleDelete(request, [id]);
+    return await handleDelete([id]);
   } catch (error: unknown) {
     console.error(
       "Media deletion failed:",
@@ -330,12 +260,16 @@ export async function DELETE(
         : "Unknown error"
     );
 
-    return privateJson(
+    return NextResponse.json(
       {
         ok: false,
-        error: "Media deletion failed.",
+        error:
+          "Media deletion failed.",
       },
-      500
+      {
+        status: 500,
+        headers: PRIVATE_HEADERS,
+      }
     );
   }
 }

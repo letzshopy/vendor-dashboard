@@ -41,6 +41,16 @@ type ProfileData = {
   };
 };
 
+type JsonRecord = Record<string, unknown>;
+
+function isRecord(value: unknown): value is JsonRecord {
+  return Boolean(
+    value &&
+      typeof value === "object" &&
+      !Array.isArray(value)
+  );
+}
+
 const BUSINESS_TYPES = [
   { value: "", label: "Select business type" },
   { value: "INDIVIDUAL", label: "Individual / Home-based business" },
@@ -102,9 +112,20 @@ export default function ProfileTab() {
   const [data, setData] = useState<ProfileData | null>(null);
   const [saving, setSaving] = useState(false);
   const [logoUploading, setLogoUploading] = useState(false);
+  const [logoPreviewUrl, setLogoPreviewUrl] = useState<string | null>(null);
   const [dirty, setDirty] = useState(false);
   const [saveBanner, setSaveBanner] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const logoPreviewRef = useRef<string | null>(null);
+
+  const clearLogoPreview = () => {
+    if (logoPreviewRef.current) {
+      URL.revokeObjectURL(logoPreviewRef.current);
+      logoPreviewRef.current = null;
+    }
+
+    setLogoPreviewUrl(null);
+  };
 
   const inputClass =
     "h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-900 " +
@@ -120,12 +141,11 @@ export default function ProfileTab() {
     "placeholder:text-slate-400 shadow-sm transition resize-none " +
     "focus:border-indigo-400 focus:outline-none focus:ring-4 focus:ring-indigo-100";
 
-  const apiHasUsefulData = (s: any): boolean => {
-    if (!s || typeof s !== "object") return false;
-
-    const p = s.personal || {};
-    const b = s.business || {};
-    const so = s.social || {};
+  const apiHasUsefulData = (value: unknown): boolean => {
+    const profile = normalizeProfile(value);
+    const p = profile.personal;
+    const b = profile.business;
+    const so = profile.social;
 
     return Boolean(
       p.name ||
@@ -211,6 +231,14 @@ export default function ProfileTab() {
     return () => window.removeEventListener("beforeunload", handler);
   }, [dirty]);
 
+  useEffect(() => {
+    return () => {
+      if (logoPreviewRef.current) {
+        URL.revokeObjectURL(logoPreviewRef.current);
+      }
+    };
+  }, []);
+
   if (!data) {
     return (
       <div className="p-4 md:p-5">
@@ -221,15 +249,27 @@ export default function ProfileTab() {
     );
   }
 
-  const markDirtyChange = (path: string, value: any) => {
+  const markDirtyChange = (path: string, value: unknown) => {
     setDirty(true);
     setData((prev) => {
       if (!prev) return prev;
-      const clone: any = structuredClone(prev);
+      const clone = structuredClone(prev);
       const segs = path.split(".");
-      let ptr: any = clone;
-      for (let i = 0; i < segs.length - 1; i++) ptr = ptr[segs[i]];
-      ptr[segs.at(-1)!] = value;
+      let ptr = clone as unknown as JsonRecord;
+
+      for (let i = 0; i < segs.length - 1; i++) {
+        const next = ptr[segs[i]];
+
+        if (!isRecord(next)) return prev;
+
+        ptr = next;
+      }
+
+      const last = segs.at(-1);
+
+      if (!last) return prev;
+
+      ptr[last] = value;
       return clone;
     });
   };
@@ -244,15 +284,24 @@ export default function ProfileTab() {
   };
 
   const uploadLogo = async (file: File) => {
+    clearLogoPreview();
+    const localPreview = URL.createObjectURL(file);
+    logoPreviewRef.current = localPreview;
+    setLogoPreviewUrl(localPreview);
     setLogoUploading(true);
     try {
       const fd = new FormData();
       fd.append("file", file);
-      const r = await fetch("/api/settings/upload", { method: "POST", body: fd });
+      fd.append("purpose", "profile_logo");
+      const r = await fetch("/api/media/upload", {
+        method: "POST",
+        body: fd,
+      });
       const j = await r.json();
       if (!r.ok) throw new Error(j.error || "Upload failed");
       markDirtyChange("business.logoUrl", j.url);
     } finally {
+      clearLogoPreview();
       setLogoUploading(false);
     }
   };
@@ -483,11 +532,11 @@ export default function ProfileTab() {
             </div>
 
             <div className="mt-4">
-              {data.business.logoUrl ? (
+              {logoPreviewUrl || data.business.logoUrl ? (
                 <div className="space-y-4">
                   <div className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white p-3">
                     <img
-                      src={data.business.logoUrl}
+                      src={logoPreviewUrl || data.business.logoUrl}
                       alt="Logo"
                       className="h-16 w-16 rounded-xl border border-slate-200 bg-white object-contain"
                     />
@@ -513,7 +562,10 @@ export default function ProfileTab() {
                     <button
                       type="button"
                       className="inline-flex h-11 items-center justify-center rounded-2xl border border-rose-200 bg-rose-50 px-4 text-sm font-semibold text-rose-700 hover:bg-rose-100"
-                      onClick={() => markDirtyChange("business.logoUrl", "")}
+                      onClick={() => {
+                        clearLogoPreview();
+                        markDirtyChange("business.logoUrl", "");
+                      }}
                     >
                       Remove
                     </button>
@@ -547,7 +599,14 @@ export default function ProfileTab() {
                 ref={fileRef}
                 type="file"
                 accept="image/*"
-                onChange={(e) => e.target.files?.[0] && uploadLogo(e.target.files[0])}
+                onChange={(event) => {
+                  const file = event.target.files?.[0];
+                  event.target.value = "";
+
+                  if (file) {
+                    void uploadLogo(file);
+                  }
+                }}
                 className="hidden"
               />
             </div>
@@ -658,17 +717,31 @@ export default function ProfileTab() {
   );
 }
 
-function normalizeProfile(raw: any): ProfileData {
+function normalizeProfile(raw: unknown): ProfileData {
+  const root = isRecord(raw) ? raw : {};
+  const personal = isRecord(root.personal) ? root.personal : {};
+  const business = isRecord(root.business) ? root.business : {};
+  const social = isRecord(root.social) ? root.social : {};
+
   return {
-    personal: { ...EMPTY_PROFILE.personal, ...(raw?.personal || {}) },
+    personal: {
+      ...EMPTY_PROFILE.personal,
+      ...personal,
+    } as ProfileData["personal"],
     business: {
       ...EMPTY_PROFILE.business,
-      ...(raw?.business || {}),
-      productCategories: Array.isArray(raw?.business?.productCategories)
-        ? raw.business.productCategories
+      ...business,
+      productCategories: Array.isArray(business.productCategories)
+        ? business.productCategories.filter(
+            (category): category is string =>
+              typeof category === "string"
+          )
         : [],
-    },
-    social: { ...EMPTY_PROFILE.social, ...(raw?.social || {}) },
+    } as ProfileData["business"],
+    social: {
+      ...EMPTY_PROFILE.social,
+      ...social,
+    } as ProfileData["social"],
   };
 }
 

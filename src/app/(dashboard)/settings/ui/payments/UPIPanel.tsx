@@ -4,6 +4,16 @@ import * as React from "react";
 import { useFormContext } from "react-hook-form";
 import type { PaymentsFormValues } from "@/types/payments";
 
+type JsonRecord = Record<string, unknown>;
+
+function isRecord(value: unknown): value is JsonRecord {
+  return Boolean(
+    value &&
+      typeof value === "object" &&
+      !Array.isArray(value)
+  );
+}
+
 export default function UPIPanel() {
   const { register, watch, setValue } = useFormContext<PaymentsFormValues>();
 
@@ -11,9 +21,28 @@ export default function UPIPanel() {
   const qrSrc = watch("upi.qr_src") || "";
 
   const fileInputRef = React.useRef<HTMLInputElement | null>(null);
+  const qrPreviewRef = React.useRef<string | null>(null);
 
   const [uploading, setUploading] = React.useState(false);
   const [uploadError, setUploadError] = React.useState<string | null>(null);
+  const [qrPreviewUrl, setQrPreviewUrl] = React.useState<string | null>(null);
+
+  const clearQrPreview = React.useCallback(() => {
+    if (qrPreviewRef.current) {
+      URL.revokeObjectURL(qrPreviewRef.current);
+      qrPreviewRef.current = null;
+    }
+
+    setQrPreviewUrl(null);
+  }, []);
+
+  React.useEffect(() => {
+    return () => {
+      if (qrPreviewRef.current) {
+        URL.revokeObjectURL(qrPreviewRef.current);
+      }
+    };
+  }, []);
 
   const openFilePicker = () => {
     fileInputRef.current?.click();
@@ -32,26 +61,40 @@ export default function UPIPanel() {
       return;
     }
 
+    clearQrPreview();
+    const localPreview = URL.createObjectURL(file);
+    qrPreviewRef.current = localPreview;
+    setQrPreviewUrl(localPreview);
     setUploading(true);
     setUploadError(null);
 
     try {
       const formData = new FormData();
       formData.append("file", file);
+      formData.append("purpose", "vendor_upi_qr");
 
-      const res = await fetch("/api/settings/upload", {
+      const res = await fetch("/api/media/upload", {
         method: "POST",
         body: formData,
       });
 
-      const data = await res.json().catch(() => ({}));
+      const parsed: unknown = await res.json().catch(() => null);
+      const data = isRecord(parsed) ? parsed : {};
+      const media = isRecord(data.media) ? data.media : {};
 
       if (!res.ok) {
-        throw new Error(data?.error || "QR upload failed");
+        throw new Error(
+          typeof data.error === "string"
+            ? data.error
+            : "QR upload failed"
+        );
       }
 
       const url =
-        data?.url || data?.source_url || data?.media?.source_url || "";
+        [data.url, data.source_url, media.source_url].find(
+          (value): value is string =>
+            typeof value === "string" && /^https?:\/\//i.test(value)
+        ) || "";
 
       if (!url) {
         throw new Error("Upload succeeded but image URL was missing");
@@ -68,14 +111,18 @@ export default function UPIPanel() {
         shouldTouch: true,
         shouldValidate: true,
       });
-    } catch (err: any) {
-      setUploadError(err?.message || "QR upload failed");
+    } catch (error: unknown) {
+      setUploadError(
+        error instanceof Error ? error.message : "QR upload failed"
+      );
     } finally {
+      clearQrPreview();
       setUploading(false);
     }
   };
 
   const removeQr = () => {
+    clearQrPreview();
     setValue("upi.qr_src", "", {
       shouldDirty: true,
       shouldTouch: true,
@@ -195,12 +242,12 @@ export default function UPIPanel() {
           />
 
           <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-4">
-            {qrSrc ? (
+            {qrPreviewUrl || qrSrc ? (
               <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
                 <div className="flex h-32 w-32 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-slate-200 bg-white p-2">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
-                    src={qrSrc}
+                    src={qrPreviewUrl || qrSrc}
                     alt="UPI QR"
                     className="h-full w-full object-contain"
                   />

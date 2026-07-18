@@ -53,6 +53,27 @@ type SetupSiteForm = {
   };
 };
 
+type SetupSiteInput = {
+  branding?: Partial<SetupSiteForm["branding"]>;
+  about?: Partial<SetupSiteForm["about"]>;
+  store?: Partial<SetupSiteForm["store"]>;
+  policies?: Partial<SetupSiteForm["policies"]>;
+};
+
+type JsonRecord = Record<string, unknown>;
+
+function isRecord(value: unknown): value is JsonRecord {
+  return Boolean(
+    value &&
+      typeof value === "object" &&
+      !Array.isArray(value)
+  );
+}
+
+function setupSiteInput(value: unknown): SetupSiteInput {
+  return isRecord(value) ? (value as SetupSiteInput) : {};
+}
+
 const EMPTY_FORM: SetupSiteForm = {
   branding: {
     topbarMessage: "",
@@ -227,10 +248,6 @@ const CANCELLATION_AFTER_OPTIONS = [
   "Not sure yet",
 ];
 
-const inputClass =
-  "h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-900 " +
-  "placeholder:text-slate-400 shadow-sm transition focus:border-indigo-400 focus:outline-none focus:ring-4 focus:ring-indigo-100";
-
 const selectClass =
   "h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-900 " +
   "shadow-sm transition focus:border-indigo-400 focus:outline-none focus:ring-4 focus:ring-indigo-100";
@@ -354,8 +371,10 @@ function CheckboxGroup({
   );
 }
 
-function normalizeForm(raw: any): SetupSiteForm {
-  const rawBranding = raw?.branding || {};
+function normalizeForm(raw: unknown): SetupSiteForm {
+  const source = setupSiteInput(raw);
+  const rawBranding = source.branding || {};
+  const rawPolicies = source.policies || {};
 
   const branding: SetupSiteForm["branding"] = {
     topbarMessage: rawBranding.topbarMessage || "",
@@ -371,28 +390,28 @@ function normalizeForm(raw: any): SetupSiteForm {
       rawBranding.showCustomerFeedback ?? EMPTY_FORM.branding.showCustomerFeedback,
   };
 
-  const oldReturnWindow = raw?.policies?.returnWindowDays || "";
-  const oldRefundDays = raw?.policies?.refundProcessingDays || "";
-  const oldConditionNotes = raw?.policies?.returnConditionNotes || "";
+  const oldReturnWindow = rawPolicies.returnWindowDays || "";
+  const oldRefundDays = rawPolicies.refundProcessingDays || "";
+  const oldConditionNotes = rawPolicies.returnConditionNotes || "";
 
   return {
     branding,
-    about: { ...EMPTY_FORM.about, ...(raw?.about || {}) },
-    store: { ...EMPTY_FORM.store, ...(raw?.store || {}) },
+    about: { ...EMPTY_FORM.about, ...(source.about || {}) },
+    store: { ...EMPTY_FORM.store, ...(source.store || {}) },
     policies: {
       ...EMPTY_FORM.policies,
-      ...(raw?.policies || {}),
-      returnExchangeWindow: raw?.policies?.returnExchangeWindow || oldReturnWindow,
-      refundProcessingTime: raw?.policies?.refundProcessingTime || oldRefundDays,
-      specialPolicyRules: raw?.policies?.specialPolicyRules || oldConditionNotes,
-      eligibleReturnExchangeProducts: Array.isArray(raw?.policies?.eligibleReturnExchangeProducts)
-        ? raw.policies.eligibleReturnExchangeProducts
+      ...rawPolicies,
+      returnExchangeWindow: rawPolicies.returnExchangeWindow || oldReturnWindow,
+      refundProcessingTime: rawPolicies.refundProcessingTime || oldRefundDays,
+      specialPolicyRules: rawPolicies.specialPolicyRules || oldConditionNotes,
+      eligibleReturnExchangeProducts: Array.isArray(rawPolicies.eligibleReturnExchangeProducts)
+        ? rawPolicies.eligibleReturnExchangeProducts
         : [],
-      productConditionRequired: Array.isArray(raw?.policies?.productConditionRequired)
-        ? raw.policies.productConditionRequired
+      productConditionRequired: Array.isArray(rawPolicies.productConditionRequired)
+        ? rawPolicies.productConditionRequired
         : [],
-      refundMethod: Array.isArray(raw?.policies?.refundMethod)
-        ? raw.policies.refundMethod
+      refundMethod: Array.isArray(rawPolicies.refundMethod)
+        ? rawPolicies.refundMethod
         : [],
     },
   };
@@ -448,13 +467,29 @@ export default function SetupSiteTab() {
     return () => window.removeEventListener("beforeunload", onBeforeUnload);
   }, [isDirty]);
 
-  function patch(path: string, value: any) {
+  function patch(path: string, value: unknown) {
     setForm((prev) => {
-      const clone: any = structuredClone(prev);
+      const clone = structuredClone(prev);
       const segs = path.split(".");
-      let ptr = clone;
-      for (let i = 0; i < segs.length - 1; i++) ptr = ptr[segs[i]];
-      ptr[segs[segs.length - 1]] = value;
+      let ptr = clone as unknown as JsonRecord;
+
+      for (let i = 0; i < segs.length - 1; i++) {
+        const next = ptr[segs[i]];
+
+        if (!isRecord(next)) {
+          return prev;
+        }
+
+        ptr = next;
+      }
+
+      const last = segs.at(-1);
+
+      if (!last) {
+        return prev;
+      }
+
+      ptr[last] = value;
       return clone;
     });
   }
@@ -641,7 +676,12 @@ export default function SetupSiteTab() {
                   </div>
                 ) : (
                   <div className="rounded-[22px] border border-dashed border-slate-300 bg-white p-4">
-                    <ImageUploader onUploaded={(url) => patch("about.founderPhotoUrl", url ?? "")} />
+                    <ImageUploader
+                      purpose="founder_photo"
+                      onUploaded={(url) =>
+                        patch("about.founderPhotoUrl", url ?? "")
+                      }
+                    />
                   </div>
                 )}
               </div>

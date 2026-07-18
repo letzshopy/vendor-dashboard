@@ -1,64 +1,145 @@
-// src/components/ImageUploader.tsx
 "use client";
 
-import { useRef, useState, type ReactNode } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
+
+import type { MediaPurpose } from "@/lib/mediaPolicy";
+
+type JsonRecord = Record<string, unknown>;
+
+export type MediaUploadResult = {
+  id: number;
+  url: string;
+  source_url: string;
+  image_url: string;
+  thumbnail: string;
+  filename: string;
+  purpose: MediaPurpose;
+  scope: "catalog" | "system";
+  protected: boolean;
+};
 
 export type ImageUploaderProps = {
-  onUploaded?: (url?: string) => void | Promise<void>;
-  /** Custom trigger content. If provided, drag-drop styling is skipped. */
+  purpose?: MediaPurpose;
+  onUploaded?: (
+    url?: string,
+    media?: MediaUploadResult,
+  ) => void | Promise<void>;
   children?: ReactNode;
-  /** Label for the default trigger when no children are passed */
   label?: string;
-  /** Accept attribute for input; default: images + PDFs */
   accept?: string;
-  /** Allow selecting multiple files (will upload sequentially) */
   multiple?: boolean;
 };
 
+function isRecord(value: unknown): value is JsonRecord {
+  return Boolean(value && typeof value === "object" && !Array.isArray(value));
+}
+function readUploadResult(value: unknown): MediaUploadResult | null {
+  if (!isRecord(value)) return null;
+
+  const id = Number(value.id);
+  const url = String(value.url || value.source_url || "").trim();
+
+  if (
+    !Number.isInteger(id) ||
+    id <= 0 ||
+    !/^https?:\/\//i.test(url)
+  ) {
+    return null;
+  }
+
+  return {
+    id,
+    url,
+    source_url: String(value.source_url || url),
+    image_url: String(value.image_url || url),
+    thumbnail: String(value.thumbnail || value.image_url || url),
+    filename: String(value.filename || ""),
+    purpose: value.purpose as MediaPurpose,
+    scope: value.scope === "catalog" ? "catalog" : "system",
+    protected: value.protected === true,
+  };
+}
+
+function readError(value: unknown) {
+  return isRecord(value) && typeof value.error === "string"
+    ? value.error
+    : "Upload failed";
+}
+
 export default function ImageUploader({
+  purpose = "site_image",
   onUploaded,
   children,
   label = "Upload media file",
-  accept = "image/*,application/pdf",
+  accept = "image/jpeg,image/png,image/webp,image/gif",
   multiple = false,
 }: ImageUploaderProps) {
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const previewRef = useRef<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [err, setErr] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+
+  function clearPreview() {
+    if (previewRef.current) {
+      URL.revokeObjectURL(previewRef.current);
+      previewRef.current = null;
+    }
+
+    setPreviewUrl(null);
+  }
+
+  useEffect(() => {
+    return () => {
+      if (previewRef.current) {
+        URL.revokeObjectURL(previewRef.current);
+      }
+    };
+  }, []);
 
   async function handleFile(file: File) {
-    setErr(null);
+    clearPreview();
+    const localPreview = URL.createObjectURL(file);
+    previewRef.current = localPreview;
+    setPreviewUrl(localPreview);
+    setError(null);
     setLoading(true);
 
     try {
-      const fd = new FormData();
-      fd.append("file", file);
-      fd.append("filename", file.name);
+      const body = new FormData();
+      body.append("file", file);
+      body.append("purpose", purpose);
 
-      const res = await fetch("/api/media/upload", {
+      const response = await fetch("/api/media/upload", {
         method: "POST",
-        body: fd,
+        body,
       });
 
-      let data: any = null;
-      try {
-        data = await res.json();
-      } catch {
-        data = null;
+      const parsed: unknown = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        throw new Error(readError(parsed));
       }
 
-      if (!res.ok) {
-        throw new Error(data?.error || "Upload failed");
+      const result = readUploadResult(parsed);
+
+      if (!result) {
+        throw new Error("Upload returned an invalid response.");
       }
 
-      if (onUploaded) {
-        // API was originally returning { url }
-        await onUploaded(data?.url);
-      }
-    } catch (e: any) {
-      setErr(e?.message || "Upload failed");
+      await onUploaded?.(result.url, result);
+    } catch (caught: unknown) {
+      setError(
+        caught instanceof Error ? caught.message : "Upload failed",
+      );
     } finally {
+      clearPreview();
       setLoading(false);
       setIsDragging(false);
     }
@@ -66,40 +147,34 @@ export default function ImageUploader({
 
   async function handleFiles(files: FileList | null) {
     if (!files || files.length === 0) return;
-    if (multiple) {
-      for (const file of Array.from(files)) {
-        await handleFile(file);
-      }
-    } else {
-      await handleFile(files[0]);
+
+    const selected = multiple ? Array.from(files) : [files[0]];
+
+    for (const file of selected) {
+      await handleFile(file);
     }
   }
 
-  function onInputChange(e: React.ChangeEvent<HTMLInputElement>) {
-    void handleFiles(e.target.files);
-    // allow selecting the same file again
-    if (inputRef.current) inputRef.current.value = "";
+  function onInputChange(
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) {
+    void handleFiles(event.target.files);
+
+    if (inputRef.current) {
+      inputRef.current.value = "";
+    }
   }
 
-  function onDrop(e: React.DragEvent<HTMLDivElement>) {
-    e.preventDefault();
+  function onDrop(event: React.DragEvent<HTMLDivElement>) {
+    event.preventDefault();
     setIsDragging(false);
-    if (loading) return;
-    void handleFiles(e.dataTransfer.files);
-  }
 
-  function onDragOver(e: React.DragEvent<HTMLDivElement>) {
-    e.preventDefault();
-    if (!isDragging) setIsDragging(true);
-  }
-
-  function onDragLeave(e: React.DragEvent<HTMLDivElement>) {
-    e.preventDefault();
-    setIsDragging(false);
+    if (!loading) {
+      void handleFiles(event.dataTransfer.files);
+    }
   }
 
   const trigger = children ? (
-    // Custom trigger from parent (e.g. MediaClient Upload button)
     <span
       className="inline-block"
       onClick={() => !loading && inputRef.current?.click()}
@@ -107,18 +182,22 @@ export default function ImageUploader({
       {children}
     </span>
   ) : (
-    // Default drag/drop pill (your old UI)
     <div
-      className={`inline-flex cursor-pointer items-center gap-2 rounded-xl border px-3 py-2 text-xs font-medium shadow-sm transition
-      ${
+      className={`inline-flex cursor-pointer items-center gap-2 rounded-xl border px-3 py-2 text-xs font-medium shadow-sm transition ${
         isDragging
           ? "border-violet-500 bg-violet-50 text-violet-800"
           : "border-slate-200 bg-white/80 text-slate-700 hover:border-violet-400 hover:bg-violet-50/70"
       }`}
       onClick={() => !loading && inputRef.current?.click()}
       onDrop={onDrop}
-      onDragOver={onDragOver}
-      onDragLeave={onDragLeave}
+      onDragOver={(event) => {
+        event.preventDefault();
+        setIsDragging(true);
+      }}
+      onDragLeave={(event) => {
+        event.preventDefault();
+        setIsDragging(false);
+      }}
     >
       <span className="flex h-6 w-6 items-center justify-center rounded-full bg-violet-600 text-[11px] text-white">
         +
@@ -142,10 +221,23 @@ export default function ImageUploader({
         onChange={onInputChange}
       />
 
-      {err && (
-        <div className="text-[11px] text-rose-600">
-          {err}
+      {previewUrl && (
+        <div className="relative mt-2 h-24 w-24 overflow-hidden rounded-xl border border-violet-200 bg-slate-100">
+          {/* Local object URL: intentionally not passed to next/image. */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={previewUrl}
+            alt="Upload preview"
+            className="h-full w-full object-cover"
+          />
+          <div className="absolute inset-0 grid place-items-center bg-slate-950/45 px-2 text-center text-[11px] font-semibold text-white">
+            Uploading…
+          </div>
         </div>
+      )}
+
+      {error && (
+        <div className="text-[11px] text-rose-600">{error}</div>
       )}
     </div>
   );

@@ -123,9 +123,13 @@ export default function MediaClient({
     try {
       const data = await fetchMedia(q, type);
       setItems(data);
-    } catch (e: any) {
-      console.error(e);
-      setError(e?.message || "Failed to load media");
+    } catch (error: unknown) {
+      console.error(error);
+      setError(
+        error instanceof Error
+          ? error.message
+          : "Failed to load media"
+      );
     } finally {
       setLoading(false);
     }
@@ -139,7 +143,11 @@ export default function MediaClient({
   const toggle = (id: number) => {
     setSelected((s) => {
       const n = new Set(s);
-      n.has(id) ? n.delete(id) : n.add(id);
+      if (n.has(id)) {
+        n.delete(id);
+      } else {
+        n.add(id);
+      }
       return n;
     });
   };
@@ -159,8 +167,12 @@ export default function MediaClient({
       await deleteMany(selectedArray);
       await load();
       setSelected(new Set());
-    } catch (e: any) {
-      alert(e?.message || "Delete failed");
+    } catch (error: unknown) {
+      alert(
+        error instanceof Error
+          ? error.message
+          : "Delete failed"
+      );
     }
   };
 
@@ -194,7 +206,10 @@ export default function MediaClient({
         <div className="flex flex-col gap-3 rounded-2xl border border-violet-100 bg-gradient-to-r from-white via-violet-50/60 to-sky-50/60 px-4 py-3 shadow-[0_8px_22px_rgba(15,23,42,0.06)] md:flex-row md:items-center">
           {/* Upload + refresh */}
           <div className="flex items-center gap-2">
-            <ImageUploader onUploaded={onUploaded}>
+            <ImageUploader
+              purpose="media_library"
+              onUploaded={onUploaded}
+            >
               <button
                 type="button"
                 className="inline-flex items-center gap-2 rounded-xl bg-violet-600 px-3 py-2 text-sm font-medium text-white shadow-sm hover:bg-violet-700"
