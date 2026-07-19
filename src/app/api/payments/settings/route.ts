@@ -1,366 +1,618 @@
 import { NextResponse } from "next/server";
+
+import { fetchInternalWp } from "@/lib/wpClient";
 import { getWooClient } from "@/lib/woo";
-import { getWpBaseUrl } from "@/lib/wpClient";
 
 export const dynamic = "force-dynamic";
 
-type OrderSuccessStatus = "processing" | "completed" | "on-hold" | "pending";
+const MAX_REQUEST_BYTES = 65_536;
+const UPSTREAM_TIMEOUT_MS = 20_000;
 
-type SaveBody = {
-  general?: {
-    enabled?: boolean;
-    default_status?: string;
+type JsonRecord = Record<string, unknown>;
+type OrderSuccessStatus =
+  | "processing"
+  | "completed"
+  | "on-hold"
+  | "pending";
+
+type PaymentSettings = {
+  general: {
+    enabled: boolean;
+    default_status: OrderSuccessStatus;
   };
-  upi?: {
-    enabled?: boolean;
-    upi_id?: string;
-    upi_number?: string;
-    payee?: string;
-    qr?: "yes" | "no";
-    time_min?: string;
-    notes?: string;
-    qr_src?: string;
-    require_screenshot?: boolean;
-    screenshot_upload?: boolean;
+  upi: {
+    enabled: boolean;
+    upi_id: string;
+    upi_number: string;
+    payee: string;
+    qr: "yes" | "no";
+    time_min: string;
+    notes: string;
+    qr_src: string;
+    require_screenshot: boolean;
   };
-  bank?: {
-    enabled?: boolean;
-    account_name?: string;
-    account_number?: string;
-    ifsc?: string;
-    bank?: string;
-    branch?: string;
-    notes?: string;
+  bank: {
+    enabled: boolean;
+    account_name: string;
+    account_number: string;
+    ifsc: string;
+    bank: string;
+    branch: string;
+    notes: string;
   };
-  cod?: {
-    enabled?: boolean;
-    notes?: string;
+  cod: {
+    enabled: boolean;
+    notes: string;
   };
-  cheque?: {
-    enabled?: boolean;
-    notes?: string;
+  cheque: {
+    enabled: boolean;
+    notes: string;
   };
-  easebuzz?: {
-    enabled?: boolean;
-    mode?: string;
-    merchant_key?: string;
-    salt?: string;
-    merchant_id?: string;
-    webhook_secret?: string;
-    hint?: string;
+  easebuzz: {
+    enabled: boolean;
+    mode: string;
+    merchant_key: string;
+    salt: string;
+    merchant_id: string;
+    webhook_secret: string;
+    hint: string;
   };
 };
 
 type WooGateway = {
-  id?: unknown;
-  title?: unknown;
-  description?: unknown;
-  enabled?: unknown;
+  id: string;
+  title: string;
+  description: string;
+  enabled: unknown;
 };
 
-function requireInternalToken() {
-  const token = process.env.LETZ_INTERNAL_TOKEN || "";
-  if (!token) {
-    throw new Error("Missing LETZ_INTERNAL_TOKEN in dashboard env");
-  }
-  return token;
+function isRecord(
+  value: unknown
+): value is JsonRecord {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    !Array.isArray(value)
+  );
 }
 
-function boolValue(value: unknown, fallback = false) {
-  if (value === true || value === 1 || value === "1" || value === "true" || value === "yes" || value === "on") {
+function section(
+  value: JsonRecord,
+  key: string
+): JsonRecord {
+  return isRecord(value[key])
+    ? value[key]
+    : {};
+}
+
+function boundedText(
+  value: unknown,
+  maxLength = 500
+): string {
+  return typeof value === "string"
+    ? value.trim().slice(0, maxLength)
+    : "";
+}
+
+function boolValue(
+  value: unknown,
+  fallback = false
+): boolean {
+  if (
+    value === true ||
+    value === 1 ||
+    value === "1" ||
+    value === "true" ||
+    value === "yes" ||
+    value === "on"
+  ) {
     return true;
   }
 
-  if (value === false || value === 0 || value === "0" || value === "false" || value === "no" || value === "off") {
+  if (
+    value === false ||
+    value === 0 ||
+    value === "0" ||
+    value === "false" ||
+    value === "no" ||
+    value === "off"
+  ) {
     return false;
   }
 
   return fallback;
 }
 
-function cleanStatus(value: unknown): OrderSuccessStatus {
-  const v = String(value || "").trim();
+function cleanStatus(
+  value: unknown
+): OrderSuccessStatus {
+  const status = boundedText(value, 20);
 
-  if (v === "completed") return "completed";
-  if (v === "on-hold") return "on-hold";
-  if (v === "pending") return "pending";
+  if (
+    status === "completed" ||
+    status === "on-hold" ||
+    status === "pending"
+  ) {
+    return status;
+  }
 
   return "processing";
 }
 
-function normalizeBody(body: SaveBody | null | undefined): Required<SaveBody> {
+function normalizeSettings(
+  value: unknown
+): PaymentSettings {
+  const root = isRecord(value) ? value : {};
+  const general = section(root, "general");
+  const easebuzz = section(root, "easebuzz");
+  const upi = section(root, "upi");
+  const bank = section(root, "bank");
+  const cod = section(root, "cod");
+  const cheque = section(root, "cheque");
+
   return {
     general: {
-      enabled: boolValue(body?.general?.enabled, true),
-      default_status: cleanStatus(body?.general?.default_status),
+      enabled: boolValue(
+        general.enabled,
+        true
+      ),
+      default_status: cleanStatus(
+        general.default_status
+      ),
     },
     easebuzz: {
-      enabled: boolValue(body?.easebuzz?.enabled, false),
-      mode: body?.easebuzz?.mode || "test",
-      merchant_key: body?.easebuzz?.merchant_key || "",
-      salt: body?.easebuzz?.salt || "",
-      merchant_id: body?.easebuzz?.merchant_id || "",
-      webhook_secret: body?.easebuzz?.webhook_secret || "",
-      hint: body?.easebuzz?.hint || "easebuzz",
+      enabled: boolValue(
+        easebuzz.enabled
+      ),
+      mode:
+        boundedText(easebuzz.mode, 20) ||
+        "test",
+      merchant_key: boundedText(
+        easebuzz.merchant_key,
+        300
+      ),
+      salt: boundedText(
+        easebuzz.salt,
+        300
+      ),
+      merchant_id: boundedText(
+        easebuzz.merchant_id,
+        300
+      ),
+      webhook_secret: boundedText(
+        easebuzz.webhook_secret,
+        300
+      ),
+      hint:
+        boundedText(easebuzz.hint, 80) ||
+        "easebuzz",
     },
     upi: {
-      enabled: boolValue(body?.upi?.enabled, false),
-      upi_id: body?.upi?.upi_id || "",
-      upi_number: body?.upi?.upi_number || "",
-      payee: body?.upi?.payee || "",
-      qr: body?.upi?.qr === "yes" ? "yes" : "no",
-      time_min: body?.upi?.time_min || "",
-      notes: body?.upi?.notes || "",
-      qr_src: body?.upi?.qr_src || "",
+      enabled: boolValue(upi.enabled),
+      upi_id: boundedText(
+        upi.upi_id,
+        160
+      ),
+      upi_number: boundedText(
+        upi.upi_number,
+        40
+      ),
+      payee: boundedText(
+        upi.payee,
+        160
+      ),
+      qr: upi.qr === "yes" ? "yes" : "no",
+      time_min: boundedText(
+        upi.time_min,
+        20
+      ),
+      notes: boundedText(
+        upi.notes,
+        2_000
+      ),
+      qr_src: boundedText(
+        upi.qr_src,
+        2_048
+      ),
       require_screenshot:
-        body?.upi?.require_screenshot !== undefined
-          ? boolValue(body.upi.require_screenshot, true)
-          : body?.upi?.screenshot_upload !== undefined
-          ? boolValue(body.upi.screenshot_upload, true)
-          : true,
+        upi.require_screenshot !==
+        undefined
+          ? boolValue(
+              upi.require_screenshot,
+              true
+            )
+          : boolValue(
+              upi.screenshot_upload,
+              true
+            ),
     },
     bank: {
-      enabled: boolValue(body?.bank?.enabled, false),
-      account_name: body?.bank?.account_name || "",
-      account_number: body?.bank?.account_number || "",
-      ifsc: body?.bank?.ifsc || "",
-      bank: body?.bank?.bank || "",
-      branch: body?.bank?.branch || "",
-      notes: body?.bank?.notes || "",
+      enabled: boolValue(bank.enabled),
+      account_name: boundedText(
+        bank.account_name,
+        160
+      ),
+      account_number: boundedText(
+        bank.account_number,
+        80
+      ),
+      ifsc: boundedText(bank.ifsc, 40),
+      bank: boundedText(bank.bank, 160),
+      branch: boundedText(
+        bank.branch,
+        160
+      ),
+      notes: boundedText(
+        bank.notes,
+        2_000
+      ),
     },
     cod: {
-      enabled: boolValue(body?.cod?.enabled, false),
-      notes: body?.cod?.notes || "",
+      enabled: boolValue(cod.enabled),
+      notes: boundedText(
+        cod.notes,
+        2_000
+      ),
     },
     cheque: {
-      enabled: boolValue(body?.cheque?.enabled, false),
-      notes: body?.cheque?.notes || "",
+      enabled: boolValue(
+        cheque.enabled
+      ),
+      notes: boundedText(
+        cheque.notes,
+        2_000
+      ),
     },
   };
 }
 
-async function getPaymentsOption(): Promise<unknown> {
-  const wpBase = (await getWpBaseUrl()).replace(/\/$/, "");
-  const token = requireInternalToken();
-
-  const res = await fetch(`${wpBase}/wp-json/letz/v2/payments/settings?_ts=${Date.now()}`, {
-    method: "GET",
+function privateJson(
+  body: unknown,
+  status = 200
+): NextResponse {
+  return NextResponse.json(body, {
+    status,
     headers: {
-      Accept: "application/json",
-      "X-Letz-Auth": token,
+      "Cache-Control": "no-store, private",
+      Pragma: "no-cache",
+      Expires: "0",
     },
-    cache: "no-store",
   });
+}
 
-  if (!res.ok) {
-    const txt = await res.text().catch(() => "");
-    throw new Error(txt || "Failed to load payments settings from WordPress");
+async function readJson(
+  response: Response
+): Promise<unknown> {
+  return response
+    .json()
+    .catch(() => null);
+}
+
+async function getPaymentsOption():
+  Promise<unknown> {
+  const response = await fetchInternalWp(
+    "/wp-json/letz/v2/payments/settings",
+    { method: "GET" },
+    UPSTREAM_TIMEOUT_MS
+  );
+
+  const payload = await readJson(response);
+
+  if (!response.ok || payload === null) {
+    throw new Error(
+      `Payments settings load failed with status ${response.status}`
+    );
   }
 
-  return res.json();
+  return payload;
 }
 
 async function setPaymentsOption(
-  value: Required<SaveBody>
-): Promise<Required<SaveBody>> {
-  const wpBase = (await getWpBaseUrl()).replace(/\/$/, "");
-  const token = requireInternalToken();
-
-  const res = await fetch(`${wpBase}/wp-json/letz/v2/payments/settings`, {
-    method: "POST",
-    headers: {
-      Accept: "application/json",
-      "Content-Type": "application/json",
-      "X-Letz-Auth": token,
+  value: PaymentSettings
+): Promise<void> {
+  const response = await fetchInternalWp(
+    "/wp-json/letz/v2/payments/settings",
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(value),
     },
-    body: JSON.stringify(value),
-    cache: "no-store",
-  });
+    UPSTREAM_TIMEOUT_MS
+  );
 
-  if (!res.ok) {
-    const txt = await res.text().catch(() => "");
-    console.error("Failed to save payments settings via WP:", txt);
-    throw new Error(txt || "Could not persist payments settings");
+  if (!response.ok) {
+    throw new Error(
+      `Payments settings save failed with status ${response.status}`
+    );
   }
-
-  const payload = await res.json().catch(() => null) as {
-    ok?: unknown;
-    settings?: SaveBody;
-  } | null;
-
-  if (!payload || payload.ok !== true || !payload.settings) {
-    throw new Error("WordPress did not confirm the payments settings save");
-  }
-
-  return normalizeBody(payload.settings);
 }
 
-function settingsMatch(
-  expected: Required<SaveBody>,
-  actual: Required<SaveBody>
-): boolean {
-  return JSON.stringify(expected) === JSON.stringify(actual);
+function asWooGateway(
+  value: unknown
+): WooGateway | null {
+  if (!isRecord(value)) {
+    return null;
+  }
+
+  const id = boundedText(value.id, 160);
+
+  if (!id) {
+    return null;
+  }
+
+  return {
+    id,
+    title: boundedText(
+      value.title,
+      300
+    ),
+    description: boundedText(
+      value.description,
+      1_000
+    ),
+    enabled: value.enabled,
+  };
 }
 
 function findEasebuzzGateway(
   gateways: WooGateway[],
   hint: string
 ): WooGateway | undefined {
-  const h = (hint || "easebuzz").toLowerCase();
+  const needle = (
+    hint || "easebuzz"
+  ).toLowerCase();
 
-  let gw = gateways.find((g) => String(g.id || "").toLowerCase().includes(h));
-  if (gw) return gw;
+  return (
+    gateways.find((gateway) =>
+      gateway.id
+        .toLowerCase()
+        .includes(needle)
+    ) ||
+    gateways.find((gateway) => {
+      const text =
+        `${gateway.title} ${gateway.description}`
+          .toLowerCase();
 
-  gw = gateways.find((g) => {
-    const title = String(g.title || "").toLowerCase();
-    const desc = String(g.description || "").toLowerCase();
-    return title.includes(h) || desc.includes(h);
-  });
-  if (gw) return gw;
+      return text.includes(needle);
+    }) ||
+    gateways.find((gateway) => {
+      const text =
+        `${gateway.id} ${gateway.title} ${gateway.description}`
+          .toLowerCase();
 
-  return gateways.find((g) => {
-    const id = String(g.id || "").toLowerCase();
-    const title = String(g.title || "").toLowerCase();
-    const desc = String(g.description || "").toLowerCase();
+      return text.includes("easebuzz");
+    })
+  );
+}
 
-    return (
-      id.includes("easebuzz") ||
-      title.includes("easebuzz") ||
-      desc.includes("easebuzz")
-    );
-  });
+function gatewayEnabled(
+  value: unknown
+): boolean {
+  return (
+    value === true ||
+    value === "yes" ||
+    value === "true" ||
+    value === 1
+  );
 }
 
 export async function GET() {
   try {
-    const state = await getPaymentsOption();
-    const safe = normalizeBody((state || {}) as SaveBody);
+    const state =
+      await getPaymentsOption();
 
-    return NextResponse.json(safe);
-  } catch (e: unknown) {
-    return NextResponse.json(
+    return privateJson(
+      normalizeSettings(state)
+    );
+  } catch (error: unknown) {
+    console.error(
+      "Payments settings load failed:",
+      error instanceof Error
+        ? error.message
+        : "Unknown payments error"
+    );
+
+    return privateJson(
       {
         error:
-          e instanceof Error
-            ? e.message
-            : "Failed to load payments settings",
+          "Failed to load payments settings.",
       },
-      { status: 500 }
+      502
     );
   }
 }
 
-async function handleSave(req: Request) {
+async function handleSave(
+  request: Request
+): Promise<NextResponse> {
+  const contentLength = Number(
+    request.headers.get("content-length") ||
+      "0"
+  );
+
+  if (
+    !Number.isFinite(contentLength) ||
+    contentLength < 0 ||
+    contentLength > MAX_REQUEST_BYTES
+  ) {
+    return privateJson(
+      {
+        error:
+          "Invalid payments settings request.",
+      },
+      400
+    );
+  }
+
+  let rawBody: unknown;
+
+  try {
+    const text = await request.text();
+
+    if (
+      !text ||
+      Buffer.byteLength(text, "utf8") >
+        MAX_REQUEST_BYTES
+    ) {
+      throw new Error("Invalid body size");
+    }
+
+    rawBody = JSON.parse(text) as unknown;
+  } catch {
+    return privateJson(
+      {
+        error:
+          "Invalid payments settings request.",
+      },
+      400
+    );
+  }
+
+  if (!isRecord(rawBody)) {
+    return privateJson(
+      {
+        error:
+          "Invalid payments settings request.",
+      },
+      400
+    );
+  }
+
+  const body = normalizeSettings(rawBody);
+
   try {
     const woo = await getWooClient();
 
-    const rawBody = (await req.json().catch(() => null)) as SaveBody | null;
-    const body = normalizeBody(rawBody);
+    await setPaymentsOption(body);
 
-    /*
-     * Save dashboard settings first.
-     * Important: method toggles stay stored even when global payments are off.
-     */
-    const savedByWordPress = await setPaymentsOption(body);
-
-    if (!settingsMatch(body, savedByWordPress)) {
-      throw new Error("WordPress returned different payments settings after save");
-    }
-
-    /*
-     * Checkout visibility should respect global Accept Payments.
-     * If general.enabled = false, all Woo checkout gateways are disabled.
-     */
-    const acceptPayments = !!body.general.enabled;
+    const acceptPayments =
+      body.general.enabled;
 
     const enableMap = {
-      letz_upi: acceptPayments && !!body.upi.enabled,
-      bacs: acceptPayments && !!body.bank.enabled,
-      cod: acceptPayments && !!body.cod.enabled,
-      cheque: acceptPayments && !!body.cheque.enabled,
-      easebuzz: acceptPayments && !!body.easebuzz.enabled,
+      letz_upi:
+        acceptPayments &&
+        body.upi.enabled,
+      bacs:
+        acceptPayments &&
+        body.bank.enabled,
+      cod:
+        acceptPayments &&
+        body.cod.enabled,
+      cheque:
+        acceptPayments &&
+        body.cheque.enabled,
+      easebuzz:
+        acceptPayments &&
+        body.easebuzz.enabled,
     };
 
-    const { data: gateways } = await woo.get("/payment_gateways");
-    const list: WooGateway[] = Array.isArray(gateways)
-      ? gateways.filter(
-          (gateway): gateway is WooGateway =>
-            typeof gateway === "object" && gateway !== null
-        )
-      : [];
+    const response =
+      await woo.get("/payment_gateways");
 
-    const byId: Record<string, WooGateway> = {};
-    list.forEach((g) => {
-      byId[String(g.id)] = g;
-    });
+    const gateways = (
+      Array.isArray(response.data)
+        ? response.data
+        : []
+    )
+      .map(asWooGateway)
+      .filter(
+        (
+          gateway
+        ): gateway is WooGateway =>
+          gateway !== null
+      );
 
-    const updates: Promise<unknown>[] = [];
+    const byId = new Map(
+      gateways.map((gateway) => [
+        gateway.id,
+        gateway,
+      ])
+    );
 
-    const maybeToggle = (id: string, want: boolean) => {
-      const gw = byId[id];
-      if (!gw) return;
+    const updates:
+      Array<Promise<unknown>> = [];
 
-      const current =
-        gw.enabled === true ||
-        gw.enabled === "yes" ||
-        gw.enabled === "true" ||
-        gw.enabled === 1;
+    const queueToggle = (
+      id: string,
+      enabled: boolean
+    ) => {
+      const gateway = byId.get(id);
 
-      if (current === want) return;
+      if (
+        !gateway ||
+        gatewayEnabled(
+          gateway.enabled
+        ) === enabled
+      ) {
+        return;
+      }
 
       updates.push(
-        woo.put(`/payment_gateways/${encodeURIComponent(id)}`, {
-          enabled: want,
-        })
+        woo.put(
+          `/payment_gateways/${encodeURIComponent(
+            id
+          )}`,
+          { enabled }
+        )
       );
     };
 
-    maybeToggle("letz_upi", enableMap.letz_upi);
-    maybeToggle("bacs", enableMap.bacs);
-    maybeToggle("cod", enableMap.cod);
-    maybeToggle("cheque", enableMap.cheque);
-
-    const easebuzzGw = findEasebuzzGateway(list, body.easebuzz.hint || "easebuzz");
-    if (easebuzzGw?.id) {
-      maybeToggle(String(easebuzzGw.id), enableMap.easebuzz);
-    }
-
-    if (updates.length) {
-      await Promise.all(updates);
-    }
-
-    const verified = normalizeBody(
-      (await getPaymentsOption()) as SaveBody
+    queueToggle(
+      "letz_upi",
+      enableMap.letz_upi
+    );
+    queueToggle("bacs", enableMap.bacs);
+    queueToggle("cod", enableMap.cod);
+    queueToggle(
+      "cheque",
+      enableMap.cheque
     );
 
-    if (!settingsMatch(body, verified)) {
-      throw new Error("Payments settings verification failed after save");
+    const easebuzzGateway =
+      findEasebuzzGateway(
+        gateways,
+        body.easebuzz.hint
+      );
+
+    if (easebuzzGateway) {
+      queueToggle(
+        easebuzzGateway.id,
+        enableMap.easebuzz
+      );
     }
 
-    return NextResponse.json({
+    await Promise.all(updates);
+
+    return privateJson({
       ok: true,
-      settings: verified,
+      settings: body,
       effectiveGateways: enableMap,
     });
-  } catch (e: unknown) {
-    console.error("payments/settings SAVE error", e);
+  } catch (error: unknown) {
+    console.error(
+      "Payments settings save failed:",
+      error instanceof Error
+        ? error.message
+        : "Unknown payments error"
+    );
 
-    return NextResponse.json(
-      {
-        error:
-          e instanceof Error
-            ? e.message
-            : "Save failed",
-      },
-      { status: 500 }
+    return privateJson(
+      { error: "Save failed." },
+      502
     );
   }
 }
 
-export async function POST(req: Request) {
-  return handleSave(req);
+export async function POST(
+  request: Request
+) {
+  return handleSave(request);
 }
 
-export async function PUT(req: Request) {
-  return handleSave(req);
+export async function PUT(
+  request: Request
+) {
+  return handleSave(request);
 }
