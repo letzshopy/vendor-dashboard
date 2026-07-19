@@ -1,130 +1,261 @@
-import { NextRequest, NextResponse } from "next/server";
+import {
+  NextResponse,
+  type NextRequest,
+} from "next/server";
 
-const LETZ_INTERNAL_TOKEN = process.env.LETZ_INTERNAL_TOKEN!;
+import {
+  resolveMasterVendorStoreUrl,
+} from "@/lib/masterVendor";
 
-function normalizeStoreUrl(raw: string | null) {
-  if (!raw) return "";
-  return raw.trim().replace(/\/$/, "");
+const MASTER_API_KEY =
+  process.env.MASTER_API_KEY || "";
+
+const PRIVATE_HEADERS = {
+  "Cache-Control":
+    "private, no-store, no-cache, must-revalidate, max-age=0",
+};
+
+type JsonRecord = Record<string, unknown>;
+
+type ReviewStatus =
+  | "active"
+  | "rejected"
+  | "suspended"
+  | "expired"
+  | "inactive"
+  | "trial";
+
+function isRecord(
+  value: unknown
+): value is JsonRecord {
+  return Boolean(
+    value &&
+      typeof value === "object" &&
+      !Array.isArray(value)
+  );
+}
+
+function normalizeReviewStatus(
+  value: unknown
+): ReviewStatus | null {
+  const status = String(value || "")
+    .trim()
+    .toLowerCase();
+
+  const allowed: ReviewStatus[] = [
+    "active",
+    "rejected",
+    "suspended",
+    "expired",
+    "inactive",
+    "trial",
+  ];
+
+  return allowed.includes(
+    status as ReviewStatus
+  )
+    ? (status as ReviewStatus)
+    : null;
+}
+
+function textField(
+  source: JsonRecord,
+  ...keys: string[]
+): string {
+  for (const key of keys) {
+    if (typeof source[key] === "string") {
+      const value = source[key].trim();
+
+      if (value) {
+        return value;
+      }
+    }
+  }
+
+  return "";
+}
+
+async function readJson(
+  response: Response
+): Promise<unknown> {
+  return response.json().catch(() => null);
 }
 
 export async function POST(
-  req: NextRequest,
-  { params }: { params: Promise<{ blogid: string }> }
+  request: NextRequest,
+  context: {
+    params: Promise<{
+      blogid: string;
+    }>;
+  }
 ) {
   try {
-    if (!LETZ_INTERNAL_TOKEN) {
-      return NextResponse.json(
-        { ok: false, error: "LETZ_INTERNAL_TOKEN missing" },
-        { status: 500 }
-      );
-    }
-
-    await params;
-
-    const body = await req.json().catch(() => ({}));
-    const status = String(body?.status || "").trim();
-    const storeUrl = normalizeStoreUrl(body?.storeUrl || "");
-
-    if (!storeUrl) {
-      return NextResponse.json(
-        { ok: false, error: "storeUrl is required" },
-        { status: 400 }
-      );
-    }
-
-    if (!status || !["active", "rejected", "suspended", "expired", "payment_submitted", "inactive", "trial"].includes(status)) {
-      return NextResponse.json(
-        { ok: false, error: "Invalid subscription status" },
-        { status: 400 }
-      );
-    }
-
-    const payload = {
-      plan: body?.plan,
-      current_plan: body?.plan,
-      billing_cycle: body?.period || body?.billing_cycle,
-      period: body?.period || body?.billing_cycle,
-      status,
-      billing_status: status,
-      amount: body?.amount,
-      payment_mode: body?.payment_mode,
-      payment_reference: body?.payment_reference,
-      utr: body?.payment_reference,
-      last_paid_date: body?.last_paid_date,
-      last_billed_at: body?.last_paid_date,
-      next_payment_date: body?.next_payment_date,
-      next_renewal_date: body?.next_payment_date,
-      next_renewal_at: body?.next_payment_date,
-    };
-
-    const reviewRes = await fetch(`${storeUrl}/wp-json/letz/v1/subscription`, {
-      method: "PUT",
-      headers: {
-        "x-letz-auth": LETZ_INTERNAL_TOKEN,
-        "content-type": "application/json",
-      },
-      body: JSON.stringify(payload),
-      cache: "no-store",
-    });
-
-    const reviewText = await reviewRes.text();
-    let reviewJson: any = null;
-    try {
-      reviewJson = JSON.parse(reviewText);
-    } catch {}
-
-    if (!reviewRes.ok) {
+    if (!MASTER_API_KEY) {
       return NextResponse.json(
         {
           ok: false,
-          error: reviewJson?.error || "Failed to update tenant subscription",
-          details: reviewJson || reviewText,
+          error:
+            "Subscription review is not configured.",
         },
-        { status: reviewRes.status || 500 }
+        {
+          status: 500,
+          headers: PRIVATE_HEADERS,
+        }
       );
     }
 
-    const onboardingRes = await fetch(`${storeUrl}/wp-json/letz/v1/onboarding/set`, {
-      method: "POST",
-      headers: {
-        "x-letz-auth": LETZ_INTERNAL_TOKEN,
-        "content-type": "application/json",
-      },
-      body: JSON.stringify({ subscription_status: status }),
-      cache: "no-store",
-    });
+    const parsedBody: unknown = await request
+      .json()
+      .catch(() => null);
 
-    const onboardingText = await onboardingRes.text();
-    let onboardingJson: any = null;
-    try {
-      onboardingJson = JSON.parse(onboardingText);
-    } catch {}
+    const body = isRecord(parsedBody)
+      ? parsedBody
+      : {};
 
-    if (!onboardingRes.ok) {
+    const requestedStatus =
+      normalizeReviewStatus(body.status);
+
+    if (!requestedStatus) {
       return NextResponse.json(
         {
           ok: false,
-          error: "Subscription review saved but onboarding sync failed",
-          details: onboardingJson || onboardingText,
-          review: reviewJson,
+          error:
+            "Select a valid subscription review status.",
         },
-        { status: onboardingRes.status || 500 }
+        {
+          status: 400,
+          headers: PRIVATE_HEADERS,
+        }
       );
     }
+
+    const { blogid } =
+      await context.params;
+
+    const storeUrl =
+      await resolveMasterVendorStoreUrl(
+        blogid
+      );
+
+    /*
+     * WordPress is the single authority for this transition.
+     * Its subscription/review callback atomically checks the
+     * persisted KYC status, current payment status and billing
+     * cycle before calculating dates and saving the result.
+     */
+    const reviewResponse = await fetch(
+      `${storeUrl}/wp-json/letz/v1/subscription/review`,
+      {
+        method: "POST",
+        headers: {
+          Authorization:
+            `Bearer ${MASTER_API_KEY}`,
+          "X-Letz-Master-Key":
+            MASTER_API_KEY,
+          "Content-Type":
+            "application/json",
+          Accept: "application/json",
+          "Cache-Control":
+            "no-cache, no-store",
+          Pragma: "no-cache",
+        },
+        body: JSON.stringify({
+          status: requestedStatus,
+        }),
+        cache: "no-store",
+        signal: AbortSignal.timeout(
+          12_000
+        ),
+      }
+    );
+
+    const reviewedSubscription =
+      await readJson(reviewResponse);
+
+    if (!reviewResponse.ok) {
+      const upstreamError =
+        isRecord(reviewedSubscription)
+          ? textField(
+              reviewedSubscription,
+              "message",
+              "error"
+            )
+          : "";
+
+      return NextResponse.json(
+        {
+          ok: false,
+          error:
+            upstreamError ||
+            "Could not update the vendor subscription.",
+        },
+        {
+          status:
+            reviewResponse.status >= 400 &&
+            reviewResponse.status < 500
+              ? reviewResponse.status
+              : 502,
+          headers: PRIVATE_HEADERS,
+        }
+      );
+    }
+
+    if (!isRecord(reviewedSubscription)) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error:
+            "The vendor subscription response is invalid.",
+        },
+        {
+          status: 502,
+          headers: PRIVATE_HEADERS,
+        }
+      );
+    }
+
+    const persistedStatus =
+      textField(
+        reviewedSubscription,
+        "billing_status",
+        "status"
+      ) ||
+      (requestedStatus === "rejected"
+        ? "inactive"
+        : requestedStatus);
 
     return NextResponse.json(
       {
         ok: true,
-        requestedStatus: status,
-        subscriptionStatus: onboardingJson?.subscription_status || status,
-        subscription: reviewJson,
+        requestedStatus,
+        subscriptionStatus:
+          persistedStatus,
+        subscription:
+          reviewedSubscription,
       },
-      { status: 200 }
+      {
+        status: 200,
+        headers: PRIVATE_HEADERS,
+      }
     );
-  } catch (e: any) {
+  } catch (error: unknown) {
+    console.error(
+      "Master subscription review failed:",
+      error instanceof Error
+        ? error.message
+        : "Unknown error"
+    );
+
     return NextResponse.json(
-      { ok: false, error: e?.message || "Failed to update vendor subscription review" },
-      { status: 500 }
+      {
+        ok: false,
+        error:
+          "Could not update the vendor subscription.",
+      },
+      {
+        status: 500,
+        headers: PRIVATE_HEADERS,
+      }
     );
   }
 }

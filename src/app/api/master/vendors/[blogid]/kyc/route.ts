@@ -1,105 +1,268 @@
-import { NextRequest, NextResponse } from "next/server";
+import {
+  NextRequest,
+  NextResponse,
+} from "next/server";
+import {
+  resolveMasterVendorStoreUrl,
+} from "@/lib/masterVendor";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-const LETZ_INTERNAL_TOKEN = process.env.LETZ_INTERNAL_TOKEN!;
+const INTERNAL_TOKEN =
+  process.env.LETZ_INTERNAL_TOKEN || "";
 
-function normalizeStoreUrl(raw: string | null) {
-  if (!raw) return "";
-  return raw.trim().replace(/\/$/, "");
+const UPSTREAM_TIMEOUT_MS = 15_000;
+const MAX_FILE_KEY_LENGTH = 512;
+
+type JsonRecord = Record<string, unknown>;
+
+function privateJson(
+  body: JsonRecord,
+  status = 200
+): NextResponse<JsonRecord> {
+  return NextResponse.json(body, {
+    status,
+    headers: {
+      "Cache-Control": "no-store, private",
+      Pragma: "no-cache",
+      Expires: "0",
+    },
+  });
+}
+
+function validateFileKey(
+  value: string | null
+): string | null {
+  if (!value) {
+    return null;
+  }
+
+  const fileKey = value.trim();
+
+  if (
+    !fileKey ||
+    fileKey.length >
+      MAX_FILE_KEY_LENGTH ||
+    /[\u0000-\u001f\u007f]/.test(
+      fileKey
+    )
+  ) {
+    return null;
+  }
+
+  return fileKey;
+}
+
+function safeFilename(
+  fileKey: string
+): string {
+  const candidate =
+    fileKey.split(/[\\/]/).pop() ||
+    "kyc-document";
+
+  const safe = candidate.replace(
+    /[^a-zA-Z0-9._-]/g,
+    "_"
+  );
+
+  return safe || "kyc-document";
 }
 
 export async function GET(
-  req: NextRequest,
-  { params }: { params: Promise<{ blogid: string }> }
+  request: NextRequest,
+  {
+    params,
+  }: {
+    params: Promise<{
+      blogid: string;
+    }>;
+  }
 ) {
+  if (!INTERNAL_TOKEN) {
+    return privateJson(
+      {
+        ok: false,
+        error:
+          "KYC service is not configured.",
+      },
+      500
+    );
+  }
+
+  const { blogid } = await params;
+
   try {
-    await params;
-
-    if (!LETZ_INTERNAL_TOKEN) {
-      return NextResponse.json(
-        { ok: false, error: "LETZ_INTERNAL_TOKEN missing" },
-        { status: 500 }
+    const storeUrl =
+      await resolveMasterVendorStoreUrl(
+        blogid
       );
-    }
 
-    const storeUrl = normalizeStoreUrl(req.nextUrl.searchParams.get("storeUrl"));
-    if (!storeUrl) {
-      return NextResponse.json(
-        { ok: false, error: "storeUrl is required" },
-        { status: 400 }
+    const requestedDownload =
+      request.nextUrl.searchParams.get(
+        "download"
       );
-    }
 
-    const downloadKey = req.nextUrl.searchParams.get("download");
+    if (requestedDownload !== null) {
+      const fileKey = validateFileKey(
+        requestedDownload
+      );
 
-    if (downloadKey) {
-      const fileRes = await fetch(
-        `${storeUrl}/wp-json/letz/v1/kyc/download?fileKey=${encodeURIComponent(downloadKey)}&_ts=${Date.now()}`,
-        {
-          method: "GET",
-          headers: {
-            "x-letz-auth": LETZ_INTERNAL_TOKEN,
+      if (!fileKey) {
+        return privateJson(
+          {
+            ok: false,
+            error:
+              "Invalid KYC document reference.",
           },
-          cache: "no-store",
-        }
-      );
-
-      if (!fileRes.ok) {
-        const text = await fileRes.text().catch(() => "");
-        return NextResponse.json(
-          { ok: false, error: "Failed to download document", details: text },
-          { status: fileRes.status || 500 }
+          400
         );
       }
 
-      return new NextResponse(fileRes.body, {
-        status: 200,
-        headers: {
-          "Content-Type": fileRes.headers.get("content-type") || "application/octet-stream",
-          "Content-Disposition":
-            fileRes.headers.get("content-disposition") || `inline; filename="${downloadKey}"`,
-          "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
-        },
-      });
-    }
+      const endpoint = new URL(
+        `${storeUrl}/wp-json/letz/v1/kyc/download`
+      );
 
-    const wpRes = await fetch(`${storeUrl}/wp-json/letz/v1/kyc?_ts=${Date.now()}`, {
-      method: "GET",
-      headers: {
-        "x-letz-auth": LETZ_INTERNAL_TOKEN,
-      },
-      cache: "no-store",
-    });
+      endpoint.searchParams.set(
+        "fileKey",
+        fileKey
+      );
 
-    const text = await wpRes.text();
-    let json: any = null;
-    try {
-      json = JSON.parse(text);
-    } catch {}
-
-    if (!wpRes.ok) {
-      return NextResponse.json(
+      const response = await fetch(
+        endpoint,
         {
-          ok: false,
-          error: "Failed to fetch tenant KYC",
-          details: json || text,
-        },
-        { status: wpRes.status || 500 }
+          method: "GET",
+          headers: {
+            "x-letz-auth":
+              INTERNAL_TOKEN,
+          },
+          cache: "no-store",
+          signal: AbortSignal.timeout(
+            UPSTREAM_TIMEOUT_MS
+          ),
+        }
+      );
+
+      if (!response.ok) {
+        console.error(
+          `Master KYC download failed with status ${response.status}.`
+        );
+
+        return privateJson(
+          {
+            ok: false,
+            error:
+              "Failed to download KYC document.",
+          },
+          502
+        );
+      }
+
+      return new NextResponse(
+        response.body,
+        {
+          status: 200,
+          headers: {
+            "Content-Type":
+              response.headers.get(
+                "content-type"
+              ) ||
+              "application/octet-stream",
+            "Content-Disposition":
+  `inline; filename="${safeFilename(
+    fileKey
+  )}"`,
+            "Cache-Control":
+              "no-store, private",
+            Pragma: "no-cache",
+            Expires: "0",
+            "X-Content-Type-Options":
+              "nosniff",
+            "Content-Security-Policy":
+              "default-src 'none'; sandbox",
+          },
+        }
       );
     }
 
-    return NextResponse.json(json, {
-      status: 200,
-      headers: {
-        "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+    const kycEndpoint = new URL(
+      `${storeUrl}/wp-json/letz/v1/kyc`
+    );
+
+    kycEndpoint.searchParams.set(
+      "_ts",
+      Date.now().toString()
+    );
+
+    const response = await fetch(
+      kycEndpoint,
+      {
+        method: "GET",
+        headers: {
+          Accept: "application/json",
+          "x-letz-auth":
+            INTERNAL_TOKEN,
+          "Cache-Control": "no-cache",
+          Pragma: "no-cache",
+        },
+        cache: "no-store",
+        signal: AbortSignal.timeout(
+          UPSTREAM_TIMEOUT_MS
+        ),
+      }
+    );
+
+    if (!response.ok) {
+      console.error(
+        `Master KYC load failed with status ${response.status}.`
+      );
+
+      return privateJson(
+        {
+          ok: false,
+          error:
+            "Failed to load vendor KYC.",
+        },
+        502
+      );
+    }
+
+    const payload: unknown =
+      await response.json();
+
+    if (
+      typeof payload !== "object" ||
+      payload === null ||
+      Array.isArray(payload)
+    ) {
+      return privateJson(
+        {
+          ok: false,
+          error:
+            "Vendor KYC response is invalid.",
+        },
+        502
+      );
+    }
+
+    return privateJson(
+      payload as JsonRecord
+    );
+  } catch (error: unknown) {
+    console.error(
+      "Master KYC request failed:",
+      error instanceof Error
+        ? error.message
+        : "Unknown master KYC error"
+    );
+
+    return privateJson(
+      {
+        ok: false,
+        error:
+          "Failed to load vendor KYC.",
       },
-    });
-  } catch (e: any) {
-    return NextResponse.json(
-      { ok: false, error: e?.message || "Failed to load vendor KYC" },
-      { status: 500 }
+      502
     );
   }
 }

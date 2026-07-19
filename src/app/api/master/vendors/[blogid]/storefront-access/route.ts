@@ -25,17 +25,6 @@ function isRecord(value: unknown): value is JsonRecord {
   );
 }
 
-function validBlogId(
-  value: string
-): number | null {
-  const blogId = Number(value);
-
-  return Number.isInteger(blogId) &&
-    blogId > 0
-    ? blogId
-    : null;
-}
-
 export async function POST(
   request: NextRequest,
   context: {
@@ -50,7 +39,7 @@ export async function POST(
         {
           ok: false,
           error:
-            "Master access service is not configured.",
+            "Master storefront service is not configured.",
         },
         {
           status: 500,
@@ -59,13 +48,15 @@ export async function POST(
       );
     }
 
-    const { blogid: rawBlogId } =
+    const { blogid } =
       await context.params;
 
-    const blogId =
-      validBlogId(rawBlogId);
+    const blogId = Number(blogid);
 
-    if (!blogId) {
+    if (
+      !Number.isInteger(blogId) ||
+      blogId <= 0
+    ) {
       return NextResponse.json(
         {
           ok: false,
@@ -79,20 +70,20 @@ export async function POST(
       );
     }
 
-    const parsedBody: unknown = await request
+    const parsed: unknown = await request
       .json()
       .catch(() => null);
 
     if (
-      !isRecord(parsedBody) ||
-      typeof parsedBody.locked !==
+      !isRecord(parsed) ||
+      typeof parsed.suspended !==
         "boolean"
     ) {
       return NextResponse.json(
         {
           ok: false,
           error:
-            "A boolean locked value is required.",
+            "A boolean suspended value is required.",
         },
         {
           status: 400,
@@ -106,11 +97,10 @@ export async function POST(
     ).replace(/\/$/, "");
 
     const response = await fetch(
-      `${base}/wp-json/letz/v1/master-vendors/${blogId}/dashboard-access`,
+      `${base}/wp-json/letz/v1/master-vendors/${blogId}/storefront-access`,
       {
         method: "POST",
         headers: {
-          Accept: "application/json",
           Authorization:
             `Bearer ${MASTER_API_KEY}`,
           "X-Letz-Master-Key":
@@ -119,23 +109,27 @@ export async function POST(
             "application/json",
         },
         body: JSON.stringify({
-          locked: parsedBody.locked,
+          suspended:
+            parsed.suspended,
         }),
         cache: "no-store",
         signal: AbortSignal.timeout(15_000),
       }
     );
 
-    const parsed: unknown = await response
+    const result: unknown = await response
       .json()
       .catch(() => null);
 
-    if (!response.ok) {
+    if (
+      !response.ok ||
+      !isRecord(result)
+    ) {
       return NextResponse.json(
         {
           ok: false,
           error:
-            "Could not update dashboard access.",
+            "Could not update storefront access.",
         },
         {
           status:
@@ -151,11 +145,9 @@ export async function POST(
     return NextResponse.json(
       {
         ok: true,
-        locked: parsedBody.locked,
-        dashboardAccess:
-          isRecord(parsed)
-            ? parsed
-            : null,
+        suspended:
+          result.storefront_suspended ===
+          true,
       },
       {
         status: 200,
@@ -164,7 +156,7 @@ export async function POST(
     );
   } catch (error: unknown) {
     console.error(
-      "Master dashboard access update failed:",
+      "Master storefront access failed:",
       error instanceof Error
         ? error.message
         : "Unknown error"
@@ -174,7 +166,7 @@ export async function POST(
       {
         ok: false,
         error:
-          "Could not update dashboard access.",
+          "Could not update storefront access.",
       },
       {
         status: 500,
