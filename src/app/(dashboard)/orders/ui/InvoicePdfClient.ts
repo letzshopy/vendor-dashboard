@@ -51,6 +51,12 @@ type ShippingSettings = {
   businessAddress?: string;  // multi-line vendor business address
 };
 
+type AutoTableDocument = jsPDF & {
+  lastAutoTable?: {
+    finalY?: number;
+  };
+};
+
 /** -----------------------------
  * Helpers
  * ----------------------------- */
@@ -98,11 +104,38 @@ async function getSettings(): Promise<ShippingSettings> {
 
 async function getTaxRate(): Promise<number> {
   try {
-    const res = await fetch("/api/settings/tax", { cache: "no-store" });
-    if (!res.ok) return 0;
-    const j = await res.json();
-    const rate = Number(j?.rate);
-    return Number.isFinite(rate) ? rate : 0;
+    const res = await fetch("/api/tax/settings", { cache: "no-store" });
+
+    if (!res.ok) {
+      return 0;
+    }
+
+    const payload: unknown =
+      await res.json().catch(() => null);
+
+    if (
+      !payload ||
+      typeof payload !== "object" ||
+      Array.isArray(payload)
+    ) {
+      return 0;
+    }
+
+    const settings =
+      payload as Record<string, unknown>;
+
+    if (settings.enable !== true) {
+      return 0;
+    }
+
+    const rate = Number(settings.gst_slab);
+
+    return rate === 0 ||
+      rate === 5 ||
+      rate === 12 ||
+      rate === 18
+      ? rate
+      : 0;
   } catch {
     return 0;
   }
@@ -155,7 +188,7 @@ async function drawInvoice(
   doc.setFont("helvetica", "bold");
   doc.setFontSize(16);
   const title = "INVOICE";
-  const titleW = doc.getTextWidth(title);
+
   doc.text(title, pageWidth / 2, y + 6, { align: "center" });
 
   // Right: vendor business address (wrapped, right-aligned)
@@ -223,8 +256,16 @@ async function drawInvoice(
     margin: { left: margin, right: margin },
   });
 
-  const tbl = (doc as any).lastAutoTable;
-  y = tbl.finalY + 6;
+  const table =
+    (doc as AutoTableDocument)
+      .lastAutoTable;
+
+  if (
+    table &&
+    typeof table.finalY === "number"
+  ) {
+    y = table.finalY + 6;
+  }
 
   // ====== Totals ======
   const subtotal = items.reduce((s, it) => s + Number(it.subtotal || it.total || 0), 0);
@@ -237,7 +278,20 @@ async function drawInvoice(
     ["Subtotal", fmtINR(subtotal)],
     ["Shipping", fmtINR(shipping)],
     ["Tax", fmtINR(taxTotal)],
-    [{ content: "Grand Total", styles: { fontStyle: "bold" } } as any, { content: fmtINR(grand), styles: { fontStyle: "bold" } } as any],
+    [
+      {
+        content: "Grand Total",
+        styles: {
+          fontStyle: "bold" as const,
+        },
+      },
+      {
+        content: fmtINR(grand),
+        styles: {
+          fontStyle: "bold" as const,
+        },
+      },
+    ],
   ];
 
   autoTable(doc, {
