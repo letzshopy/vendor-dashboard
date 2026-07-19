@@ -1,52 +1,82 @@
-import { NextResponse } from "next/server";
-import { getWooClient } from "@/lib/woo";
+import { fetchInternalWp } from "@/lib/wpClient";
+import {
+  isRecord,
+  logOrderError,
+  parseBoundedString,
+  parseOrderId,
+  privateJson,
+  readJsonObject,
+  requestErrorResponse,
+} from "@/lib/orderPolicy";
 
+function safeRuntimeMessage(value: unknown): string | null {
+  if (!isRecord(value) || typeof value.message !== "string") {
+    return null;
+  }
 
-export async function POST(req: Request) {
   try {
-    const woo = await getWooClient();
-    const { orderId } = await req.json();
-    if (!orderId) {
-      return NextResponse.json(
-        { error: "Missing orderId" },
-        { status: 400 }
+    return parseBoundedString(
+      value.message,
+      "Payment verification response",
+      200,
+      { required: true }
+    );
+  } catch {
+    return null;
+  }
+}
+
+export async function POST(request: Request) {
+  try {
+    const body = await readJsonObject(request, 8 * 1024);
+    const orderId = parseOrderId(body.orderId);
+    const response = await fetchInternalWp(
+      `/wp-json/letz/v1/orders/${orderId}/verify-upi`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({}),
+      }
+    );
+    const result: unknown = await response
+      .json()
+      .catch(() => null);
+
+    if (!response.ok) {
+      const status = [400, 404, 409].includes(response.status)
+        ? response.status
+        : 502;
+
+      return privateJson(
+        {
+          ok: false,
+          error:
+            safeRuntimeMessage(result) ||
+            "Payment verification failed.",
+        },
+        status
       );
     }
 
-    // Load order from Woo
-    const { data: order } = await woo.get(`/orders/${orderId}`);
-
-    if (order.payment_method !== "letz_upi") {
-      return NextResponse.json(
-        { error: "Not a UPI order" },
-        { status: 400 }
-      );
+    if (!isRecord(result) || result.ok !== true) {
+      throw new Error("Unexpected payment verification response");
     }
 
-    if (order.status !== "on-hold") {
-      return NextResponse.json(
-        { error: "Order is not awaiting verification" },
-        { status: 400 }
-      );
-    }
-
-    // Move to processing
-    await woo.put(`/orders/${orderId}`, {
-      status: "processing",
+    return privateJson({
+      ok: true,
+      orderId,
+      status:
+        typeof result.status === "string"
+          ? result.status
+          : "processing",
     });
-
-    // Add an order note for audit trail
-    await woo.post(`/orders/${orderId}/notes`, {
-      note: "Manual UPI payment verified from LetzShopy vendor dashboard.",
-      customer_note: false,
-    });
-
-    return NextResponse.json({ ok: true });
-  } catch (e: any) {
-    console.error("verify-upi error", e?.message || e);
-    return NextResponse.json(
-      { error: "Failed to verify payment" },
-      { status: 500 }
+  } catch (error) {
+    logOrderError("verify-upi", error);
+    return requestErrorResponse(
+      error,
+      "Payment verification failed."
     );
   }
 }

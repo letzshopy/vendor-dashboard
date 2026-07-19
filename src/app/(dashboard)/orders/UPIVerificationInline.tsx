@@ -1,80 +1,139 @@
 "use client";
 
 import { useState } from "react";
+import type { MouseEvent } from "react";
 import type { WCOrder } from "@/lib/order-utils";
 
-type Props = {
-  order: WCOrder & {
-    meta_data?: any[];
-    payment_method?: string;
-  };
+type MetaEntry = {
+  key?: string;
+  value?: unknown;
 };
 
-function getMeta(order: any, key: string): any | undefined {
-  const meta = (order.meta_data || []) as any[];
-  const item = meta.find((m) => m.key === key);
-  return item?.value;
+type UpiOrder = WCOrder & {
+  meta_data?: MetaEntry[];
+  payment_method?: string;
+};
+
+type Props = {
+  order: UpiOrder;
+};
+
+function getMeta(order: UpiOrder, key: string): unknown {
+  const meta = Array.isArray(order.meta_data)
+    ? order.meta_data
+    : [];
+  return meta.find((entry) => entry?.key === key)?.value;
 }
 
-function isTruthyMeta(value: any): boolean {
-  return value === true || value === 1 || value === "1" || value === "yes" || value === "on";
+function isTruthyMeta(value: unknown): boolean {
+  return (
+    value === true ||
+    value === 1 ||
+    value === "1" ||
+    value === "yes" ||
+    value === "on"
+  );
+}
+
+function displayMeta(value: unknown): string {
+  if (typeof value === "string") return value.trim();
+  if (typeof value === "number") return String(value);
+  return "";
 }
 
 export function UPIVerificationInline({ order }: Props) {
-  const isUPI = order.payment_method === "letz_upi";
-  if (!isUPI) return null;
-
-  const isOnHold = order.status === "on-hold";
-  const txn = getMeta(order, "_letz_upi_txn");
-  const screenshotUrl = getMeta(order, "_letz_upi_screenshot_url");
-  const screenshotId = getMeta(order, "_letz_upi_screenshot_id");
-  const requireScreenshotMeta = getMeta(order, "_letz_upi_require_screenshot");
-  const requiresScreenshot =
-    requireScreenshotMeta === undefined
-      ? true
-      : isTruthyMeta(requireScreenshotMeta);
-
   const [loading, setLoading] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
-  const [showShot, setShowShot] = useState(false);
+  const isUpi = order.payment_method === "letz_upi";
+  const isOnHold = order.status === "on-hold";
+  const isVerified = ["processing", "completed"].includes(
+    String(order.status || "").toLowerCase()
+  );
+  const transactionId = displayMeta(
+    getMeta(order, "_letz_upi_txn")
+  );
+  const screenshotId = getMeta(
+    order,
+    "_letz_upi_screenshot_id"
+  );
+  const proofKey = displayMeta(
+    getMeta(order, "_letz_upi_proof_key")
+  );
+  const legacyProofUrl = displayMeta(
+    getMeta(order, "_letz_upi_screenshot_url")
+  );
+  const requirement = getMeta(
+    order,
+    "_letz_upi_require_screenshot"
+  );
+  const requiresScreenshot =
+    requirement === undefined ? true : isTruthyMeta(requirement);
+  const hasProof = Boolean(
+    proofKey || screenshotId || legacyProofUrl
+  );
+  const canVerify = Boolean(
+    isOnHold &&
+      transactionId &&
+      (!requiresScreenshot || hasProof)
+  );
+  const proofUrl = `/api/orders/${order.id}/upi-proof`;
 
-  const handleVerify = async () => {
-    if (!isOnHold) return;
+  if (!isUpi) return null;
 
-    const ok = window.confirm(
-      "Mark this UPI payment as verified and move the order to Processing?"
+  async function handleVerify() {
+    if (!canVerify || loading) return;
+
+    const confirmed = window.confirm(
+      "Confirm that you checked the UPI transaction and payment proof?"
     );
-    if (!ok) return;
+
+    if (!confirmed) return;
 
     setLoading(true);
+
     try {
-      const res = await fetch("/api/orders/verify-upi", {
+      const response = await fetch("/api/orders/verify-upi", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ orderId: order.id }),
       });
-      const data = await res.json();
-      if (!res.ok) {
-        alert(data?.error || "Failed to verify payment.");
+      const parsed: unknown = await response
+        .json()
+        .catch(() => null);
+      const error =
+        parsed &&
+        typeof parsed === "object" &&
+        "error" in parsed &&
+        typeof parsed.error === "string"
+          ? parsed.error
+          : "Payment verification failed.";
+
+      if (!response.ok) {
+        window.alert(error);
         return;
       }
-      alert("Payment verified. Order moved to Processing.");
+
+      window.alert("UPI payment verified successfully.");
       window.location.reload();
-    } catch (err) {
-      console.error(err);
-      alert("Something went wrong while verifying payment.");
+    } catch (error) {
+      console.error("UPI verification request failed", error);
+      window.alert("Payment verification failed.");
     } finally {
       setLoading(false);
     }
-  };
+  }
 
   const statusBadge = isOnHold ? (
     <span className="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-medium text-amber-700">
-      Pending verify
+      Pending verification
     </span>
-  ) : (
+  ) : isVerified ? (
     <span className="inline-flex items-center rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-medium text-emerald-700">
       Verified
+    </span>
+  ) : (
+    <span className="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-700">
+      {String(order.status || "UPI order").replaceAll("-", " ")}
     </span>
   );
 
@@ -88,18 +147,20 @@ export function UPIVerificationInline({ order }: Props) {
           onClick={() => setShowDetails(true)}
           className="text-[11px] font-medium text-indigo-700 underline underline-offset-2"
         >
-          {isOnHold ? "Verify payment" : "View UPI details"}
+          {isOnHold ? "Review payment" : "View UPI details"}
         </button>
       </div>
 
-      {showDetails && (
+      {showDetails ? (
         <div
           className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 md:items-center"
           onClick={() => setShowDetails(false)}
         >
           <div
             className="w-full max-w-md rounded-t-3xl bg-white shadow-2xl md:rounded-3xl"
-            onClick={(e) => e.stopPropagation()}
+            onClick={(event: MouseEvent<HTMLDivElement>) =>
+              event.stopPropagation()
+            }
           >
             <div className="border-b border-slate-100 px-4 py-4">
               <div className="flex items-center justify-between gap-3">
@@ -112,6 +173,7 @@ export function UPIVerificationInline({ order }: Props) {
 
                 <button
                   type="button"
+                  aria-label="Close payment details"
                   className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 text-sm text-slate-700 hover:bg-slate-200"
                   onClick={() => setShowDetails(false)}
                 >
@@ -121,97 +183,62 @@ export function UPIVerificationInline({ order }: Props) {
             </div>
 
             <div className="space-y-3 px-4 py-4 text-sm text-slate-700">
-              {txn ? (
+              {transactionId ? (
                 <div>
                   <div className="text-xs font-medium uppercase tracking-wide text-slate-400">
                     Transaction number
                   </div>
                   <div className="mt-1 break-all rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-800">
-                    {txn}
+                    {transactionId}
                   </div>
                 </div>
               ) : (
-                <div className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-500">
-                  Transaction number not available.
+                <div className="rounded-2xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+                  Transaction number is missing.
                 </div>
               )}
 
-              {requiresScreenshot ? (
-                screenshotUrl ? (
-                  <button
-                    type="button"
-                    className="inline-flex items-center justify-center rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
-                    onClick={() => setShowShot(true)}
-                  >
-                    View payment screenshot
-                  </button>
-                ) : screenshotId ? (
-                  <div className="text-sm text-amber-700">
-                    Screenshot uploaded. Open order in Woo admin to view.
-                  </div>
-                ) : (
-                  <div className="text-sm text-amber-700">
-                    Screenshot not uploaded yet.
-                  </div>
-                )
+              {hasProof ? (
+                <a
+                  href={proofUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center justify-center rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                >
+                  View payment proof
+                </a>
+              ) : requiresScreenshot ? (
+                <div className="rounded-2xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+                  Required payment proof has not been uploaded.
+                </div>
               ) : (
                 <div className="text-sm text-slate-600">
-                  Screenshot proof disabled for this order.
+                  Screenshot proof is disabled for this order.
                 </div>
               )}
 
-              {!isOnHold && (
+              {isVerified ? (
                 <div className="rounded-2xl border border-emerald-100 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
-                  Payment already verified ({order.status}).
+                  Payment was already verified.
                 </div>
-              )}
+              ) : null}
 
-              {isOnHold && (
+              {isOnHold ? (
                 <button
                   type="button"
                   onClick={handleVerify}
-                  disabled={loading}
-                  className="inline-flex w-full items-center justify-center rounded-2xl bg-indigo-600 px-4 py-3 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-60"
+                  disabled={!canVerify || loading}
+                  className="inline-flex w-full items-center justify-center rounded-2xl bg-indigo-600 px-4 py-3 text-sm font-semibold text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  {loading ? "Verifying..." : "Verify & Confirm Payment"}
+                  {loading
+                    ? "Verifying..."
+                    : "Verify & Confirm Payment"}
                 </button>
-              )}
+              ) : null}
             </div>
           </div>
         </div>
-      )}
-
-      {showShot && screenshotUrl && (
-        <div
-          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60"
-          onClick={() => setShowShot(false)}
-        >
-          <div
-            className="flex max-h-[90vh] max-w-[90vw] flex-col rounded-2xl bg-white p-2 shadow-xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="mb-2 flex items-center justify-between">
-              <div className="text-xs font-semibold text-slate-700">
-                Payment Screenshot
-              </div>
-              <button
-                className="flex h-7 w-7 items-center justify-center rounded-full text-sm hover:bg-slate-100"
-                onClick={() => setShowShot(false)}
-              >
-                ✕
-              </button>
-            </div>
-
-            <div className="flex flex-1 items-center justify-center overflow-auto">
-              <img
-                src={screenshotUrl}
-                alt="UPI payment screenshot"
-                className="max-h-[80vh] max-w-[80vw] object-contain"
-              />
-            </div>
-          </div>
-        </div>
-      )}
+      ) : null}
     </>
   );
 }
