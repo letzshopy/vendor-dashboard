@@ -1,6 +1,12 @@
-// src/app/api/notifications/route.ts
-import { NextResponse } from "next/server";
 import { getWooClient } from "@/lib/woo";
+import {
+  isRecord,
+  logOrderError,
+  privateJson,
+  type JsonRecord,
+} from "@/lib/orderPolicy";
+
+export const dynamic = "force-dynamic";
 
 type NotificationItem = {
   id: string;
@@ -13,89 +19,134 @@ type NotificationItem = {
   message: string;
 };
 
-const OPEN_STATUSES = [
+const OPEN_STATUSES = new Set([
   "pending",
   "pending-payment",
   "processing",
   "on-hold",
-];
+]);
+
+function boundedText(value: unknown, maxLength: number): string {
+  if (typeof value !== "string" && typeof value !== "number") return "";
+
+  return String(value)
+    .replace(/[\x00-\x1F\x7F]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, maxLength);
+}
+
+function orderId(value: unknown): number | null {
+  const parsed = Number(value);
+  return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : null;
+}
+
+function orderTotal(value: unknown): string {
+  const parsed = Number(value);
+
+  if (!Number.isFinite(parsed) || parsed < 0 || parsed > 1_000_000_000) {
+    return "0.00";
+  }
+
+  return parsed.toFixed(2);
+}
+
+function orderDate(order: JsonRecord): string | undefined {
+  const raw = boundedText(
+    order.date_created_gmt || order.date_created,
+    40
+  );
+
+  if (!raw) return undefined;
+
+  const timestamp = Date.parse(raw);
+  return Number.isFinite(timestamp)
+    ? new Date(timestamp).toISOString()
+    : undefined;
+}
+
+function customerName(order: JsonRecord): string {
+  const billing = isRecord(order.billing) ? order.billing : {};
+
+  return [billing.first_name, billing.last_name]
+    .map((value) => boundedText(value, 80))
+    .filter(Boolean)
+    .join(" ")
+    .slice(0, 160);
+}
+
+function isUpiVerified(order: JsonRecord): boolean {
+  if (!Array.isArray(order.meta_data)) return false;
+
+  return order.meta_data.some((entry: unknown) => {
+    if (!isRecord(entry)) return false;
+
+    const key = boundedText(entry.key, 80);
+    return (
+      (key === "_letz_upi_verified" || key === "letz_upi_verified") &&
+      boundedText(entry.value, 20).toLowerCase() === "yes"
+    );
+  });
+}
+
+function usesUpi(order: JsonRecord): boolean {
+  const payment = boundedText(
+    order.payment_method_title || order.payment_method,
+    120
+  ).toLowerCase();
+
+  return ["upi", "qr", "gpay"].some((term) => payment.includes(term));
+}
 
 export async function GET() {
   try {
     const woo = await getWooClient();
-    // Don’t pass status filter to Woo – some setups 400 on that.
-    const { data } = await woo.get("/orders", {
+    const response = await woo.get<unknown>("/orders", {
       params: {
         per_page: 50,
         orderby: "date",
         order: "desc",
+        _fields:
+          "id,number,total,status,billing,date_created,date_created_gmt,meta_data,payment_method,payment_method_title",
       },
     });
 
-    const orders = (data as any[]) || [];
+    const orders = Array.isArray(response.data) ? response.data : [];
     const items: NotificationItem[] = [];
 
-    for (const o of orders) {
-      const status: string = (o.status || "").toLowerCase();
-      if (!OPEN_STATUSES.includes(status)) continue;
+    for (const value of orders) {
+      if (!isRecord(value)) continue;
 
-      const orderId = Number(o.id);
-      const orderNumber = String(o.number || orderId);
-      const total = String(o.total || "0.00");
+      const status = boundedText(value.status, 40).toLowerCase();
+      const id = orderId(value.id);
+      if (!id || !OPEN_STATUSES.has(status)) continue;
 
-      const customerName = (
-        ((o.billing?.first_name as string) || "") +
-        " " +
-        ((o.billing?.last_name as string) || "")
-      )
-        .trim()
-        .replace(/\s+/g, " ");
+      const number = boundedText(value.number, 64) || String(id);
+      const total = orderTotal(value.total);
+      const customer = customerName(value);
+      const createdAt = orderDate(value);
 
-      const createdAt: string =
-        o.date_created_gmt || o.date_created || new Date().toISOString();
-
-      const meta = (o.meta_data || []) as Array<{ key: string; value: any }>;
-      const upiFlag =
-        meta.find(
-          (m) =>
-            m.key === "_letz_upi_verified" || m.key === "letz_upi_verified"
-        ) || null;
-      const upiVerified =
-        upiFlag &&
-        String(upiFlag.value).toLowerCase().trim() === "yes";
-
-      const paymentTitle = String(
-        o.payment_method_title || o.payment_method || ""
-      ).toLowerCase();
-
-      const isUPI =
-        paymentTitle.includes("upi") ||
-        paymentTitle.includes("qr") ||
-        paymentTitle.includes("gpay");
-
-      // New order notification (for any open status)
       items.push({
-        id: `new_order_${orderId}`,
+        id: `new_order_${id}`,
         type: "new_order",
-        order_id: orderId,
-        order_number: orderNumber,
+        order_id: id,
+        order_number: number,
         total,
-        customer: customerName || undefined,
+        customer: customer || undefined,
         created_at: createdAt,
-        message: customerName
-          ? `New order placed by ${customerName}.`
+        message: customer
+          ? `New order placed by ${customer}.`
           : "New order placed.",
       });
 
-      // Pending UPI verification notification
-      if (isUPI && !upiVerified) {
+      if (usesUpi(value) && !isUpiVerified(value)) {
         items.push({
-          id: `upi_pending_${orderId}`,
+          id: `upi_pending_${id}`,
           type: "upi_pending",
-          order_id: orderId,
-          order_number: orderNumber,
+          order_id: id,
+          order_number: number,
           total,
-          customer: customerName || undefined,
+          customer: customer || undefined,
           created_at: createdAt,
           message:
             "UPI payment needs manual verification in the order details.",
@@ -103,13 +154,12 @@ export async function GET() {
       }
     }
 
-    return NextResponse.json({ items });
-  } catch (e: any) {
-    console.error("Notifications API error:", e?.message || e);
-    // Still return 200 so UI doesn’t break – just no notifications
-    return NextResponse.json({
-      items: [],
-      error: "Failed to load notifications",
-    });
+    return privateJson({ items });
+  } catch (error: unknown) {
+    logOrderError("notifications", error);
+    return privateJson(
+      { items: [], error: "Failed to load notifications." },
+      502
+    );
   }
 }
