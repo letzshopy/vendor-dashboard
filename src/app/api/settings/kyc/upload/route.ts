@@ -1,60 +1,225 @@
-import { NextRequest, NextResponse } from "next/server";
+import {
+  NextResponse,
+  type NextRequest,
+} from "next/server";
+
 import { getWpBaseUrl } from "@/lib/wpClient";
 
-const TOKEN = process.env.LETZ_INTERNAL_TOKEN;
+const INTERNAL_TOKEN =
+  process.env.LETZ_INTERNAL_TOKEN || "";
 
-export async function POST(req: NextRequest) {
+const MAX_FILE_BYTES = 10 * 1024 * 1024;
+
+const PRIVATE_HEADERS = {
+  "Cache-Control":
+    "private, no-store, no-cache, must-revalidate, max-age=0",
+};
+
+const ALLOWED_MIME_TYPES = new Set([
+  "image/jpeg",
+  "image/png",
+  "application/pdf",
+]);
+
+type JsonRecord = Record<string, unknown>;
+
+function isRecord(value: unknown): value is JsonRecord {
+  return Boolean(
+    value &&
+      typeof value === "object" &&
+      !Array.isArray(value)
+  );
+}
+
+function normalizeDocumentType(
+  value: FormDataEntryValue | null
+): string {
+  const raw = String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+
+  const aliases: Record<string, string> = {
+    aadhaar: "aadhaar",
+    pan: "pan",
+    cheque: "cancelled_cheque",
+    cancelledcheque:
+      "cancelled_cheque",
+    cancelled_cheque:
+      "cancelled_cheque",
+    gstcert: "gstcert",
+    gst_cert: "gstcert",
+    gstcertificate:
+      "gst_certificate",
+    gst_certificate:
+      "gst_certificate",
+    doc: "doc",
+  };
+
+  return aliases[raw] || "";
+}
+
+export async function POST(
+  request: NextRequest
+) {
   try {
-    if (!TOKEN) {
-      return NextResponse.json(
-        { ok: false, error: "Server not configured: LETZ_INTERNAL_TOKEN missing" },
-        { status: 500 }
-      );
-    }
-
-    const form = await req.formData();
-    const file = form.get("file") as File | null;
-    const doc_type = (form.get("doc_type") as string | null) || "doc";
-
-    if (!file) {
-      return NextResponse.json({ ok: false, error: "No file" }, { status: 400 });
-    }
-
-    const base = (await getWpBaseUrl()).replace(/\/$/, "");
-
-    const fd = new FormData();
-    fd.append("file", file, file.name);
-    fd.append("doc_type", doc_type);
-
-    const r = await fetch(`${base}/wp-json/letz/v1/kyc/upload`, {
-      method: "POST",
-      headers: { "x-letz-auth": TOKEN },
-      body: fd,
-      cache: "no-store",
-    });
-
-    const text = await r.text();
-    let json: any = null;
-    try {
-      json = JSON.parse(text);
-    } catch {}
-
-    if (!r.ok) {
+    if (!INTERNAL_TOKEN) {
       return NextResponse.json(
         {
           ok: false,
-          error: json?.message || json?.error || "Upload failed",
-          details: json || text,
+          error:
+            "KYC document service is not configured.",
         },
-        { status: r.status || 500 }
+        {
+          status: 500,
+          headers: PRIVATE_HEADERS,
+        }
       );
     }
 
-    const fileKey = json?.fileKey || json?.key;
+    const form = await request
+      .formData()
+      .catch(() => null);
+
+    const file = form?.get("file");
+    const documentType =
+      normalizeDocumentType(
+        form?.get("doc_type") || null
+      );
+
+    if (!(file instanceof File)) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error:
+            "Select a KYC document to upload.",
+        },
+        {
+          status: 400,
+          headers: PRIVATE_HEADERS,
+        }
+      );
+    }
+
+    if (!documentType) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error:
+            "Invalid KYC document type.",
+        },
+        {
+          status: 400,
+          headers: PRIVATE_HEADERS,
+        }
+      );
+    }
+
+    if (
+      file.size <= 0 ||
+      file.size > MAX_FILE_BYTES
+    ) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error:
+            "KYC documents must be 10 MB or smaller.",
+        },
+        {
+          status: 400,
+          headers: PRIVATE_HEADERS,
+        }
+      );
+    }
+
+    if (
+      !ALLOWED_MIME_TYPES.has(file.type)
+    ) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error:
+            "Only JPG, PNG and PDF documents are allowed.",
+        },
+        {
+          status: 400,
+          headers: PRIVATE_HEADERS,
+        }
+      );
+    }
+
+    const base = (
+      await getWpBaseUrl()
+    ).replace(/\/$/, "");
+
+    const upstreamBody = new FormData();
+
+    upstreamBody.append(
+      "file",
+      file,
+      file.name.slice(0, 180)
+    );
+
+    upstreamBody.append(
+      "doc_type",
+      documentType
+    );
+
+    const response = await fetch(
+      `${base}/wp-json/letz/v1/kyc/upload`,
+      {
+        method: "POST",
+        headers: {
+          "x-letz-auth": INTERNAL_TOKEN,
+        },
+        body: upstreamBody,
+        cache: "no-store",
+        signal: AbortSignal.timeout(30_000),
+      }
+    );
+
+    const parsed: unknown = await response
+      .json()
+      .catch(() => null);
+
+    if (
+      !response.ok ||
+      !isRecord(parsed)
+    ) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error:
+            "KYC document upload failed.",
+        },
+        {
+          status:
+            response.status >= 400 &&
+            response.status < 500
+              ? response.status
+              : 502,
+          headers: PRIVATE_HEADERS,
+        }
+      );
+    }
+
+    const fileKey =
+      typeof parsed.fileKey === "string"
+        ? parsed.fileKey
+        : "";
+
     if (!fileKey) {
       return NextResponse.json(
-        { ok: false, error: "Upload ok but missing fileKey", details: json },
-        { status: 500 }
+        {
+          ok: false,
+          error:
+            "KYC document upload failed.",
+        },
+        {
+          status: 502,
+          headers: PRIVATE_HEADERS,
+        }
       );
     }
 
@@ -62,15 +227,36 @@ export async function POST(req: NextRequest) {
       {
         ok: true,
         fileKey,
-        filename: json?.filename,
-        docType: json?.doc_type || doc_type,
+        filename:
+          typeof parsed.filename ===
+          "string"
+            ? parsed.filename
+            : file.name.slice(0, 180),
+        docType: documentType,
       },
-      { status: 200 }
+      {
+        status: 200,
+        headers: PRIVATE_HEADERS,
+      }
     );
-  } catch (e: any) {
+  } catch (error: unknown) {
+    console.error(
+      "KYC upload failed:",
+      error instanceof Error
+        ? error.message
+        : "Unknown error"
+    );
+
     return NextResponse.json(
-      { ok: false, error: e?.message || "Upload failed" },
-      { status: 500 }
+      {
+        ok: false,
+        error:
+          "KYC document upload failed.",
+      },
+      {
+        status: 500,
+        headers: PRIVATE_HEADERS,
+      }
     );
   }
 }
