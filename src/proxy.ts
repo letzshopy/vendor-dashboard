@@ -32,7 +32,6 @@ const PUBLIC_API_PATHS = new Set([
   "/api/auth/forgot-password",
   "/api/auth/reset-password",
   "/api/auth/logout",
-  "/api/ping",
 ]);
 
 const SESSION_ONLY_API_PATHS = new Set([
