@@ -714,7 +714,6 @@ export default function OrderDetailClient({ initialOrder }: Props) {
                 <option value="on-hold">On hold</option>
                 <option value="completed">Completed</option>
                 <option value="cancelled">Cancelled</option>
-                <option value="refunded">Refunded</option>
                 <option value="failed">Failed</option>
               </MobileSelect>
               <button
