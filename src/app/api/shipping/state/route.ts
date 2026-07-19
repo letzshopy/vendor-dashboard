@@ -1,85 +1,77 @@
-// src/app/api/shipping/state/route.ts
 import { NextResponse } from "next/server";
-import { getWpBaseUrl } from "@/lib/wpClient";
 
-function safeAppPass(pass?: string) {
-  return (pass || "").replace(/\s+/g, "");
+import { fetchInternalWp } from "@/lib/wpClient";
+
+type JsonRecord = Record<string, unknown>;
+
+function isRecord(
+  value: unknown
+): value is JsonRecord {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    !Array.isArray(value)
+  );
 }
 
-function internalToken() {
-  const token = (
-    process.env.LETZ_INTERNAL_TOKEN || ""
-  ).trim();
-
-  if (!token) {
-    throw new Error(
-      "Missing LETZ_INTERNAL_TOKEN in dashboard env"
-    );
-  }
-
-  return token;
-}
-async function wpUrl(path: string) {
-  const base = (await getWpBaseUrl()).replace(/\/+$/, "");
-  return `${base}${path}`;
-}
-
-function wpHeaders() {
-  const user = process.env.WP_USER;
-  const pass = safeAppPass(process.env.WP_APP_PASSWORD);
-
-  const headers: Record<string, string> = {
-    Accept: "application/json",
-    "Content-Type": "application/json",
-    "X-Letz-Dashboard-Key": process.env.LETZ_DASHBOARD_API_KEY || "",
-    "X-Letz-Auth": internalToken(),
-  };
-
-  if (user && pass) {
-    const token = Buffer.from(`${user}:${pass}`).toString("base64");
-    headers.Authorization = `Basic ${token}`;
-  }
-
-  return headers;
+function privateJson(
+  body: unknown,
+  status = 200
+): NextResponse {
+  return NextResponse.json(body, {
+    status,
+    headers: {
+      "Cache-Control": "no-store, private",
+    },
+  });
 }
 
 export async function GET() {
   try {
-    const res = await fetch(await wpUrl("/wp-json/letz/v1/shipping/state"), {
-      method: "GET",
-      headers: wpHeaders(),
-      cache: "no-store",
-    });
+    const response = await fetchInternalWp(
+      "/wp-json/letz/v1/shipping/state",
+      { method: "GET" }
+    );
 
-    const text = await res.text();
+    const payload: unknown =
+      await response
+        .json()
+        .catch(() => null);
 
-    let json: any = null;
-    try {
-      json = JSON.parse(text);
-    } catch {}
+    if (
+      !response.ok ||
+      !isRecord(payload)
+    ) {
+      console.error(
+        `Shipping state request failed with status ${response.status}.`
+      );
 
-    if (!res.ok) {
-      return NextResponse.json(
+      return privateJson(
         {
           ok: false,
-          step: "shipping-state",
-          status: res.status,
-          error: json?.error ?? json?.message ?? text.slice(0, 500),
-          details: json || text,
+          error:
+            "Failed to load shipping settings.",
         },
-        { status: res.status || 500 }
+        502
       );
     }
 
-    return NextResponse.json(json ?? { ok: true });
-  } catch (e: any) {
-    return NextResponse.json(
+    return privateJson(payload);
+  } catch (error: unknown) {
+    console.error(
+      "Shipping state request failed:",
+      error instanceof Error
+        ? error.message
+        : "Unknown shipping error"
+    );
+
+    return privateJson(
       {
         ok: false,
-        step: "shipping-state",
-        error: e?.message || String(e),
+        error:
+          "Failed to load shipping settings.",
       },
-      { status: 500 }
+      502
     );
   }
 }

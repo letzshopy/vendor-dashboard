@@ -1,91 +1,171 @@
-// src/app/api/shipping/sync-classes/route.ts
 import { NextResponse } from "next/server";
-import { getWpBaseUrl } from "@/lib/wpClient";
 
-function safeAppPass(pass?: string) {
-  return (pass || "").replace(/\s+/g, "");
+import {
+  normalizeShippingClasses,
+} from "@/lib/shippingPolicy";
+import { fetchInternalWp } from "@/lib/wpClient";
+
+const MAX_REQUEST_BYTES = 131_072;
+const UPSTREAM_TIMEOUT_MS = 30_000;
+
+type JsonRecord = Record<string, unknown>;
+
+function isRecord(
+  value: unknown
+): value is JsonRecord {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    !Array.isArray(value)
+  );
 }
 
-function internalToken() {
-  const token = (
-    process.env.LETZ_INTERNAL_TOKEN || ""
-  ).trim();
+function privateJson(
+  body: unknown,
+  status = 200
+): NextResponse {
+  return NextResponse.json(body, {
+    status,
+    headers: {
+      "Cache-Control": "no-store, private",
+    },
+  });
+}
 
-  if (!token) {
-    throw new Error(
-      "Missing LETZ_INTERNAL_TOKEN in dashboard env"
+async function readRequestJson(
+  request: Request
+): Promise<unknown> {
+  const contentLength = Number(
+    request.headers.get("content-length") ||
+      "0"
+  );
+
+  if (
+    !Number.isFinite(contentLength) ||
+    contentLength < 0 ||
+    contentLength > MAX_REQUEST_BYTES
+  ) {
+    throw new Error("Invalid body size");
+  }
+
+  const text = await request.text();
+
+  if (
+    !text ||
+    Buffer.byteLength(text, "utf8") >
+      MAX_REQUEST_BYTES
+  ) {
+    throw new Error("Invalid body size");
+  }
+
+  return JSON.parse(text) as unknown;
+}
+
+export async function POST(
+  request: Request
+) {
+  let payload: unknown;
+
+  try {
+    payload = await readRequestJson(
+      request
+    );
+  } catch {
+    return privateJson(
+      {
+        ok: false,
+        error:
+          "Invalid shipping classes request.",
+      },
+      400
     );
   }
 
-  return token;
-}
-async function wpUrl(path: string) {
-  const base = (await getWpBaseUrl()).replace(/\/+$/, "");
-  return `${base}${path}`;
-}
-
-function wpHeaders(extra: Record<string, string> = {}) {
-  const u = process.env.WP_USER;
-  const p = safeAppPass(process.env.WP_APP_PASSWORD);
-
-  const headers: Record<string, string> = {
-    "Content-Type": "application/json",
-    Accept: "application/json",
-    "X-Letz-Dashboard-Key": process.env.LETZ_DASHBOARD_API_KEY || "",
-    "X-Letz-Auth": internalToken(),
-    ...extra,
-  };
-
-  if (u && p) {
-    const token = Buffer.from(`${u}:${p}`).toString("base64");
-    headers["Authorization"] = `Basic ${token}`;
+  if (!isRecord(payload)) {
+    return privateJson(
+      {
+        ok: false,
+        error:
+          "Invalid shipping classes request.",
+      },
+      400
+    );
   }
 
-  return headers;
-}
+  const classes =
+    normalizeShippingClasses(
+      payload.classes
+    );
 
-export async function POST(req: Request) {
+  if (!classes) {
+    return privateJson(
+      {
+        ok: false,
+        error:
+          "Invalid shipping classes.",
+      },
+      400
+    );
+  }
+
   try {
-    const payload = await req.json().catch(() => ({}));
-
-    const res = await fetch(
-      await wpUrl("/wp-json/letz/v1/shipping/sync-classes"),
+    const response = await fetchInternalWp(
+      "/wp-json/letz/v1/shipping/sync-classes",
       {
         method: "POST",
-        headers: wpHeaders(),
-        body: JSON.stringify(payload),
-      }
+        headers: {
+          "Content-Type":
+            "application/json",
+        },
+        body: JSON.stringify({ classes }),
+      },
+      UPSTREAM_TIMEOUT_MS
     );
 
-    const text = await res.text();
+    const responsePayload: unknown =
+      await response
+        .json()
+        .catch(() => null);
 
-    let json: any = null;
-    try {
-      json = JSON.parse(text);
-    } catch {}
+    if (
+      !response.ok ||
+      !isRecord(responsePayload)
+    ) {
+      console.error(
+        `Shipping class sync failed with status ${response.status}.`
+      );
 
-    if (!res.ok) {
-      return NextResponse.json(
+      const validation =
+        response.status === 400 ||
+        response.status === 422;
+
+      return privateJson(
         {
           ok: false,
-          step: "sync-classes",
-          status: res.status,
-          error: json?.error ?? json?.message ?? text.slice(0, 500),
-          details: json || text,
+          error: validation
+            ? "Invalid shipping classes."
+            : "Failed to sync shipping classes.",
         },
-        { status: res.status }
+        validation ? response.status : 502
       );
     }
 
-    return NextResponse.json(json ?? { ok: true });
-  } catch (e: any) {
-    return NextResponse.json(
+    return privateJson(responsePayload);
+  } catch (error: unknown) {
+    console.error(
+      "Shipping class sync failed:",
+      error instanceof Error
+        ? error.message
+        : "Unknown shipping error"
+    );
+
+    return privateJson(
       {
         ok: false,
-        step: "sync-classes",
-        error: e?.message || String(e),
+        error:
+          "Failed to sync shipping classes.",
       },
-      { status: 500 }
+      502
     );
   }
 }
