@@ -1,226 +1,317 @@
-// src/app/api/orders/route.ts
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { getWooClient } from "@/lib/woo";
-import { WCOrder } from "@/lib/order-utils";
+import type { WCOrder } from "@/lib/order-utils";
+import {
+  isRecord,
+  logOrderError,
+  OrderRequestError,
+  parseBoundedString,
+  parseOrderId,
+  parseOrderStatus,
+  parsePositiveInteger,
+  privateJson,
+  readJsonObject,
+  requestErrorResponse,
+} from "@/lib/orderPolicy";
 
-/* ---------------- helpers ---------------- */
-const norm = (s?: string) => (s || "").trim().toLowerCase();
+const READABLE_STATUSES = new Set([
+  "all",
+  "pending",
+  "processing",
+  "on-hold",
+  "completed",
+  "cancelled",
+  "refunded",
+  "failed",
+  "trash",
+]);
 
-// map many possible status spellings to one canonical key
-const STATUS_CANON: Record<
-  string,
-  | "pending"
-  | "processing"
-  | "on-hold"
-  | "completed"
-  | "cancelled"
-  | "refunded"
-  | "failed"
-  | "trash"
-> = {
-  pending: "pending",
+const STATUS_ALIASES: Record<string, string> = {
   "wc-pending": "pending",
-
-  processing: "processing",
   "wc-processing": "processing",
-
-  "on-hold": "on-hold",
   "on hold": "on-hold",
   on_hold: "on-hold",
   "wc-on-hold": "on-hold",
-
-  completed: "completed",
   complete: "completed",
   "wc-completed": "completed",
-
-  cancelled: "cancelled",
   canceled: "cancelled",
   "wc-cancelled": "cancelled",
-
-  refunded: "refunded",
   "wc-refunded": "refunded",
-
-  failed: "failed",
   "wc-failed": "failed",
-
-  trash: "trash",
   trashed: "trash",
   "wc-trash": "trash",
 };
 
-// 🔧 Explicitly return `string` so comparison with "all" is allowed
-function canonStatus(s?: string): string {
-  const n = norm(s).replace(/[^a-z-]/g, ""); // strip spaces/underscores/numbers
-  return STATUS_CANON[n] || (n as any);
+function normalized(value: unknown): string {
+  return typeof value === "string"
+    ? value.trim().toLowerCase()
+    : "";
 }
 
-function dayStartISO(d: string) {
-  const dt = new Date(d + "T00:00:00");
-  return new Date(dt.getTime() - dt.getTimezoneOffset() * 60000).toISOString();
+function canonicalStatus(value: unknown): string {
+  const status = normalized(value);
+  return STATUS_ALIASES[status] || status;
 }
-function dayEndISO(d: string) {
-  const dt = new Date(d + "T23:59:59");
-  return new Date(dt.getTime() - dt.getTimezoneOffset() * 60000).toISOString();
+
+function parseDate(value: string, field: string): string {
+  if (!value) return "";
+
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    throw new OrderRequestError(`${field} is invalid.`);
+  }
+
+  const date = new Date(`${value}T00:00:00Z`);
+
+  if (
+    Number.isNaN(date.getTime()) ||
+    date.toISOString().slice(0, 10) !== value
+  ) {
+    throw new OrderRequestError(`${field} is invalid.`);
+  }
+
+  return value;
 }
-function inDateRange(gmt?: string, fromISO?: string, toISO?: string) {
-  if (!gmt) return true;
-  const t = Date.parse(gmt + "Z");
-  if (fromISO && t < Date.parse(fromISO)) return false;
-  if (toISO && t > Date.parse(toISO)) return false;
+
+function dateBoundary(value: string, endOfDay = false): string {
+  return new Date(
+    `${value}T${endOfDay ? "23:59:59.999" : "00:00:00.000"}Z`
+  ).toISOString();
+}
+
+function insideDateRange(
+  value: string | undefined,
+  after: string | undefined,
+  before: string | undefined
+): boolean {
+  if (!value) return true;
+
+  const timestamp = Date.parse(
+    value.endsWith("Z") ? value : `${value}Z`
+  );
+
+  if (Number.isNaN(timestamp)) return false;
+  if (after && timestamp < Date.parse(after)) return false;
+  if (before && timestamp > Date.parse(before)) return false;
   return true;
 }
 
-async function fetchManyFromWoo(
+async function fetchOrders(
   paramsBase: Record<string, string | number>
 ): Promise<WCOrder[]> {
   const woo = await getWooClient();
-  const MAX_WOO_PAGES = 5; // up to 500 latest orders
-  const PER = 100;
-  const out: WCOrder[] = [];
-  for (let p = 1; p <= MAX_WOO_PAGES; p++) {
-    const params = { ...paramsBase, per_page: PER, page: p };
-    // 🔧 Axios expects config object; pass params inside { params }
-    const { data } = await woo.get<WCOrder[]>("/orders", { params });
-    out.push(...data);
-    if (data.length < PER) break;
-  }
-  return out;
-}
+  const orders: WCOrder[] = [];
 
-/* ---------------- route ---------------- */
-export async function GET(req: NextRequest) {
-  const woo = await getWooClient();
-  const { searchParams } = new URL(req.url);
+  for (let page = 1; page <= 5; page += 1) {
+    const response = await woo.get<WCOrder[]>("/orders", {
+      params: {
+        ...paramsBase,
+        per_page: 100,
+        page,
+      },
+    });
 
-  const page = Math.max(1, Number(searchParams.get("page") || 1));
-  const per_page = Math.max(
-    1,
-    Math.min(100, Number(searchParams.get("per_page") || 20))
-  );
-
-  // two modes (like Products)
-  const s = (searchParams.get("s") || "").trim(); // search-only
-  const statusParam = (searchParams.get("status") || "all").trim(); // filter-only
-  const date_from = searchParams.get("date_from") || "";
-  const date_to = searchParams.get("date_to") || "";
-
-  const afterISO = date_from ? dayStartISO(date_from) : undefined;
-  const beforeISO = date_to ? dayEndISO(date_to) : undefined;
-
-  // Woo hints (we filter locally anyway)
-  const hints: Record<string, string | number> = {
-    orderby: "date",
-    order: "desc",
-  };
-  if (afterISO) hints.after = afterISO;
-  if (beforeISO) hints.before = beforeISO;
-  if (s) hints.search = s;
-
-  try {
-    const raw = await fetchManyFromWoo(hints);
-
-    let filtered: WCOrder[];
-
-    if (s) {
-      // SEARCH MODE: order id/number, name, email, phone, SKU, product title
-      const q = norm(s);
-      filtered = raw.filter((o) => {
-        const idStr = String(o.id || "");
-        const number = String(o.number || idStr);
-        const name = `${o.billing?.first_name || ""} ${
-          o.billing?.last_name || ""
-        }`;
-        const email = o.billing?.email || "";
-        const phone = o.billing?.phone || "";
-
-        const hit =
-          norm(idStr) === q ||
-          norm(number).includes(q) ||
-          norm(name).includes(q) ||
-          norm(email).includes(q) ||
-          norm(phone).includes(q) ||
-          (o.line_items || []).some(
-            (li) =>
-              norm(li.sku).includes(q) || norm(li.name).includes(q)
-          );
-
-        if (!hit) return false;
-        // Date range still respected in search mode if provided via hints
-        if (!inDateRange(o.date_created_gmt, afterISO, beforeISO)) return false;
-        return true;
-      });
-    } else {
-      // FILTER MODE: status + date range
-      const want = canonStatus(statusParam);
-      filtered = raw.filter((o) => {
-        // "all" means don't filter by status
-        if (want && want !== "all" && canonStatus(o.status) !== want)
-          return false;
-        if (!inDateRange(o.date_created_gmt, afterISO, beforeISO)) return false;
-        return true;
-      });
+    if (!Array.isArray(response.data)) {
+      throw new Error("Unexpected order service response");
     }
 
-    // paginate the filtered list
-    const total = filtered.length;
-    const totalPages = Math.max(1, Math.ceil(total / per_page));
-    const start = (page - 1) * per_page;
-    const end = start + per_page;
-    const data = filtered.slice(start, end);
+    orders.push(...response.data);
 
-    return NextResponse.json({ data, page, per_page, total, totalPages });
-  } catch (e: any) {
-    return NextResponse.json(
-      { error: e?.message || "Failed to fetch orders" },
-      { status: 500 }
-    );
+    if (response.data.length < 100) break;
   }
+
+  return orders;
 }
 
-/* ------------- bulk actions unchanged ------------- */
-export async function PATCH(req: NextRequest) {
-  const woo = await getWooClient();
-  const body = await req.json().catch(() => ({}));
-  const ids: number[] = body?.ids || [];
-  const action: string = body?.action;
-
-  if (!ids.length || !action) {
-    return NextResponse.json(
-      { error: "ids[] and action are required" },
-      { status: 400 }
-    );
-  }
-
+export async function GET(request: NextRequest) {
   try {
-    if (action === "trash") {
-      const results = [];
-      for (const id of ids) {
-        const { data } = await woo.delete(`/orders/${id}`); // soft delete
-        results.push(data);
+    const query = request.nextUrl.searchParams;
+    const page = parsePositiveInteger(
+      query.get("page") || "1",
+      "Page",
+      100_000
+    );
+    const perPage = parsePositiveInteger(
+      query.get("per_page") || "20",
+      "Rows per page",
+      100
+    );
+    const search = parseBoundedString(
+      query.get("s") || "",
+      "Search",
+      120
+    );
+    const requestedStatus = canonicalStatus(
+      parseBoundedString(
+        query.get("status") || "all",
+        "Order status",
+        32,
+        { required: true }
+      )
+    );
+    const dateFrom = parseDate(
+      query.get("date_from") || "",
+      "Start date"
+    );
+    const dateTo = parseDate(
+      query.get("date_to") || "",
+      "End date"
+    );
+
+    if (!READABLE_STATUSES.has(requestedStatus)) {
+      throw new OrderRequestError("Order status is invalid.");
+    }
+
+    if (dateFrom && dateTo && dateFrom > dateTo) {
+      throw new OrderRequestError(
+        "Start date cannot be after end date."
+      );
+    }
+
+    const after = dateFrom
+      ? dateBoundary(dateFrom)
+      : undefined;
+    const before = dateTo
+      ? dateBoundary(dateTo, true)
+      : undefined;
+    const hints: Record<string, string | number> = {
+      orderby: "date",
+      order: "desc",
+    };
+
+    if (after) hints.after = after;
+    if (before) hints.before = before;
+    if (search) hints.search = search;
+
+    const raw = await fetchOrders(hints);
+    const searchTerm = normalized(search);
+    const filtered = raw.filter((order) => {
+      if (
+        !insideDateRange(
+          order.date_created_gmt,
+          after,
+          before
+        )
+      ) {
+        return false;
       }
-      return NextResponse.json({ ok: true, results });
-    }
 
-    if (action === "status") {
-      const newStatus: string = body?.status;
-      if (!newStatus)
-        return NextResponse.json(
-          { error: "status is required" },
-          { status: 400 }
+      if (searchTerm) {
+        const id = String(order.id || "");
+        const number = String(order.number || id);
+        const customer = [
+          order.billing?.first_name,
+          order.billing?.last_name,
+        ]
+          .filter(Boolean)
+          .join(" ");
+        const fields = [
+          id,
+          number,
+          customer,
+          order.billing?.email,
+          order.billing?.phone,
+        ];
+
+        return (
+          fields.some((field) =>
+            normalized(field).includes(searchTerm)
+          ) ||
+          (order.line_items || []).some(
+            (item) =>
+              normalized(item.sku).includes(searchTerm) ||
+              normalized(item.name).includes(searchTerm)
+          )
         );
-      const results = [];
-      for (const id of ids) {
-        const { data } = await woo.put(`/orders/${id}`, { status: newStatus });
-        results.push(data);
       }
-      return NextResponse.json({ ok: true, results });
+
+      return (
+        requestedStatus === "all" ||
+        canonicalStatus(order.status) === requestedStatus
+      );
+    });
+
+    const total = filtered.length;
+    const totalPages = Math.max(1, Math.ceil(total / perPage));
+    const start = (page - 1) * perPage;
+
+    return privateJson({
+      data: filtered.slice(start, start + perPage),
+      page,
+      per_page: perPage,
+      total,
+      totalPages,
+    });
+  } catch (error) {
+    logOrderError("list", error);
+    return requestErrorResponse(error, "Failed to load orders.");
+  }
+}
+
+export async function PATCH(request: NextRequest) {
+  try {
+    const body = await readJsonObject(request, 32 * 1024);
+    const idsValue = body.ids;
+
+    if (!Array.isArray(idsValue) || idsValue.length === 0) {
+      throw new OrderRequestError(
+        "At least one order must be selected."
+      );
     }
 
-    return NextResponse.json({ error: "Unknown action" }, { status: 400 });
-  } catch (e: any) {
-    return NextResponse.json(
-      { error: e.message || "Bulk action failed" },
-      { status: 500 }
+    if (idsValue.length > 50) {
+      throw new OrderRequestError(
+        "A maximum of 50 orders can be updated at once."
+      );
+    }
+
+    const ids = [...new Set(idsValue.map(parseOrderId))];
+    const action = parseBoundedString(
+      body.action,
+      "Bulk action",
+      20,
+      { required: true }
     );
+    const woo = await getWooClient();
+    const results: Array<{
+      id: number;
+      status?: string;
+    }> = [];
+
+    if (action === "trash") {
+      for (const id of ids) {
+        const response = await woo.delete(`/orders/${id}`);
+        const value: unknown = response.data;
+        results.push({
+          id,
+          status:
+            isRecord(value) && typeof value.status === "string"
+              ? value.status
+              : undefined,
+        });
+      }
+    } else if (action === "status") {
+      const status = parseOrderStatus(body.status);
+
+      for (const id of ids) {
+        const response = await woo.put(`/orders/${id}`, {
+          status,
+        });
+        const value: unknown = response.data;
+        results.push({
+          id,
+          status:
+            isRecord(value) && typeof value.status === "string"
+              ? value.status
+              : status,
+        });
+      }
+    } else {
+      throw new OrderRequestError("Bulk action is invalid.");
+    }
+
+    return privateJson({ ok: true, results });
+  } catch (error) {
+    logOrderError("bulk", error);
+    return requestErrorResponse(error, "Bulk order update failed.");
   }
 }
