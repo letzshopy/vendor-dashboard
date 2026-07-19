@@ -13,13 +13,24 @@ async function getBaseUrl(): Promise<string> {
   );
 }
 
+type Address = {
+  first_name?: string;
+  last_name?: string;
+  address_1?: string;
+  address_2?: string;
+  city?: string;
+  state?: string;
+  postcode?: string;
+  country?: string;
+  phone?: string;
+};
 type Customer = {
   id: string;
   email: string;
   first_name: string;
   last_name: string;
-  billing?: any;
-  shipping?: any;
+  billing?: Address;
+  shipping?: Address;
   total_spent: number;
   date_created?: string | null;
 };
@@ -35,9 +46,14 @@ type Order = {
 };
 
 async function getCustomer(id: string) {
+  const requestHeaders = await headers();
+  const cookieHeader = requestHeaders.get("cookie");
   const base = await getBaseUrl();
   const res = await fetch(`${base}/api/customers/${id}`, {
     cache: "no-store",
+    headers: cookieHeader
+      ? { cookie: cookieHeader }
+      : undefined,
   });
   if (!res.ok) throw new Error("Failed to load customer");
   return res.json() as Promise<{
@@ -47,7 +63,7 @@ async function getCustomer(id: string) {
   }>;
 }
 
-function AddressBlock({ title, a }: { title: string; a?: any }) {
+function AddressBlock({ title, a }: { title: string; a?: Address }) {
   if (!a) return null;
 
   return (
