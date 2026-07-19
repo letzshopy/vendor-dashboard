@@ -1,8 +1,20 @@
-// src/app/api/master/vendors/route.ts
 import { NextResponse } from "next/server";
-import { getMasterWpBaseUrl } from "@/lib/wpClient";
 
-type RawVendor = {
+import {
+  getMasterWpBaseUrl,
+} from "@/lib/wpClient";
+
+const MASTER_API_KEY =
+  process.env.MASTER_API_KEY || "";
+
+const PRIVATE_HEADERS = {
+  "Cache-Control":
+    "private, no-store, no-cache, must-revalidate, max-age=0",
+};
+
+type JsonRecord = Record<string, unknown>;
+
+type VendorSummary = {
   blog_id: number;
   store_name: string;
   store_url: string;
@@ -12,62 +24,174 @@ type RawVendor = {
   billing_state: string;
 };
 
-type VendorsResponse = {
-  vendors: RawVendor[];
-};
+function isRecord(value: unknown): value is JsonRecord {
+  return Boolean(
+    value &&
+      typeof value === "object" &&
+      !Array.isArray(value)
+  );
+}
+
+function stringField(
+  source: JsonRecord,
+  key: string,
+  maxLength: number
+): string {
+  return typeof source[key] === "string"
+    ? source[key]
+        .trim()
+        .slice(0, maxLength)
+    : "";
+}
+
+function normalizeVendor(
+  value: unknown
+): VendorSummary | null {
+  if (!isRecord(value)) {
+    return null;
+  }
+
+  const blogId = Number(value.blog_id);
+  const storeUrl = stringField(
+    value,
+    "store_url",
+    500
+  );
+
+  if (
+    !Number.isInteger(blogId) ||
+    blogId <= 0 ||
+    !/^https?:\/\//i.test(storeUrl)
+  ) {
+    return null;
+  }
+
+  return {
+    blog_id: blogId,
+    store_name:
+      stringField(
+        value,
+        "store_name",
+        180
+      ),
+    store_url: storeUrl,
+    owner_email:
+      stringField(
+        value,
+        "owner_email",
+        254
+      ),
+    plan:
+      stringField(value, "plan", 80),
+    status:
+      stringField(value, "status", 80),
+    billing_state:
+      stringField(
+        value,
+        "billing_state",
+        80
+      ),
+  };
+}
 
 export async function GET() {
   try {
-    // MASTER-only base URL (never tenant cookie)
-    const base = (await getMasterWpBaseUrl()).replace(/\/$/, "");
-
-    const wpUser = process.env.WP_USER;
-    // WP shows app passwords with spaces – safe to remove them for Basic auth
-    const wpPass = (process.env.WP_APP_PASSWORD || "").replace(/\s+/g, "");
-
-    if (!base || !wpUser || !wpPass) {
-      return NextResponse.json(
-        { error: "Missing MASTER_WP_URL / WP_USER / WP_APP_PASSWORD env vars" },
-        { status: 500 }
-      );
-    }
-
-    const apiUrl = `${base}/wp-json/letz/v1/master-vendors`;
-    const auth = Buffer.from(`${wpUser}:${wpPass}`).toString("base64");
-
-    const res = await fetch(apiUrl, {
-      headers: {
-        Authorization: `Basic ${auth}`,
-        "Content-Type": "application/json",
-      },
-      cache: "no-store",
-    });
-
-    const text = await res.text();
-    let json: any = null;
-    try {
-      json = JSON.parse(text);
-    } catch {
-      // ignore non-JSON
-    }
-
-    if (!res.ok) {
+    if (!MASTER_API_KEY) {
       return NextResponse.json(
         {
-          error: json?.message || "WP API error",
-          status: res.status,
-          body: json || text,
+          ok: false,
+          error:
+            "Master vendor service is not configured.",
         },
-        { status: res.status || 500 }
+        {
+          status: 500,
+          headers: PRIVATE_HEADERS,
+        }
       );
     }
 
-    const data = (json as VendorsResponse) || ({} as VendorsResponse);
-    return NextResponse.json(data, { status: 200 });
-  } catch (err: any) {
+    const base = (
+      await getMasterWpBaseUrl()
+    ).replace(/\/$/, "");
+
+    const response = await fetch(
+      `${base}/wp-json/letz/v1/master-vendors`,
+      {
+        headers: {
+          Accept: "application/json",
+          Authorization:
+            `Bearer ${MASTER_API_KEY}`,
+          "X-Letz-Master-Key":
+            MASTER_API_KEY,
+        },
+        cache: "no-store",
+        signal: AbortSignal.timeout(15_000),
+      }
+    );
+
+    const parsed: unknown = await response
+      .json()
+      .catch(() => null);
+
+    if (
+      !response.ok ||
+      !isRecord(parsed) ||
+      !Array.isArray(parsed.vendors)
+    ) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error:
+            "Could not load the vendor registry.",
+        },
+        {
+          status:
+            response.status >= 400 &&
+            response.status < 500
+              ? response.status
+              : 502,
+          headers: PRIVATE_HEADERS,
+        }
+      );
+    }
+
+    const vendors = parsed.vendors
+      .map(normalizeVendor)
+      .filter(
+        (
+          vendor
+        ): vendor is VendorSummary =>
+          vendor !== null
+      );
+
     return NextResponse.json(
-      { error: "Unexpected error", message: String(err?.message || err) },
-      { status: 500 }
+      {
+        ok: true,
+        vendors,
+      },
+      {
+        status: 200,
+        headers: PRIVATE_HEADERS,
+      }
+    );
+  } catch (error: unknown) {
+    console.error(
+      "Master vendor registry request failed:",
+      error instanceof Error
+        ? error.message
+        : "Unknown error"
+    );
+
+    return NextResponse.json(
+      {
+        ok: false,
+        error:
+          "Could not load the vendor registry.",
+      },
+      {
+        status: 500,
+        headers: PRIVATE_HEADERS,
+      }
     );
   }
 }
