@@ -1,62 +1,52 @@
-// src/app/api/coupons/route.ts
-import { NextResponse } from "next/server";
+import {
+  couponErrorResponse,
+  couponSummary,
+  normalizeCouponPayload,
+  privateCouponJson,
+  readCouponBody,
+} from "@/lib/couponPolicy";
 import { getWooClient } from "@/lib/woo";
 
-
-type CouponPayload = {
-  code: string;
-  discount_type: "percent" | "fixed_cart" | "fixed_product";
-  amount: string;
-  description?: string;
-  date_expires?: string | null;
-  minimum_amount?: string;
-  usage_limit?: number | null;
-};
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 export async function GET() {
   try {
     const woo = await getWooClient();
-    const { data } = await woo.get("/coupons", {
-      params: {
-        per_page: 100,
-        orderby: "date",
-        order: "desc",
-      },
+    const coupons: unknown[] = [];
+
+    for (let page = 1; page <= 10; page += 1) {
+      const response = await woo.get("/coupons", {
+        params: { per_page: 100, page, orderby: "date", order: "desc" },
+      });
+      const rows = Array.isArray(response.data) ? response.data : [];
+      coupons.push(...rows);
+      if (rows.length < 100) break;
+    }
+
+    return privateCouponJson({
+      data: coupons.flatMap((value) => {
+        const coupon = couponSummary(value);
+        return coupon ? [coupon] : [];
+      }),
     });
-    return NextResponse.json({ data });
-  } catch (e: any) {
-    console.error("COUPONS GET error", e?.response?.data || e);
-    return NextResponse.json(
-      { error: "Failed to load coupons" },
-      { status: 500 }
-    );
+  } catch (error: unknown) {
+    return couponErrorResponse(error, "Failed to load coupons");
   }
 }
 
-export async function POST(req: Request) {
+export async function POST(request: Request) {
   try {
+    const body = await readCouponBody(request);
+    const payload = normalizeCouponPayload(body);
     const woo = await getWooClient();
-    const body = (await req.json()) as CouponPayload;
+    const response = await woo.post("/coupons", payload);
+    const coupon = couponSummary(response.data);
 
-    const payload: any = {
-      code: body.code,
-      discount_type: body.discount_type,
-      amount: body.amount,
-      description: body.description || "",
-      individual_use: true,
-    };
-
-    if (body.date_expires) payload.date_expires = body.date_expires;
-    if (body.minimum_amount) payload.minimum_amount = body.minimum_amount;
-    if (typeof body.usage_limit === "number")
-      payload.usage_limit = body.usage_limit;
-
-    const { data } = await woo.post("/coupons", payload);
-    return NextResponse.json({ data });
-  } catch (e: any) {
-    console.error("COUPONS POST error", e?.response?.data || e);
-    const msg =
-      e?.response?.data?.message || e?.message || "Failed to create coupon";
-    return NextResponse.json({ error: msg }, { status: 500 });
+    if (!coupon) throw new Error("WooCommerce returned an invalid coupon");
+    return privateCouponJson({ data: coupon }, 201);
+  } catch (error: unknown) {
+    return couponErrorResponse(error, "Failed to create coupon");
   }
 }
