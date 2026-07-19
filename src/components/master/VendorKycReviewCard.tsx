@@ -1,9 +1,33 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 
 type KycStatus = "not_started" | "in_review" | "approved" | "rejected";
 type KycDocKey = "AADHAAR" | "PAN" | "CHEQUE" | "GST_CERT";
+type JsonRecord = Record<string, unknown>;
+
+function isRecord(value: unknown): value is JsonRecord {
+  return Boolean(
+    value &&
+      typeof value === "object" &&
+      !Array.isArray(value)
+  );
+}
+
+function errorMessage(
+  value: unknown,
+  fallback: string
+): string {
+  return isRecord(value) &&
+    typeof value.error === "string"
+    ? value.error
+    : fallback;
+}
 
 type KycData = {
   ok?: boolean;
@@ -76,91 +100,121 @@ export default function VendorKycReviewCard({
   const [reviewNote, setReviewNote] = useState("");
   const [kyc, setKyc] = useState<KycData | null>(null);
 
-  async function loadKyc() {
-    if (!storeUrl) {
-      setError("Vendor store URL missing");
-      setLoading(false);
-      return;
-    }
-
+  const loadKyc = useCallback(async () => {
     setLoading(true);
     setError(null);
 
     try {
-      const res = await fetch(
-        `/api/master/vendors/${blogid}/kyc?storeUrl=${encodeURIComponent(storeUrl)}&_ts=${Date.now()}`,
+      const response = await fetch(
+        `/api/master/vendors/${blogid}/kyc?_ts=${Date.now()}`,
         {
           method: "GET",
           cache: "no-store",
         }
       );
 
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        throw new Error(data?.error || "Failed to load KYC");
+      const data: unknown = await response
+        .json()
+        .catch(() => null);
+
+      if (!response.ok || !isRecord(data)) {
+        throw new Error(
+          errorMessage(
+            data,
+            "Failed to load KYC"
+          )
+        );
       }
 
-      setKyc(data);
-      setReviewNote(data?.reviewNote || "");
-    } catch (e: any) {
-      setError(e?.message || "Failed to load KYC");
+      setKyc(data as KycData);
+      setReviewNote(
+        typeof data.reviewNote === "string"
+          ? data.reviewNote
+          : ""
+      );
+    } catch (caught: unknown) {
+      setError(
+        caught instanceof Error
+          ? caught.message
+          : "Failed to load KYC"
+      );
     } finally {
       setLoading(false);
     }
-  }
+  }, [blogid]);
 
   useEffect(() => {
-    loadKyc();
-  }, [blogid, storeUrl]);
+    void loadKyc();
+  }, [loadKyc]);
 
-  function showBanner(msg: string) {
-    setBanner(msg);
+  function showBanner(message: string) {
+    setBanner(message);
     setTimeout(() => setBanner(null), 2400);
   }
 
-  async function review(status: "approved" | "rejected") {
-    if (!storeUrl) {
-      setError("Vendor store URL missing");
-      return;
-    }
-
+  async function review(
+    status: "approved" | "rejected"
+  ) {
     setActionLoading(status);
     setError(null);
 
     try {
-      const res = await fetch(`/api/master/vendors/${blogid}/kyc/review`, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          status,
-          note: reviewNote,
-          storeUrl,
-        }),
-      });
-
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        throw new Error(data?.error || `Failed to ${status} KYC`);
-      }
-
-      // immediately reflect approved/rejected in UI
-      setKyc((prev) =>
-        prev
-          ? {
-              ...prev,
-              kycStatus: status,
-              reviewedAt: data?.reviewedAt || new Date().toISOString(),
-              reviewNote,
-            }
-          : prev
+      const response = await fetch(
+        `/api/master/vendors/${blogid}/kyc/review`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type":
+              "application/json",
+          },
+          body: JSON.stringify({
+            status,
+            note: reviewNote,
+          }),
+        }
       );
 
-      // then fetch fresh canonical copy
+      const data: unknown = await response
+        .json()
+        .catch(() => null);
+
+      if (!response.ok || !isRecord(data)) {
+        throw new Error(
+          errorMessage(
+            data,
+            `Failed to ${status} KYC`
+          )
+        );
+      }
+
+      setKyc((previous) =>
+        previous
+          ? {
+              ...previous,
+              kycStatus: status,
+              reviewedAt:
+                typeof data.reviewedAt ===
+                "string"
+                  ? data.reviewedAt
+                  : new Date().toISOString(),
+              reviewNote,
+            }
+          : previous
+      );
+
       await loadKyc();
 
-      showBanner(status === "approved" ? "KYC approved successfully" : "KYC rejected successfully");
-    } catch (e: any) {
-      setError(e?.message || "Failed to update KYC review");
+      showBanner(
+        status === "approved"
+          ? "KYC approved successfully"
+          : "KYC rejected successfully"
+      );
+    } catch (caught: unknown) {
+      setError(
+        caught instanceof Error
+          ? caught.message
+          : "Failed to update KYC review"
+      );
     } finally {
       setActionLoading("");
     }
@@ -296,7 +350,7 @@ export default function VendorKycReviewCard({
 
                     {doc.fileKey ? (
                       <a
-                        href={`/api/master/vendors/${blogid}/kyc?storeUrl=${encodeURIComponent(storeUrl || "")}&download=${encodeURIComponent(doc.fileKey)}&_ts=${Date.now()}`}
+                        href={`/api/master/vendors/${blogid}/kyc?download=${encodeURIComponent(doc.fileKey)}&_ts=${Date.now()}`}
                         target="_blank"
                         rel="noreferrer"
                         className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-100"

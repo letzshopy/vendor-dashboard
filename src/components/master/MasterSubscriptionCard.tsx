@@ -11,8 +11,8 @@ type SubscriptionStatus =
   | "suspended"
   | "expired";
 
-type SubscriptionPlan = "standard" | "premium";
-type SubscriptionPeriod = "monthly" | "yearly";
+type SubscriptionPlan = "trial" | "standard" | "premium";
+type SubscriptionPeriod = "trial" | "monthly" | "yearly";
 
 export type MasterSubscriptionData = {
   storeUrl?: string;
@@ -95,22 +95,55 @@ function statusPillClass(status: string) {
   return "border-slate-200 bg-slate-50 text-slate-700";
 }
 
+function normalizePlan(value?: string): SubscriptionPlan {
+  const plan = String(value || "").trim().toLowerCase();
+
+  if (plan === "premium") return "premium";
+  if (plan === "standard") return "standard";
+  return "trial";
+}
+
+function normalizePeriod(value?: string): SubscriptionPeriod {
+  const period = String(value || "").trim().toLowerCase();
+
+  if (period === "monthly") return "monthly";
+  if (period === "yearly") return "yearly";
+  return "trial";
+}
+
+function normalizeStatus(value?: string): SubscriptionStatus {
+  const status = String(value || "").trim().toLowerCase();
+  const allowed: SubscriptionStatus[] = [
+    "trial",
+    "inactive",
+    "pending_payment",
+    "payment_submitted",
+    "active",
+    "suspended",
+    "expired",
+  ];
+
+  return allowed.includes(status as SubscriptionStatus)
+    ? (status as SubscriptionStatus)
+    : "inactive";
+}
+
 export default function MasterSubscriptionCard({
   blogid,
   initial,
   storeUrl,
 }: Props) {
   const [plan, setPlan] = useState<SubscriptionPlan>(
-    initial.plan === "premium" ? "premium" : "standard"
+    normalizePlan(initial.plan)
   );
   const [period, setPeriod] = useState<SubscriptionPeriod>(
-    initial.period === "monthly" ? "monthly" : "yearly"
+    normalizePeriod(initial.period)
   );
   const [status, setStatus] = useState<SubscriptionStatus>(
-    (initial.status as SubscriptionStatus) || "inactive"
+    normalizeStatus(initial.status)
   );
   const [amount, setAmount] = useState<string>(String(initial.amount ?? ""));
-  const [paymentMode, setPaymentMode] = useState(initial.payment_mode || "UPI");
+  const [paymentMode, setPaymentMode] = useState(initial.payment_mode || "");
   const [paymentReference, setPaymentReference] = useState(
     initial.payment_reference || ""
   );
@@ -126,6 +159,7 @@ export default function MasterSubscriptionCard({
   const [err, setErr] = useState<string | null>(null);
 
   const suggestedAmount = useMemo(() => {
+    if (plan === "trial" || period === "trial") return 0;
     if (plan === "standard" && period === "monthly") return 999;
     if (plan === "standard" && period === "yearly") return 11000;
     if (plan === "premium" && period === "monthly") return 1399;
@@ -188,9 +222,9 @@ export default function MasterSubscriptionCard({
       }
 
       setMsg("Subscription updated.");
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.error(e);
-      setErr(e?.message || "Failed to save subscription");
+      setErr(e instanceof Error ? e.message : "Failed to save subscription");
     } finally {
       setSaving(false);
     }
@@ -237,6 +271,7 @@ export default function MasterSubscriptionCard({
             onChange={(e) => setPlan(e.target.value as SubscriptionPlan)}
             className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-900"
           >
+            <option value="trial">Trial</option>
             <option value="standard">Standard</option>
             <option value="premium">Premium</option>
           </select>
@@ -251,6 +286,7 @@ export default function MasterSubscriptionCard({
             onChange={(e) => setPeriod(e.target.value as SubscriptionPeriod)}
             className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-900"
           >
+            <option value="trial">Trial</option>
             <option value="monthly">Monthly</option>
             <option value="yearly">Yearly</option>
           </select>
@@ -359,7 +395,8 @@ export default function MasterSubscriptionCard({
         <button
           type="button"
           onClick={handleActivate}
-          className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700"
+          disabled={status !== "payment_submitted"}
+          className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
         >
           Activate Subscription
         </button>

@@ -1,8 +1,15 @@
 import Link from "next/link";
 import DashboardAccessCard from "@/components/master/DashboardAccessCard";
 import VendorKycReviewCard from "@/components/master/VendorKycReviewCard";
-import MasterSubscriptionCard from "@/components/master/MasterSubscriptionCard";
+import MasterSubscriptionCard, {
+  type MasterSubscriptionData,
+} from "@/components/master/MasterSubscriptionCard";
 import MasterDomainRenewalCard from "@/components/master/MasterDomainRenewalCard";
+import {
+  fetchMasterVendorDetail,
+  type MasterVendorDetail,
+} from "@/lib/masterOperations";
+import { resolveMasterVendorStoreUrl } from "@/lib/masterVendor";
 
 export const dynamic = "force-dynamic";
 
@@ -25,14 +32,18 @@ function textField(source: JsonRecord, ...keys: string[]): string {
 }
 
 async function fetchAuthoritativeSubscription(
-  storeUrl: string
-): Promise<VendorDetail["subscription"]> {
+  blogid: string
+): Promise<MasterSubscriptionData> {
   if (!INTERNAL_TOKEN) {
-    throw new Error("Subscription services are not configured.");
+    throw new Error(
+      "Subscription services are not configured."
+    );
   }
 
+  const storeUrl = await resolveMasterVendorStoreUrl(blogid);
+
   const response = await fetch(
-    `${storeUrl.replace(/\/$/, "")}/wp-json/letz/v1/subscription/status/?_ts=${Date.now()}`,
+    `${storeUrl}/wp-json/letz/v1/subscription/status/?_ts=${Date.now()}`,
     {
       headers: {
         "x-letz-auth": INTERNAL_TOKEN,
@@ -51,14 +62,23 @@ async function fetchAuthoritativeSubscription(
   const amount = parsed.amount;
 
   return {
+    storeUrl,
     plan: textField(parsed, "current_plan", "plan"),
     period: textField(parsed, "billing_cycle", "period"),
     status: textField(parsed, "billing_status", "status"),
     amount:
       typeof amount === "number" || typeof amount === "string" ? amount : 0,
     payment_mode: textField(parsed, "payment_mode"),
-    payment_reference: textField(parsed, "payment_reference", "utr"),
-    last_paid_date: textField(parsed, "last_paid_date", "last_billed_at"),
+    payment_reference: textField(
+      parsed,
+      "payment_reference",
+      "utr"
+    ),
+    last_paid_date: textField(
+      parsed,
+      "last_paid_date",
+      "last_billed_at"
+    ),
     next_payment_date: textField(
       parsed,
       "next_payment_date",
@@ -72,63 +92,6 @@ async function fetchAuthoritativeSubscription(
       "next_renewal_date"
     ),
   };
-}
-
-type VendorDetail = {
-  blogid: number;
-  site: { name: string; url: string };
-  account_settings: Record<string, Record<string, string | undefined> | undefined>;
-  dashboard_access?: {
-    locked?: boolean;
-    locked_at?: string;
-    locked_by?: string;
-    unlocked_at?: string;
-    unlocked_by?: string;
-  };
-  payment_methods: { upi: boolean; easebuzz: boolean; cod: boolean };
-  shipping: { provider: "self" | "shift" | string };
-  counts: {
-    products: number;
-    orders: number;
-    media: number;
-    orders_by_status?: Record<string, number>;
-  };
-  tickets: { open: number; pending: number; closed: number };
-  subscription: {
-    plan?: string;
-    period?: string;
-    status?: string;
-    amount?: number | string;
-    payment_mode?: string;
-    payment_reference?: string;
-    last_paid_date?: string;
-    next_payment_date?: string;
-    last_billed_at?: string;
-    next_renewal_at?: string;
-  };
-  links: { store?: string; dashboard?: string };
-};
-
-async function getVendor(blogid: string) {
-  const WP_URL = process.env.MASTER_WP_URL!;
-  const key = process.env.MASTER_API_KEY!;
-
-  const res = await fetch(`${WP_URL}/wp-json/letz/v1/master-vendors/${blogid}`, {
-    cache: "no-store",
-    headers: {
-      Authorization: `Bearer ${key}`,
-      "X-Letz-Master-Key": key,
-    },
-  });
-
-  const text = await res.text();
-  if (!res.ok) {
-    throw new Error(
-      `Failed vendor detail: ${res.status}\n\n${text.slice(0, 2000)}`
-    );
-  }
-
-  return JSON.parse(text);
 }
 
 function Pill({ on }: { on: boolean }) {
@@ -152,17 +115,16 @@ export default async function VendorDetailPage({
   params: Promise<{ blogid: string }>;
 }) {
   const { blogid } = await params;
-  const data = (await getVendor(blogid)) as VendorDetail;
+  const [data, sub]: [MasterVendorDetail, MasterSubscriptionData] =
+    await Promise.all([
+      fetchMasterVendorDetail(blogid),
+      fetchAuthoritativeSubscription(blogid),
+    ]);
 
   const as = data.account_settings ?? {};
   const owner = as.owner ?? as.contact ?? as.profile ?? {};
   const business = as.business ?? as.company ?? as.shop ?? {};
   const access = data.dashboard_access ?? {};
-  if (!data.site?.url) {
-    throw new Error("Vendor store URL is unavailable.");
-  }
-
-  const sub = await fetchAuthoritativeSubscription(data.site.url);
 
   return (
     <div className="space-y-5 p-6">
@@ -250,6 +212,21 @@ export default async function VendorDetailPage({
           lockedBy={access.locked_by}
           unlockedAt={access.unlocked_at}
           unlockedBy={access.unlocked_by}
+          storefrontSuspended={
+            !!access.storefront_suspended
+          }
+          storefrontSuspendedAt={
+            access.storefront_suspended_at
+          }
+          storefrontSuspendedBy={
+            access.storefront_suspended_by
+          }
+          storefrontRestoredAt={
+            access.storefront_restored_at
+          }
+          storefrontRestoredBy={
+            access.storefront_restored_by
+          }
         />
 
         <VendorKycReviewCard
@@ -259,10 +236,10 @@ export default async function VendorDetailPage({
         />
 
         <MasterSubscriptionCard
-  blogid={data.blogid}
-  initial={sub}
-  storeUrl={data.site?.url || ""}
-/>
+          blogid={data.blogid}
+          initial={sub}
+          storeUrl={sub.storeUrl || data.site?.url || ""}
+        />
 
         <MasterDomainRenewalCard
           blogid={data.blogid}
