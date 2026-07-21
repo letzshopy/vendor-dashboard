@@ -7,6 +7,10 @@ import {
   type ReactNode,
 } from "react";
 
+import {
+  formatImageBytes,
+  optimizeContentImageForUpload,
+} from "@/lib/clientImageOptimizer";
 import type { MediaPurpose } from "@/lib/mediaPolicy";
 
 type JsonRecord = Record<string, unknown>;
@@ -35,9 +39,15 @@ export type ImageUploaderProps = {
   multiple?: boolean;
 };
 
+const OPTIMIZED_PURPOSES = new Set<MediaPurpose>([
+  "category_image",
+  "founder_photo",
+]);
+
 function isRecord(value: unknown): value is JsonRecord {
   return Boolean(value && typeof value === "object" && !Array.isArray(value));
 }
+
 function readUploadResult(value: unknown): MediaUploadResult | null {
   if (!isRecord(value)) return null;
 
@@ -71,6 +81,45 @@ function readError(value: unknown) {
     : "Upload failed";
 }
 
+async function readUploadResponse(
+  response: Response,
+): Promise<MediaUploadResult> {
+  const raw = await response.text();
+
+  if (
+    response.status === 413 ||
+    raw.includes("FUNCTION_PAYLOAD_TOO_LARGE")
+  ) {
+    throw new Error(
+      "This image is too large. Please choose a smaller image.",
+    );
+  }
+
+  if (raw.trim().startsWith("<")) {
+    throw new Error("Upload failed. Please try a smaller image.");
+  }
+
+  let parsed: unknown;
+
+  try {
+    parsed = raw ? JSON.parse(raw) : null;
+  } catch {
+    throw new Error("Upload returned an invalid response.");
+  }
+
+  if (!response.ok) {
+    throw new Error(readError(parsed));
+  }
+
+  const result = readUploadResult(parsed);
+
+  if (!result) {
+    throw new Error("Upload returned an invalid response.");
+  }
+
+  return result;
+}
+
 export default function ImageUploader({
   purpose = "site_image",
   onUploaded,
@@ -82,7 +131,9 @@ export default function ImageUploader({
   const inputRef = useRef<HTMLInputElement | null>(null);
   const previewRef = useRef<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [statusText, setStatusText] = useState("Uploading…");
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
@@ -103,44 +154,55 @@ export default function ImageUploader({
     };
   }, []);
 
-  async function handleFile(file: File) {
+  async function handleFile(originalFile: File) {
     clearPreview();
-    const localPreview = URL.createObjectURL(file);
+    const localPreview = URL.createObjectURL(originalFile);
     previewRef.current = localPreview;
     setPreviewUrl(localPreview);
     setError(null);
+    setNotice(null);
     setLoading(true);
 
     try {
+      let uploadFile = originalFile;
+
+      if (OPTIMIZED_PURPOSES.has(purpose)) {
+        setStatusText("Optimizing image…");
+        const optimized = await optimizeContentImageForUpload(originalFile);
+        uploadFile = optimized.file;
+
+        if (optimized.optimized) {
+          setNotice(
+            `Optimized: ${formatImageBytes(
+              optimized.originalBytes,
+            )} → ${formatImageBytes(optimized.outputBytes)}`,
+          );
+        }
+      }
+
+      setStatusText("Uploading image…");
+
       const body = new FormData();
-      body.append("file", file);
+      body.append("file", uploadFile, uploadFile.name);
       body.append("purpose", purpose);
 
-      const response = await fetch("/api/media/upload", {
-        method: "POST",
-        body,
-      });
-
-      const parsed: unknown = await response.json().catch(() => null);
-
-      if (!response.ok) {
-        throw new Error(readError(parsed));
-      }
-
-      const result = readUploadResult(parsed);
-
-      if (!result) {
-        throw new Error("Upload returned an invalid response.");
-      }
+      const result = await readUploadResponse(
+        await fetch("/api/media/upload", {
+          method: "POST",
+          body,
+        }),
+      );
 
       await onUploaded?.(result.url, result);
     } catch (caught: unknown) {
+      setNotice(null);
       setError(
         caught instanceof Error ? caught.message : "Upload failed",
       );
     } finally {
       clearPreview();
       setLoading(false);
+      setStatusText("Uploading…");
       setIsDragging(false);
     }
   }
@@ -203,7 +265,7 @@ export default function ImageUploader({
         +
       </span>
       <span className="text-sm">
-        {loading ? "Uploading…" : label}
+        {loading ? statusText : label}
       </span>
     </div>
   );
@@ -231,8 +293,14 @@ export default function ImageUploader({
             className="h-full w-full object-cover"
           />
           <div className="absolute inset-0 grid place-items-center bg-slate-950/45 px-2 text-center text-[11px] font-semibold text-white">
-            Uploading…
+            {statusText}
           </div>
+        </div>
+      )}
+
+      {notice && !error && (
+        <div className="text-[11px] font-medium text-emerald-700">
+          {notice}
         </div>
       )}
 

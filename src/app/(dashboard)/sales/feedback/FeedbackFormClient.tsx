@@ -1,19 +1,44 @@
 // src/app/(dashboard)/sales/feedback/FeedbackFormClient.tsx
 "use client";
 
-import { useMemo, useState } from "react";
-import { ArrowLeft, ImagePlus, Search, UploadCloud } from "lucide-react";
+import {
+  startTransition,
+  useActionState,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ChangeEvent,
+  type FormEvent,
+} from "react";
+import { useRouter } from "next/navigation";
+import { ArrowLeft, ImagePlus, Loader2, Search, UploadCloud } from "lucide-react";
 import Link from "next/link";
 import type {
   CustomerFeedback,
   FeedbackOrderOption,
 } from "@/lib/customerFeedbackApi";
+import {
+  formatImageBytes,
+  optimizeContentImageForUpload,
+} from "@/lib/clientImageOptimizer";
+import type { FeedbackActionState } from "./actions";
+
+type FeedbackFormAction = (
+  previousState: FeedbackActionState,
+  formData: FormData
+) => Promise<FeedbackActionState>;
 
 type Props = {
   orders: FeedbackOrderOption[];
   feedback?: CustomerFeedback | null;
-  action: (formData: FormData) => void | Promise<void>;
+  action: FeedbackFormAction;
   mode: "create" | "edit";
+};
+
+const INITIAL_ACTION_STATE: FeedbackActionState = {
+  status: "idle",
+  message: "",
 };
 
 export default function FeedbackFormClient({
@@ -22,6 +47,12 @@ export default function FeedbackFormClient({
   action,
   mode,
 }: Props) {
+  const router = useRouter();
+  const [actionState, formAction, actionPending] = useActionState(
+    action,
+    INITIAL_ACTION_STATE
+  );
+
   const initialOrder =
     orders.find((order) => {
       if (!feedback) return false;
@@ -39,13 +70,12 @@ export default function FeedbackFormClient({
           "Customer"
         }`
       : feedback?.order_number
-      ? `#${feedback.order_number}`
-      : ""
+        ? `#${feedback.order_number}`
+        : ""
   );
 
-  const [selectedOrder, setSelectedOrder] = useState<FeedbackOrderOption | null>(
-    initialOrder
-  );
+  const [selectedOrder, setSelectedOrder] =
+    useState<FeedbackOrderOption | null>(initialOrder);
 
   const [customerName, setCustomerName] = useState(
     feedback?.customer_name || initialOrder?.customer_name || ""
@@ -55,24 +85,53 @@ export default function FeedbackFormClient({
     feedback?.customer_mobile || initialOrder?.customer_mobile || ""
   );
 
-  const [previewImage, setPreviewImage] = useState(feedback?.image_url || "");
-  const [selectedFileName, setSelectedFileName] = useState("");
+  const [previewImage, setPreviewImage] = useState(
+    feedback?.image_url || ""
+  );
+  const [selectedImage, setSelectedImage] = useState<File | null>(null);
+  const [selectedFileMessage, setSelectedFileMessage] = useState("");
+  const [imagePreparing, setImagePreparing] = useState(false);
+  const [clientError, setClientError] = useState("");
+  const previewObjectUrlRef = useRef("");
 
   const filteredOrders = useMemo(() => {
-    const q = orderQuery.trim().toLowerCase();
+    const query = orderQuery.trim().toLowerCase();
 
-    if (!q) return orders.slice(0, 8);
+    if (!query) return orders.slice(0, 8);
 
     return orders
       .filter((order) => {
         return (
-          order.number.toLowerCase().includes(q) ||
-          order.customer_name.toLowerCase().includes(q) ||
-          order.customer_mobile.toLowerCase().includes(q)
+          order.number.toLowerCase().includes(query) ||
+          order.customer_name.toLowerCase().includes(query) ||
+          order.customer_mobile.toLowerCase().includes(query)
         );
       })
       .slice(0, 8);
   }, [orderQuery, orders]);
+
+  useEffect(() => {
+    if (
+      actionState.status !== "success" ||
+      !actionState.redirectTo
+    ) {
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      router.replace(actionState.redirectTo || "/sales/feedback");
+    }, 1600);
+
+    return () => window.clearTimeout(timer);
+  }, [actionState, router]);
+
+  useEffect(() => {
+    return () => {
+      if (previewObjectUrlRef.current) {
+        URL.revokeObjectURL(previewObjectUrlRef.current);
+      }
+    };
+  }, []);
 
   function chooseOrder(order: FeedbackOrderOption) {
     setSelectedOrder(order);
@@ -83,20 +142,88 @@ export default function FeedbackFormClient({
     );
 
     if (order.customer_name) setCustomerName(order.customer_name);
-    if (order.customer_mobile) setCustomerMobile(order.customer_mobile);
+    if (order.customer_mobile) {
+      setCustomerMobile(order.customer_mobile);
+    }
   }
 
-  function handleImageChange(event: React.ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
+  async function handleImageChange(
+    event: ChangeEvent<HTMLInputElement>
+  ) {
+    const input = event.currentTarget;
+    const file = input.files?.[0];
 
     if (!file) return;
 
-    setSelectedFileName(file.name);
-    setPreviewImage(URL.createObjectURL(file));
+    setClientError("");
+    setImagePreparing(true);
+    setSelectedImage(null);
+    setSelectedFileMessage("");
+
+    try {
+      const optimization = await optimizeContentImageForUpload(file);
+      const optimized = optimization.file;
+
+      if (previewObjectUrlRef.current) {
+        URL.revokeObjectURL(previewObjectUrlRef.current);
+      }
+
+      const previewUrl = URL.createObjectURL(optimized);
+      previewObjectUrlRef.current = previewUrl;
+
+      setSelectedImage(optimized);
+      setPreviewImage(previewUrl);
+
+      const message = optimization.optimized
+        ? `Optimized: ${formatImageBytes(
+            optimization.originalBytes
+          )} → ${formatImageBytes(optimization.outputBytes)}`
+        : `Selected: ${file.name} (${formatImageBytes(file.size)})`;
+
+      setSelectedFileMessage(message);
+    } catch (error: unknown) {
+      input.value = "";
+      setSelectedImage(null);
+      setPreviewImage(feedback?.image_url || "");
+      setClientError(
+        error instanceof Error && error.message
+          ? error.message
+          : "This image could not be prepared. Please choose another image."
+      );
+    } finally {
+      setImagePreparing(false);
+    }
+  }
+
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (imagePreparing || actionPending) {
+      return;
+    }
+
+    setClientError("");
+
+    const formData = new FormData(event.currentTarget);
+
+    // Never send the original full-resolution file from the input.
+    formData.delete("image");
+
+    if (selectedImage) {
+      formData.set("image", selectedImage, selectedImage.name);
+    }
+
+    startTransition(() => {
+      formAction(formData);
+    });
   }
 
   const status = feedback?.status === "hide" ? "hide" : "show";
   const imageInputId = "feedback-image-upload";
+  const busy = imagePreparing || actionPending;
+  const visibleError =
+    clientError ||
+    (actionState.status === "error" ? actionState.message : "");
 
   return (
     <main className="mx-auto max-w-5xl px-3 pb-28 pt-3 md:px-4 md:pb-8 md:pt-5">
@@ -129,9 +256,30 @@ export default function FeedbackFormClient({
         </div>
       </div>
 
+      <div aria-live="polite" className="mt-4">
+        {actionState.status === "success" ? (
+          <div
+            role="status"
+            className="rounded-[20px] border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-800 shadow-sm"
+          >
+            {actionState.message} Returning to the feedback list…
+          </div>
+        ) : null}
+
+        {visibleError ? (
+          <div
+            role="alert"
+            className="rounded-[20px] border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-800 shadow-sm"
+          >
+            {visibleError}
+          </div>
+        ) : null}
+      </div>
+
       <form
-        action={action}
+        onSubmit={handleSubmit}
         encType="multipart/form-data"
+        aria-busy={busy}
         className="mt-5 rounded-[28px] border border-slate-200 bg-white p-4 shadow-sm md:p-5"
       >
         {feedback?.id ? (
@@ -160,8 +308,8 @@ export default function FeedbackFormClient({
                 <Search className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-slate-400" />
                 <input
                   value={orderQuery}
-                  onChange={(e) => {
-                    setOrderQuery(e.target.value);
+                  onChange={(event: ChangeEvent<HTMLInputElement>) => {
+                    setOrderQuery(event.target.value);
                     setSelectedOrder(null);
                   }}
                   placeholder="Search order number, customer name or mobile"
@@ -187,11 +335,12 @@ export default function FeedbackFormClient({
                           key={order.id}
                           type="button"
                           onClick={() => chooseOrder(order)}
+                          disabled={busy}
                           className={`w-full rounded-xl px-3 py-2 text-left text-xs transition ${
                             active
                               ? "bg-indigo-600 text-white"
                               : "bg-white text-slate-700 hover:bg-indigo-50"
-                          }`}
+                          } disabled:cursor-not-allowed disabled:opacity-60`}
                         >
                           <div className="font-semibold">
                             Order #{order.number}
@@ -221,10 +370,13 @@ export default function FeedbackFormClient({
                 <input
                   name="customer_name"
                   value={customerName}
-                  onChange={(e) => setCustomerName(e.target.value)}
+                  onChange={(event: ChangeEvent<HTMLInputElement>) =>
+                    setCustomerName(event.target.value)
+                  }
                   required
+                  disabled={busy}
                   placeholder="Example: Priya M."
-                  className="mt-2 h-11 w-full rounded-2xl border border-slate-200 bg-slate-50 px-3 text-sm text-slate-900 outline-none focus:border-indigo-400 focus:bg-white"
+                  className="mt-2 h-11 w-full rounded-2xl border border-slate-200 bg-slate-50 px-3 text-sm text-slate-900 outline-none focus:border-indigo-400 focus:bg-white disabled:cursor-not-allowed disabled:opacity-60"
                 />
               </div>
 
@@ -235,9 +387,12 @@ export default function FeedbackFormClient({
                 <input
                   name="customer_mobile"
                   value={customerMobile}
-                  onChange={(e) => setCustomerMobile(e.target.value)}
+                  onChange={(event: ChangeEvent<HTMLInputElement>) =>
+                    setCustomerMobile(event.target.value)
+                  }
+                  disabled={busy}
                   placeholder="Customer mobile number"
-                  className="mt-2 h-11 w-full rounded-2xl border border-slate-200 bg-slate-50 px-3 text-sm text-slate-900 outline-none focus:border-indigo-400 focus:bg-white"
+                  className="mt-2 h-11 w-full rounded-2xl border border-slate-200 bg-slate-50 px-3 text-sm text-slate-900 outline-none focus:border-indigo-400 focus:bg-white disabled:cursor-not-allowed disabled:opacity-60"
                 />
               </div>
             </div>
@@ -249,10 +404,11 @@ export default function FeedbackFormClient({
               <textarea
                 name="customer_message"
                 required
+                disabled={busy}
                 defaultValue={feedback?.customer_message || ""}
                 rows={6}
                 placeholder="Example: Loved the fabric and fast delivery."
-                className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm text-slate-900 outline-none focus:border-indigo-400 focus:bg-white"
+                className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm text-slate-900 outline-none focus:border-indigo-400 focus:bg-white disabled:cursor-not-allowed disabled:opacity-60"
               />
             </div>
           </section>
@@ -269,12 +425,17 @@ export default function FeedbackFormClient({
                 name="image"
                 accept="image/jpeg,image/png,image/webp,image/gif"
                 onChange={handleImageChange}
+                disabled={busy}
                 className="sr-only"
               />
 
               <label
                 htmlFor={imageInputId}
-                className="mt-3 flex min-h-48 cursor-pointer flex-col items-center justify-center overflow-hidden rounded-2xl border border-dashed border-indigo-200 bg-white text-center transition hover:border-indigo-400 hover:bg-indigo-50/40"
+                className={`mt-3 flex min-h-48 flex-col items-center justify-center overflow-hidden rounded-2xl border border-dashed border-indigo-200 bg-white text-center transition ${
+                  busy
+                    ? "cursor-not-allowed opacity-60"
+                    : "cursor-pointer hover:border-indigo-400 hover:bg-indigo-50/40"
+                }`}
               >
                 {previewImage ? (
                   <div className="relative h-48 w-full">
@@ -285,20 +446,27 @@ export default function FeedbackFormClient({
                       className="h-full w-full object-cover"
                     />
                     <div className="absolute inset-x-3 bottom-3 rounded-2xl bg-slate-950/70 px-3 py-2 text-xs font-semibold text-white backdrop-blur">
-                      Click to change image
+                      {imagePreparing
+                        ? "Preparing image…"
+                        : "Click to change image"}
                     </div>
                   </div>
                 ) : (
                   <div className="flex flex-col items-center justify-center px-4 py-8">
                     <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600">
-                      <ImagePlus className="h-7 w-7" />
+                      {imagePreparing ? (
+                        <Loader2 className="h-7 w-7 animate-spin" />
+                      ) : (
+                        <ImagePlus className="h-7 w-7" />
+                      )}
                     </div>
                     <p className="mt-3 text-sm font-semibold text-slate-800">
-                      Click here to upload feedback image
+                      {imagePreparing
+                        ? "Preparing your image…"
+                        : "Click here to upload feedback image"}
                     </p>
                     <p className="mt-1 text-xs text-slate-500">
-                      Customer wearing image, WhatsApp screenshot, unboxing
-                      photo, or proof image
+                      Images are automatically resized before upload.
                     </p>
                   </div>
                 )}
@@ -306,15 +474,27 @@ export default function FeedbackFormClient({
 
               <label
                 htmlFor={imageInputId}
-                className="mt-3 inline-flex w-full cursor-pointer items-center justify-center gap-2 rounded-2xl border border-indigo-100 bg-white px-4 py-3 text-sm font-semibold text-indigo-700 transition hover:border-indigo-300 hover:bg-indigo-50"
+                className={`mt-3 inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-indigo-100 bg-white px-4 py-3 text-sm font-semibold text-indigo-700 transition ${
+                  busy
+                    ? "cursor-not-allowed opacity-60"
+                    : "cursor-pointer hover:border-indigo-300 hover:bg-indigo-50"
+                }`}
               >
-                <UploadCloud className="h-4 w-4" />
-                {previewImage ? "Change Image" : "Upload Image"}
+                {imagePreparing ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <UploadCloud className="h-4 w-4" />
+                )}
+                {imagePreparing
+                  ? "Preparing image…"
+                  : previewImage
+                    ? "Change Image"
+                    : "Upload Image"}
               </label>
 
-              {selectedFileName ? (
+              {selectedFileMessage ? (
                 <p className="mt-2 rounded-xl bg-emerald-50 px-3 py-2 text-xs font-medium text-emerald-700">
-                  Selected: {selectedFileName}
+                  {selectedFileMessage}
                 </p>
               ) : feedback?.image_url ? (
                 <p className="mt-2 rounded-xl bg-slate-100 px-3 py-2 text-xs text-slate-600">
@@ -323,8 +503,7 @@ export default function FeedbackFormClient({
                 </p>
               ) : (
                 <p className="mt-2 text-xs text-slate-500">
-                  Image is optional, but feedback with image looks stronger on
-                  the storefront.
+                  JPG, PNG, WebP, or GIF. The final upload must be below 3 MB.
                 </p>
               )}
             </div>
@@ -341,6 +520,7 @@ export default function FeedbackFormClient({
                     name="status"
                     value="show"
                     defaultChecked={status !== "hide"}
+                    disabled={busy}
                     className="mr-2"
                   />
                   Show
@@ -352,6 +532,7 @@ export default function FeedbackFormClient({
                     name="status"
                     value="hide"
                     defaultChecked={status === "hide"}
+                    disabled={busy}
                     className="mr-2"
                   />
                   Hide
@@ -366,9 +547,21 @@ export default function FeedbackFormClient({
 
             <button
               type="submit"
-              className="w-full rounded-2xl bg-indigo-600 px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700"
+              disabled={busy || actionState.status === "success"}
+              className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-indigo-600 px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:bg-indigo-400"
             >
-              {mode === "create" ? "Save Feedback" : "Update Feedback"}
+              {busy ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : null}
+              {imagePreparing
+                ? "Preparing image…"
+                : actionPending
+                  ? mode === "create"
+                    ? "Saving feedback…"
+                    : "Updating feedback…"
+                  : mode === "create"
+                    ? "Save Feedback"
+                    : "Update Feedback"}
             </button>
           </aside>
         </div>
