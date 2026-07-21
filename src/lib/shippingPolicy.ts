@@ -1,3 +1,8 @@
+import {
+  ALL_STATE_CODES,
+  normalizeIndiaStateCode,
+} from "@/lib/indiaStates";
+
 type JsonRecord = Record<string, unknown>;
 
 export type ShippingClassInput = {
@@ -36,6 +41,14 @@ export type ShippingZoneInput = {
     };
   };
 };
+
+const VALID_INDIA_STATE_CODES = new Set<string>([
+  ...ALL_STATE_CODES,
+  // WooCommerce also retains these India codes.
+  "DD",
+  "DH",
+  "LD",
+]);
 
 function isRecord(
   value: unknown
@@ -130,6 +143,22 @@ function normalizeSlabs(
   );
 }
 
+export function normalizeIndiaShippingRegion(
+  value: unknown
+): string | null {
+  const text = strictText(value, 8);
+
+  if (text === null) {
+    return null;
+  }
+
+  const code = normalizeIndiaStateCode(text);
+
+  return VALID_INDIA_STATE_CODES.has(code)
+    ? code
+    : null;
+}
+
 export function normalizeShippingClasses(
   value: unknown
 ): ShippingClassInput[] | null {
@@ -209,30 +238,27 @@ export function normalizeShippingZones(
       ? item.regions
       : [];
 
-    const regions = regionValues
-          .map((region) =>
-            strictText(region, 2)
-          )
-          .filter(
-            (region): region is string =>
-              region !== null
-          )
-          .map((region) =>
-            region.toUpperCase()
-          );
-
-    if (
-      regionValues.length > 100 ||
-      regions.length !==
-        regionValues.length ||
-      regions.some(
-        (region) =>
-          !/^[A-Z]{2}$/.test(region)
-      ) ||
-      new Set(regions).size !==
-        regions.length
-    ) {
+    if (regionValues.length > 100) {
       return null;
+    }
+
+    const regions: string[] = [];
+    const seenRegions = new Set<string>();
+
+    for (const regionValue of regionValues) {
+      const region =
+        normalizeIndiaShippingRegion(
+          regionValue
+        );
+
+      if (region === null) {
+        return null;
+      }
+
+      if (!seenRegions.has(region)) {
+        seenRegions.add(region);
+        regions.push(region);
+      }
     }
 
     const methods = isRecord(

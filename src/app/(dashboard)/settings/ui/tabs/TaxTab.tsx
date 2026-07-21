@@ -8,6 +8,7 @@ import {
   Save,
   Settings2,
 } from "lucide-react";
+import { normalizeIndiaStateCode } from "@/lib/indiaStates";
 
 type TaxSettings = {
   enable: boolean;
@@ -49,16 +50,16 @@ const IN_STATES = [
   { code: "ML", name: "Meghalaya" },
   { code: "MZ", name: "Mizoram" },
   { code: "NL", name: "Nagaland" },
-  { code: "OR", name: "Odisha" },
+  { code: "OD", name: "Odisha" },
   { code: "PY", name: "Puducherry" },
   { code: "PB", name: "Punjab" },
   { code: "RJ", name: "Rajasthan" },
   { code: "SK", name: "Sikkim" },
   { code: "TN", name: "Tamil Nadu" },
-  { code: "TG", name: "Telangana" },
+  { code: "TS", name: "Telangana" },
   { code: "TR", name: "Tripura" },
   { code: "UP", name: "Uttar Pradesh" },
-  { code: "UT", name: "Uttarakhand" },
+  { code: "UK", name: "Uttarakhand" },
   { code: "WB", name: "West Bengal" },
 ];
 
@@ -105,6 +106,10 @@ function normalizeTaxSettings(
     ? value
     : {};
   const slab = data.gst_slab;
+const normalizedStoreState =
+  typeof data.store_state === "string"
+    ? normalizeIndiaStateCode(data.store_state)
+    : DEFAULT_TAX.store_state;
 
   return {
     enable: data.enable === true,
@@ -130,10 +135,11 @@ function normalizeTaxSettings(
         : data.based_on === "base"
           ? "base"
           : "shipping",
-    store_state:
-      typeof data.store_state === "string"
-        ? data.store_state
-        : DEFAULT_TAX.store_state,
+    store_state: IN_STATES.some(
+  (state) => state.code === normalizedStoreState
+)
+  ? normalizedStoreState
+  : DEFAULT_TAX.store_state,
     gst_number:
       typeof data.gst_number === "string"
         ? data.gst_number

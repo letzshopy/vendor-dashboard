@@ -1,5 +1,18 @@
 export type State = { code: string; name: string };
-export type StateGroup = { id: "south" | "north"; label: string; states: State[] };
+export type StateGroup = {
+  id: "south" | "north";
+  label: string;
+  states: State[];
+};
+
+export const LEGACY_INDIA_STATE_CODE_ALIASES: Readonly<
+  Record<string, string>
+> = {
+  KA2: "LA",
+  OR: "OD",
+  TG: "TS",
+  UT: "UK",
+};
 
 export const INDIA_STATE_GROUPS: StateGroup[] = [
   {
@@ -25,21 +38,24 @@ export const INDIA_STATE_GROUPS: StateGroup[] = [
       { code: "CH", name: "Chandigarh" },
       { code: "CT", name: "Chhattisgarh" },
       { code: "DL", name: "Delhi" },
-      { code: "DN", name: "Dadra & Nagar Haveli and Daman & Diu" },
+      {
+        code: "DN",
+        name: "Dadra & Nagar Haveli and Daman & Diu",
+      },
       { code: "GA", name: "Goa" },
       { code: "GJ", name: "Gujarat" },
       { code: "HP", name: "Himachal Pradesh" },
       { code: "HR", name: "Haryana" },
       { code: "JH", name: "Jharkhand" },
       { code: "JK", name: "Jammu and Kashmir" },
-      { code: "KA2", name: "Ladakh" }, // optional if you need it; Woo may use 'LA'
+      { code: "LA", name: "Ladakh" },
       { code: "MH", name: "Maharashtra" },
       { code: "ML", name: "Meghalaya" },
       { code: "MN", name: "Manipur" },
       { code: "MP", name: "Madhya Pradesh" },
       { code: "MZ", name: "Mizoram" },
       { code: "NL", name: "Nagaland" },
-      { code: "OR", name: "Odisha" },
+      { code: "OD", name: "Odisha" },
       { code: "PB", name: "Punjab" },
       { code: "RJ", name: "Rajasthan" },
       { code: "SK", name: "Sikkim" },
@@ -51,8 +67,20 @@ export const INDIA_STATE_GROUPS: StateGroup[] = [
   },
 ];
 
-export const ALL_STATE_CODES = INDIA_STATE_GROUPS.flatMap(g => g.states.map(s => s.code));
+export const ALL_STATE_CODES = INDIA_STATE_GROUPS.flatMap(
+  (group) => group.states.map((state) => state.code)
+);
+
+export function normalizeIndiaStateCode(value: unknown): string {
+  const raw = String(value ?? "").trim().toUpperCase();
+  return LEGACY_INDIA_STATE_CODE_ALIASES[raw] ?? raw;
+}
+
 export function stateName(code: string) {
-  const s = INDIA_STATE_GROUPS.flatMap(g => g.states).find(x => x.code === code.toUpperCase());
-  return s?.name || code;
+  const normalized = normalizeIndiaStateCode(code);
+  const state = INDIA_STATE_GROUPS.flatMap(
+    (group) => group.states
+  ).find((item) => item.code === normalized);
+
+  return state?.name || normalized;
 }
