@@ -43,6 +43,15 @@ export async function GET() {
     const analyticsDataClient = getGa4Client();
     const propertyId = getGa4PropertyIdForTenant(tenant.blog_id, hostname);
     const property = `properties/${propertyId}`;
+
+    const [realtimeResponse] =
+      await analyticsDataClient.runRealtimeReport({
+        property,
+        metrics: [{ name: "activeUsers" }],
+      });
+
+    const realtimeRow =
+      realtimeResponse.rows?.[0] as Ga4Row | undefined;
     const hostnameFilter = {
       filter: {
         fieldName: "hostName",
