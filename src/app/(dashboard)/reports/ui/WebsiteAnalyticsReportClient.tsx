@@ -394,12 +394,6 @@ export default function WebsiteAnalyticsReportClient() {
           )}
         </div>
       </div>
-
-      <div className="rounded-[20px] border border-amber-100 bg-amber-50 px-4 py-3 text-xs leading-5 text-amber-800">
-        This is currently connected to the Template Store test GA4 property. For
-        live vendors, each store will have its own GA4 property ID so reports do
-        not mix between vendors.
-      </div>
     </div>
   );
 }
