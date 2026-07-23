@@ -43,3 +43,69 @@ export function getTemplateGa4PropertyId() {
 
   return propertyId;
 }
+
+export function getGa4PropertyIdForTenant(
+  blogId: number,
+  hostname: string
+) {
+  const normalizedBlogId = Number(blogId);
+
+  if (
+    !Number.isInteger(normalizedBlogId) ||
+    normalizedBlogId <= 0
+  ) {
+    throw new TypeError("Invalid tenant blog ID.");
+  }
+
+  const rawMap =
+    process.env.GA4_PROPERTY_IDS_BY_BLOG_JSON || "";
+
+  if (rawMap) {
+    let parsed: unknown;
+
+    try {
+      parsed = JSON.parse(rawMap);
+    } catch {
+      throw new Error(
+        "Invalid GA4_PROPERTY_IDS_BY_BLOG_JSON env variable."
+      );
+    }
+
+    if (
+      !parsed ||
+      typeof parsed !== "object" ||
+      Array.isArray(parsed)
+    ) {
+      throw new Error(
+        "GA4 property mapping must be a JSON object."
+      );
+    }
+
+    const propertyId = String(
+      (parsed as Record<string, unknown>)[
+        String(normalizedBlogId)
+      ] || ""
+    ).trim();
+
+    if (propertyId) {
+      if (!/^\d+$/.test(propertyId)) {
+        throw new Error(
+          `Invalid GA4 property ID for blog ${normalizedBlogId}.`
+        );
+      }
+
+      return propertyId;
+    }
+  }
+
+  if (
+    String(hostname || "").trim().toLowerCase() ===
+    "template.letzshopy.in"
+  ) {
+    return getTemplateGa4PropertyId();
+  }
+
+  throw new Error(
+    `Missing GA4 property mapping for blog ${normalizedBlogId}.`
+  );
+}

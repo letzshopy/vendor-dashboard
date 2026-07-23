@@ -1,4 +1,4 @@
-import { getGa4Client, getTemplateGa4PropertyId } from "@/lib/ga4";
+import { getGa4Client, getGa4PropertyIdForTenant } from "@/lib/ga4";
 import {
   privateReportJson,
   reportErrorResponse,
@@ -41,7 +41,7 @@ export async function GET() {
 
     const hostname = selectedStoreHostname(tenant.store_url);
     const analyticsDataClient = getGa4Client();
-    const propertyId = getTemplateGa4PropertyId();
+    const propertyId = getGa4PropertyIdForTenant(tenant.blog_id, hostname);
     const property = `properties/${propertyId}`;
     const hostnameFilter = {
       filter: {
