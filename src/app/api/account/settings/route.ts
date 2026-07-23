@@ -2,6 +2,9 @@ import { NextResponse } from "next/server";
 import {
   fetchInternalWp,
 } from "@/lib/wpClient";
+import {
+  getTenantFromCookies,
+} from "@/lib/tenant";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -179,9 +182,18 @@ export async function GET() {
     const payload: unknown =
       await response.json();
 
-    return privateJson(
-      normalizeAccountSettings(payload)
-    );
+    const settings =
+      normalizeAccountSettings(payload);
+
+    const tenant =
+      await getTenantFromCookies();
+
+    if (tenant) {
+      settings.overview.store_url =
+        tenant.store_url;
+    }
+
+    return privateJson(settings);
   } catch (error: unknown) {
     console.error(
       "Account settings load failed:",
@@ -329,10 +341,20 @@ export async function PUT(request: Request) {
       ? responseRoot.saved
       : responsePayload;
 
+    const settings =
+      normalizeAccountSettings(saved);
+
+    const tenant =
+      await getTenantFromCookies();
+
+    if (tenant) {
+      settings.overview.store_url =
+        tenant.store_url;
+    }
+
     return privateJson({
       ok: true,
-      settings:
-        normalizeAccountSettings(saved),
+      settings,
     });
   } catch (error: unknown) {
     console.error(
