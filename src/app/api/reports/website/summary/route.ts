@@ -151,9 +151,10 @@ export async function GET() {
       propertyId,
       hostname,
       range: "last_7_days",
-      // GA4 Realtime does not support hostName filtering. Returning shared
-      // property-wide realtime data here would expose other vendors' traffic.
-      realtime: { activeUsers: 0, available: false },
+      realtime: {
+        activeUsers: metricValue(realtimeRow, 0),
+        available: true,
+      },
       summary: {
         activeUsers: metricValue(summaryRow, 0),
         pageViews: metricValue(summaryRow, 1),
