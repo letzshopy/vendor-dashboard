@@ -26,6 +26,48 @@ type Category = { id: number; name: string; parent: number };
 
 export const dynamic = "force-dynamic";
 
+async function getAllWooPages<T>(
+  woo: Awaited<ReturnType<typeof getWooClient>>,
+  endpoint: string,
+  params: Record<string, string | number | boolean>
+): Promise<T[]> {
+  const firstPage = await woo.get<T[]>(endpoint, {
+    params: {
+      ...params,
+      page: 1,
+    },
+  });
+
+  const items = Array.isArray(firstPage.data)
+    ? [...firstPage.data]
+    : [];
+
+  const headerTotalPages = Number(
+    firstPage.headers["x-wp-totalpages"] ?? 1
+  );
+
+  const totalPages =
+    Number.isFinite(headerTotalPages) &&
+    headerTotalPages > 1
+      ? Math.floor(headerTotalPages)
+      : 1;
+
+  for (let page = 2; page <= totalPages; page += 1) {
+    const response = await woo.get<T[]>(endpoint, {
+      params: {
+        ...params,
+        page,
+      },
+    });
+
+    if (Array.isArray(response.data)) {
+      items.push(...response.data);
+    }
+  }
+
+  return items;
+}
+
 async function getProducts(
   woo: Awaited<ReturnType<typeof getWooClient>>,
   params: {
@@ -34,7 +76,7 @@ async function getProducts(
     ptype?: "simple" | "variable" | "grouped" | "";
   }
 ): Promise<Product[]> {
-  const query: Record<string, string | number> = {
+  const query: Record<string, string | number | boolean> = {
     per_page: 100,
     orderby: "date",
     order: "desc",
@@ -45,17 +87,26 @@ async function getProducts(
   if (params.stock) query.stock_status = params.stock;
   if (params.ptype) query.type = params.ptype;
 
-  const res = await woo.get<Product[]>("/products", { params: query });
-  return Array.isArray(res.data) ? res.data : [];
+  return getAllWooPages<Product>(
+    woo,
+    "/products",
+    query
+  );
 }
 
 async function getCategories(
   woo: Awaited<ReturnType<typeof getWooClient>>
 ): Promise<Category[]> {
-  const res = await woo.get<Category[]>("/products/categories", {
-    params: { per_page: 100, hide_empty: false, orderby: "name", order: "asc" },
-  });
-  return Array.isArray(res.data) ? res.data : [];
+  return getAllWooPages<Category>(
+    woo,
+    "/products/categories",
+    {
+      per_page: 100,
+      hide_empty: false,
+      orderby: "name",
+      order: "asc",
+    }
+  );
 }
 
 export default async function ProductsPage({
