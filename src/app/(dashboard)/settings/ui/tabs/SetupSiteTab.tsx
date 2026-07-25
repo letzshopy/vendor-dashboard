@@ -21,6 +21,7 @@ type SetupSiteForm = {
     showBestSellers: boolean;
     showOfferSale: boolean;
     showCustomerFeedback: boolean;
+    showRecentOrderNotifications: boolean;
   };
   about: {
     founderPhotoUrl: string;
@@ -82,6 +83,7 @@ const EMPTY_FORM: SetupSiteForm = {
     showBestSellers: true,
     showOfferSale: true,
     showCustomerFeedback: true,
+    showRecentOrderNotifications: false,
   },
   about: {
     founderPhotoUrl: "",
@@ -388,6 +390,9 @@ function normalizeForm(raw: unknown): SetupSiteForm {
       rawBranding.showOfferSale ?? EMPTY_FORM.branding.showOfferSale,
     showCustomerFeedback:
       rawBranding.showCustomerFeedback ?? EMPTY_FORM.branding.showCustomerFeedback,
+    showRecentOrderNotifications:
+      rawBranding.showRecentOrderNotifications ??
+      EMPTY_FORM.branding.showRecentOrderNotifications,
   };
 
   const oldReturnWindow = rawPolicies.returnWindowDays || "";
@@ -629,6 +634,27 @@ export default function SetupSiteTab() {
           onChange={(v) => patch("branding.showCustomerFeedback", v)}
         />
       </div>
+    </div>
+
+    <div className="rounded-[24px] border border-slate-200 bg-white p-4">
+      <div className="mb-3">
+        <div className="text-sm font-semibold text-slate-900">
+          Recent order notifications
+        </div>
+        <p className="mt-1 text-xs leading-5 text-slate-500">
+          Display small, privacy-safe notifications generated from genuine
+          WooCommerce orders.
+        </p>
+      </div>
+
+      <ToggleField
+        title="Enable recent order notifications"
+        description="LetzShopy manages the notification design, position and timing."
+        checked={form.branding.showRecentOrderNotifications}
+        onChange={(value) =>
+          patch("branding.showRecentOrderNotifications", value)
+        }
+      />
     </div>
   </div>
 </SectionCard>        
