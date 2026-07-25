@@ -8,6 +8,9 @@ import {
   MoreVertical,
   Package2,
   MessageCircle,
+  Eye,
+  Trash2,
+  X,
 } from "lucide-react";
 import { WCOrder, statusPillClass } from "@/lib/order-utils";
 import OrdersExportButton from "./ui/OrdersExportButton";
@@ -81,7 +84,7 @@ function buildWhatsAppStatusMessage(order: WCOrder) {
   const itemLines = (order.line_items || []).map((item: any) => {
     const quantity = Number(item.quantity || 1);
     const name = String(item.name || "Product").trim() || "Product";
-    return `â€¢ ${quantity} Ã— ${name}`;
+    return `- ${quantity} x ${name}`;
   });
 
   let statusMessage: string;
@@ -134,7 +137,7 @@ function buildWhatsAppStatusMessage(order: WCOrder) {
     "",
     `Order: #${orderNumber}`,
     "Order details:",
-    ...(itemLines.length ? itemLines : ["â€¢ Order item details unavailable"]),
+    ...(itemLines.length ? itemLines : ["- Order item details unavailable"]),
   ];
 
   const hasShipment = Boolean(
@@ -166,13 +169,12 @@ function buildWhatsAppStatusMessage(order: WCOrder) {
 
   lines.push(
     "",
-    `Total: â‚¹${order.total || "0"}`,
+    `Total: Rs. ${order.total || "0"}`,
     `Payment method: ${order.payment_method_title || "Not specified"}`
   );
 
   return lines.join("\n");
 }
-
 function openWhatsAppStatusDraft(order: WCOrder) {
   const phone = normalizeWhatsAppPhone(order.billing?.phone);
 
@@ -198,52 +200,161 @@ function ActionMenu({
 }) {
   const [open, setOpen] = useState(false);
   const isTrash = String(order.status || "").toLowerCase() === "trash";
+  const orderNumber = order.number || order.id;
+  const customerName =
+    `${order.billing?.first_name || ""} ${order.billing?.last_name || ""}`.trim() ||
+    "Customer";
+  const statusLabel = String(order.status || "pending").replace(/-/g, " ");
+
+  useEffect(() => {
+    if (!open) return;
+
+    function closeOnEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setOpen(false);
+      }
+    }
+
+    document.addEventListener("keydown", closeOnEscape);
+    return () => document.removeEventListener("keydown", closeOnEscape);
+  }, [open]);
 
   return (
     <div className="relative">
       <button
         type="button"
-        onClick={() => setOpen((s) => !s)}
-        className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:border-violet-300 hover:text-violet-700"
+        aria-label={`Open actions for order ${orderNumber}`}
+        aria-expanded={open}
+        onClick={() => setOpen((value) => !value)}
+        className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:border-violet-300 hover:bg-violet-50 hover:text-violet-700"
       >
-        <MoreVertical className="h-4.5 w-4.5" />
+        <MoreVertical className="h-5 w-5" />
       </button>
 
       {open && (
-        <div className="absolute right-0 top-11 z-30 min-w-[240px] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl">
-          <Link
-            href={`/orders/${order.id}`}
-            className="block px-4 py-3 text-sm text-slate-700 hover:bg-slate-50"
+        <>
+          <button
+            type="button"
+            aria-label="Close order actions"
+            className="fixed inset-0 z-[80] bg-slate-950/40 backdrop-blur-[2px] xl:hidden"
             onClick={() => setOpen(false)}
-          >
-            View order
-          </Link>
+          />
 
-          {!isTrash && (
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-label={`Actions for order ${orderNumber}`}
+            className="fixed inset-x-3 bottom-3 z-[90] overflow-hidden rounded-[28px] border border-slate-200 bg-white p-3 shadow-[0_28px_80px_rgba(15,23,42,0.28)] xl:hidden"
+          >
+            <div className="flex items-start justify-between gap-4 px-2 pb-3 pt-1">
+              <div className="min-w-0">
+                <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-violet-600">
+                  Order actions
+                </div>
+                <div className="mt-1 text-base font-semibold text-slate-900">
+                  Order #{orderNumber}
+                </div>
+                <div className="mt-0.5 truncate text-sm text-slate-500">
+                  {customerName}
+                </div>
+              </div>
+
+              <button
+                type="button"
+                aria-label="Close"
+                onClick={() => setOpen(false)}
+                className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-600 transition hover:bg-slate-200"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="space-y-2">
+              <Link
+                href={`/orders/${order.id}`}
+                onClick={() => setOpen(false)}
+                className="flex w-full items-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3.5 text-left transition hover:bg-slate-50"
+              >
+                <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-violet-100 text-violet-700">
+                  <Eye className="h-5 w-5" />
+                </span>
+                <span className="min-w-0">
+                  <span className="block text-sm font-semibold text-slate-900">
+                    View order
+                  </span>
+                  <span className="mt-0.5 block text-xs text-slate-500">
+                    Open full order details
+                  </span>
+                </span>
+              </Link>
+
+              {!isTrash && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setOpen(false);
+                    openWhatsAppStatusDraft(order);
+                  }}
+                  className="flex w-full items-center gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3.5 text-left transition hover:bg-emerald-100"
+                >
+                  <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-emerald-600 text-white shadow-sm">
+                    <MessageCircle className="h-5 w-5" />
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block text-sm font-semibold text-emerald-900">
+                      Notify status in WhatsApp
+                    </span>
+                    <span className="mt-0.5 block text-xs capitalize text-emerald-700">
+                      Draft the current {statusLabel} update
+                    </span>
+                  </span>
+                </button>
+              )}
+
+              <button
+                type="button"
+                onClick={() => {
+                  setOpen(false);
+                  onTrash(order.id);
+                }}
+                className="flex w-full items-center gap-3 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3.5 text-left transition hover:bg-rose-100"
+              >
+                <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-rose-100 text-rose-700">
+                  <Trash2 className="h-5 w-5" />
+                </span>
+                <span className="min-w-0">
+                  <span className="block text-sm font-semibold text-rose-800">
+                    Move to trash
+                  </span>
+                  <span className="mt-0.5 block text-xs text-rose-600">
+                    Remove this order from the active list
+                  </span>
+                </span>
+              </button>
+            </div>
+          </section>
+
+          <div className="absolute right-0 top-12 z-30 hidden min-w-[210px] overflow-hidden rounded-2xl border border-slate-200 bg-white p-1.5 shadow-xl xl:block">
+            <Link
+              href={`/orders/${order.id}`}
+              className="block rounded-xl px-3 py-2.5 text-sm text-slate-700 hover:bg-slate-50"
+              onClick={() => setOpen(false)}
+            >
+              View order
+            </Link>
+
             <button
               type="button"
               onClick={() => {
                 setOpen(false);
-                openWhatsAppStatusDraft(order);
+                onTrash(order.id);
               }}
-              className="flex w-full items-center gap-2 px-4 py-3 text-left text-sm font-medium text-emerald-700 hover:bg-emerald-50 xl:hidden"
+              className="block w-full rounded-xl px-3 py-2.5 text-left text-sm text-rose-600 hover:bg-rose-50"
             >
-              <MessageCircle className="h-4 w-4" />
-              Notify status in WhatsApp
+              Move to trash
             </button>
-          )}
-
-          <button
-            type="button"
-            onClick={() => {
-              setOpen(false);
-              onTrash(order.id);
-            }}
-            className="block w-full px-4 py-3 text-left text-sm text-rose-600 hover:bg-rose-50"
-          >
-            Move to trash
-          </button>
-        </div>
+          </div>
+        </>
       )}
     </div>
   );
