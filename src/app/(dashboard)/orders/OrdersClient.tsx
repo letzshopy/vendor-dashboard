@@ -7,6 +7,7 @@ import {
   ChevronRight,
   MoreVertical,
   Package2,
+  MessageCircle,
 } from "lucide-react";
 import { WCOrder, statusPillClass } from "@/lib/order-utils";
 import OrdersExportButton from "./ui/OrdersExportButton";
@@ -34,14 +35,169 @@ function formatShortDate(date_gmt?: string) {
   }
 }
 
+
+function normalizeWhatsAppPhone(value?: string) {
+  const original = String(value || "").trim();
+  let digits = original.replace(/\D/g, "");
+
+  if (digits.startsWith("00")) {
+    digits = digits.slice(2);
+  }
+
+  if (original.startsWith("+")) {
+    return digits.length >= 10 && digits.length <= 15 ? digits : "";
+  }
+
+  if (digits.length === 11 && digits.startsWith("0")) {
+    digits = digits.slice(1);
+  }
+
+  if (digits.length === 10) {
+    digits = `91${digits}`;
+  }
+
+  return digits.length >= 10 && digits.length <= 15 ? digits : "";
+}
+
+function formatWhatsAppDate(value?: string | null) {
+  if (!value) return "";
+
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return String(value);
+
+  return d.toLocaleDateString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+}
+
+function buildWhatsAppStatusMessage(order: WCOrder) {
+  const status = String(order.status || "pending").toLowerCase();
+  const firstName = String(order.billing?.first_name || "").trim() || "Customer";
+  const orderNumber = order.number || order.id;
+  const shipment = extractShipmentFromMeta((order as any).meta_data || []);
+
+  const itemLines = (order.line_items || []).map((item: any) => {
+    const quantity = Number(item.quantity || 1);
+    const name = String(item.name || "Product").trim() || "Product";
+    return `â€¢ ${quantity} Ã— ${name}`;
+  });
+
+  let statusMessage: string;
+
+  switch (status) {
+    case "pending":
+      statusMessage =
+        "We have received your order. Payment is still pending. Please complete the payment or share the payment details so we can confirm your order.";
+      break;
+
+    case "on-hold":
+      statusMessage =
+        "Your order payment details have not yet been verified. Once verified, your order will be confirmed.";
+      break;
+
+    case "processing":
+      statusMessage =
+        "Your order payment details have been verified and your order is confirmed. We will notify you once it is processed and dispatched.";
+      break;
+
+    case "completed":
+      statusMessage =
+        "Your order has been completed. Thank you for shopping with us.";
+      break;
+
+    case "cancelled":
+      statusMessage =
+        "Your order has been cancelled. Please contact us if you need assistance or would like to place the order again.";
+      break;
+
+    case "failed":
+      statusMessage =
+        "We could not confirm your order because the payment or order attempt was unsuccessful. Please retry or contact us for assistance.";
+      break;
+
+    case "refunded":
+      statusMessage =
+        "The refund for your order has been processed. The amount may take a few business days to reflect, depending on your payment provider.";
+      break;
+
+    default:
+      statusMessage = `Your order status is now ${status.replace(/-/g, " ")}.`;
+      break;
+  }
+
+  const lines = [
+    `Hello ${firstName},`,
+    "",
+    statusMessage,
+    "",
+    `Order: #${orderNumber}`,
+    "Order details:",
+    ...(itemLines.length ? itemLines : ["â€¢ Order item details unavailable"]),
+  ];
+
+  const hasShipment = Boolean(
+    shipment.courier ||
+      shipment.awb ||
+      shipment.status ||
+      shipment.shippedDate
+  );
+
+  if (status === "completed" && hasShipment) {
+    lines.push("", "Shipment details:");
+
+    if (shipment.courier) {
+      lines.push(`Courier: ${shipment.courier}`);
+    }
+
+    if (shipment.awb) {
+      lines.push(`Tracking / AWB: ${shipment.awb}`);
+    }
+
+    if (shipment.status) {
+      lines.push(`Shipment status: ${shipment.status}`);
+    }
+
+    if (shipment.shippedDate) {
+      lines.push(`Shipped on: ${formatWhatsAppDate(shipment.shippedDate)}`);
+    }
+  }
+
+  lines.push(
+    "",
+    `Total: â‚¹${order.total || "0"}`,
+    `Payment method: ${order.payment_method_title || "Not specified"}`
+  );
+
+  return lines.join("\n");
+}
+
+function openWhatsAppStatusDraft(order: WCOrder) {
+  const phone = normalizeWhatsAppPhone(order.billing?.phone);
+
+  if (!phone) {
+    alert("Customer WhatsApp number is missing or invalid.");
+    return;
+  }
+
+  const message = buildWhatsAppStatusMessage(order);
+  const url = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
+  const popup = window.open(url, "_blank", "noopener,noreferrer");
+
+  if (!popup) {
+    window.location.href = url;
+  }
+}
 function ActionMenu({
-  orderId,
+  order,
   onTrash,
 }: {
-  orderId: number;
+  order: WCOrder;
   onTrash: (id: number) => void;
 }) {
   const [open, setOpen] = useState(false);
+  const isTrash = String(order.status || "").toLowerCase() === "trash";
 
   return (
     <div className="relative">
@@ -54,20 +210,34 @@ function ActionMenu({
       </button>
 
       {open && (
-        <div className="absolute right-0 top-11 z-30 min-w-[170px] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl">
+        <div className="absolute right-0 top-11 z-30 min-w-[240px] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl">
           <Link
-            href={`/orders/${orderId}`}
+            href={`/orders/${order.id}`}
             className="block px-4 py-3 text-sm text-slate-700 hover:bg-slate-50"
             onClick={() => setOpen(false)}
           >
             View order
           </Link>
 
+          {!isTrash && (
+            <button
+              type="button"
+              onClick={() => {
+                setOpen(false);
+                openWhatsAppStatusDraft(order);
+              }}
+              className="flex w-full items-center gap-2 px-4 py-3 text-left text-sm font-medium text-emerald-700 hover:bg-emerald-50 xl:hidden"
+            >
+              <MessageCircle className="h-4 w-4" />
+              Notify status in WhatsApp
+            </button>
+          )}
+
           <button
             type="button"
             onClick={() => {
               setOpen(false);
-              onTrash(orderId);
+              onTrash(order.id);
             }}
             className="block w-full px-4 py-3 text-left text-sm text-rose-600 hover:bg-rose-50"
           >
@@ -78,7 +248,6 @@ function ActionMenu({
     </div>
   );
 }
-
 export default function OrdersClient({
   orders,
   categories = [],
@@ -284,7 +453,7 @@ export default function OrdersClient({
                             </div>
                           </div>
 
-                          <ActionMenu orderId={o.id} onTrash={moveOneToTrash} />
+                          <ActionMenu order={o} onTrash={moveOneToTrash} />
                         </div>
 
                         <div className="mt-2 flex flex-wrap items-center gap-2">
@@ -439,7 +608,7 @@ export default function OrdersClient({
                     </td>
 
                     <td className="px-4 py-4 text-right">
-                      <ActionMenu orderId={o.id} onTrash={moveOneToTrash} />
+                      <ActionMenu order={o} onTrash={moveOneToTrash} />
                     </td>
                   </tr>
                 );
