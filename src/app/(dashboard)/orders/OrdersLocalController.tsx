@@ -27,9 +27,11 @@ function withinRange(date_gmt?: string, from?: string, to?: string) {
 export default function OrdersLocalController({
   initial,
   categories = [],
+  storeName = "Your Store",
 }: {
   initial: WCOrder[];
   categories?: Category[];
+  storeName?: string;
 }) {
   const [status, setStatus] = useState<string>("all");
   const [from, setFrom] = useState<string>("");
@@ -283,7 +285,11 @@ export default function OrdersLocalController({
         )}
       </section>
 
-      <OrdersClient orders={filtered} categories={categories} />
+      <OrdersClient
+        orders={filtered}
+        categories={categories}
+        storeName={storeName}
+      />
     </div>
   );
 }

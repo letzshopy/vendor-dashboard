@@ -1,5 +1,6 @@
 import { WCOrder } from "@/lib/order-utils";
 import { getWooClient } from "@/lib/woo";
+import { getTenantFromCookies } from "@/lib/tenant";
 import OrdersLocalController from "./OrdersLocalController";
 import Link from "next/link";
 import { ClipboardList, Plus } from "lucide-react";
@@ -68,6 +69,8 @@ async function fetchCategories(): Promise<Category[]> {
 }
 
 export default async function OrdersPage() {
+  const tenant = await getTenantFromCookies();
+  const storeName = tenant?.store_name?.trim() || "Your Store";
   const [orders, categories] = await Promise.all([
     fetchOrders(),
     fetchCategories(),
@@ -140,7 +143,11 @@ export default async function OrdersPage() {
       </div>
 
       <div className="mt-4">
-        <OrdersLocalController initial={orders} categories={categories} />
+        <OrdersLocalController
+          initial={orders}
+          categories={categories}
+          storeName={storeName}
+        />
       </div>
     </main>
   );

@@ -22,6 +22,7 @@ type Category = { id: number; name: string; parent: number };
 type OrdersClientProps = {
   orders: WCOrder[];
   categories?: Category[];
+  storeName: string;
 };
 
 function formatShortDate(date_gmt?: string) {
@@ -75,10 +76,11 @@ function formatWhatsAppDate(value?: string | null) {
   });
 }
 
-function buildWhatsAppStatusMessage(order: WCOrder) {
+function buildWhatsAppStatusMessage(order: WCOrder, storeName: string) {
   const status = String(order.status || "pending").toLowerCase();
   const firstName = String(order.billing?.first_name || "").trim() || "Customer";
   const orderNumber = order.number || order.id;
+  const businessName = String(storeName || "").trim() || "Your Store";
   const shipment = extractShipmentFromMeta((order as any).meta_data || []);
 
   const itemLines = (order.line_items || []).map((item: any) => {
@@ -88,50 +90,69 @@ function buildWhatsAppStatusMessage(order: WCOrder) {
   });
 
   let statusMessage: string;
+  let followUpMessage: string;
 
   switch (status) {
     case "pending":
       statusMessage =
         "We have received your order. Payment is still pending. Please complete the payment or share the payment details so we can confirm your order.";
+      followUpMessage =
+        "We will update you as soon as your payment is received and verified.";
       break;
 
     case "on-hold":
       statusMessage =
         "Your order payment details have not yet been verified. Once verified, your order will be confirmed.";
+      followUpMessage =
+        "We will update you as soon as the verification is completed.";
       break;
 
     case "processing":
       statusMessage =
-        "Your order payment details have been verified and your order is confirmed. We will notify you once it is processed and dispatched.";
+        "Your order payment details have been verified and your order is confirmed. It is now being processed.";
+      followUpMessage =
+        "We will notify you once your order is dispatched.";
       break;
 
     case "completed":
       statusMessage =
         "Your order has been completed. Thank you for shopping with us.";
+      followUpMessage =
+        "Please contact us if you need any further assistance with this order.";
       break;
 
     case "cancelled":
       statusMessage =
-        "Your order has been cancelled. Please contact us if you need assistance or would like to place the order again.";
+        "Your order has been cancelled.";
+      followUpMessage =
+        "Please contact us if you need assistance or would like to place the order again.";
       break;
 
     case "failed":
       statusMessage =
-        "We could not confirm your order because the payment or order attempt was unsuccessful. Please retry or contact us for assistance.";
+        "We could not confirm your order because the payment or order attempt was unsuccessful.";
+      followUpMessage =
+        "Please retry the payment or contact us for assistance.";
       break;
 
     case "refunded":
       statusMessage =
-        "The refund for your order has been processed. The amount may take a few business days to reflect, depending on your payment provider.";
+        "The refund for your order has been processed.";
+      followUpMessage =
+        "The amount may take a few business days to reflect, depending on your payment provider.";
       break;
 
     default:
       statusMessage = `Your order status is now ${status.replace(/-/g, " ")}.`;
+      followUpMessage =
+        "We will keep you updated if there are any further changes.";
       break;
   }
 
   const lines = [
     `Hello ${firstName},`,
+    "",
+    `Thank you for shopping with ${businessName}.`,
     "",
     statusMessage,
     "",
@@ -170,12 +191,17 @@ function buildWhatsAppStatusMessage(order: WCOrder) {
   lines.push(
     "",
     `Total: Rs. ${order.total || "0"}`,
-    `Payment method: ${order.payment_method_title || "Not specified"}`
+    `Payment method: ${order.payment_method_title || "Not specified"}`,
+    "",
+    followUpMessage,
+    "",
+    "Regards,",
+    `${businessName} Team`
   );
 
   return lines.join("\n");
 }
-function openWhatsAppStatusDraft(order: WCOrder) {
+function openWhatsAppStatusDraft(order: WCOrder, storeName: string) {
   const phone = normalizeWhatsAppPhone(order.billing?.phone);
 
   if (!phone) {
@@ -183,7 +209,7 @@ function openWhatsAppStatusDraft(order: WCOrder) {
     return;
   }
 
-  const message = buildWhatsAppStatusMessage(order);
+  const message = buildWhatsAppStatusMessage(order, storeName);
   const url = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
   const popup = window.open(url, "_blank", "noopener,noreferrer");
 
@@ -193,9 +219,11 @@ function openWhatsAppStatusDraft(order: WCOrder) {
 }
 function ActionMenu({
   order,
+  storeName,
   onTrash,
 }: {
   order: WCOrder;
+  storeName: string;
   onTrash: (id: number) => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -293,7 +321,7 @@ function ActionMenu({
                   type="button"
                   onClick={() => {
                     setOpen(false);
-                    openWhatsAppStatusDraft(order);
+                    openWhatsAppStatusDraft(order, storeName);
                   }}
                   className="flex w-full items-center gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3.5 text-left transition hover:bg-emerald-100"
                 >
@@ -362,6 +390,7 @@ function ActionMenu({
 export default function OrdersClient({
   orders,
   categories = [],
+  storeName,
 }: OrdersClientProps) {
   const [selected, setSelected] = useState<number[]>([]);
   const [action, setAction] = useState<string>("");
@@ -564,7 +593,7 @@ export default function OrdersClient({
                             </div>
                           </div>
 
-                          <ActionMenu order={o} onTrash={moveOneToTrash} />
+                          <ActionMenu order={o} storeName={storeName} onTrash={moveOneToTrash} />
                         </div>
 
                         <div className="mt-2 flex flex-wrap items-center gap-2">
@@ -719,7 +748,7 @@ export default function OrdersClient({
                     </td>
 
                     <td className="px-4 py-4 text-right">
-                      <ActionMenu order={o} onTrash={moveOneToTrash} />
+                      <ActionMenu order={o} storeName={storeName} onTrash={moveOneToTrash} />
                     </td>
                   </tr>
                 );
