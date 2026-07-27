@@ -14,6 +14,7 @@ type CustRow = {
   country?: string;
   total_spent: number;
   order_count: number;
+  date_created?: string;
   first_order?: string;
   last_order?: string;
 };
@@ -185,9 +186,13 @@ export default async function CustomersPage({
                         </div>
 
                         <div className="mt-2 text-xs text-slate-500">
-                          Last active:{" "}
+                          Last activity:{" "}
                           <span suppressHydrationWarning>
-                            {c.last_order ? formatOrderDate(c.last_order) : "—"}
+                            {c.last_order
+                              ? formatOrderDate(c.last_order)
+                              : c.date_created
+                                ? `Registered ${formatOrderDate(c.date_created)}`
+                                : "No orders yet"}
                           </span>
                         </div>
                       </div>
@@ -215,7 +220,7 @@ export default async function CustomersPage({
                 <th className="py-3 px-3 text-left font-medium">State</th>
                 <th className="py-3 px-3 text-right font-medium">Orders</th>
                 <th className="py-3 px-3 text-right font-medium">Total spent</th>
-                <th className="py-3 pr-4 pl-3 text-left font-medium">Last active</th>
+                <th className="py-3 pr-4 pl-3 text-left font-medium">Last activity</th>
               </tr>
             </thead>
             <tbody>
@@ -275,7 +280,11 @@ export default async function CustomersPage({
                       className="py-3 pr-4 pl-3 whitespace-nowrap text-slate-700"
                       suppressHydrationWarning
                     >
-                      {c.last_order ? formatOrderDate(c.last_order) : "—"}
+                      {c.last_order
+                        ? formatOrderDate(c.last_order)
+                        : c.date_created
+                          ? `Registered ${formatOrderDate(c.date_created)}`
+                          : "No orders yet"}
                     </td>
                   </tr>
                 );

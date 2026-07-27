@@ -113,6 +113,12 @@ export function decodeCustomerKey(value: unknown): string {
     return decoded;
   }
 
+  if (decoded.startsWith("user:")) {
+    const userId = decoded.slice(5);
+    if (!/^[1-9]\d{0,9}$/.test(userId)) throw new TypeError("Invalid customer id");
+    return `user:${userId}`;
+  }
+
   if (decoded.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(decoded)) {
     throw new TypeError("Invalid customer id");
   }
