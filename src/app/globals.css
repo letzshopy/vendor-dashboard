@@ -160,3 +160,65 @@ summary:active,
 select:active {
   transform: scale(0.98);
 }
+
+.dashboard-mobile-page {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.dashboard-mobile-page > * {
+  min-width: 0;
+  max-width: 100%;
+}
+
+@media (max-width: 767px) {
+  .dashboard-mobile-page,
+  .dashboard-mobile-page * {
+    min-width: 0;
+  }
+
+  .dashboard-mobile-page section,
+  .dashboard-mobile-page section > div {
+    max-width: 100%;
+  }
+
+  .dashboard-orders-page select,
+  .dashboard-orders-page input,
+  .dashboard-orders-page button {
+    max-width: 100%;
+  }
+
+  .dashboard-orders-page select {
+    width: 100%;
+    min-width: 0 !important;
+  }
+
+  .dashboard-orders-page .block.md\:hidden > div > div {
+    max-width: 100%;
+    overflow: hidden;
+  }
+
+  .dashboard-reports-page table {
+    width: 100%;
+    table-layout: fixed;
+  }
+
+  .dashboard-reports-page th:first-child,
+  .dashboard-reports-page td:first-child {
+    width: auto;
+  }
+
+  .dashboard-reports-page th:not(:first-child),
+  .dashboard-reports-page td:not(:first-child) {
+    width: 4.25rem;
+  }
+
+  .dashboard-reports-page td {
+    overflow: hidden;
+  }
+
+  .dashboard-reports-page td > div {
+    max-width: 100% !important;
+  }
+}

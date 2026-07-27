@@ -98,9 +98,9 @@ export default async function OrdersPage() {
   }).format(Math.round(metrics.revenue || 0))}`;
 
   return (
-    <main className="mx-auto max-w-7xl px-3 pb-28 pt-3 md:px-4 md:pb-8 md:pt-5">
-      <div className="rounded-[30px] border border-white/80 bg-gradient-to-br from-white via-[#f7f8ff] to-[#eef7ff] p-4 shadow-[0_14px_40px_rgba(15,23,42,0.06)] md:p-5">
-        <div className="flex items-center justify-between gap-3">
+    <main className="dashboard-mobile-page dashboard-orders-page mx-auto w-full min-w-0 max-w-7xl px-3 pb-28 pt-3 md:px-4 md:pb-8 md:pt-5">
+      <div className="min-w-0 rounded-[30px] border border-white/80 bg-gradient-to-br from-white via-[#f7f8ff] to-[#eef7ff] p-4 shadow-[0_14px_40px_rgba(15,23,42,0.06)] md:p-5">
+        <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0">
             <div className="inline-flex items-center gap-2 rounded-full bg-indigo-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-indigo-700">
               <ClipboardList className="h-3.5 w-3.5" />
@@ -114,7 +114,7 @@ export default async function OrdersPage() {
 
           <Link
             href="/orders/new"
-            className="inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-2xl bg-indigo-600 px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700"
+            className="inline-flex h-11 w-full shrink-0 items-center justify-center gap-2 rounded-2xl bg-indigo-600 px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700 sm:w-auto"
           >
             <Plus className="h-4 w-4" />
             Create Order
@@ -122,7 +122,7 @@ export default async function OrdersPage() {
         </div>
 
         <div className="mt-5 grid grid-cols-2 gap-3 md:max-w-[420px]">
-          <div className="rounded-[20px] bg-white/90 px-4 py-3 shadow-sm">
+          <div className="min-w-0 rounded-[20px] bg-white/90 px-4 py-3 shadow-sm">
             <div className="text-[11px] uppercase tracking-wide text-slate-500">
               Total Orders
             </div>
@@ -131,18 +131,18 @@ export default async function OrdersPage() {
             </div>
           </div>
 
-          <div className="rounded-[20px] bg-violet-50 px-4 py-3 shadow-sm">
+          <div className="min-w-0 rounded-[20px] bg-violet-50 px-4 py-3 shadow-sm">
             <div className="text-[11px] uppercase tracking-wide text-violet-700">
               Revenue
             </div>
-            <div className="mt-1 text-xl font-semibold text-violet-800">
+            <div className="mt-1 truncate text-xl font-semibold text-violet-800">
               {revenueFormatted}
             </div>
           </div>
         </div>
       </div>
 
-      <div className="mt-4">
+      <div className="mt-4 min-w-0">
         <OrdersLocalController
           initial={orders}
           categories={categories}
