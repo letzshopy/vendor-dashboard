@@ -45,10 +45,18 @@ function privateJson(
 
 export async function GET() {
   try {
+    const cacheBuster = Date.now();
+
     const response = await fetchInternalWp(
-      "/wp-json/letz/v1/account/agreement/status",
+      `/wp-json/letz/v1/account/agreement/status?_ts=${cacheBuster}`,
       {
         method: "GET",
+        headers: {
+          "Cache-Control":
+            "no-cache, no-store, max-age=0",
+          Pragma: "no-cache",
+        },
+        cache: "no-store",
       },
       UPSTREAM_TIMEOUT_MS
     );
