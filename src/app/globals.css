@@ -122,6 +122,7 @@ img {
 .touch-scroll {
   -webkit-overflow-scrolling: touch;
 }
+
 @media (hover: none) and (pointer: coarse) {
   a,
   button,
@@ -140,6 +141,7 @@ img {
     transform: scale(0.98);
   }
 }
+
 a,
 button,
 [role="button"],
@@ -170,6 +172,38 @@ select:active {
 .dashboard-mobile-page > * {
   min-width: 0;
   max-width: 100%;
+}
+
+.dashboard-home-layout {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.dashboard-home-layout > div:first-child {
+  display: contents;
+}
+
+.dashboard-home-layout > div:first-child > * {
+  order: 0;
+  min-width: 0;
+  margin-top: 0 !important;
+}
+
+.dashboard-home-layout > .dashboard-home-analytics {
+  order: 1;
+}
+
+.dashboard-home-layout > div:first-child > section.items-start,
+.dashboard-home-layout > div:first-child > :last-child {
+  order: 2;
+}
+
+@media (min-width: 768px) {
+  .dashboard-home-layout {
+    gap: 1.5rem;
+  }
 }
 
 @media (max-width: 767px) {
@@ -220,5 +254,33 @@ select:active {
 
   .dashboard-reports-page td > div {
     max-width: 100% !important;
+  }
+
+  header a[aria-label="Settings"] {
+    display: none !important;
+  }
+
+  header div:has(> img[alt="LetzShopy"]) {
+    width: 6.75rem !important;
+    height: 1.75rem !important;
+  }
+
+  header div:has(> div > img[alt="LetzShopy"]) {
+    padding: 0.375rem 0.5rem !important;
+    border-radius: 0.75rem !important;
+  }
+
+  header div:has(> a[aria-label="View Store"]) {
+    gap: 0.375rem !important;
+  }
+}
+
+@media (max-width: 359px) {
+  header a[aria-label="View Store"] {
+    display: none !important;
+  }
+
+  header div:has(> img[alt="LetzShopy"]) {
+    width: 5.75rem !important;
   }
 }
