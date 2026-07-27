@@ -100,44 +100,47 @@ function discountLabel(
   return formatMoney(amount);
 }
 
+function promotionalTitle(description: string) {
+  const title = description.replace(/\s+/g, " ").trim();
+  return (title || "SPECIAL OFFER")
+    .slice(0, 120)
+    .replace(/[\s:;,.\-–—]+$/, "");
+}
+
 function buildCouponPromotionalCopy(
   form: FormState,
   templateIndex: number
 ) {
+  const title = promotionalTitle(form.description);
   const offer = discountLabel(form.discount_type, form.amount);
   const minimum = Number(form.minimum_amount || 0);
   const expiry = formatExpiry(form.date_expires);
+  const expiryText = expiry ? ` Offer valid until ${expiry}.` : "";
 
-  let base: string;
+  let messages: string[];
 
   if (form.discount_type === "fixed_product") {
-    base = `Get ${offer} off eligible products automatically at checkout. No coupon code is needed.`;
+    messages = [
+      `Get ${offer} off selected products at checkout.`,
+      `Enjoy ${offer} off selected products when you shop.`,
+      `Shop selected products and get ${offer} off at checkout.`,
+    ];
   } else if (minimum > 0) {
-    base = `Spend ${formatMoney(
-      minimum
-    )} or more and get ${offer} off automatically at checkout. No coupon code is needed.`;
+    messages = [
+      `Shop for ${formatMoney(minimum)} or more and get ${offer} off at checkout.`,
+      `Spend ${formatMoney(minimum)} or more and enjoy ${offer} off your order.`,
+      `Get ${offer} off when your order reaches ${formatMoney(minimum)}.`,
+    ];
   } else {
-    base = `Get ${offer} off automatically at checkout. No coupon code is needed.`;
+    messages = [
+      `Get ${offer} off your order at checkout.`,
+      `Enjoy ${offer} off your order when you shop.`,
+      `Shop now and get ${offer} off at checkout.`,
+    ];
   }
 
-  const expiryText = expiry ? ` Offer valid until ${expiry}.` : "";
-  const templates = [
-    `${base}${expiryText}`,
-    `${
-      minimum > 0
-        ? `Shop for ${formatMoney(minimum)} or more. `
-        : ""
-    }Your ${offer} discount is applied automatically at checkout, with no coupon code required.${expiryText}`,
-    `Enjoy ${offer} off ${
-      form.discount_type === "fixed_product"
-        ? "eligible products"
-        : minimum > 0
-        ? `orders of ${formatMoney(minimum)} or more`
-        : "your eligible order"
-    }. The saving appears automatically at checkout.${expiryText}`,
-  ];
-
-  return templates[Math.abs(templateIndex) % templates.length];
+  const message = messages[Math.abs(templateIndex) % messages.length];
+  return `${title} - ${message}${expiryText}`;
 }
 
 function statusLabel(coupon: WCCoupon) {
@@ -272,6 +275,7 @@ export default function CouponsTab() {
     if (!form) return "";
     return buildCouponPromotionalCopy(form, promoTemplateIndex);
   }, [
+    form?.description,
     form?.discount_type,
     form?.amount,
     form?.minimum_amount,
@@ -735,7 +739,10 @@ export default function CouponsTab() {
               </Field>
             </div>
 
-            <Field label="Internal note / description">
+            <Field
+              label="Offer name / internal note"
+              hint="The offer name is used as the heading in the generated promotional copy."
+            >
               <textarea
                 className={textareaClass}
                 rows={3}
@@ -750,7 +757,7 @@ export default function CouponsTab() {
                       : current
                   )
                 }
-                placeholder="Internal vendor note"
+                placeholder="Example: AASHADA SALE OFFER"
               />
             </Field>
 
@@ -797,9 +804,8 @@ export default function CouponsTab() {
                     </span>
                   </div>
                   <p className="mt-1 text-xs leading-5 text-slate-500">
-                    Generated from the discount, minimum order and expiry.
-                    It clearly tells customers that the offer is applied
-                    automatically.
+                    Generated from the offer name, discount, minimum order and expiry.
+                    You can edit the final customer-facing wording.
                   </p>
                 </div>
 
@@ -836,8 +842,8 @@ export default function CouponsTab() {
               />
 
               <div className="mt-3 text-xs font-medium text-slate-500">
-                Checkout wording will separately announce the internal
-                code and exact discount after the offer is applied.
+                Checkout will separately confirm the offer name and exact
+                discount after it is applied.
               </div>
             </section>
 

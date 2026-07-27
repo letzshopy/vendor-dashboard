@@ -67,9 +67,9 @@ function buildWelcomeCopy(
   const days = `${validDays} day${validDays === 1 ? "" : "s"}`;
 
   const templates = [
-    `Create your account and get ${money} off your first order automatically when you order within ${days} of signup. No coupon code is needed.`,
-    `New customers get ${money} off their first order automatically at checkout. Create your account and place the order within ${days} of signup.`,
-    `Sign up today and enjoy ${money} off your first eligible order automatically. The welcome offer is valid for ${days} from signup, with no coupon code required.`,
+    `WELCOME OFFER - Sign up today and enjoy ${money} off your first order. Place your order within ${days} of signup to claim the offer.`,
+    `WELCOME OFFER - Create your account and get ${money} off your first order. This offer is valid for ${days} from your signup date.`,
+    `WELCOME OFFER - Register now and enjoy ${money} off your first order when you shop within ${days} of signup.`,
   ];
 
   return templates[Math.abs(templateIndex) % templates.length];
@@ -462,8 +462,8 @@ export default function WelcomeOfferClient() {
                   </span>
                 </div>
                 <p className="mt-1 text-xs leading-5 text-slate-500">
-                  Generated from the discount amount and validity. The
-                  wording clearly states that the benefit is automatic.
+                  Generated from the discount amount and validity in simple
+                  customer-facing language. You can edit the final wording.
                 </p>
               </div>
 
