@@ -1,34 +1,10 @@
-// src/app/(dashboard)/sale-events/[id]/page.tsx
-import { notFound } from "next/navigation";
-import {
-  fetchSaleEvent,
-  fetchSaleEventFormOptions,
-} from "@/lib/saleEventsApi";
-import SaleEventFormClient from "../SaleEventFormClient";
-import { updateSaleEventAction } from "../actions";
+import { redirect } from "next/navigation";
 
-export const dynamic = "force-dynamic";
-
-export default async function EditSaleEventPage({
+export default async function LegacyEditSaleEventPage({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const [event, options] = await Promise.all([
-    fetchSaleEvent(id),
-    fetchSaleEventFormOptions(),
-  ]);
-
-  if (!event) notFound();
-
-  return (
-    <SaleEventFormClient
-      mode="edit"
-      event={event}
-      categories={options.categories}
-      products={options.products}
-      action={updateSaleEventAction}
-    />
-  );
+  redirect(`/offers-discounts/sale-events/${id}`);
 }

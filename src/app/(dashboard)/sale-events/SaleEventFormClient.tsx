@@ -286,7 +286,7 @@ export default function SaleEventFormClient({
   return (
     <main className="mx-auto max-w-7xl px-3 pb-28 pt-3 md:px-4 md:pb-8 md:pt-5">
       <Link
-        href="/sale-events"
+        href="/offers-discounts/sale-events"
         className="inline-flex items-center gap-2 text-sm font-medium text-slate-500 hover:text-slate-900"
       >
         <ArrowLeft className="h-4 w-4" />
@@ -680,7 +680,7 @@ export default function SaleEventFormClient({
 
         <div className="sticky bottom-3 z-20 flex items-center justify-between gap-3 rounded-[24px] border border-white/80 bg-white/95 p-3 shadow-[0_18px_50px_rgba(15,23,42,0.16)] backdrop-blur md:static md:justify-end md:bg-transparent md:p-0 md:shadow-none">
           <Link
-            href="/sale-events"
+            href="/offers-discounts/sale-events"
             className="inline-flex h-11 items-center justify-center rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 hover:bg-slate-50"
           >
             Cancel

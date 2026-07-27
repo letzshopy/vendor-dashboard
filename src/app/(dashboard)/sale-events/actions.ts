@@ -1,4 +1,4 @@
-// src/app/(dashboard)/sale-events/actions.ts
+// src/app/(dashboard)/offers-discounts/sale-events/actions.ts
 "use server";
 
 import { revalidatePath } from "next/cache";
@@ -73,8 +73,8 @@ function payloadFromFormData(formData: FormData): SaleEventPayload {
 
 export async function createSaleEventAction(formData: FormData) {
   await createSaleEvent(payloadFromFormData(formData));
-  revalidatePath("/sale-events");
-  redirect("/sale-events");
+  revalidatePath("/offers-discounts/sale-events");
+  redirect("/offers-discounts/sale-events");
 }
 
 export async function updateSaleEventAction(formData: FormData) {
@@ -82,9 +82,9 @@ export async function updateSaleEventAction(formData: FormData) {
   if (!id) return;
 
   await updateSaleEvent(id, payloadFromFormData(formData));
-  revalidatePath("/sale-events");
-  revalidatePath(`/sale-events/${id}`);
-  redirect("/sale-events");
+  revalidatePath("/offers-discounts/sale-events");
+  revalidatePath(`/offers-discounts/sale-events/${id}`);
+  redirect("/offers-discounts/sale-events");
 }
 
 export async function deleteSaleEventAction(formData: FormData) {
@@ -92,6 +92,6 @@ export async function deleteSaleEventAction(formData: FormData) {
   if (!id) return;
 
   await deleteSaleEvent(id);
-  revalidatePath("/sale-events");
-  redirect("/sale-events");
+  revalidatePath("/offers-discounts/sale-events");
+  redirect("/offers-discounts/sale-events");
 }
