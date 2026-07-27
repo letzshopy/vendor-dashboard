@@ -46,6 +46,30 @@ function upstreamMessage(payload: unknown, fallback: string) {
   return fallback;
 }
 
+function safeText(
+  value: unknown,
+  label: string,
+  maximum: number,
+  allowEmpty = false
+) {
+  if (typeof value !== "string") {
+    throw new TypeError(`${label} must be text`);
+  }
+
+  const text = value.trim();
+  if (!text && !allowEmpty) {
+    throw new TypeError(`${label} is required`);
+  }
+  if (text.length > maximum) {
+    throw new RangeError(`${label} is too long`);
+  }
+  if (/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/.test(text)) {
+    throw new TypeError(`Invalid ${label.toLowerCase()}`);
+  }
+
+  return text;
+}
+
 function normalizeSettings(value: unknown) {
   if (!isRecord(value)) {
     throw new TypeError("Invalid welcome-offer settings");
@@ -65,10 +89,34 @@ function normalizeSettings(value: unknown) {
     throw new RangeError("Validity must be between 1 and 365 days");
   }
 
+  const homepageVisible =
+    value.homepage_visible === undefined
+      ? true
+      : value.homepage_visible;
+
+  if (typeof homepageVisible !== "boolean") {
+    throw new TypeError("Homepage visibility must be true or false");
+  }
+
+  const promotionalCopy = safeText(
+    value.promotional_copy ?? "",
+    "Promotional copy",
+    2_000,
+    true
+  );
+
+  if (homepageVisible && !promotionalCopy) {
+    throw new TypeError(
+      "Promotional copy is required when homepage visibility is enabled"
+    );
+  }
+
   return {
     enabled: value.enabled,
     amount: Number(amount.toFixed(2)),
     valid_days: validDays,
+    homepage_visible: homepageVisible,
+    promotional_copy: promotionalCopy,
   };
 }
 
@@ -83,7 +131,9 @@ export async function GET() {
     if (!response.ok) {
       return privateJson(
         { error: upstreamMessage(payload, "Failed to load Welcome Offer") },
-        response.status >= 400 && response.status < 500 ? response.status : 502
+        response.status >= 400 && response.status < 500
+          ? response.status
+          : 502
       );
     }
 
@@ -99,15 +149,27 @@ export async function GET() {
 
 export async function PUT(request: NextRequest) {
   try {
-    const declaredLength = Number(request.headers.get("content-length") || 0);
-    if (Number.isFinite(declaredLength) && declaredLength > MAX_BODY_BYTES) {
+    const declaredLength = Number(
+      request.headers.get("content-length") || 0
+    );
+    if (
+      Number.isFinite(declaredLength) &&
+      declaredLength > MAX_BODY_BYTES
+    ) {
       return privateJson({ error: "Request body is too large" }, 413);
     }
 
     const raw = await request.text();
-    if (!raw || new TextEncoder().encode(raw).byteLength > MAX_BODY_BYTES) {
+    if (
+      !raw ||
+      new TextEncoder().encode(raw).byteLength > MAX_BODY_BYTES
+    ) {
       return privateJson(
-        { error: raw ? "Request body is too large" : "Request body is required" },
+        {
+          error: raw
+            ? "Request body is too large"
+            : "Request body is required",
+        },
         raw ? 413 : 400
       );
     }
@@ -133,7 +195,9 @@ export async function PUT(request: NextRequest) {
     if (!response.ok) {
       return privateJson(
         { error: upstreamMessage(payload, "Failed to save Welcome Offer") },
-        response.status >= 400 && response.status < 500 ? response.status : 502
+        response.status >= 400 && response.status < 500
+          ? response.status
+          : 502
       );
     }
 

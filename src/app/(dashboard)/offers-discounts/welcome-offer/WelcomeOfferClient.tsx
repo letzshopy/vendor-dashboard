@@ -6,8 +6,10 @@ import {
   CheckCircle2,
   CircleAlert,
   Clock3,
+  Eye,
   Gift,
   MailCheck,
+  RefreshCw,
   Save,
   Sparkles,
   Users,
@@ -17,6 +19,8 @@ type WelcomeSettings = {
   enabled: boolean;
   amount: number;
   valid_days: number;
+  homepage_visible: boolean;
+  promotional_copy: string;
 };
 
 type WelcomeStats = {
@@ -27,8 +31,8 @@ type WelcomeStats = {
 };
 
 type WelcomeResponse = {
-  settings?: WelcomeSettings;
-  stats?: WelcomeStats;
+  settings?: Partial<WelcomeSettings>;
+  stats?: Partial<WelcomeStats>;
   error?: string;
 };
 
@@ -36,6 +40,8 @@ const DEFAULT_SETTINGS: WelcomeSettings = {
   enabled: false,
   amount: 100,
   valid_days: 30,
+  homepage_visible: true,
+  promotional_copy: "",
 };
 
 const DEFAULT_STATS: WelcomeStats = {
@@ -50,6 +56,23 @@ function formatMoney(value: number) {
     minimumFractionDigits: Number.isInteger(value) ? 0 : 2,
     maximumFractionDigits: 2,
   })}`;
+}
+
+function buildWelcomeCopy(
+  amount: number,
+  validDays: number,
+  templateIndex: number
+) {
+  const money = formatMoney(amount);
+  const days = `${validDays} day${validDays === 1 ? "" : "s"}`;
+
+  const templates = [
+    `Create your account and get ${money} off your first order automatically when you order within ${days} of signup. No coupon code is needed.`,
+    `New customers get ${money} off their first order automatically at checkout. Create your account and place the order within ${days} of signup.`,
+    `Sign up today and enjoy ${money} off your first eligible order automatically. The welcome offer is valid for ${days} from signup, with no coupon code required.`,
+  ];
+
+  return templates[Math.abs(templateIndex) % templates.length];
 }
 
 function StatCard({
@@ -67,7 +90,9 @@ function StatCard({
         <span className="flex h-9 w-9 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600">
           {icon}
         </span>
-        <span className="text-xs font-semibold uppercase tracking-wide">{label}</span>
+        <span className="text-xs font-semibold uppercase tracking-wide">
+          {label}
+        </span>
       </div>
       <div className="mt-3 text-2xl font-semibold tracking-tight text-slate-900">
         {value}
@@ -77,12 +102,15 @@ function StatCard({
 }
 
 export default function WelcomeOfferClient() {
-  const [settings, setSettings] = useState<WelcomeSettings>(DEFAULT_SETTINGS);
+  const [settings, setSettings] =
+    useState<WelcomeSettings>(DEFAULT_SETTINGS);
   const [stats, setStats] = useState<WelcomeStats>(DEFAULT_STATS);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [promoTemplateIndex, setPromoTemplateIndex] = useState(0);
+  const [promoEdited, setPromoEdited] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -92,16 +120,33 @@ export default function WelcomeOfferClient() {
       setError("");
 
       try {
-        const response = await fetch("/api/welcome-coupon", { cache: "no-store" });
-        const payload = (await response.json().catch(() => ({}))) as WelcomeResponse;
+        const response = await fetch("/api/welcome-coupon", {
+          cache: "no-store",
+        });
+        const payload =
+          (await response.json().catch(() => ({}))) as WelcomeResponse;
 
         if (!response.ok) {
-          throw new Error(payload.error || "Failed to load Welcome Offer");
+          throw new Error(
+            payload.error || "Failed to load Welcome Offer"
+          );
         }
 
         if (!cancelled) {
-          setSettings(payload.settings || DEFAULT_SETTINGS);
-          setStats(payload.stats || DEFAULT_STATS);
+          const nextSettings: WelcomeSettings = {
+            ...DEFAULT_SETTINGS,
+            ...(payload.settings || {}),
+          };
+          const nextStats: WelcomeStats = {
+            ...DEFAULT_STATS,
+            ...(payload.stats || {}),
+          };
+
+          setSettings(nextSettings);
+          setStats(nextStats);
+          setPromoEdited(
+            Boolean(nextSettings.promotional_copy.trim())
+          );
         }
       } catch (loadError: unknown) {
         if (!cancelled) {
@@ -122,26 +167,60 @@ export default function WelcomeOfferClient() {
     };
   }, []);
 
-  const preview = useMemo(
+  const generatedPromotionalCopy = useMemo(
     () =>
-      `Create your account and get ${formatMoney(settings.amount)} off your first order. ` +
-      `Your personal welcome offer will be emailed to you and will remain valid for ` +
-      `${settings.valid_days} day${settings.valid_days === 1 ? "" : "s"} from signup.`,
-    [settings.amount, settings.valid_days]
+      buildWelcomeCopy(
+        settings.amount,
+        settings.valid_days,
+        promoTemplateIndex
+      ),
+    [settings.amount, settings.valid_days, promoTemplateIndex]
   );
 
-  async function saveSettings(event: React.FormEvent<HTMLFormElement>) {
+  useEffect(() => {
+    if (promoEdited) return;
+
+    setSettings((current) =>
+      current.promotional_copy === generatedPromotionalCopy
+        ? current
+        : {
+            ...current,
+            promotional_copy: generatedPromotionalCopy,
+          }
+    );
+  }, [generatedPromotionalCopy, promoEdited]);
+
+  async function saveSettings(
+    event: React.FormEvent<HTMLFormElement>
+  ) {
     event.preventDefault();
     setError("");
     setSuccess("");
 
-    if (!Number.isFinite(settings.amount) || settings.amount <= 0) {
+    if (
+      !Number.isFinite(settings.amount) ||
+      settings.amount <= 0
+    ) {
       setError("Enter a discount amount greater than ₹0.");
       return;
     }
 
-    if (!Number.isInteger(settings.valid_days) || settings.valid_days < 1 || settings.valid_days > 365) {
+    if (
+      !Number.isInteger(settings.valid_days) ||
+      settings.valid_days < 1 ||
+      settings.valid_days > 365
+    ) {
       setError("Validity must be between 1 and 365 days.");
+      return;
+    }
+
+    if (
+      settings.homepage_visible &&
+      !settings.promotional_copy.trim()
+    ) {
+      setError(
+        "Promotional copy is required when homepage visibility is enabled."
+      );
       return;
     }
 
@@ -151,19 +230,31 @@ export default function WelcomeOfferClient() {
       const response = await fetch("/api/welcome-coupon", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(settings),
+        body: JSON.stringify({
+          ...settings,
+          promotional_copy: settings.promotional_copy.trim(),
+        }),
       });
-      const payload = (await response.json().catch(() => ({}))) as WelcomeResponse;
+      const payload =
+        (await response.json().catch(() => ({}))) as WelcomeResponse;
 
       if (!response.ok) {
-        throw new Error(payload.error || "Failed to save Welcome Offer");
+        throw new Error(
+          payload.error || "Failed to save Welcome Offer"
+        );
       }
 
-      setSettings(payload.settings || settings);
-      setStats(payload.stats || stats);
+      setSettings((current) => ({
+        ...current,
+        ...(payload.settings || {}),
+      }));
+      setStats((current) => ({
+        ...current,
+        ...(payload.stats || {}),
+      }));
       setSuccess(
         settings.enabled
-          ? "Welcome Offer is active for new customer registrations."
+          ? "Welcome Offer settings saved for new customer registrations."
           : "Welcome Offer is disabled for future registrations."
       );
     } catch (saveError: unknown) {
@@ -202,13 +293,32 @@ export default function WelcomeOfferClient() {
       ) : null}
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard label="Issued" value={stats.issued} icon={<Users className="h-4 w-4" />} />
-        <StatCard label="Available" value={stats.active} icon={<Gift className="h-4 w-4" />} />
-        <StatCard label="Redeemed" value={stats.redeemed} icon={<MailCheck className="h-4 w-4" />} />
-        <StatCard label="Expired" value={stats.expired} icon={<Clock3 className="h-4 w-4" />} />
+        <StatCard
+          label="Issued"
+          value={stats.issued}
+          icon={<Users className="h-4 w-4" />}
+        />
+        <StatCard
+          label="Available"
+          value={stats.active}
+          icon={<Gift className="h-4 w-4" />}
+        />
+        <StatCard
+          label="Redeemed"
+          value={stats.redeemed}
+          icon={<MailCheck className="h-4 w-4" />}
+        />
+        <StatCard
+          label="Expired"
+          value={stats.expired}
+          icon={<Clock3 className="h-4 w-4" />}
+        />
       </div>
 
-      <form onSubmit={saveSettings} className="overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-sm">
+      <form
+        onSubmit={saveSettings}
+        className="overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-sm"
+      >
         <div className="border-b border-slate-100 bg-gradient-to-r from-slate-50 via-indigo-50/60 to-sky-50/60 px-4 py-4 md:px-6 md:py-5">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex min-w-0 items-start gap-3">
@@ -220,7 +330,8 @@ export default function WelcomeOfferClient() {
                   New Customer Welcome Offer
                 </h2>
                 <p className="mt-1 text-xs leading-5 text-slate-500 md:text-sm">
-                  Issue one personal first-order coupon automatically when a customer creates an account.
+                  Issue one personal first-order benefit automatically
+                  when a customer creates an account.
                 </p>
               </div>
             </div>
@@ -230,7 +341,10 @@ export default function WelcomeOfferClient() {
                 type="checkbox"
                 checked={settings.enabled}
                 onChange={(event) =>
-                  setSettings((current) => ({ ...current, enabled: event.target.checked }))
+                  setSettings((current) => ({
+                    ...current,
+                    enabled: event.target.checked,
+                  }))
                 }
                 className="h-5 w-5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
               />
@@ -238,7 +352,9 @@ export default function WelcomeOfferClient() {
                 <span className="block text-sm font-semibold text-slate-900">
                   {settings.enabled ? "Enabled" : "Disabled"}
                 </span>
-                <span className="block text-[11px] text-slate-500">Future registrations</span>
+                <span className="block text-[11px] text-slate-500">
+                  Future registrations
+                </span>
               </span>
             </label>
           </div>
@@ -247,7 +363,9 @@ export default function WelcomeOfferClient() {
         <div className="space-y-5 p-4 md:p-6">
           <div className="grid gap-4 md:grid-cols-2">
             <div>
-              <label className="text-sm font-semibold text-slate-800">Discount amount</label>
+              <label className="text-sm font-semibold text-slate-800">
+                Discount amount
+              </label>
               <div className="relative mt-2">
                 <BadgeIndianRupee className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                 <input
@@ -266,12 +384,15 @@ export default function WelcomeOfferClient() {
                 />
               </div>
               <p className="mt-2 text-xs leading-5 text-slate-500">
-                Fixed discount applied to the customer’s first eligible cart.
+                Applied automatically to the customer’s first eligible
+                cart.
               </p>
             </div>
 
             <div>
-              <label className="text-sm font-semibold text-slate-800">Validity from signup</label>
+              <label className="text-sm font-semibold text-slate-800">
+                Validity from signup
+              </label>
               <div className="relative mt-2">
                 <Clock3 className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                 <input
@@ -283,7 +404,10 @@ export default function WelcomeOfferClient() {
                   onChange={(event) =>
                     setSettings((current) => ({
                       ...current,
-                      valid_days: Number.parseInt(event.target.value || "0", 10),
+                      valid_days: Number.parseInt(
+                        event.target.value || "0",
+                        10
+                      ),
                     }))
                   }
                   className="h-11 w-full rounded-2xl border border-slate-200 bg-white pl-10 pr-16 text-sm text-slate-900 shadow-sm outline-none transition focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100"
@@ -293,32 +417,101 @@ export default function WelcomeOfferClient() {
                 </span>
               </div>
               <p className="mt-2 text-xs leading-5 text-slate-500">
-                Each customer receives their own expiry date based on registration time.
+                Each customer receives an individual expiry date from
+                signup.
               </p>
             </div>
           </div>
 
-          <div className="rounded-[22px] border border-violet-100 bg-gradient-to-br from-violet-50 via-white to-sky-50 p-4 md:p-5">
-            <div className="flex items-center gap-2 text-sm font-semibold text-violet-800">
-              <Sparkles className="h-4 w-4" />
-              Storefront promotional preview
+          <label className="flex cursor-pointer items-start justify-between gap-4 rounded-[22px] border border-slate-200 bg-slate-50 px-4 py-4">
+            <span className="flex min-w-0 items-start gap-3">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-white text-indigo-600 shadow-sm">
+                <Eye className="h-4 w-4" />
+              </span>
+              <span>
+                <span className="block text-sm font-semibold text-slate-900">
+                  Homepage Visibility
+                </span>
+                <span className="mt-1 block text-xs leading-5 text-slate-500">
+                  Show this Welcome Offer inside the storefront Current
+                  Offers section while it is enabled.
+                </span>
+              </span>
+            </span>
+            <input
+              type="checkbox"
+              checked={settings.homepage_visible}
+              onChange={(event) =>
+                setSettings((current) => ({
+                  ...current,
+                  homepage_visible: event.target.checked,
+                }))
+              }
+              className="mt-1 h-5 w-5 shrink-0 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+            />
+          </label>
+
+          <section className="rounded-[22px] border border-violet-100 bg-gradient-to-br from-violet-50 via-white to-sky-50 p-4 md:p-5">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <div className="flex items-center gap-2 text-sm font-semibold text-violet-800">
+                  <Sparkles className="h-4 w-4" />
+                  Promotional Copy
+                  <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-700">
+                    Editable
+                  </span>
+                </div>
+                <p className="mt-1 text-xs leading-5 text-slate-500">
+                  Generated from the discount amount and validity. The
+                  wording clearly states that the benefit is automatic.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setPromoTemplateIndex(
+                    (current) => (current + 1) % 3
+                  );
+                  setPromoEdited(false);
+                }}
+                className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-2xl border border-indigo-100 bg-indigo-50 px-3 text-xs font-semibold text-indigo-700 transition hover:border-indigo-300 hover:bg-indigo-100"
+              >
+                <RefreshCw className="h-3.5 w-3.5" />
+                Regenerate
+              </button>
             </div>
-            <p className="mt-3 text-sm leading-6 text-slate-700">{preview}</p>
+
+            <textarea
+              value={settings.promotional_copy}
+              onChange={(event) => {
+                setSettings((current) => ({
+                  ...current,
+                  promotional_copy: event.target.value,
+                }));
+                setPromoEdited(true);
+              }}
+              rows={5}
+              className="mt-4 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm leading-6 text-slate-800 outline-none transition focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100"
+            />
+
             <div className="mt-4 flex flex-wrap gap-2 text-[11px] font-semibold">
               <span className="rounded-full bg-white px-3 py-1.5 text-slate-600 shadow-sm">
                 First order only
               </span>
               <span className="rounded-full bg-white px-3 py-1.5 text-slate-600 shadow-sm">
-                Personal code by email
+                Auto-applied at checkout
               </span>
               <span className="rounded-full bg-white px-3 py-1.5 text-slate-600 shadow-sm">
-                Auto-applied after sign-in
+                Create Account link
               </span>
             </div>
-          </div>
+          </section>
 
           <div className="rounded-[20px] border border-amber-200 bg-amber-50 px-4 py-3 text-xs leading-5 text-amber-800">
-            Disabling the offer stops new coupons from being issued. Coupons already emailed to customers remain valid until their individual expiry date.
+            Disabling the offer stops new welcome benefits from being
+            issued. Benefits already issued remain valid until their
+            individual expiry date.
           </div>
 
           <div className="flex justify-end">

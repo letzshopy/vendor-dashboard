@@ -4,16 +4,18 @@ import { useEffect, useMemo, useState } from "react";
 import {
   BadgePercent,
   CalendarDays,
+  CheckCircle2,
   CircleAlert,
+  Eye,
+  EyeOff,
   PencilLine,
   Plus,
+  RefreshCw,
+  Sparkles,
   Tag,
   TicketPercent,
   Trash2,
   X,
-  CheckCircle2,
-  ReceiptText,
-  BadgeInfo,
 } from "lucide-react";
 
 export interface WCCoupon {
@@ -27,6 +29,8 @@ export interface WCCoupon {
   usage_count?: number;
   minimum_amount?: string;
   status?: string;
+  homepage_visible?: boolean;
+  promotional_copy?: string;
 }
 
 type FormState = {
@@ -38,7 +42,14 @@ type FormState = {
   date_expires: string;
   minimum_amount: string;
   usage_limit: string;
+  homepage_visible: boolean;
+  promotional_copy: string;
 };
+
+type Banner = {
+  type: "success" | "error";
+  message: string;
+} | null;
 
 const emptyForm = (): FormState => ({
   code: "",
@@ -48,43 +59,9 @@ const emptyForm = (): FormState => ({
   date_expires: "",
   minimum_amount: "",
   usage_limit: "",
+  homepage_visible: false,
+  promotional_copy: "",
 });
-
-function usageSummary(c: WCCoupon) {
-  const used = c.usage_count || 0;
-  const lim =
-    typeof c.usage_limit === "number" && !Number.isNaN(c.usage_limit)
-      ? c.usage_limit
-      : null;
-  if (!lim) return `${used} used`;
-  return `${used} of ${lim} used`;
-}
-
-function statusLabel(c: WCCoupon) {
-  const today = new Date().toISOString().slice(0, 10);
-  if (c.status === "trash") return "Trash";
-  if (c.date_expires && c.date_expires.slice(0, 10) < today) return "Expired";
-  return "Active";
-}
-
-function discountTypeLabel(type: string) {
-  if (type === "percent") return "Percentage";
-  if (type === "fixed_cart") return "Fixed cart";
-  if (type === "fixed_product") return "Fixed product";
-  return type;
-}
-
-function statusClasses(status: string) {
-  if (status === "Active") {
-    return "bg-emerald-50 text-emerald-700 border-emerald-200";
-  }
-  if (status === "Expired") {
-    return "bg-amber-50 text-amber-700 border-amber-200";
-  }
-  return "bg-slate-100 text-slate-600 border-slate-200";
-}
-
-type Banner = { type: "success" | "error"; message: string } | null;
 
 const inputClass =
   "h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-900 " +
@@ -93,6 +70,98 @@ const inputClass =
 const textareaClass =
   "w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 " +
   "placeholder:text-slate-400 shadow-sm transition focus:border-indigo-400 focus:outline-none focus:ring-4 focus:ring-indigo-100";
+
+function formatMoney(value: string | number) {
+  const amount = Number(value || 0);
+  return `₹${amount.toLocaleString("en-IN", {
+    minimumFractionDigits: Number.isInteger(amount) ? 0 : 2,
+    maximumFractionDigits: 2,
+  })}`;
+}
+
+function formatExpiry(value: string) {
+  if (!value) return "";
+  try {
+    return new Intl.DateTimeFormat("en-IN", {
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+    }).format(new Date(`${value}T00:00:00`));
+  } catch {
+    return value;
+  }
+}
+
+function discountLabel(
+  type: FormState["discount_type"],
+  amount: string
+) {
+  if (type === "percent") return `${Number(amount || 0)}%`;
+  return formatMoney(amount);
+}
+
+function buildCouponPromotionalCopy(
+  form: FormState,
+  templateIndex: number
+) {
+  const offer = discountLabel(form.discount_type, form.amount);
+  const minimum = Number(form.minimum_amount || 0);
+  const expiry = formatExpiry(form.date_expires);
+
+  let base: string;
+
+  if (form.discount_type === "fixed_product") {
+    base = `Get ${offer} off eligible products automatically at checkout. No coupon code is needed.`;
+  } else if (minimum > 0) {
+    base = `Spend ${formatMoney(
+      minimum
+    )} or more and get ${offer} off automatically at checkout. No coupon code is needed.`;
+  } else {
+    base = `Get ${offer} off automatically at checkout. No coupon code is needed.`;
+  }
+
+  const expiryText = expiry ? ` Offer valid until ${expiry}.` : "";
+  const templates = [
+    `${base}${expiryText}`,
+    `${
+      minimum > 0
+        ? `Shop for ${formatMoney(minimum)} or more. `
+        : ""
+    }Your ${offer} discount is applied automatically at checkout, with no coupon code required.${expiryText}`,
+    `Enjoy ${offer} off ${
+      form.discount_type === "fixed_product"
+        ? "eligible products"
+        : minimum > 0
+        ? `orders of ${formatMoney(minimum)} or more`
+        : "your eligible order"
+    }. The saving appears automatically at checkout.${expiryText}`,
+  ];
+
+  return templates[Math.abs(templateIndex) % templates.length];
+}
+
+function statusLabel(coupon: WCCoupon) {
+  const today = new Date().toISOString().slice(0, 10);
+  if (coupon.status === "trash") return "Trash";
+  if (
+    coupon.date_expires &&
+    coupon.date_expires.slice(0, 10) < today
+  ) {
+    return "Expired";
+  }
+  return "Active";
+}
+
+function usageSummary(coupon: WCCoupon) {
+  const used = coupon.usage_count || 0;
+  const limit =
+    typeof coupon.usage_limit === "number" &&
+    !Number.isNaN(coupon.usage_limit)
+      ? coupon.usage_limit
+      : null;
+
+  return limit ? `${used} of ${limit} used` : `${used} used`;
+}
 
 function Field({
   label,
@@ -109,29 +178,33 @@ function Field({
         {label}
       </label>
       {children}
-      {hint ? <p className="mt-2 text-xs text-slate-500">{hint}</p> : null}
+      {hint ? (
+        <p className="mt-2 text-xs leading-5 text-slate-500">
+          {hint}
+        </p>
+      ) : null}
     </div>
   );
 }
 
 function SummaryCard({
-  icon,
   label,
   value,
+  icon,
 }: {
-  icon: React.ReactNode;
   label: string;
-  value: string | number;
+  value: number;
+  icon: React.ReactNode;
 }) {
   return (
     <div className="rounded-[22px] border border-slate-200 bg-white p-4 shadow-sm">
       <div className="flex items-center gap-2 text-slate-500">
-        <div className="flex h-9 w-9 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600">
+        <span className="flex h-9 w-9 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600">
           {icon}
-        </div>
-        <div className="text-xs font-semibold uppercase tracking-wide">
+        </span>
+        <span className="text-xs font-semibold uppercase tracking-wide">
           {label}
-        </div>
+        </span>
       </div>
       <div className="mt-3 text-2xl font-semibold tracking-tight text-slate-900">
         {value}
@@ -144,12 +217,13 @@ export default function CouponsTab() {
   const [loading, setLoading] = useState(true);
   const [coupons, setCoupons] = useState<WCCoupon[]>([]);
   const [error, setError] = useState<string | null>(null);
-
   const [form, setForm] = useState<FormState | null>(null);
   const [saving, setSaving] = useState(false);
   const [banner, setBanner] = useState<Banner>(null);
+  const [promoTemplateIndex, setPromoTemplateIndex] = useState(0);
+  const [promoEdited, setPromoEdited] = useState(false);
 
-  const editing = !!form?.id;
+  const editing = Boolean(form?.id);
 
   useEffect(() => {
     let cancelled = false;
@@ -157,18 +231,31 @@ export default function CouponsTab() {
     async function load() {
       setLoading(true);
       setError(null);
+
       try {
-        const res = await fetch("/api/coupons", { cache: "no-store" });
-        const j = await res.json();
-        if (!res.ok) {
-          throw new Error(j?.error || "Failed to load coupons");
+        const response = await fetch("/api/coupons", {
+          cache: "no-store",
+        });
+        const payload = await response.json();
+
+        if (!response.ok) {
+          throw new Error(
+            payload?.error || "Failed to load coupons"
+          );
         }
+
         if (!cancelled) {
-          setCoupons(Array.isArray(j.data) ? j.data : []);
+          setCoupons(
+            Array.isArray(payload.data) ? payload.data : []
+          );
         }
-      } catch (e: any) {
+      } catch (loadError: unknown) {
         if (!cancelled) {
-          setError(e?.message || "Failed to load coupons");
+          setError(
+            loadError instanceof Error
+              ? loadError.message
+              : "Failed to load coupons"
+          );
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -181,53 +268,124 @@ export default function CouponsTab() {
     };
   }, []);
 
+  const generatedPromotionalCopy = useMemo(() => {
+    if (!form) return "";
+    return buildCouponPromotionalCopy(form, promoTemplateIndex);
+  }, [
+    form?.discount_type,
+    form?.amount,
+    form?.minimum_amount,
+    form?.date_expires,
+    promoTemplateIndex,
+  ]);
+
+  useEffect(() => {
+    if (!form || promoEdited) return;
+
+    setForm((current) => {
+      if (
+        !current ||
+        current.promotional_copy === generatedPromotionalCopy
+      ) {
+        return current;
+      }
+
+      return {
+        ...current,
+        promotional_copy: generatedPromotionalCopy,
+      };
+    });
+  }, [generatedPromotionalCopy, promoEdited, form]);
+
   const stats = useMemo(() => {
-    const active = coupons.filter((c) => statusLabel(c) === "Active").length;
-    const expired = coupons.filter((c) => statusLabel(c) === "Expired").length;
+    const active = coupons.filter(
+      (coupon) => statusLabel(coupon) === "Active"
+    ).length;
+    const publicOffers = coupons.filter(
+      (coupon) =>
+        statusLabel(coupon) === "Active" &&
+        coupon.homepage_visible
+    ).length;
+
     return {
       total: coupons.length,
       active,
-      expired,
+      publicOffers,
     };
   }, [coupons]);
 
   function openCreate() {
     setForm(emptyForm());
+    setPromoTemplateIndex(0);
+    setPromoEdited(false);
     setBanner(null);
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
-  function openEdit(c: WCCoupon) {
+  function openEdit(coupon: WCCoupon) {
+    const promotionalCopy = coupon.promotional_copy || "";
+
     setForm({
-      id: c.id,
-      code: c.code || "",
+      id: coupon.id,
+      code: coupon.code || "",
       discount_type:
-        (c.discount_type as FormState["discount_type"]) || "percent",
-      amount: c.amount || "",
-      description: c.description || "",
-      date_expires: c.date_expires ? c.date_expires.slice(0, 10) : "",
-      minimum_amount: c.minimum_amount || "",
+        (coupon.discount_type as FormState["discount_type"]) ||
+        "percent",
+      amount: coupon.amount || "",
+      description: coupon.description || "",
+      date_expires: coupon.date_expires
+        ? coupon.date_expires.slice(0, 10)
+        : "",
+      minimum_amount: coupon.minimum_amount || "",
       usage_limit:
-        typeof c.usage_limit === "number" ? String(c.usage_limit) : "",
+        typeof coupon.usage_limit === "number"
+          ? String(coupon.usage_limit)
+          : "",
+      homepage_visible: Boolean(coupon.homepage_visible),
+      promotional_copy: promotionalCopy,
     });
+    setPromoTemplateIndex(0);
+    setPromoEdited(Boolean(promotionalCopy.trim()));
     setBanner(null);
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
   function closeForm() {
     setForm(null);
+    setPromoEdited(false);
   }
 
-  async function handleSave(e: React.FormEvent) {
-    e.preventDefault();
+  async function handleSave(
+    event: React.FormEvent<HTMLFormElement>
+  ) {
+    event.preventDefault();
     if (!form) return;
 
     if (!form.code.trim()) {
-      alert("Coupon code is required.");
+      setBanner({
+        type: "error",
+        message: "Internal coupon code is required.",
+      });
       return;
     }
-    if (!form.amount.trim()) {
-      alert("Discount amount is required.");
+
+    if (!form.amount.trim() || Number(form.amount) <= 0) {
+      setBanner({
+        type: "error",
+        message: "Discount amount must be greater than zero.",
+      });
+      return;
+    }
+
+    if (
+      form.homepage_visible &&
+      !form.promotional_copy.trim()
+    ) {
+      setBanner({
+        type: "error",
+        message:
+          "Promotional copy is required when homepage visibility is enabled.",
+      });
       return;
     }
 
@@ -241,58 +399,63 @@ export default function CouponsTab() {
         amount: form.amount.trim(),
         description: form.description.trim(),
         date_expires: form.date_expires || null,
-        minimum_amount: form.minimum_amount.trim() || "",
+        minimum_amount: form.minimum_amount.trim(),
         usage_limit: form.usage_limit
           ? Number.parseInt(form.usage_limit, 10)
           : null,
+        homepage_visible: form.homepage_visible,
+        promotional_copy: form.promotional_copy.trim(),
       };
 
-      let res: Response;
-      if (editing && form.id) {
-        res = await fetch(`/api/coupons/${form.id}`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        });
-      } else {
-        res = await fetch("/api/coupons", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        });
+      const response =
+        editing && form.id
+          ? await fetch(`/api/coupons/${form.id}`, {
+              method: "PUT",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(payload),
+            })
+          : await fetch("/api/coupons", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(payload),
+            });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result?.error || "Save failed");
       }
 
-      const j = await res.json();
-      if (!res.ok) {
-        setBanner({
-          type: "error",
-          message: j?.error || "Save failed",
-        });
-        window.scrollTo({ top: 0, behavior: "smooth" });
-        return;
-      }
+      const saved = result.data as WCCoupon;
 
-      const saved: WCCoupon = j.data;
+      setCoupons((current) => {
+        const index = current.findIndex(
+          (coupon) => coupon.id === saved.id
+        );
 
-      setCoupons((prev) => {
-        const idx = prev.findIndex((c) => c.id === saved.id);
-        if (idx >= 0) {
-          const copy = [...prev];
-          copy[idx] = saved;
-          return copy;
-        }
-        return [saved, ...prev];
+        if (index < 0) return [saved, ...current];
+
+        const next = [...current];
+        next[index] = saved;
+        return next;
       });
 
       setForm(null);
       setBanner({
         type: "success",
-        message: editing ? "Coupon updated." : "Coupon created.",
+        message: editing
+          ? "Automatic coupon offer updated."
+          : "Automatic coupon offer created.",
       });
       window.scrollTo({ top: 0, behavior: "smooth" });
-    } catch (err: any) {
-      console.error(err);
-      setBanner({ type: "error", message: "Save failed" });
+    } catch (saveError: unknown) {
+      setBanner({
+        type: "error",
+        message:
+          saveError instanceof Error
+            ? saveError.message
+            : "Save failed",
+      });
       window.scrollTo({ top: 0, behavior: "smooth" });
     } finally {
       setSaving(false);
@@ -300,45 +463,60 @@ export default function CouponsTab() {
   }
 
   async function handleDelete(id: number) {
-    if (!confirm("Delete this coupon? This cannot be undone.")) return;
+    if (
+      !confirm(
+        "Delete this automatic coupon offer? This cannot be undone."
+      )
+    ) {
+      return;
+    }
+
     setBanner(null);
 
     try {
-      const res = await fetch(`/api/coupons/${id}`, { method: "DELETE" });
-      const j = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        setBanner({
-          type: "error",
-          message: j?.error || "Delete failed",
-        });
-        window.scrollTo({ top: 0, behavior: "smooth" });
-        return;
+      const response = await fetch(`/api/coupons/${id}`, {
+        method: "DELETE",
+      });
+      const result = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        throw new Error(result?.error || "Delete failed");
       }
 
-      setCoupons((prev) => prev.filter((c) => c.id !== id));
-      setBanner({ type: "success", message: "Coupon deleted." });
-      window.scrollTo({ top: 0, behavior: "smooth" });
-    } catch (err: any) {
-      console.error(err);
-      setBanner({ type: "error", message: "Delete failed" });
-      window.scrollTo({ top: 0, behavior: "smooth" });
+      setCoupons((current) =>
+        current.filter((coupon) => coupon.id !== id)
+      );
+      setBanner({
+        type: "success",
+        message: "Automatic coupon offer deleted.",
+      });
+    } catch (deleteError: unknown) {
+      setBanner({
+        type: "error",
+        message:
+          deleteError instanceof Error
+            ? deleteError.message
+            : "Delete failed",
+      });
     }
   }
 
   return (
     <div className="space-y-4 p-3 md:space-y-5 md:p-5">
-      <div className="rounded-[24px] border border-slate-200 bg-white p-4 shadow-sm">
+      <section className="rounded-[24px] border border-slate-200 bg-white p-4 shadow-sm">
         <div className="flex items-start justify-between gap-3">
           <div className="flex min-w-0 items-start gap-3">
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600">
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600">
               <TicketPercent className="h-5 w-5" />
-            </div>
-            <div className="min-w-0">
+            </span>
+            <div>
               <h2 className="text-lg font-semibold text-slate-900 md:text-xl">
-                Coupons
+                Automatic Coupon Offers
               </h2>
               <p className="mt-1 text-xs leading-5 text-slate-500 md:text-sm">
-                Create and manage discount codes for your store checkout.
+                Create cart offers that are claimed automatically when
+                the customer meets the eligibility rules. Customers do
+                not enter coupon codes.
               </p>
             </div>
           </div>
@@ -349,84 +527,98 @@ export default function CouponsTab() {
             className="inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-2xl bg-indigo-600 px-4 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700"
           >
             <Plus className="h-4 w-4" />
-            <span className="hidden sm:inline">Add coupon</span>
+            <span className="hidden sm:inline">Add offer</span>
             <span className="sm:hidden">Add</span>
           </button>
         </div>
-      </div>
+      </section>
 
-      {banner && (
+      {banner ? (
         <div
-          className={`rounded-[20px] border px-4 py-3 text-sm shadow-sm ${
+          className={`flex items-start gap-2 rounded-[20px] border px-4 py-3 text-sm ${
             banner.type === "success"
               ? "border-emerald-200 bg-emerald-50 text-emerald-800"
               : "border-rose-200 bg-rose-50 text-rose-800"
           }`}
         >
-          <div className="flex items-start gap-2">
-            {banner.type === "success" ? (
-              <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
-            ) : (
-              <CircleAlert className="mt-0.5 h-4 w-4 shrink-0" />
-            )}
-            <span>{banner.message}</span>
-          </div>
+          {banner.type === "success" ? (
+            <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
+          ) : (
+            <CircleAlert className="mt-0.5 h-4 w-4 shrink-0" />
+          )}
+          <span>{banner.message}</span>
         </div>
-      )}
+      ) : null}
 
       <div className="grid gap-3 sm:grid-cols-3">
         <SummaryCard
-          icon={<ReceiptText className="h-4 w-4" />}
-          label="Total coupons"
+          label="Total offers"
           value={stats.total}
+          icon={<TicketPercent className="h-4 w-4" />}
         />
         <SummaryCard
-          icon={<CheckCircle2 className="h-4 w-4" />}
           label="Active"
           value={stats.active}
+          icon={<CheckCircle2 className="h-4 w-4" />}
         />
         <SummaryCard
-          icon={<CalendarDays className="h-4 w-4" />}
-          label="Expired"
-          value={stats.expired}
+          label="On homepage"
+          value={stats.publicOffers}
+          icon={<Eye className="h-4 w-4" />}
         />
       </div>
 
-      {form && (
+      {form ? (
         <section className="overflow-hidden rounded-[26px] border border-slate-200 bg-white shadow-sm">
           <div className="border-b border-slate-100 bg-gradient-to-r from-white via-slate-50 to-indigo-50/40 px-4 py-4 md:px-5">
             <div className="flex items-start justify-between gap-3">
               <div>
                 <h3 className="text-base font-semibold text-slate-900">
-                  {editing ? "Edit coupon" : "New coupon"}
+                  {editing
+                    ? "Edit automatic coupon offer"
+                    : "New automatic coupon offer"}
                 </h3>
-                <p className="mt-1 text-xs text-slate-500 md:text-sm">
-                  Set coupon code, discount type and usage rules.
+                <p className="mt-1 text-xs leading-5 text-slate-500 md:text-sm">
+                  The internal code is retained for WooCommerce tracking,
+                  but customers never type or paste it.
                 </p>
               </div>
 
               <button
                 type="button"
                 onClick={closeForm}
-                className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 hover:bg-slate-50 hover:text-slate-700"
+                className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 hover:bg-slate-50"
               >
                 <X className="h-4 w-4" />
               </button>
             </div>
           </div>
 
-          <form onSubmit={handleSave} className="space-y-4 p-4 md:p-5">
+          <form
+            onSubmit={handleSave}
+            className="space-y-5 p-4 md:p-5"
+          >
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-              <Field label="Coupon code">
+              <Field
+                label="Internal coupon code"
+                hint="Used in WooCommerce, checkout messages and reports only."
+              >
                 <div className="relative">
                   <Tag className="pointer-events-none absolute left-4 top-3.5 h-4 w-4 text-slate-400" />
                   <input
                     className={`${inputClass} pl-11 uppercase tracking-wide`}
                     value={form.code}
-                    onChange={(e) =>
-                      setForm((f) => f && { ...f, code: e.target.value })
+                    onChange={(event) =>
+                      setForm((current) =>
+                        current
+                          ? {
+                              ...current,
+                              code: event.target.value,
+                            }
+                          : current
+                      )
                     }
-                    placeholder="WELCOME10"
+                    placeholder="AASHADA500"
                   />
                 </div>
               </Field>
@@ -435,20 +627,27 @@ export default function CouponsTab() {
                 <select
                   className={inputClass}
                   value={form.discount_type}
-                  onChange={(e) =>
-                    setForm(
-                      (f) =>
-                        f && {
-                          ...f,
-                          discount_type:
-                            e.target.value as FormState["discount_type"],
-                        }
+                  onChange={(event) =>
+                    setForm((current) =>
+                      current
+                        ? {
+                            ...current,
+                            discount_type: event.target
+                              .value as FormState["discount_type"],
+                          }
+                        : current
                     )
                   }
                 >
-                  <option value="percent">Percentage discount (%)</option>
-                  <option value="fixed_cart">Fixed cart discount (₹)</option>
-                  <option value="fixed_product">Fixed product discount (₹)</option>
+                  <option value="percent">
+                    Percentage discount (%)
+                  </option>
+                  <option value="fixed_cart">
+                    Fixed cart discount (₹)
+                  </option>
+                  <option value="fixed_product">
+                    Fixed product discount (₹)
+                  </option>
                 </select>
               </Field>
 
@@ -458,10 +657,17 @@ export default function CouponsTab() {
                   <input
                     className={`${inputClass} pl-11`}
                     value={form.amount}
-                    onChange={(e) =>
-                      setForm((f) => f && { ...f, amount: e.target.value })
+                    onChange={(event) =>
+                      setForm((current) =>
+                        current
+                          ? {
+                              ...current,
+                              amount: event.target.value,
+                            }
+                          : current
+                      )
                     }
-                    placeholder="10"
+                    placeholder="500"
                   />
                 </div>
               </Field>
@@ -471,8 +677,15 @@ export default function CouponsTab() {
                   type="date"
                   className={inputClass}
                   value={form.date_expires}
-                  onChange={(e) =>
-                    setForm((f) => f && { ...f, date_expires: e.target.value })
+                  onChange={(event) =>
+                    setForm((current) =>
+                      current
+                        ? {
+                            ...current,
+                            date_expires: event.target.value,
+                          }
+                        : current
+                    )
                   }
                 />
               </Field>
@@ -481,31 +694,43 @@ export default function CouponsTab() {
             <div className="grid gap-4 md:grid-cols-2">
               <Field
                 label="Minimum order amount"
-                hint="Leave blank if there is no minimum cart value."
+                hint="Example: enter 5000 to apply this offer automatically only when the eligible cart reaches ₹5,000."
               >
                 <input
                   className={inputClass}
                   value={form.minimum_amount}
-                  onChange={(e) =>
-                    setForm(
-                      (f) => f && { ...f, minimum_amount: e.target.value }
+                  onChange={(event) =>
+                    setForm((current) =>
+                      current
+                        ? {
+                            ...current,
+                            minimum_amount: event.target.value,
+                          }
+                        : current
                     )
                   }
-                  placeholder="0"
+                  placeholder="5000"
                 />
               </Field>
 
               <Field
                 label="Usage limit"
-                hint="Total number of times this coupon can be used."
+                hint="Maximum total redemptions across the store."
               >
                 <input
                   className={inputClass}
                   value={form.usage_limit}
-                  onChange={(e) =>
-                    setForm((f) => f && { ...f, usage_limit: e.target.value })
+                  onChange={(event) =>
+                    setForm((current) =>
+                      current
+                        ? {
+                            ...current,
+                            usage_limit: event.target.value,
+                          }
+                        : current
+                    )
                   }
-                  placeholder="e.g. 50"
+                  placeholder="50"
                 />
               </Field>
             </div>
@@ -513,233 +738,283 @@ export default function CouponsTab() {
             <Field label="Internal note / description">
               <textarea
                 className={textareaClass}
-                rows={4}
+                rows={3}
                 value={form.description}
-                onChange={(e) =>
-                  setForm((f) => f && { ...f, description: e.target.value })
+                onChange={(event) =>
+                  setForm((current) =>
+                    current
+                      ? {
+                          ...current,
+                          description: event.target.value,
+                        }
+                      : current
+                  )
                 }
-                placeholder="Example: Festival offer, reseller orders excluded"
+                placeholder="Internal vendor note"
               />
             </Field>
+
+            <label className="flex cursor-pointer items-start justify-between gap-4 rounded-[22px] border border-slate-200 bg-slate-50 px-4 py-4">
+              <span className="flex min-w-0 items-start gap-3">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-white text-indigo-600 shadow-sm">
+                  <Eye className="h-4 w-4" />
+                </span>
+                <span>
+                  <span className="block text-sm font-semibold text-slate-900">
+                    Homepage Visibility
+                  </span>
+                  <span className="mt-1 block text-xs leading-5 text-slate-500">
+                    Show this eligible automatic offer inside the
+                    storefront Current Offers section.
+                  </span>
+                </span>
+              </span>
+              <input
+                type="checkbox"
+                checked={form.homepage_visible}
+                onChange={(event) =>
+                  setForm((current) =>
+                    current
+                      ? {
+                          ...current,
+                          homepage_visible: event.target.checked,
+                        }
+                      : current
+                  )
+                }
+                className="mt-1 h-5 w-5 shrink-0 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+              />
+            </label>
+
+            <section className="rounded-[22px] border border-violet-100 bg-gradient-to-br from-violet-50 via-white to-sky-50 p-4 md:p-5">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <div className="flex items-center gap-2 text-sm font-semibold text-violet-800">
+                    <Sparkles className="h-4 w-4" />
+                    Promotional Copy
+                    <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-700">
+                      Editable
+                    </span>
+                  </div>
+                  <p className="mt-1 text-xs leading-5 text-slate-500">
+                    Generated from the discount, minimum order and expiry.
+                    It clearly tells customers that the offer is applied
+                    automatically.
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPromoTemplateIndex(
+                      (current) => (current + 1) % 3
+                    );
+                    setPromoEdited(false);
+                  }}
+                  className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-2xl border border-indigo-100 bg-indigo-50 px-3 text-xs font-semibold text-indigo-700 transition hover:border-indigo-300 hover:bg-indigo-100"
+                >
+                  <RefreshCw className="h-3.5 w-3.5" />
+                  Regenerate
+                </button>
+              </div>
+
+              <textarea
+                value={form.promotional_copy}
+                onChange={(event) => {
+                  setForm((current) =>
+                    current
+                      ? {
+                          ...current,
+                          promotional_copy: event.target.value,
+                        }
+                      : current
+                  );
+                  setPromoEdited(true);
+                }}
+                rows={5}
+                className="mt-4 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm leading-6 text-slate-800 outline-none transition focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100"
+              />
+
+              <div className="mt-3 text-xs font-medium text-slate-500">
+                Checkout wording will separately announce the internal
+                code and exact discount after the offer is applied.
+              </div>
+            </section>
 
             <div className="flex flex-col-reverse gap-3 border-t border-slate-100 pt-4 sm:flex-row sm:justify-end">
               <button
                 type="button"
                 onClick={closeForm}
-                className="inline-flex h-11 items-center justify-center rounded-2xl border border-slate-200 bg-white px-5 text-sm font-semibold text-slate-700 hover:bg-slate-50"
                 disabled={saving}
+                className="inline-flex h-11 items-center justify-center rounded-2xl border border-slate-200 bg-white px-5 text-sm font-semibold text-slate-700 hover:bg-slate-50"
               >
                 Cancel
               </button>
               <button
                 type="submit"
-                className="inline-flex h-11 items-center justify-center rounded-2xl bg-slate-900 px-5 text-sm font-semibold text-white shadow-sm hover:bg-black disabled:opacity-60"
                 disabled={saving}
+                className="inline-flex h-11 items-center justify-center rounded-2xl bg-slate-900 px-5 text-sm font-semibold text-white shadow-sm hover:bg-black disabled:opacity-60"
               >
                 {saving
-                  ? "Saving..."
+                  ? "Saving…"
                   : editing
-                  ? "Update coupon"
-                  : "Create coupon"}
+                  ? "Update offer"
+                  : "Create offer"}
               </button>
             </div>
           </form>
         </section>
-      )}
+      ) : null}
 
       <section className="overflow-hidden rounded-[26px] border border-slate-200 bg-white shadow-sm">
         <div className="border-b border-slate-100 bg-gradient-to-r from-white via-slate-50 to-indigo-50/30 px-4 py-4 md:px-5">
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <h3 className="text-base font-semibold text-slate-900">
-                Existing coupon codes
-              </h3>
-              <p className="mt-1 text-xs text-slate-500 md:text-sm">
-                View and manage all store discount codes.
-              </p>
-            </div>
-
-            <div className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-medium text-slate-600">
-              {coupons.length} coupon{coupons.length === 1 ? "" : "s"}
-            </div>
-          </div>
+          <h3 className="text-base font-semibold text-slate-900">
+            Existing automatic coupon offers
+          </h3>
+          <p className="mt-1 text-xs leading-5 text-slate-500 md:text-sm">
+            The customer-facing storefront never asks shoppers to enter
+            these codes.
+          </p>
         </div>
 
-        <div className="p-3 md:p-5">
-          {loading && (
-            <div className="rounded-[22px] border border-slate-200 bg-slate-50 px-4 py-6 text-center text-sm text-slate-500">
-              Loading coupons...
+        <div className="space-y-3 p-3 md:p-5">
+          {loading ? (
+            <div className="rounded-[22px] border border-slate-200 bg-slate-50 px-4 py-7 text-center text-sm text-slate-500">
+              Loading coupon offers…
             </div>
-          )}
+          ) : null}
 
-          {!loading && error && (
-            <div className="rounded-[22px] border border-rose-200 bg-rose-50 px-4 py-6 text-center text-sm text-rose-700">
+          {!loading && error ? (
+            <div className="rounded-[22px] border border-rose-200 bg-rose-50 px-4 py-7 text-center text-sm text-rose-700">
               {error}
             </div>
-          )}
+          ) : null}
 
-          {!loading && !error && coupons.length === 0 && (
+          {!loading && !error && coupons.length === 0 ? (
             <div className="rounded-[22px] border border-dashed border-slate-300 bg-slate-50 px-4 py-8 text-center">
-              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-white text-slate-400 shadow-sm">
-                <TicketPercent className="h-5 w-5" />
-              </div>
+              <TicketPercent className="mx-auto h-6 w-6 text-slate-400" />
               <div className="mt-3 text-sm font-semibold text-slate-900">
-                No coupons yet
+                No automatic coupon offers yet
               </div>
-              <p className="mt-1 text-sm text-slate-500">
-                Create your first discount code to start offering checkout
-                promotions.
-              </p>
               <button
                 type="button"
                 onClick={openCreate}
-                className="mt-4 inline-flex h-11 items-center justify-center rounded-2xl bg-indigo-600 px-5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700"
+                className="mt-4 inline-flex h-11 items-center justify-center rounded-2xl bg-indigo-600 px-5 text-sm font-semibold text-white"
               >
-                Add coupon
+                Add first offer
               </button>
             </div>
-          )}
+          ) : null}
 
-          {!loading && !error && coupons.length > 0 && (
-            <div className="space-y-3">
-              {coupons.map((c) => {
-                const status = statusLabel(c);
+          {!loading &&
+            !error &&
+            coupons.map((coupon) => {
+              const status = statusLabel(coupon);
 
-                return (
-                  <div
-                    key={c.id}
-                    className="rounded-[22px] border border-slate-200 bg-white p-4 shadow-sm transition hover:shadow-md"
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span className="rounded-xl bg-slate-900 px-3 py-1 font-mono text-sm font-semibold uppercase tracking-wide text-white">
-                            {c.code}
-                          </span>
-                          <span
-                            className={`inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-medium ${statusClasses(
-                              status
-                            )}`}
-                          >
-                            {status}
-                          </span>
-                        </div>
-
-                        <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
-                          <div className="rounded-2xl bg-slate-50 px-3 py-2">
-                            <div className="text-[11px] font-medium uppercase tracking-wide text-slate-500">
-                              Type
-                            </div>
-                            <div className="mt-1 text-sm font-semibold text-slate-900">
-                              {discountTypeLabel(c.discount_type)}
-                            </div>
-                          </div>
-
-                          <div className="rounded-2xl bg-slate-50 px-3 py-2">
-                            <div className="text-[11px] font-medium uppercase tracking-wide text-slate-500">
-                              Amount
-                            </div>
-                            <div className="mt-1 text-sm font-semibold text-slate-900">
-                              {c.amount || "—"}
-                            </div>
-                          </div>
-
-                          <div className="rounded-2xl bg-slate-50 px-3 py-2">
-                            <div className="text-[11px] font-medium uppercase tracking-wide text-slate-500">
-                              Usage
-                            </div>
-                            <div className="mt-1 text-sm font-semibold text-slate-900">
-                              {usageSummary(c)}
-                            </div>
-                          </div>
-
-                          <div className="rounded-2xl bg-slate-50 px-3 py-2">
-                            <div className="text-[11px] font-medium uppercase tracking-wide text-slate-500">
-                              Expires
-                            </div>
-                            <div className="mt-1 text-sm font-semibold text-slate-900">
-                              {c.date_expires ? c.date_expires.slice(0, 10) : "—"}
-                            </div>
-                          </div>
-                        </div>
-
-                        {(c.minimum_amount || c.description) && (
-                          <div className="mt-3 space-y-2">
-                            {c.minimum_amount ? (
-                              <div className="text-xs text-slate-600">
-                                <span className="font-medium text-slate-800">
-                                  Minimum order:
-                                </span>{" "}
-                                ₹{c.minimum_amount}
-                              </div>
-                            ) : null}
-
-                            {c.description ? (
-                              <p className="text-sm leading-6 text-slate-500">
-                                {c.description}
-                              </p>
-                            ) : null}
-                          </div>
-                        )}
+              return (
+                <article
+                  key={coupon.id}
+                  className="rounded-[22px] border border-slate-200 bg-white p-4 shadow-sm"
+                >
+                  <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="rounded-xl bg-slate-900 px-3 py-1 font-mono text-sm font-semibold uppercase tracking-wide text-white">
+                          {coupon.code}
+                        </span>
+                        <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-semibold text-slate-600">
+                          {status}
+                        </span>
+                        <span
+                          className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-semibold ${
+                            coupon.homepage_visible
+                              ? "border-indigo-200 bg-indigo-50 text-indigo-700"
+                              : "border-slate-200 bg-white text-slate-500"
+                          }`}
+                        >
+                          {coupon.homepage_visible ? (
+                            <Eye className="h-3 w-3" />
+                          ) : (
+                            <EyeOff className="h-3 w-3" />
+                          )}
+                          {coupon.homepage_visible
+                            ? "Homepage"
+                            : "Private"}
+                        </span>
                       </div>
 
-                      <div className="hidden shrink-0 items-center gap-2 sm:flex">
-                        <button
-                          type="button"
-                          onClick={() => openEdit(c)}
-                          className="inline-flex h-10 items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-                        >
-                          <PencilLine className="h-4 w-4" />
-                          Edit
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => handleDelete(c.id)}
-                          className="inline-flex h-10 items-center justify-center gap-2 rounded-2xl border border-rose-200 bg-rose-50 px-4 text-sm font-semibold text-rose-700 hover:bg-rose-100"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                          Delete
-                        </button>
+                      <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+                        <div className="rounded-2xl bg-slate-50 px-3 py-2">
+                          <div className="text-[11px] uppercase tracking-wide text-slate-500">
+                            Discount
+                          </div>
+                          <div className="mt-1 text-sm font-semibold text-slate-900">
+                            {coupon.discount_type === "percent"
+                              ? `${coupon.amount}%`
+                              : formatMoney(coupon.amount)}
+                          </div>
+                        </div>
+                        <div className="rounded-2xl bg-slate-50 px-3 py-2">
+                          <div className="text-[11px] uppercase tracking-wide text-slate-500">
+                            Minimum
+                          </div>
+                          <div className="mt-1 text-sm font-semibold text-slate-900">
+                            {coupon.minimum_amount
+                              ? formatMoney(coupon.minimum_amount)
+                              : "No minimum"}
+                          </div>
+                        </div>
+                        <div className="rounded-2xl bg-slate-50 px-3 py-2">
+                          <div className="text-[11px] uppercase tracking-wide text-slate-500">
+                            Usage
+                          </div>
+                          <div className="mt-1 text-sm font-semibold text-slate-900">
+                            {usageSummary(coupon)}
+                          </div>
+                        </div>
+                        <div className="rounded-2xl bg-slate-50 px-3 py-2">
+                          <div className="text-[11px] uppercase tracking-wide text-slate-500">
+                            Expires
+                          </div>
+                          <div className="mt-1 text-sm font-semibold text-slate-900">
+                            {coupon.date_expires
+                              ? coupon.date_expires.slice(0, 10)
+                              : "No expiry"}
+                          </div>
+                        </div>
                       </div>
+
+                      {coupon.promotional_copy ? (
+                        <p className="mt-3 rounded-2xl border border-violet-100 bg-violet-50/60 px-3 py-3 text-sm leading-6 text-slate-700">
+                          {coupon.promotional_copy}
+                        </p>
+                      ) : null}
                     </div>
 
-                    <div className="mt-4 flex gap-2 sm:hidden">
+                    <div className="flex shrink-0 gap-2">
                       <button
                         type="button"
-                        onClick={() => openEdit(c)}
-                        className="inline-flex h-11 flex-1 items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                        onClick={() => openEdit(coupon)}
+                        className="inline-flex h-10 items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 hover:bg-slate-50"
                       >
                         <PencilLine className="h-4 w-4" />
                         Edit
                       </button>
-
                       <button
                         type="button"
-                        onClick={() => handleDelete(c.id)}
-                        className="inline-flex h-11 flex-1 items-center justify-center gap-2 rounded-2xl border border-rose-200 bg-rose-50 px-4 text-sm font-semibold text-rose-700 hover:bg-rose-100"
+                        onClick={() => handleDelete(coupon.id)}
+                        className="inline-flex h-10 items-center justify-center gap-2 rounded-2xl border border-rose-200 bg-rose-50 px-4 text-sm font-semibold text-rose-700 hover:bg-rose-100"
                       >
                         <Trash2 className="h-4 w-4" />
                         Delete
                       </button>
                     </div>
                   </div>
-                );
-              })}
-            </div>
-          )}
+                </article>
+              );
+            })}
         </div>
       </section>
-
-      <div className="rounded-[22px] border border-indigo-100 bg-indigo-50/70 px-4 py-3">
-        <div className="flex items-start gap-2">
-          <BadgeInfo className="mt-0.5 h-4 w-4 shrink-0 text-indigo-600" />
-          <p className="text-xs leading-5 text-indigo-800">
-            These are standard WooCommerce coupons. Customers can apply them at
-            checkout using the coupon code.
-          </p>
-        </div>
-      </div>
     </div>
   );
 }
