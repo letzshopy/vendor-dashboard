@@ -5,17 +5,10 @@ import { usePathname } from "next/navigation";
 import {
   CalendarRange,
   Gift,
-  LayoutGrid,
   TicketPercent,
 } from "lucide-react";
 
 const ITEMS = [
-  {
-    href: "/offers-discounts",
-    label: "All Offers",
-    icon: LayoutGrid,
-    exact: true,
-  },
   {
     href: "/offers-discounts/sale-events",
     label: "Sale Events",
@@ -43,9 +36,8 @@ export default function OffersDiscountsNav() {
     >
       <div className="flex min-w-max gap-2">
         {ITEMS.map((item) => {
-          const active = item.exact
-            ? pathname === item.href
-            : pathname === item.href || pathname.startsWith(`${item.href}/`);
+          const active =
+            pathname === item.href || pathname.startsWith(`${item.href}/`);
           const Icon = item.icon;
 
           return (
