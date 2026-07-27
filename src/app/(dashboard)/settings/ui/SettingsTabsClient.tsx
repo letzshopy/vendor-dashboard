@@ -12,7 +12,6 @@ import {
   Percent,
   CreditCard,
   Building2,
-  TicketPercent,
   PackageSearch,
   PanelLeftClose,
   X,
@@ -27,7 +26,6 @@ import ShippingTab from "./tabs/ShippingTab";
 import TaxTab from "./tabs/TaxTab";
 import PaymentsTab from "./tabs/PaymentsTab";
 import AccountTab from "./tabs/AccountTab";
-import CouponsTab from "./tabs/CouponsTab";
 import ShipmentFulfillmentTab from "./tabs/ShipmentFulfillmentTab";
 
 type TabId =
@@ -39,7 +37,6 @@ type TabId =
   | "tax"
   | "payments"
   | "account"
-  | "coupons"
   | "shipmentFulfillment";
 
 type TabDef = {
@@ -59,7 +56,6 @@ const TAB_COMPONENTS: Record<TabId, React.ReactNode> = {
   tax: <TaxTab />,
   payments: <PaymentsTab />,
   account: <AccountTab />,
-  coupons: <CouponsTab />,
   shipmentFulfillment: <ShipmentFulfillmentTab />,
 };
 
@@ -113,12 +109,6 @@ const TABS: TabDef[] = [
     label: "Account",
     description: "Account details, plan info and login security.",
     icon: Building2,
-  },
-  {
-    id: "coupons",
-    label: "Coupons",
-    description: "Discount codes and offers for your store.",
-    icon: TicketPercent,
   },
   {
     id: "shipmentFulfillment",

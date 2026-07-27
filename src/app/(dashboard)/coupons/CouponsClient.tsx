@@ -2,7 +2,7 @@
 "use client";
 
 import { useState } from "react";
-import type { WCCoupon } from "./page";
+import type { WCCoupon } from "../settings/ui/tabs/CouponsTab";
 
 type FormState = {
   id?: number;
