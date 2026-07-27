@@ -50,7 +50,6 @@ const ALL_GROUPS: Group[] = [
     items: [
       { href: "/products/new", label: "Add Product", ready: true },
       { href: "/products", label: "Products", ready: true },
-      { href: "/sale-events", label: "Sale Events", ready: true },
       { href: "/categories", label: "Categories", ready: true },
       { href: "/menu", label: "Menu Layout", ready: true },
       { href: "/attributes", label: "Attributes", ready: true },
@@ -63,6 +62,7 @@ const ALL_GROUPS: Group[] = [
     label: "Sales",
     icon: Package,
     items: [
+      { href: "/offers-discounts", label: "Offers & Discounts", ready: true },
       { href: "/orders", label: "Orders", ready: true },
       { href: "/sales/shipment-details", label: "Shipment Details", ready: true },
       { href: "/customers", label: "Customers", ready: true },
