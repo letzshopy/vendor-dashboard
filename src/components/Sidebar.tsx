@@ -62,11 +62,11 @@ const ALL_GROUPS: Group[] = [
     label: "Sales",
     icon: Package,
     items: [
-      { href: "/offers-discounts", label: "Offers & Discounts", ready: true },
       { href: "/orders", label: "Orders", ready: true },
       { href: "/sales/shipment-details", label: "Shipment Details", ready: true },
       { href: "/customers", label: "Customers", ready: true },
       { href: "/sales/feedback", label: "Customer Feedback", ready: true },
+      { href: "/offers-discounts", label: "Offers & Discounts", ready: true },
     ],
   },
   {
