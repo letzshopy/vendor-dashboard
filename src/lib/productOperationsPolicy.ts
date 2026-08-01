@@ -255,10 +255,11 @@ export function buildCloneParent(
     if (salePrice) payload.sale_price = salePrice;
     if (saleFrom) payload.date_on_sale_from = saleFrom;
     if (saleTo) payload.date_on_sale_to = saleTo;
-    payload.manage_stock = source.manage_stock === true;
-    if (source.manage_stock === true) {
-      payload.stock_quantity = Math.max(0, Number(source.stock_quantity) || 0);
-    }
+    payload.manage_stock = true;
+    payload.stock_quantity = Math.max(
+      0,
+      Number(source.stock_quantity) || 0
+    );
     payload.backorders = normalizeBackorders(source.backorders);
   }
 
@@ -298,7 +299,7 @@ export function buildCloneVariation(value: unknown, keepImage: boolean): JsonRec
   const payload: JsonRecord = {
     sku: "",
     description: trustedString(value.description, 20_000),
-    manage_stock: value.manage_stock === true,
+    manage_stock: true,
     backorders: normalizeBackorders(value.backorders),
     attributes: Array.isArray(value.attributes)
       ? value.attributes.flatMap((item) => {
@@ -314,9 +315,10 @@ export function buildCloneVariation(value: unknown, keepImage: boolean): JsonRec
   const salePrice = trustedString(value.sale_price, 40);
   if (regularPrice) payload.regular_price = regularPrice;
   if (salePrice) payload.sale_price = salePrice;
-  if (value.manage_stock === true) {
-    payload.stock_quantity = Math.max(0, Number(value.stock_quantity) || 0);
-  }
+  payload.stock_quantity = Math.max(
+    0,
+    Number(value.stock_quantity) || 0
+  );
 
   if (keepImage && isRecord(value.image)) {
     const imageId = trustedId(value.image.id);

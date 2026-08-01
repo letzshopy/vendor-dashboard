@@ -250,6 +250,8 @@ export default function ProductsClientTable({
   const [showCloneModal, setShowCloneModal] = useState(false);
   const [cloneProductId, setCloneProductId] = useState<number | null>(null);
   const [cloneCount, setCloneCount] = useState("1");
+  const [cloneBusy, setCloneBusy] = useState(false);
+  const cloneBusyRef = useRef(false);
 
   const flatCats = useMemo(() => indentCats(categories), [categories]);
   const [selectedCatIds, setSelectedCatIds] = useState<number[]>([]);
@@ -441,19 +443,33 @@ export default function ProductsClientTable({
   async function confirmBulkClone() {
     const count = Number(cloneCount || 0);
     if (!cloneProductId || !count || count < 1) return;
+    if (cloneBusyRef.current) return;
 
-    const r = await fetch(`/api/products/${cloneProductId}/bulk-clone`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ count }),
-    });
+    cloneBusyRef.current = true;
+    setCloneBusy(true);
 
-    setShowCloneModal(false);
-    setCloneProductId(null);
-    setCloneCount("1");
+    try {
+      const r = await fetch(`/api/products/${cloneProductId}/bulk-clone`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ count }),
+      });
 
-    if (r.ok) location.reload();
-    else alert("Clone failed");
+      if (!r.ok) {
+        alert("Clone failed");
+        return;
+      }
+
+      setShowCloneModal(false);
+      setCloneProductId(null);
+      setCloneCount("1");
+      location.reload();
+    } catch {
+      alert("Clone failed");
+    } finally {
+      cloneBusyRef.current = false;
+      setCloneBusy(false);
+    }
   }
 
   async function rowTrash(id: number) {
@@ -1050,8 +1066,9 @@ export default function ProductsClientTable({
                   type="number"
                   min={1}
                   value={cloneCount}
+                  disabled={cloneBusy}
                   onChange={(e) => setCloneCount(e.target.value)}
-                  className="h-11 w-full rounded-xl border border-slate-200 px-3 text-sm text-slate-700 shadow-sm focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-200"
+                  className="h-11 w-full rounded-xl border border-slate-200 px-3 text-sm text-slate-700 shadow-sm focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-200 disabled:cursor-not-allowed disabled:opacity-60"
                 />
               </div>
             </div>
@@ -1059,7 +1076,8 @@ export default function ProductsClientTable({
             <div className="flex justify-end gap-2 border-t px-4 py-3">
               <button
                 type="button"
-                className="rounded-xl border px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
+                disabled={cloneBusy}
+                className="rounded-xl border px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
                 onClick={() => {
                   setShowCloneModal(false);
                   setCloneProductId(null);
@@ -1071,10 +1089,11 @@ export default function ProductsClientTable({
 
               <button
                 type="button"
-                className="rounded-xl bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-700"
+                disabled={cloneBusy}
+                className="rounded-xl bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-60"
                 onClick={confirmBulkClone}
               >
-                Create clones
+                {cloneBusy ? "Creating…" : "Create clones"}
               </button>
             </div>
           </div>
