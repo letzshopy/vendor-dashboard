@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import type { WCOrder } from "@/lib/order-utils";
+import { extractShipmentFromMeta } from "@/lib/shipment-meta";
 import Link from "next/link";
 import { ChevronLeft, ChevronRight, MoreVertical, Package2, RefreshCcw, Truck } from "lucide-react";
 
@@ -12,6 +13,7 @@ type Row = {
   status: string;
   courier: string;
   awb: string;
+  trackingUrl: string;
 };
 
 const FINAL_STATUSES = new Set([
@@ -38,14 +40,18 @@ function buildRows(orders: WCOrder[]): Row[] {
         .join(" ");
 
       const customerName = billingName || shippingName || "—";
+      const shipment = extractShipmentFromMeta(
+        (o as any).meta_data || []
+      );
 
       return {
         id: o.id,
         number: o.number?.toString() ?? String(o.id),
         customerName,
         status: String(o.status || ""),
-        courier: "",
-        awb: "",
+        courier: shipment.courier || "",
+        awb: shipment.awb || "",
+        trackingUrl: shipment.trackingUrl || "",
       };
     });
 }
@@ -143,7 +149,11 @@ export default function ShipmentDetailsBulkTable({
   const startIndex = rows.length === 0 ? 0 : (currentPage - 1) * rowsPerPage + 1;
   const endIndex = rows.length === 0 ? 0 : Math.min(currentPage * rowsPerPage, rows.length);
 
-  const handleChange = (id: number, field: "courier" | "awb", value: string) => {
+  const handleChange = (
+    id: number,
+    field: "courier" | "awb" | "trackingUrl",
+    value: string
+  ) => {
     setRows((prev) =>
       prev.map((row) => (row.id === id ? { ...row, [field]: value } : row))
     );
@@ -156,11 +166,17 @@ export default function ShipmentDetailsBulkTable({
 
     try {
       const updates = rows
-        .filter((r) => r.awb.trim() || r.courier.trim())
+        .filter(
+          (r) =>
+            r.awb.trim() ||
+            r.courier.trim() ||
+            r.trackingUrl.trim()
+        )
         .map((r) => ({
           orderId: r.id,
           courier: r.courier.trim(),
           awb: r.awb.trim(),
+          trackingUrl: r.trackingUrl.trim(),
         }));
 
       if (!updates.length) {
@@ -297,6 +313,26 @@ export default function ShipmentDetailsBulkTable({
                       }
                     />
                   </div>
+
+                  <div>
+                    <label className="mb-1 block text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">
+                      Tracking link (optional)
+                    </label>
+                    <input
+                      type="url"
+                      value={row.trackingUrl}
+                      disabled={disabled}
+                      placeholder="https://courier.example/track/..."
+                      className="h-11 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 text-sm text-slate-800 outline-none focus:border-blue-400 focus:bg-white focus:ring-2 focus:ring-blue-100"
+                      onChange={(e) =>
+                        handleChange(
+                          row.id,
+                          "trackingUrl",
+                          e.target.value
+                        )
+                      }
+                    />
+                  </div>
                 </div>
               </div>
             ))}
@@ -324,6 +360,7 @@ export default function ShipmentDetailsBulkTable({
                 <th className="px-4 py-3">Status</th>
                 <th className="px-4 py-3">Tracking number</th>
                 <th className="px-4 py-3">Courier name</th>
+                <th className="px-4 py-3">Tracking link</th>
                 <th className="px-4 py-3 text-right">Action</th>
               </tr>
             </thead>
@@ -375,6 +412,23 @@ export default function ShipmentDetailsBulkTable({
                       className="h-11 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 text-sm text-slate-800 outline-none focus:border-blue-400 focus:bg-white focus:ring-2 focus:ring-blue-100"
                       onChange={(e) =>
                         handleChange(row.id, "courier", e.target.value)
+                      }
+                    />
+                  </td>
+
+                  <td className="px-4 py-4 min-w-[260px]">
+                    <input
+                      type="url"
+                      value={row.trackingUrl}
+                      disabled={disabled}
+                      placeholder="https://courier.example/track/..."
+                      className="h-11 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 text-sm text-slate-800 outline-none focus:border-blue-400 focus:bg-white focus:ring-2 focus:ring-blue-100"
+                      onChange={(e) =>
+                        handleChange(
+                          row.id,
+                          "trackingUrl",
+                          e.target.value
+                        )
                       }
                     />
                   </td>

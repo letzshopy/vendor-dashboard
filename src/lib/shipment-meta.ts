@@ -2,6 +2,7 @@ export const SHIPMENT_META_KEYS = {
   mode: "_letz_ship_mode",
   courier: "_letz_ship_courier",
   awb: "_letz_ship_awb",
+  trackingUrl: "_letz_ship_tracking_url",
   status: "_letz_ship_status",
   shippedDate: "_letz_ship_shipped_date",
   weight: "_letz_ship_weight",
@@ -15,6 +16,7 @@ export type ShipmentDetails = {
   mode: ShipmentMode;
   courier: string;
   awb: string;
+  trackingUrl: string;
   status: "pending" | "packed" | "shipped" | "delivered" | "returned" | "";
   shippedDate: string;
   weight: string;
@@ -27,6 +29,7 @@ export function emptyShipmentDetails(): ShipmentDetails {
     mode: "",
     courier: "",
     awb: "",
+    trackingUrl: "",
     status: "",
     shippedDate: "",
     weight: "",
@@ -49,6 +52,7 @@ export function extractShipmentFromMeta(
     mode: get(SHIPMENT_META_KEYS.mode) as ShipmentMode,
     courier: get(SHIPMENT_META_KEYS.courier),
     awb: get(SHIPMENT_META_KEYS.awb),
+    trackingUrl: get(SHIPMENT_META_KEYS.trackingUrl),
     status: get(SHIPMENT_META_KEYS.status) as ShipmentDetails["status"],
     shippedDate: get(SHIPMENT_META_KEYS.shippedDate),
     weight: get(SHIPMENT_META_KEYS.weight),
@@ -76,8 +80,15 @@ export function mergeShipmentMeta(
     { key: SHIPMENT_META_KEYS.mode, value: current.mode ?? "" },
     { key: SHIPMENT_META_KEYS.courier, value: current.courier ?? "" },
     { key: SHIPMENT_META_KEYS.awb, value: current.awb ?? "" },
+    {
+      key: SHIPMENT_META_KEYS.trackingUrl,
+      value: current.trackingUrl ?? "",
+    },
     { key: SHIPMENT_META_KEYS.status, value: current.status ?? "" },
-    { key: SHIPMENT_META_KEYS.shippedDate, value: current.shippedDate ?? "" },
+    {
+      key: SHIPMENT_META_KEYS.shippedDate,
+      value: current.shippedDate ?? "",
+    },
     { key: SHIPMENT_META_KEYS.weight, value: current.weight ?? "" },
     { key: SHIPMENT_META_KEYS.boxes, value: current.boxes ?? "" },
     { key: SHIPMENT_META_KEYS.notes, value: current.notes ?? "" },

@@ -1,5 +1,8 @@
 import { getWooClient } from "@/lib/woo";
-import { mergeShipmentMeta } from "@/lib/shipment-meta";
+import {
+  extractShipmentFromMeta,
+  mergeShipmentMeta,
+} from "@/lib/shipment-meta";
 import {
   isRecord,
   logOrderError,
@@ -18,12 +21,14 @@ type ShipmentRow = {
   status: string;
   courier: string;
   awb: string;
+  trackingUrl: string;
 };
 
 type ValidUpdate = {
   orderId: number;
   courier: string;
   awb: string;
+  trackingUrl: string;
 };
 
 type OrderSnapshot = {
@@ -53,6 +58,31 @@ function parseOrderSnapshot(value: unknown): OrderSnapshot {
       ? value.meta_data
       : [],
   };
+}
+
+function validatedTrackingUrl(value: unknown, label: string): string {
+  const parsed = parseBoundedString(
+    value,
+    label,
+    2048
+  );
+
+  if (!parsed) return "";
+
+  let url: URL;
+  try {
+    url = new URL(parsed);
+  } catch {
+    throw new OrderRequestError(`${label} must be a valid URL.`);
+  }
+
+  if (url.protocol !== "https:" && url.protocol !== "http:") {
+    throw new OrderRequestError(
+      `${label} must use http or https.`
+    );
+  }
+
+  return url.toString();
 }
 
 function parseUpdates(value: unknown): ValidUpdate[] {
@@ -101,6 +131,10 @@ function parseUpdates(value: unknown): ValidUpdate[] {
         120,
         { required: true }
       ),
+      trackingUrl: validatedTrackingUrl(
+        entry.trackingUrl,
+        `Shipment ${index + 1} tracking URL`
+      ),
     };
   });
 }
@@ -147,6 +181,9 @@ export async function GET() {
       ]
         .filter(Boolean)
         .join(" ");
+      const shipment = extractShipmentFromMeta(
+        Array.isArray(value.meta_data) ? value.meta_data : []
+      );
 
       return [
         {
@@ -154,8 +191,9 @@ export async function GET() {
           number: optionalText(value.number) || String(id),
           customerName: billingName || shippingName || "—",
           status,
-          courier: "",
-          awb: "",
+          courier: shipment.courier,
+          awb: shipment.awb,
+          trackingUrl: shipment.trackingUrl,
         },
       ];
     });
@@ -211,14 +249,46 @@ export async function POST(request: Request) {
       const metaData = mergeShipmentMeta(order.metaData, {
         courier: update.courier,
         awb: update.awb,
+        trackingUrl: update.trackingUrl,
         status: "shipped",
         shippedDate: shippedAt,
       });
+
+      // Save shipment metadata while the order is still Processing.
+      // This guarantees the Completed email reads the persisted values.
+      await woo.put(`/orders/${update.orderId}`, {
+        meta_data: metaData,
+      });
+
+      const verifyResponse = await woo.get(
+        `/orders/${update.orderId}`
+      );
+      const verifiedOrder = parseOrderSnapshot(
+        verifyResponse.data
+      );
+      const verifiedShipment = extractShipmentFromMeta(
+        verifiedOrder.metaData as any[]
+      );
+
+      if (
+        verifiedOrder.status !== "processing" ||
+        verifiedShipment.courier !== update.courier ||
+        verifiedShipment.awb !== update.awb ||
+        verifiedShipment.trackingUrl !== update.trackingUrl ||
+        verifiedShipment.status !== "shipped" ||
+        !verifiedShipment.shippedDate
+      ) {
+        throw new Error(
+          `Shipment metadata verification failed for order ${order.number}`
+        );
+      }
+
+      // Only after successful metadata verification do we trigger
+      // WooCommerce's customer Completed Order email.
       const response = await woo.put(
         `/orders/${update.orderId}`,
         {
           status: "completed",
-          meta_data: metaData,
         }
       );
       const updated = parseOrderSnapshot(response.data);
