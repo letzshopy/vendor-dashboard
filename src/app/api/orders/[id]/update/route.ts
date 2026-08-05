@@ -39,6 +39,7 @@ function parseShipmentValue(key: string, value: unknown): string {
     [SHIPMENT_META_KEYS.mode]: 20,
     [SHIPMENT_META_KEYS.courier]: 100,
     [SHIPMENT_META_KEYS.awb]: 120,
+    [SHIPMENT_META_KEYS.trackingUrl]: 2048,
     [SHIPMENT_META_KEYS.status]: 20,
     [SHIPMENT_META_KEYS.shippedDate]: 40,
     [SHIPMENT_META_KEYS.weight]: 32,
@@ -72,6 +73,28 @@ function parseShipmentValue(key: string, value: unknown): string {
     Number.isNaN(Date.parse(parsed))
   ) {
     throw new OrderRequestError("Shipment date is invalid.");
+  }
+
+  if (
+    key === SHIPMENT_META_KEYS.trackingUrl &&
+    parsed
+  ) {
+    let url: URL;
+    try {
+      url = new URL(parsed);
+    } catch {
+      throw new OrderRequestError(
+        "Shipment tracking URL is invalid."
+      );
+    }
+
+    if (url.protocol !== "https:" && url.protocol !== "http:") {
+      throw new OrderRequestError(
+        "Shipment tracking URL must use http or https."
+      );
+    }
+
+    return url.toString();
   }
 
   if (
