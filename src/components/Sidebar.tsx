@@ -48,11 +48,10 @@ const ALL_GROUPS: Group[] = [
     label: "Catalog",
     icon: ShoppingBag,
     items: [
-      { href: "/products/new", label: "Add Product", ready: true },
+      { href: "/products/add", label: "Add Product", ready: true },
       { href: "/products", label: "Products", ready: true },
       { href: "/categories", label: "Categories", ready: true },
       { href: "/menu", label: "Menu Layout", ready: true },
-      { href: "/attributes", label: "Attributes", ready: true },
       { href: "/media", label: "Media", ready: true },
       { href: "/products/trash", label: "Trash Bin", ready: true },
     ],

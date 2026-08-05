@@ -1,5 +1,7 @@
-import ProductCreationWizard from "../ProductCreationWizard";
+import { redirect } from "next/navigation";
 
-export default function ProductWizardPreviewPage() {
-  return <ProductCreationWizard />;
+export const dynamic = "force-dynamic";
+
+export default function ProductWizardPreviewRedirect() {
+  redirect("/products/add");
 }

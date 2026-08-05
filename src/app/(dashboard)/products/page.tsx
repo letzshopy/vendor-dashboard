@@ -158,7 +158,7 @@ export default async function ProductsPage({
           </h1>
 
           <Link
-            href="/products/new"
+            href="/products/add"
             className="inline-flex w-full shrink-0 items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#8b5cff] to-[#ff7ac3] px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:brightness-105 sm:w-auto md:px-5"
           >
             <Plus className="h-4 w-4" />
