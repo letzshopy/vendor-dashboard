@@ -4,6 +4,7 @@ import { getWooClient } from "@/lib/woo";
 import ProductsClientTable from "@/components/ProductsClientTable";
 import ProductsFilters from "@/components/ProductsFilters";
 import ProductsImportExportBar from "./ui/ProductsImportExportBar";
+import ProductCreatedNotice from "@/components/ProductCreatedNotice";
 
 type Product = {
   id: number;
@@ -116,6 +117,8 @@ export default async function ProductsPage({
     category?: string;
     stock?: "instock" | "outofstock" | "onbackorder";
     ptype?: "simple" | "variable" | "grouped";
+    created?: string;
+    createdName?: string;
   }>;
 }) {
   const sp = await searchParams;
@@ -131,8 +134,21 @@ export default async function ProductsPage({
     getCategories(woo),
   ]);
 
+  const showCreatedNotice =
+    sp.created === "1";
+
+  const createdName =
+    typeof sp.createdName === "string"
+      ? sp.createdName.slice(0, 200)
+      : "";
+
   return (
     <main className="mx-auto w-full min-w-0 max-w-7xl overflow-x-hidden px-3 py-3 md:px-4 md:py-5">
+      {showCreatedNotice && (
+        <ProductCreatedNotice
+          productName={createdName}
+        />
+      )}
       <div className="rounded-[26px] border border-white/80 bg-gradient-to-br from-white via-[#faf6ff] to-[#eef7ff] p-4 shadow-[0_14px_40px_rgba(15,23,42,0.06)] md:p-5">
         
 

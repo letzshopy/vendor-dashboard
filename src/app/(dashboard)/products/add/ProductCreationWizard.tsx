@@ -4,7 +4,6 @@ import Image from "next/image";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowLeft,
-  Boxes,
   Check,
   CheckCircle2,
   ChevronRight,
@@ -41,8 +40,7 @@ type Category = {
 type ProductType =
   | "simple"
   | "variable-size"
-  | "variable-colour"
-  | "grouped";
+  | "variable-colour";
 
 type WizardScreen =
   | "category"
@@ -55,13 +53,13 @@ type WizardScreen =
   | "colour-variations"
   | "colour-images"
   | "shipping"
-  | "grouped-products"
   | "publish";
 
 type LocalPhoto = {
   id: string;
   name: string;
   url: string;
+  file: File;
 };
 
 type VariationRow = {
@@ -72,15 +70,13 @@ type VariationRow = {
   photos: LocalPhoto[];
 };
 
-type ProductSearchItem = {
-  id: number;
-  name: string;
-  sku: string;
-  price: string;
-  image: string;
-};
-
 type JsonRecord = Record<string, unknown>;
+
+type UploadedColourGallery = {
+  rowId: string;
+  option: string;
+  imageIds: number[];
+};
 
 const SIMPLE_FLOW: WizardScreen[] = [
   "category",
@@ -115,15 +111,6 @@ const COLOUR_FLOW: WizardScreen[] = [
   "publish",
 ];
 
-const GROUPED_FLOW: WizardScreen[] = [
-  "category",
-  "type",
-  "identity",
-  "description",
-  "grouped-products",
-  "publish",
-];
-
 const productTypes: {
   id: ProductType;
   title: string;
@@ -155,14 +142,6 @@ const productTypes: {
     icon: Palette,
     iconClass: "bg-[#FFE0D9] text-[#B24737]",
     selectedClass: "border-[#E85D4A] bg-[#FFF4F1]",
-  },
-  {
-    id: "grouped",
-    title: "Grouped product",
-    label: "Combine existing products",
-    icon: Boxes,
-    iconClass: "bg-[#DDF2E8] text-[#257052]",
-    selectedClass: "border-[#4A9B78] bg-[#F0FAF5]",
   },
 ];
 
@@ -203,49 +182,47 @@ function parseCategories(value: unknown): Category[] {
   });
 }
 
-function parseProductResults(value: unknown): ProductSearchItem[] {
-  if (!isRecord(value) || !Array.isArray(value.results)) {
-    return [];
+function parseCreatedCategory(
+  value: unknown
+): Category | null {
+  if (
+    !isRecord(value) ||
+    !isRecord(value.category)
+  ) {
+    return null;
   }
 
-  return value.results.flatMap((item) => {
-    if (!isRecord(item)) return [];
+  const id = Number(value.category.id);
+  const parent = Number(
+    value.category.parent ?? 0
+  );
+  const name =
+    typeof value.category.name === "string"
+      ? value.category.name.trim()
+      : "";
 
-    const id = Number(item.id);
-    const name =
-      typeof item.name === "string"
-        ? item.name.trim()
-        : "";
+  if (
+    !Number.isSafeInteger(id) ||
+    id <= 0 ||
+    !name
+  ) {
+    return null;
+  }
 
-    if (!Number.isSafeInteger(id) || id <= 0 || !name) {
-      return [];
-    }
-
-    return [
-      {
-        id,
-        name,
-        sku:
-          typeof item.sku === "string"
-            ? item.sku
-            : "",
-        price:
-          typeof item.price === "string"
-            ? item.price
-            : "",
-        image:
-          typeof item.image === "string"
-            ? item.image
-            : "",
-      },
-    ];
-  });
+  return {
+    id,
+    name,
+    parent:
+      Number.isSafeInteger(parent) &&
+      parent >= 0
+        ? parent
+        : 0,
+  };
 }
 
 function flowFor(productType: ProductType | null): WizardScreen[] {
   if (productType === "variable-size") return SIZE_FLOW;
   if (productType === "variable-colour") return COLOUR_FLOW;
-  if (productType === "grouped") return GROUPED_FLOW;
   return SIMPLE_FLOW;
 }
 
@@ -363,12 +340,6 @@ function screenMeta(
         subtitle: "Add weight, dimensions, tags and attributes",
         icon: Truck,
       };
-    case "grouped-products":
-      return {
-        title: "Select grouped products",
-        subtitle: "Search and link existing products",
-        icon: Boxes,
-      };
     case "publish":
       return {
         title: "Review and create",
@@ -424,15 +395,15 @@ export default function ProductCreationWizard() {
   const [colourRows, setColourRows] =
     useState<VariationRow[]>([]);
   const variationPhotoUrlsRef = useRef<string[]>([]);
-
-  const [groupQuery, setGroupQuery] = useState("");
-  const [groupResults, setGroupResults] =
-    useState<ProductSearchItem[]>([]);
-  const [groupSelected, setGroupSelected] =
-    useState<ProductSearchItem[]>([]);
-  const [groupLoading, setGroupLoading] = useState(false);
-  const [groupError, setGroupError] =
-    useState<string | null>(null);
+  const draggedVariationPhotoRef = useRef<{
+    rowId: string;
+    photoId: string;
+  } | null>(null);
+  const [draggedVariationPhoto, setDraggedVariationPhoto] =
+    useState<{
+      rowId: string;
+      photoId: string;
+    } | null>(null);
 
   const [status, setStatus] =
     useState<"draft" | "publish">("publish");
@@ -446,6 +417,19 @@ export default function ProductCreationWizard() {
     useState<string | null>(null);
   const [searchFocused, setSearchFocused] = useState(false);
   const [confirmation, setConfirmation] =
+    useState<string | null>(null);
+  const [skuChecking, setSkuChecking] = useState(false);
+  const [skuTaken, setSkuTaken] = useState(false);
+  const [skuCheckError, setSkuCheckError] =
+    useState<string | null>(null);
+  const [categoryCreating, setCategoryCreating] =
+    useState(false);
+  const [categoryCreateError, setCategoryCreateError] =
+    useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] =
+    useState<string | null>(null);
+  const [submitStage, setSubmitStage] =
     useState<string | null>(null);
 
   const flow = useMemo(
@@ -505,37 +489,26 @@ export default function ProductCreationWizard() {
   }, []);
 
   useEffect(() => {
-    return () => {
-      photoUrlsRef.current.forEach((url) => {
-        URL.revokeObjectURL(url);
-      });
+    const normalizedSku = sku.trim();
 
-      variationPhotoUrlsRef.current.forEach((url) => {
-        URL.revokeObjectURL(url);
-      });
-    };
-  }, []);
-
-  useEffect(() => {
-    if (
-      currentScreen !== "grouped-products" ||
-      !groupQuery.trim()
-    ) {
-      setGroupResults([]);
-      setGroupError(null);
-      setGroupLoading(false);
+    if (!normalizedSku) {
+      setSkuChecking(false);
+      setSkuTaken(false);
+      setSkuCheckError(null);
       return;
     }
 
     const controller = new AbortController();
+
     const timer = window.setTimeout(async () => {
       try {
-        setGroupLoading(true);
-        setGroupError(null);
+        setSkuChecking(true);
+        setSkuTaken(false);
+        setSkuCheckError(null);
 
         const response = await fetch(
-          `/api/products/search?q=${encodeURIComponent(
-            groupQuery.trim()
+          `/api/products/sku-check?sku=${encodeURIComponent(
+            normalizedSku
           )}`,
           {
             method: "GET",
@@ -546,11 +519,11 @@ export default function ProductCreationWizard() {
 
         const json: unknown = await response.json();
 
-        if (!response.ok) {
-          throw new Error("Unable to search products.");
+        if (!response.ok || !isRecord(json)) {
+          throw new Error("Unable to check SKU availability.");
         }
 
-        setGroupResults(parseProductResults(json));
+        setSkuTaken(json.exists === true);
       } catch (error: unknown) {
         if (
           error instanceof DOMException &&
@@ -559,23 +532,36 @@ export default function ProductCreationWizard() {
           return;
         }
 
-        setGroupError(
+        setSkuTaken(false);
+        setSkuCheckError(
           error instanceof Error
             ? error.message
-            : "Unable to search products."
+            : "Unable to check SKU availability."
         );
       } finally {
         if (!controller.signal.aborted) {
-          setGroupLoading(false);
+          setSkuChecking(false);
         }
       }
-    }, 300);
+    }, 400);
 
     return () => {
       window.clearTimeout(timer);
       controller.abort();
     };
-  }, [currentScreen, groupQuery]);
+  }, [sku]);
+
+  useEffect(() => {
+    return () => {
+      photoUrlsRef.current.forEach((url) => {
+        URL.revokeObjectURL(url);
+      });
+
+      variationPhotoUrlsRef.current.forEach((url) => {
+        URL.revokeObjectURL(url);
+      });
+    };
+  }, []);
 
   const allCategories = useMemo(
     () =>
@@ -620,7 +606,10 @@ export default function ProductCreationWizard() {
 
   const identityIsValid =
     productName.trim().length >= 2 &&
-    (!variableProduct || sku.trim().length >= 2);
+    (!variableProduct || sku.trim().length >= 2) &&
+    !skuChecking &&
+    !skuTaken &&
+    !skuCheckError;
 
   const dimensionsAreValid =
     !dimensionsEnabled ||
@@ -684,8 +673,6 @@ export default function ProductCreationWizard() {
         return colourImagesAreValid;
       case "shipping":
         return shippingIsValid;
-      case "grouped-products":
-        return groupSelected.length > 0;
       case "publish":
         return true;
     }
@@ -705,35 +692,92 @@ export default function ProductCreationWizard() {
     setConfirmation(null);
   }
 
-  function createAndSelectCategory() {
+  async function createAndSelectCategory() {
     const name = newCategoryName.trim();
-    if (name.length < 2) return;
+
+    if (
+      name.length < 2 ||
+      categoryCreating
+    ) {
+      return;
+    }
 
     const existingCategory = allCategories.find(
       (category) =>
-        category.name.toLowerCase() === name.toLowerCase()
+        category.name.toLowerCase() ===
+        name.toLowerCase()
     );
 
     if (existingCategory) {
       setSelectedCategoryId(existingCategory.id);
       setNewCategoryName("");
+      setCategoryCreateError(null);
       setConfirmation(null);
       return;
     }
 
-    const createdCategory: Category = {
-      id: -Date.now(),
-      name,
-      parent: 0,
-    };
+    try {
+      setCategoryCreating(true);
+      setCategoryCreateError(null);
 
-    setCreatedCategories((current) => [
-      ...current,
-      createdCategory,
-    ]);
-    setSelectedCategoryId(createdCategory.id);
-    setNewCategoryName("");
-    setConfirmation(null);
+      const response = await fetch(
+        "/api/categories/create",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            name,
+          }),
+        }
+      );
+
+      const json: unknown =
+        await response.json();
+
+      if (!response.ok) {
+        const message =
+          isRecord(json) &&
+          typeof json.error === "string"
+            ? json.error
+            : "Unable to create category.";
+
+        throw new Error(message);
+      }
+
+      const createdCategory =
+        parseCreatedCategory(json);
+
+      if (!createdCategory) {
+        throw new Error(
+          "Category creation returned an invalid response."
+        );
+      }
+
+      setCreatedCategories((current) =>
+        current.some(
+          (category) =>
+            category.id === createdCategory.id
+        )
+          ? current
+          : [...current, createdCategory]
+      );
+
+      setSelectedCategoryId(
+        createdCategory.id
+      );
+      setNewCategoryName("");
+      setConfirmation(null);
+    } catch (error: unknown) {
+      setCategoryCreateError(
+        error instanceof Error
+          ? error.message
+          : "Unable to create category."
+      );
+    } finally {
+      setCategoryCreating(false);
+    }
   }
 
   function clearSharedPhotos() {
@@ -750,10 +794,7 @@ export default function ProductCreationWizard() {
         ? null
         : productType;
 
-    if (
-      nextProductType === "variable-colour" ||
-      nextProductType === "grouped"
-    ) {
+    if (nextProductType === "variable-colour") {
       clearSharedPhotos();
     }
 
@@ -789,6 +830,7 @@ export default function ProductCreationWizard() {
           id: `${Date.now()}-${index}-${file.name}`,
           name: file.name,
           url,
+          file,
         };
       }
     );
@@ -1006,9 +1048,23 @@ export default function ProductCreationWizard() {
   ) {
     if (!files) return;
 
-    const selectedFiles = Array.from(files).filter(
-      (file) => file.type.startsWith("image/")
-    );
+    const currentPhotoCount =
+      colourRows.find(
+        (row) => row.id === rowId
+      )?.photos.length ?? 0;
+
+    const selectedFiles = Array.from(files)
+      .filter(
+        (file) =>
+          file.type.startsWith("image/")
+      )
+      .slice(
+        0,
+        Math.max(
+          0,
+          5 - currentPhotoCount
+        )
+      );
 
     if (selectedFiles.length === 0) return;
 
@@ -1020,6 +1076,7 @@ export default function ProductCreationWizard() {
         id: `colour-photo-${Date.now()}-${index}-${file.name}`,
         name: file.name,
         url,
+        file,
       };
     });
 
@@ -1069,6 +1126,109 @@ export default function ProductCreationWizard() {
     setConfirmation(null);
   }
 
+  function moveVariationPhoto(
+    rowId: string,
+    sourcePhotoId: string,
+    targetPhotoId: string
+  ) {
+    if (sourcePhotoId === targetPhotoId) return;
+
+    setColourRows((current) =>
+      current.map((row) => {
+        if (row.id !== rowId) return row;
+
+        const sourceIndex = row.photos.findIndex(
+          (photo) => photo.id === sourcePhotoId
+        );
+
+        const targetIndex = row.photos.findIndex(
+          (photo) => photo.id === targetPhotoId
+        );
+
+        if (
+          sourceIndex < 0 ||
+          targetIndex < 0
+        ) {
+          return row;
+        }
+
+        const photos = [...row.photos];
+        const [movedPhoto] = photos.splice(
+          sourceIndex,
+          1
+        );
+
+        photos.splice(
+          targetIndex,
+          0,
+          movedPhoto
+        );
+
+        return {
+          ...row,
+          photos,
+        };
+      })
+    );
+
+    setConfirmation(null);
+  }
+
+  function beginVariationPhotoDrag(
+    rowId: string,
+    photoId: string
+  ) {
+    const active = {
+      rowId,
+      photoId,
+    };
+
+    draggedVariationPhotoRef.current = active;
+    setDraggedVariationPhoto(active);
+  }
+
+  function moveDraggedVariationPhotoAtPoint(
+    rowId: string,
+    clientX: number,
+    clientY: number
+  ) {
+    const active =
+      draggedVariationPhotoRef.current;
+
+    if (!active || active.rowId !== rowId) {
+      return;
+    }
+
+    const target = document
+      .elementFromPoint(clientX, clientY)
+      ?.closest<HTMLElement>(
+        "[data-variation-photo-id]"
+      );
+
+    const targetRowId =
+      target?.dataset.variationRowId;
+
+    const targetPhotoId =
+      target?.dataset.variationPhotoId;
+
+    if (
+      targetRowId === rowId &&
+      targetPhotoId &&
+      targetPhotoId !== active.photoId
+    ) {
+      moveVariationPhoto(
+        rowId,
+        active.photoId,
+        targetPhotoId
+      );
+    }
+  }
+
+  function finishVariationPhotoDrag() {
+    draggedVariationPhotoRef.current = null;
+    setDraggedVariationPhoto(null);
+  }
+
   function addTag(rawValue: string) {
     const cleanedTag = rawValue
       .trim()
@@ -1100,22 +1260,1620 @@ export default function ProductCreationWizard() {
     setConfirmation(null);
   }
 
-  function toggleGroupedProduct(product: ProductSearchItem) {
-    setGroupSelected((current) => {
-      const selected = current.some(
-        (item) => item.id === product.id
+  async function deleteUploadedMedia(
+    ids: number[]
+  ) {
+    if (ids.length === 0) return;
+
+    await fetch("/api/media/delete", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ ids }),
+    }).catch(() => undefined);
+  }
+
+  async function uploadProductPhotos(
+    photos: LocalPhoto[]
+  ): Promise<number[]> {
+    const uploadedIds: number[] = [];
+
+    for (const photo of photos) {
+      const form = new FormData();
+
+      form.append(
+        "file",
+        photo.file,
+        photo.name
+      );
+      form.append(
+        "purpose",
+        "product_image"
       );
 
-      if (selected) {
-        return current.filter(
-          (item) => item.id !== product.id
+      const response = await fetch(
+        "/api/media/upload",
+        {
+          method: "POST",
+          body: form,
+        }
+      );
+
+      const json: unknown =
+        await response.json();
+
+      const id =
+        isRecord(json)
+          ? Number(json.id)
+          : 0;
+
+      if (
+        !response.ok ||
+        !Number.isSafeInteger(id) ||
+        id <= 0
+      ) {
+        const message =
+          isRecord(json) &&
+          typeof json.error === "string"
+            ? json.error
+            : "Image upload failed.";
+
+        const error = new Error(message);
+
+        Object.assign(error, {
+          uploadedIds,
+        });
+
+        throw error;
+      }
+
+      uploadedIds.push(id);
+    }
+
+    return uploadedIds;
+  }
+
+  async function uploadProductPhotosConcurrently(
+    photos: LocalPhoto[]
+  ): Promise<number[]> {
+    const results = await Promise.allSettled(
+      photos.map(async (photo) => {
+        const form = new FormData();
+
+        form.append(
+          "file",
+          photo.file,
+          photo.name
+        );
+        form.append(
+          "purpose",
+          "product_image"
+        );
+
+        const response = await fetch(
+          "/api/media/upload",
+          {
+            method: "POST",
+            body: form,
+          }
+        );
+
+        const json: unknown =
+          await response.json();
+
+        const id =
+          isRecord(json)
+            ? Number(json.id)
+            : 0;
+
+        if (
+          !response.ok ||
+          !Number.isSafeInteger(id) ||
+          id <= 0
+        ) {
+          const message =
+            isRecord(json) &&
+            typeof json.error === "string"
+              ? json.error
+              : "Image upload failed.";
+
+          throw new Error(message);
+        }
+
+        return id;
+      })
+    );
+
+    const uploadedIds = results.flatMap(
+      (result) =>
+        result.status === "fulfilled"
+          ? [result.value]
+          : []
+    );
+
+    const failedResult = results.find(
+      (
+        result
+      ): result is PromiseRejectedResult =>
+        result.status === "rejected"
+    );
+
+    if (failedResult) {
+      const error =
+        failedResult.reason instanceof Error
+          ? failedResult.reason
+          : new Error("Image upload failed.");
+
+      Object.assign(error, {
+        uploadedIds,
+      });
+
+      throw error;
+    }
+
+    return uploadedIds;
+  }
+
+  async function verifySkuBeforeUpload() {
+    const normalizedSku = sku.trim();
+
+    if (!normalizedSku) return;
+
+    const response = await fetch(
+      `/api/products/sku-check?sku=${encodeURIComponent(
+        normalizedSku
+      )}`,
+      {
+        method: "GET",
+        cache: "no-store",
+      }
+    );
+
+    const json: unknown =
+      await response.json();
+
+    if (
+      !response.ok ||
+      !isRecord(json)
+    ) {
+      throw new Error(
+        "Unable to verify SKU availability."
+      );
+    }
+
+    if (json.exists === true) {
+      setSkuTaken(true);
+      throw new Error(
+        "SKU already taken"
+      );
+    }
+  }
+
+  async function responseJson(
+    response: Response
+  ): Promise<JsonRecord> {
+    const value: unknown = await response
+      .json()
+      .catch(() => ({}));
+
+    return isRecord(value) ? value : {};
+  }
+
+  async function verifyVariationSkusBeforeUpload(
+    rows: VariationRow[]
+  ) {
+    await Promise.all(
+      rows.map(async (row) => {
+        const generatedSku = variationSku(
+          sku,
+          row.option
+        );
+
+        if (!generatedSku) {
+          throw new Error(
+            `Unable to generate SKU for ${row.option}.`
+          );
+        }
+
+        if (generatedSku.length > 100) {
+          throw new Error(
+            `Generated SKU is too long for ${row.option}.`
+          );
+        }
+
+        const response = await fetch(
+          `/api/products/sku-check?sku=${encodeURIComponent(
+            generatedSku
+          )}`,
+          {
+            method: "GET",
+            cache: "no-store",
+          }
+        );
+
+        const json =
+          await responseJson(response);
+
+        if (!response.ok) {
+          throw new Error(
+            "Unable to verify variation SKU availability."
+          );
+        }
+
+        if (json.exists === true) {
+          throw new Error(
+            `Variation SKU already taken: ${generatedSku}`
+          );
+        }
+      })
+    );
+  }
+
+  async function ensureSizeAttribute(
+    options: string[]
+  ): Promise<number> {
+    async function loadAttributes() {
+      const response = await fetch(
+        "/api/attributes/terms",
+        {
+          method: "GET",
+          cache: "no-store",
+        }
+      );
+
+      const json =
+        await responseJson(response);
+
+      if (!response.ok) {
+        const message =
+          typeof json.error === "string"
+            ? json.error
+            : "Unable to load product attributes.";
+
+        throw new Error(message);
+      }
+
+      return Array.isArray(json.attributes)
+        ? json.attributes
+        : [];
+    }
+
+    function findSizeAttributeId(
+      attributes: unknown[]
+    ): number {
+      for (const item of attributes) {
+        if (!isRecord(item)) continue;
+
+        const id = Number(item.id);
+        const name =
+          typeof item.name === "string"
+            ? item.name.trim()
+            : "";
+
+        if (
+          Number.isSafeInteger(id) &&
+          id > 0 &&
+          name.toLowerCase() === "size"
+        ) {
+          return id;
+        }
+      }
+
+      return 0;
+    }
+
+    let attributes = await loadAttributes();
+    let sizeAttributeId =
+      findSizeAttributeId(attributes);
+
+    if (!sizeAttributeId) {
+      const createResponse = await fetch(
+        "/api/attributes",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type":
+              "application/json",
+          },
+          body: JSON.stringify({
+            name: "Size",
+            slug: "size",
+            type: "select",
+            order_by: "menu_order",
+          }),
+        }
+      );
+
+      const createJson =
+        await responseJson(createResponse);
+
+      const createdAttribute =
+        isRecord(createJson.attribute)
+          ? createJson.attribute
+          : null;
+
+      const createdId = Number(
+        createdAttribute?.id
+      );
+
+      if (
+        createResponse.ok &&
+        Number.isSafeInteger(createdId) &&
+        createdId > 0
+      ) {
+        sizeAttributeId = createdId;
+      } else {
+        attributes = await loadAttributes();
+        sizeAttributeId =
+          findSizeAttributeId(attributes);
+      }
+
+      if (!sizeAttributeId) {
+        const message =
+          typeof createJson.error === "string"
+            ? createJson.error
+            : "Unable to create the Size attribute.";
+
+        throw new Error(message);
+      }
+    }
+
+    const termsResponse = await fetch(
+      `/api/attributes/terms?id=${sizeAttributeId}`,
+      {
+        method: "GET",
+        cache: "no-store",
+      }
+    );
+
+    const termsJson =
+      await responseJson(termsResponse);
+
+    if (!termsResponse.ok) {
+      const message =
+        typeof termsJson.error === "string"
+          ? termsJson.error
+          : "Unable to load Size terms.";
+
+      throw new Error(message);
+    }
+
+    const existingNames = new Set(
+      (
+        Array.isArray(termsJson.terms)
+          ? termsJson.terms
+          : []
+      ).flatMap((item) => {
+        if (!isRecord(item)) return [];
+
+        const name =
+          typeof item.name === "string"
+            ? item.name.trim().toLowerCase()
+            : "";
+
+        return name ? [name] : [];
+      })
+    );
+
+    const missingOptions = Array.from(
+      new Set(
+        options
+          .map((option) => option.trim())
+          .filter(
+            (option) =>
+              option &&
+              !existingNames.has(
+                option.toLowerCase()
+              )
+          )
+      )
+    );
+
+    await Promise.all(
+      missingOptions.map(
+        async (normalizedOption) => {
+          const createTermResponse =
+            await fetch(
+              "/api/attributes/terms",
+              {
+                method: "POST",
+                headers: {
+                  "Content-Type":
+                    "application/json",
+                },
+                body: JSON.stringify({
+                  id: sizeAttributeId,
+                  name: normalizedOption,
+                }),
+              }
+            );
+
+          const createTermJson =
+            await responseJson(
+              createTermResponse
+            );
+
+          if (!createTermResponse.ok) {
+            const message =
+              typeof createTermJson.error ===
+              "string"
+                ? createTermJson.error
+                : `Unable to create Size term: ${normalizedOption}`;
+
+            throw new Error(message);
+          }
+        }
+      )
+    );
+
+    return sizeAttributeId;
+  }
+
+  async function ensureColourAttribute(
+    options: string[]
+  ): Promise<number> {
+    async function loadAttributes() {
+      const response = await fetch(
+        "/api/attributes/terms",
+        {
+          method: "GET",
+          cache: "no-store",
+        }
+      );
+
+      const json =
+        await responseJson(response);
+
+      if (!response.ok) {
+        const message =
+          typeof json.error === "string"
+            ? json.error
+            : "Unable to load product attributes.";
+
+        throw new Error(message);
+      }
+
+      return Array.isArray(json.attributes)
+        ? json.attributes
+        : [];
+    }
+
+    function findColourAttributeId(
+      attributes: unknown[]
+    ): number {
+      for (const item of attributes) {
+        if (!isRecord(item)) continue;
+
+        const id = Number(item.id);
+        const name =
+          typeof item.name === "string"
+            ? item.name.trim().toLowerCase()
+            : "";
+
+        if (
+          Number.isSafeInteger(id) &&
+          id > 0 &&
+          (
+            name === "colour" ||
+            name === "color"
+          )
+        ) {
+          return id;
+        }
+      }
+
+      return 0;
+    }
+
+    let attributes = await loadAttributes();
+    let colourAttributeId =
+      findColourAttributeId(attributes);
+
+    if (!colourAttributeId) {
+      const createResponse = await fetch(
+        "/api/attributes",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type":
+              "application/json",
+          },
+          body: JSON.stringify({
+            name: "Colour",
+            slug: "colour",
+            type: "select",
+            order_by: "menu_order",
+          }),
+        }
+      );
+
+      const createJson =
+        await responseJson(createResponse);
+
+      const createdAttribute =
+        isRecord(createJson.attribute)
+          ? createJson.attribute
+          : null;
+
+      const createdId = Number(
+        createdAttribute?.id
+      );
+
+      if (
+        createResponse.ok &&
+        Number.isSafeInteger(createdId) &&
+        createdId > 0
+      ) {
+        colourAttributeId = createdId;
+      } else {
+        attributes = await loadAttributes();
+        colourAttributeId =
+          findColourAttributeId(attributes);
+      }
+
+      if (!colourAttributeId) {
+        const message =
+          typeof createJson.error === "string"
+            ? createJson.error
+            : "Unable to create the Colour attribute.";
+
+        throw new Error(message);
+      }
+    }
+
+    const termsResponse = await fetch(
+      `/api/attributes/terms?id=${colourAttributeId}`,
+      {
+        method: "GET",
+        cache: "no-store",
+      }
+    );
+
+    const termsJson =
+      await responseJson(termsResponse);
+
+    if (!termsResponse.ok) {
+      const message =
+        typeof termsJson.error === "string"
+          ? termsJson.error
+          : "Unable to load Colour terms.";
+
+      throw new Error(message);
+    }
+
+    const existingNames = new Set(
+      (
+        Array.isArray(termsJson.terms)
+          ? termsJson.terms
+          : []
+      ).flatMap((item) => {
+        if (!isRecord(item)) return [];
+
+        const name =
+          typeof item.name === "string"
+            ? item.name.trim().toLowerCase()
+            : "";
+
+        return name ? [name] : [];
+      })
+    );
+
+    const missingOptions = Array.from(
+      new Set(
+        options
+          .map((option) => option.trim())
+          .filter(
+            (option) =>
+              option &&
+              !existingNames.has(
+                option.toLowerCase()
+              )
+          )
+      )
+    );
+
+    await Promise.all(
+      missingOptions.map(
+        async (normalizedOption) => {
+          const createTermResponse =
+            await fetch(
+              "/api/attributes/terms",
+              {
+                method: "POST",
+                headers: {
+                  "Content-Type":
+                    "application/json",
+                },
+                body: JSON.stringify({
+                  id: colourAttributeId,
+                  name: normalizedOption,
+                }),
+              }
+            );
+
+          const createTermJson =
+            await responseJson(
+              createTermResponse
+            );
+
+          if (!createTermResponse.ok) {
+            const message =
+              typeof createTermJson.error ===
+              "string"
+                ? createTermJson.error
+                : `Unable to create Colour term: ${normalizedOption}`;
+
+            throw new Error(message);
+          }
+        }
+      )
+    );
+
+    return colourAttributeId;
+  }
+
+  async function uploadColourGalleries(
+    rows: VariationRow[]
+  ): Promise<UploadedColourGallery[]> {
+    const tasks = rows.flatMap(
+      (row) =>
+        row.photos.map(
+          (photo, photoIndex) => ({
+            rowId: row.id,
+            option: row.option,
+            photo,
+            photoIndex,
+          })
+        )
+    );
+
+    const results = await Promise.allSettled(
+      tasks.map(async (task) => {
+        const form = new FormData();
+
+        form.append(
+          "file",
+          task.photo.file,
+          task.photo.name
+        );
+        form.append(
+          "purpose",
+          "product_image"
+        );
+
+        const response = await fetch(
+          "/api/media/upload",
+          {
+            method: "POST",
+            body: form,
+          }
+        );
+
+        const json: unknown =
+          await response.json();
+
+        const id =
+          isRecord(json)
+            ? Number(json.id)
+            : 0;
+
+        if (
+          !response.ok ||
+          !Number.isSafeInteger(id) ||
+          id <= 0
+        ) {
+          const message =
+            isRecord(json) &&
+            typeof json.error === "string"
+              ? json.error
+              : "Colour image upload failed.";
+
+          throw new Error(message);
+        }
+
+        return {
+          ...task,
+          imageId: id,
+        };
+      })
+    );
+
+    const uploaded = results.flatMap(
+      (result) =>
+        result.status === "fulfilled"
+          ? [result.value]
+          : []
+    );
+
+    const failedResult = results.find(
+      (
+        result
+      ): result is PromiseRejectedResult =>
+        result.status === "rejected"
+    );
+
+    if (failedResult) {
+      const error =
+        failedResult.reason instanceof Error
+          ? failedResult.reason
+          : new Error(
+              "Colour image upload failed."
+            );
+
+      Object.assign(error, {
+        uploadedIds: uploaded.map(
+          (item) => item.imageId
+        ),
+      });
+
+      throw error;
+    }
+
+    return rows.map((row) => ({
+      rowId: row.id,
+      option: row.option,
+      imageIds: uploaded
+        .filter(
+          (item) => item.rowId === row.id
+        )
+        .sort(
+          (a, b) =>
+            a.photoIndex - b.photoIndex
+        )
+        .map((item) => item.imageId),
+    }));
+  }
+
+  async function createSizeProduct() {
+    if (
+      submitting ||
+      selectedProductType !== "variable-size"
+    ) {
+      return;
+    }
+
+    if (
+      !selectedCategory ||
+      selectedCategory.id <= 0
+    ) {
+      setSubmitError(
+        "Select a saved product category."
+      );
+      return;
+    }
+
+    let uploadedIds: number[] = [];
+    let productId = 0;
+
+    try {
+      setSubmitting(true);
+      setSubmitError(null);
+      setConfirmation(null);
+
+      setSubmitStage("Checking SKUs");
+
+      await Promise.all([
+        verifySkuBeforeUpload(),
+        verifyVariationSkusBeforeUpload(
+          sizeRows
+        ),
+      ]);
+
+      setSubmitStage("Preparing sizes");
+
+      const sizeAttributeId =
+        await ensureSizeAttribute(
+          sizeRows.map((row) => row.option)
+        );
+
+      setSubmitStage(
+        `Uploading ${localPhotos.length} images`
+      );
+
+      uploadedIds =
+        await uploadProductPhotosConcurrently(
+          localPhotos
+        );
+
+      const payload: JsonRecord = {
+        type: "variable",
+        name: productName.trim(),
+        sku: sku.trim(),
+        status,
+        catalog_visibility: visibility,
+        short_description:
+          shortDescription.trim(),
+        description: description.trim(),
+        weight: weight.trim(),
+        categories: [
+          {
+            id: selectedCategory.id,
+          },
+        ],
+        tags: tags.map((name) => ({
+          name,
+        })),
+        images: uploadedIds.map(
+          (id, position) => ({
+            id,
+            position,
+          })
+        ),
+        attributes: [
+          {
+            id: sizeAttributeId,
+            visible: true,
+            variation: true,
+            options: sizeRows.map(
+              (row) => row.option
+            ),
+          },
+        ],
+      };
+
+      if (dimensionsEnabled) {
+        payload.dimensions = {
+          length: length.trim(),
+          width: width.trim(),
+          height: height.trim(),
+        };
+      }
+
+      if (color.trim()) {
+        payload.color = color.trim();
+      }
+
+      setSubmitStage("Creating product");
+
+      const response = await fetch(
+        "/api/products/create",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type":
+              "application/json",
+          },
+          body: JSON.stringify(payload),
+        }
+      );
+
+      const json =
+        await responseJson(response);
+
+      if (!response.ok) {
+        const message =
+          typeof json.error === "string"
+            ? json.error
+            : "Variable product creation failed.";
+
+        throw new Error(message);
+      }
+
+      productId = Number(json.id);
+
+      if (
+        !Number.isSafeInteger(productId) ||
+        productId <= 0
+      ) {
+        productId = 0;
+        throw new Error(
+          "Product creation returned an invalid response."
         );
       }
 
-      return [...current, product];
-    });
+      setSubmitStage("Creating variations");
 
-    setConfirmation(null);
+      const variationResponse = await fetch(
+        `/api/products/${productId}/variations`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type":
+              "application/json",
+          },
+          body: JSON.stringify({
+            variations: sizeRows.map(
+              (row) => ({
+                sku: variationSku(
+                  sku,
+                  row.option
+                ),
+                regular_price:
+                  row.price.trim(),
+                manage_stock: true,
+                stock_quantity: Number(
+                  row.quantity
+                ),
+                backorders: "no",
+                attributes: [
+                  {
+                    id: sizeAttributeId,
+                    option: row.option,
+                  },
+                ],
+              })
+            ),
+          }),
+        }
+      );
+
+      const variationJson =
+        await responseJson(
+          variationResponse
+        );
+
+      if (!variationResponse.ok) {
+        const message =
+          typeof variationJson.error ===
+          "string"
+            ? variationJson.error
+            : "Size variation creation failed.";
+
+        throw new Error(message);
+      }
+
+      const createdVariations =
+        Array.isArray(
+          variationJson.variations
+        )
+          ? variationJson.variations
+          : [];
+
+      if (
+        createdVariations.length !==
+        sizeRows.length
+      ) {
+        throw new Error(
+          `Only ${createdVariations.length} of ${sizeRows.length} size variations were created.`
+        );
+      }
+
+      const createdName =
+        encodeURIComponent(
+          productName.trim()
+        );
+
+      window.location.assign(
+        `/products?created=1&createdName=${createdName}`
+      );
+    } catch (error: unknown) {
+      const partialIds =
+        error instanceof Error &&
+        "uploadedIds" in error &&
+        Array.isArray(
+          (
+            error as Error & {
+              uploadedIds?: unknown;
+            }
+          ).uploadedIds
+        )
+          ? (
+              error as Error & {
+                uploadedIds: number[];
+              }
+            ).uploadedIds
+          : [];
+
+      const cleanupIds =
+        uploadedIds.length > 0
+          ? uploadedIds
+          : partialIds;
+
+      if (productId === 0) {
+        await deleteUploadedMedia(
+          cleanupIds
+        );
+      }
+
+      const rawMessage =
+        error instanceof Error
+          ? error.message
+          : "Size product creation failed.";
+
+      const message =
+        productId > 0
+          ? `${rawMessage} Product #${productId} was created, but its size variations were not completed.`
+          : rawMessage;
+
+      setSubmitError(message);
+
+      if (
+        rawMessage === "SKU already taken"
+      ) {
+        setSkuTaken(true);
+      }
+    } finally {
+      setSubmitStage(null);
+      setSubmitting(false);
+    }
+  }
+
+  async function createColourProduct() {
+    if (
+      submitting ||
+      selectedProductType !== "variable-colour"
+    ) {
+      return;
+    }
+
+    if (
+      !selectedCategory ||
+      selectedCategory.id <= 0
+    ) {
+      setSubmitError(
+        "Select a saved product category."
+      );
+      return;
+    }
+
+    let uploadedIds: number[] = [];
+    let productId = 0;
+
+    try {
+      setSubmitting(true);
+      setSubmitError(null);
+      setConfirmation(null);
+
+      setSubmitStage("Checking SKUs");
+
+      await Promise.all([
+        verifySkuBeforeUpload(),
+        verifyVariationSkusBeforeUpload(
+          colourRows
+        ),
+      ]);
+
+      setSubmitStage("Preparing colours");
+
+      const colourAttributeId =
+        await ensureColourAttribute(
+          colourRows.map(
+            (row) => row.option
+          )
+        );
+
+      const imageCount =
+        colourRows.reduce(
+          (total, row) =>
+            total + row.photos.length,
+          0
+        );
+
+      setSubmitStage(
+        `Uploading ${imageCount} images`
+      );
+
+      const uploadedGalleries =
+        await uploadColourGalleries(
+          colourRows
+        );
+
+      uploadedIds =
+        uploadedGalleries.flatMap(
+          (gallery) => gallery.imageIds
+        );
+
+      const parentImageIds =
+        Array.from(
+          new Set(uploadedIds)
+        ).slice(0, 20);
+
+      const colourSearchParts: string[] = [];
+
+      for (const row of colourRows) {
+        const option = row.option.trim();
+        if (!option) continue;
+
+        const nextValue = [
+          ...colourSearchParts,
+          option,
+        ].join(", ");
+
+        if (nextValue.length > 100) {
+          break;
+        }
+
+        colourSearchParts.push(option);
+      }
+
+      const payload: JsonRecord = {
+        type: "variable",
+        name: productName.trim(),
+        sku: sku.trim(),
+        status,
+        catalog_visibility: visibility,
+        short_description:
+          shortDescription.trim(),
+        description: description.trim(),
+        weight: weight.trim(),
+        categories: [
+          {
+            id: selectedCategory.id,
+          },
+        ],
+        tags: tags.map((name) => ({
+          name,
+        })),
+        images: parentImageIds.map(
+          (id, position) => ({
+            id,
+            position,
+          })
+        ),
+        attributes: [
+          {
+            id: colourAttributeId,
+            visible: true,
+            variation: true,
+            options: colourRows.map(
+              (row) => row.option
+            ),
+          },
+        ],
+      };
+
+      if (dimensionsEnabled) {
+        payload.dimensions = {
+          length: length.trim(),
+          width: width.trim(),
+          height: height.trim(),
+        };
+      }
+
+      if (colourSearchParts.length > 0) {
+        payload.color =
+          colourSearchParts.join(", ");
+      }
+
+      setSubmitStage("Creating product");
+
+      const response = await fetch(
+        "/api/products/create",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type":
+              "application/json",
+          },
+          body: JSON.stringify(payload),
+        }
+      );
+
+      const json =
+        await responseJson(response);
+
+      if (!response.ok) {
+        const message =
+          typeof json.error === "string"
+            ? json.error
+            : "Colour product creation failed.";
+
+        throw new Error(message);
+      }
+
+      productId = Number(json.id);
+
+      if (
+        !Number.isSafeInteger(productId) ||
+        productId <= 0
+      ) {
+        productId = 0;
+        throw new Error(
+          "Product creation returned an invalid response."
+        );
+      }
+
+      setSubmitStage("Creating variations");
+
+      const variationResponse = await fetch(
+        `/api/products/${productId}/variations`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type":
+              "application/json",
+          },
+          body: JSON.stringify({
+            variations: colourRows.map(
+              (row) => {
+                const gallery =
+                  uploadedGalleries.find(
+                    (item) =>
+                      item.rowId === row.id
+                  );
+
+                const mainImageId =
+                  gallery?.imageIds[0] ?? 0;
+
+                return {
+                  sku: variationSku(
+                    sku,
+                    row.option
+                  ),
+                  regular_price:
+                    row.price.trim(),
+                  manage_stock: true,
+                  stock_quantity: Number(
+                    row.quantity
+                  ),
+                  backorders: "no",
+                  attributes: [
+                    {
+                      id: colourAttributeId,
+                      option: row.option,
+                    },
+                  ],
+                  image: {
+                    id: mainImageId,
+                  },
+                };
+              }
+            ),
+          }),
+        }
+      );
+
+      const variationJson =
+        await responseJson(
+          variationResponse
+        );
+
+      if (!variationResponse.ok) {
+        const message =
+          typeof variationJson.error ===
+          "string"
+            ? variationJson.error
+            : "Colour variation creation failed.";
+
+        throw new Error(message);
+      }
+
+      const createdVariations =
+        Array.isArray(
+          variationJson.variations
+        )
+          ? variationJson.variations
+          : [];
+
+      if (
+        createdVariations.length !==
+        colourRows.length
+      ) {
+        throw new Error(
+          `Only ${createdVariations.length} of ${colourRows.length} colour variations were created.`
+        );
+      }
+
+      const variationIdsBySku =
+        new Map<string, number>();
+
+      for (
+        const item of createdVariations
+      ) {
+        if (!isRecord(item)) continue;
+
+        const id = Number(item.id);
+        const itemSku =
+          typeof item.sku === "string"
+            ? item.sku.trim().toUpperCase()
+            : "";
+
+        if (
+          Number.isSafeInteger(id) &&
+          id > 0 &&
+          itemSku
+        ) {
+          variationIdsBySku.set(
+            itemSku,
+            id
+          );
+        }
+      }
+
+      const galleryPayload =
+        uploadedGalleries.map(
+          (gallery) => {
+            const expectedSku =
+              variationSku(
+                sku,
+                gallery.option
+              ).toUpperCase();
+
+            const variationId =
+              variationIdsBySku.get(
+                expectedSku
+              );
+
+            if (!variationId) {
+              throw new Error(
+                `Unable to match the ${gallery.option} variation to its gallery.`
+              );
+            }
+
+            return {
+              variation_id: variationId,
+              image_ids: gallery.imageIds,
+            };
+          }
+        );
+
+      setSubmitStage(
+        "Saving colour galleries"
+      );
+
+      const galleryResponse = await fetch(
+        `/api/products/${productId}/variation-galleries`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type":
+              "application/json",
+          },
+          body: JSON.stringify({
+            galleries: galleryPayload,
+          }),
+        }
+      );
+
+      const galleryJson =
+        await responseJson(
+          galleryResponse
+        );
+
+      if (
+        !galleryResponse.ok ||
+        galleryJson.ok !== true
+      ) {
+        const message =
+          typeof galleryJson.error ===
+          "string"
+            ? galleryJson.error
+            : "Colour gallery creation failed.";
+
+        throw new Error(message);
+      }
+
+      if (
+        Number(
+          galleryJson.updated_count
+        ) !== colourRows.length
+      ) {
+        throw new Error(
+          `Only ${Number(
+            galleryJson.updated_count
+          ) || 0} of ${colourRows.length} colour galleries were saved.`
+        );
+      }
+
+      const createdName =
+        encodeURIComponent(
+          productName.trim()
+        );
+
+      window.location.assign(
+        `/products?created=1&createdName=${createdName}`
+      );
+    } catch (error: unknown) {
+      const partialIds =
+        error instanceof Error &&
+        "uploadedIds" in error &&
+        Array.isArray(
+          (
+            error as Error & {
+              uploadedIds?: unknown;
+            }
+          ).uploadedIds
+        )
+          ? (
+              error as Error & {
+                uploadedIds: number[];
+              }
+            ).uploadedIds
+          : [];
+
+      const cleanupIds =
+        uploadedIds.length > 0
+          ? uploadedIds
+          : partialIds;
+
+      if (productId === 0) {
+        await deleteUploadedMedia(
+          cleanupIds
+        );
+      }
+
+      const rawMessage =
+        error instanceof Error
+          ? error.message
+          : "Colour product creation failed.";
+
+      const message =
+        productId > 0
+          ? `${rawMessage} Product #${productId} was created, but its colour setup was not completed.`
+          : rawMessage;
+
+      setSubmitError(message);
+
+      if (
+        rawMessage === "SKU already taken"
+      ) {
+        setSkuTaken(true);
+      }
+    } finally {
+      setSubmitStage(null);
+      setSubmitting(false);
+    }
+  }
+
+  async function createSimpleProduct() {
+    if (
+      submitting ||
+      selectedProductType !== "simple"
+    ) {
+      return;
+    }
+
+    if (
+      !selectedCategory ||
+      selectedCategory.id <= 0
+    ) {
+      setSubmitError(
+        "Select a saved product category."
+      );
+      return;
+    }
+
+    let uploadedIds: number[] = [];
+
+    try {
+      setSubmitting(true);
+      setSubmitError(null);
+      setConfirmation(null);
+
+      await verifySkuBeforeUpload();
+
+      uploadedIds =
+        await uploadProductPhotos(
+          localPhotos
+        );
+
+      const payload: JsonRecord = {
+        type: "simple",
+        name: productName.trim(),
+        status,
+        catalog_visibility: visibility,
+        short_description:
+          shortDescription.trim(),
+        description: description.trim(),
+        regular_price:
+          regularPrice.trim(),
+        manage_stock: true,
+        stock_quantity: Number(
+          stockQuantity
+        ),
+        weight: weight.trim(),
+        categories: [
+          {
+            id: selectedCategory.id,
+          },
+        ],
+        tags: tags.map((name) => ({
+          name,
+        })),
+        images: uploadedIds.map(
+          (id, position) => ({
+            id,
+            position,
+          })
+        ),
+      };
+
+      if (sku.trim()) {
+        payload.sku = sku.trim();
+      }
+
+      if (dimensionsEnabled) {
+        payload.dimensions = {
+          length: length.trim(),
+          width: width.trim(),
+          height: height.trim(),
+        };
+      }
+
+      if (color.trim()) {
+        payload.color = color.trim();
+      }
+
+      const response = await fetch(
+        "/api/products/create",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type":
+              "application/json",
+          },
+          body: JSON.stringify(payload),
+        }
+      );
+
+      const json: unknown =
+        await response.json();
+
+      if (!response.ok) {
+        const message =
+          isRecord(json) &&
+          typeof json.error === "string"
+            ? json.error
+            : "Product creation failed.";
+
+        throw new Error(message);
+      }
+
+      const productId =
+        isRecord(json)
+          ? Number(json.id)
+          : 0;
+
+      if (
+        !Number.isSafeInteger(productId) ||
+        productId <= 0
+      ) {
+        throw new Error(
+          "Product creation returned an invalid response."
+        );
+      }
+
+      const createdName =
+        encodeURIComponent(
+          productName.trim()
+        );
+
+      window.location.assign(
+        `/products?created=1&createdName=${createdName}`
+      );
+    } catch (error: unknown) {
+      const partialIds =
+        error instanceof Error &&
+        "uploadedIds" in error &&
+        Array.isArray(
+          (
+            error as Error & {
+              uploadedIds?: unknown;
+            }
+          ).uploadedIds
+        )
+          ? (
+              error as Error & {
+                uploadedIds: number[];
+              }
+            ).uploadedIds
+          : [];
+
+      const cleanupIds =
+        uploadedIds.length > 0
+          ? uploadedIds
+          : partialIds;
+
+      await deleteUploadedMedia(
+        cleanupIds
+      );
+
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Product creation failed.";
+
+      setSubmitError(message);
+
+      if (
+        message === "SKU already taken"
+      ) {
+        setSkuTaken(true);
+      }
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   function goToScreen(screen: WizardScreen) {
@@ -1137,17 +2895,48 @@ export default function ProductCreationWizard() {
     setStep((current) => Math.max(1, current - 1));
   }
 
-  function continueWizard() {
+  async function continueWizard() {
     setConfirmation(null);
-    if (!canContinue) return;
+
+    if (
+      !canContinue ||
+      submitting
+    ) {
+      return;
+    }
 
     if (currentScreen === "publish") {
+      if (
+        selectedProductType === "simple"
+      ) {
+        await createSimpleProduct();
+        return;
+      }
+
+      if (
+        selectedProductType === "variable-size"
+      ) {
+        await createSizeProduct();
+        return;
+      }
+
+      if (
+        selectedProductType === "variable-colour"
+      ) {
+        await createColourProduct();
+        return;
+      }
+
       setConfirmation(
         `Preview ready as ${
-          status === "publish" ? "Published" : "Draft"
+          status === "publish"
+            ? "Published"
+            : "Draft"
         } and ${
-          visibility === "visible" ? "Visible" : "Hidden"
-        }. No product has been created.`
+          visibility === "visible"
+            ? "Visible"
+            : "Hidden"
+        }. This product type is not connected yet.`
       );
       return;
     }
@@ -1159,9 +2948,7 @@ export default function ProductCreationWizard() {
 
   const actionLabel =
     currentScreen === "publish"
-      ? selectedProductType === "grouped"
-        ? "Create Grouped Product"
-        : "Create Product"
+      ? "Create Product"
       : "Continue";
 
   return (
@@ -1402,7 +3189,7 @@ export default function ProductCreationWizard() {
                 onKeyDown={(event) => {
                   if (event.key === "Enter") {
                     event.preventDefault();
-                    createAndSelectCategory();
+                    void createAndSelectCategory();
                   }
                 }}
                 placeholder="Example: Handbags"
@@ -1411,16 +3198,39 @@ export default function ProductCreationWizard() {
 
               <button
                 type="button"
-                disabled={newCategoryName.trim().length < 2}
-                onClick={createAndSelectCategory}
+                disabled={
+                  categoryCreating ||
+                  newCategoryName.trim().length < 2
+                }
+                onClick={() =>
+                  void createAndSelectCategory()
+                }
                 className="mt-3 flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#E85D4A] px-4 text-sm font-bold text-white shadow-[0_8px_18px_rgba(232,93,74,0.22)] transition active:scale-[0.985] disabled:cursor-not-allowed disabled:bg-[#D8C8C4] disabled:shadow-none"
               >
-                <Plus className="h-4 w-4" />
-                Create & select
+                {categoryCreating ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Creating category
+                  </>
+                ) : (
+                  <>
+                    <Plus className="h-4 w-4" />
+                    Create & select
+                  </>
+                )}
               </button>
 
-              <p className="mt-2 text-center text-[11px] font-medium text-[#A1766E]">
-                Preview only — nothing is saved yet.
+              <p
+                aria-live="polite"
+                className={[
+                  "mt-2 text-center text-[11px] font-medium",
+                  categoryCreateError
+                    ? "text-[#C74636]"
+                    : "text-[#A1766E]",
+                ].join(" ")}
+              >
+                {categoryCreateError ??
+                  "New categories are saved immediately."}
               </p>
             </div>
           </div>
@@ -1447,7 +3257,7 @@ export default function ProductCreationWizard() {
               </button>
             </div>
 
-            <div className="grid flex-1 grid-cols-2 content-start gap-3">
+            <div className="grid flex-1 grid-cols-1 content-center gap-3 sm:grid-cols-3">
               {productTypes.map((productType) => {
                 const Icon = productType.icon;
                 const selected =
@@ -1461,7 +3271,7 @@ export default function ProductCreationWizard() {
                       chooseProductType(productType.id)
                     }
                     className={[
-                      "relative flex min-h-32 flex-col items-start rounded-2xl border p-4 text-left transition active:scale-[0.985] md:min-h-36",
+                      "relative flex min-h-32 flex-col items-start rounded-2xl border p-4 text-left transition active:scale-[0.985] sm:min-h-40",
                       selected
                         ? `${productType.selectedClass} shadow-[0_10px_24px_rgba(44,56,104,0.10)]`
                         : "border-[#DFE3ED] bg-white hover:border-[#BFC6D8]",
@@ -1571,14 +3381,39 @@ export default function ProductCreationWizard() {
                 />
               </div>
 
-              <p className="mt-2 text-[11px] font-medium text-[#858DA2]">
-                {variableProduct
-                  ? "Variation SKUs will be generated automatically from this code."
-                  : "Use your own stock code when needed."}
-              </p>
+              <div
+                aria-live="polite"
+                className="mt-2 min-h-4 text-[11px] font-semibold"
+              >
+                {skuChecking ? (
+                  <span className="inline-flex items-center gap-1.5 text-[#66708C]">
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    Checking SKU
+                  </span>
+                ) : skuTaken ? (
+                  <span className="text-[#C74636]">
+                    SKU already taken
+                  </span>
+                ) : skuCheckError ? (
+                  <span className="text-[#C74636]">
+                    {skuCheckError}
+                  </span>
+                ) : sku.trim() ? (
+                  <span className="inline-flex items-center gap-1.5 text-[#257052]">
+                    <CheckCircle2 className="h-3.5 w-3.5" />
+                    SKU available
+                  </span>
+                ) : (
+                  <span className="text-[#858DA2]">
+                    {variableProduct
+                      ? "Variation SKUs will be generated automatically from this code."
+                      : "Use your own stock code when needed."}
+                  </span>
+                )}
+              </div>
             </div>
 
-            <div className="flex flex-col rounded-2xl bg-[#26356F] p-4 text-white shadow-[0_12px_28px_rgba(38,53,111,0.18)]">
+            <div className="hidden lg:flex flex-col rounded-2xl bg-[#26356F] p-4 text-white shadow-[0_12px_28px_rgba(38,53,111,0.18)]">
               <div className="flex items-center gap-3">
                 <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#E85D4A]">
                   <Package2 className="h-5 w-5" />
@@ -1711,7 +3546,7 @@ export default function ProductCreationWizard() {
               </div>
             </div>
 
-            <div className="flex min-w-0 flex-col rounded-2xl bg-[#26356F] p-4 text-white shadow-[0_12px_28px_rgba(38,53,111,0.18)]">
+            <div className="hidden lg:flex min-w-0 flex-col rounded-2xl bg-[#26356F] p-4 text-white shadow-[0_12px_28px_rgba(38,53,111,0.18)]">
               <div className="flex items-start gap-3">
                 <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#E85D4A]">
                   <FileText className="h-5 w-5" />
@@ -1945,7 +3780,7 @@ export default function ProductCreationWizard() {
               />
             </div>
 
-            <div className="flex min-w-0 flex-col rounded-2xl bg-[#26356F] p-4 text-white shadow-[0_12px_28px_rgba(38,53,111,0.18)]">
+            <div className="hidden lg:flex min-w-0 flex-col rounded-2xl bg-[#26356F] p-4 text-white shadow-[0_12px_28px_rgba(38,53,111,0.18)]">
               <div className="flex items-start gap-3">
                 <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#E85D4A]">
                   <ImagePlus className="h-5 w-5" />
@@ -2065,7 +3900,7 @@ export default function ProductCreationWizard() {
               </p>
             </div>
 
-            <div className="flex min-w-0 flex-col rounded-2xl bg-[#26356F] p-4 text-white shadow-[0_12px_28px_rgba(38,53,111,0.18)]">
+            <div className="hidden lg:flex min-w-0 flex-col rounded-2xl bg-[#26356F] p-4 text-white shadow-[0_12px_28px_rgba(38,53,111,0.18)]">
               <div className="flex items-start gap-3">
                 <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#E85D4A]">
                   <IndianRupee className="h-5 w-5" />
@@ -2349,7 +4184,7 @@ export default function ProductCreationWizard() {
               </div>
             </div>
 
-            <div className="flex min-h-0 min-w-0 flex-col rounded-2xl bg-[#26356F] p-4 text-white">
+            <div className="hidden lg:flex min-h-0 min-w-0 flex-col rounded-2xl bg-[#26356F] p-4 text-white">
               <div className="flex items-start gap-3">
                 <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#E85D4A]">
                   {currentScreen === "size-variations" ? (
@@ -2422,7 +4257,7 @@ export default function ProductCreationWizard() {
                     Colour images
                   </h2>
                   <p className="mt-0.5 text-xs text-[#737C96]">
-                    Add one or more images for every colour.
+                    Add images, then drag them to set the order.
                   </p>
                 </div>
               </div>
@@ -2456,27 +4291,120 @@ export default function ProductCreationWizard() {
                         {row.photos.map((photo, photoIndex) => (
                           <div
                             key={photo.id}
-                            className="relative aspect-square min-w-0 overflow-visible rounded-lg"
+                            data-variation-row-id={row.id}
+                            data-variation-photo-id={photo.id}
+                            className={[
+                              "relative aspect-square min-w-0 overflow-visible rounded-lg",
+                              draggedVariationPhoto?.rowId === row.id &&
+                              draggedVariationPhoto.photoId === photo.id
+                                ? "opacity-60"
+                                : "",
+                            ].join(" ")}
                           >
-                            <div className="relative h-full w-full overflow-hidden rounded-lg border border-[#DDE1EA] bg-[#F8F9FC]">
+                            <button
+                              type="button"
+                              draggable
+                              aria-label={`${row.option} image ${photoIndex + 1}. Drag to reorder.`}
+                              onDragStart={(event) => {
+                                event.dataTransfer.effectAllowed =
+                                  "move";
+
+                                event.dataTransfer.setData(
+                                  "text/plain",
+                                  photo.id
+                                );
+
+                                beginVariationPhotoDrag(
+                                  row.id,
+                                  photo.id
+                                );
+                              }}
+                              onDragOver={(event) => {
+                                event.preventDefault();
+                                event.dataTransfer.dropEffect =
+                                  "move";
+                              }}
+                              onDrop={(event) => {
+                                event.preventDefault();
+
+                                const sourcePhotoId =
+                                  event.dataTransfer.getData(
+                                    "text/plain"
+                                  ) ||
+                                  draggedVariationPhotoRef.current
+                                    ?.photoId;
+
+                                if (sourcePhotoId) {
+                                  moveVariationPhoto(
+                                    row.id,
+                                    sourcePhotoId,
+                                    photo.id
+                                  );
+                                }
+
+                                finishVariationPhotoDrag();
+                              }}
+                              onDragEnd={
+                                finishVariationPhotoDrag
+                              }
+                              onTouchStart={() =>
+                                beginVariationPhotoDrag(
+                                  row.id,
+                                  photo.id
+                                )
+                              }
+                              onTouchMove={(event) => {
+                                event.preventDefault();
+
+                                const touch =
+                                  event.touches[0];
+
+                                if (touch) {
+                                  moveDraggedVariationPhotoAtPoint(
+                                    row.id,
+                                    touch.clientX,
+                                    touch.clientY
+                                  );
+                                }
+                              }}
+                              onTouchEnd={
+                                finishVariationPhotoDrag
+                              }
+                              onTouchCancel={
+                                finishVariationPhotoDrag
+                              }
+                              className={[
+                                "relative h-full w-full cursor-grab touch-none overflow-hidden rounded-lg border-2 bg-[#F8F9FC] active:cursor-grabbing",
+                                photoIndex === 0
+                                  ? "border-[#E85D4A]"
+                                  : "border-[#DDE1EA]",
+                              ].join(" ")}
+                            >
                               <Image
                                 unoptimized
                                 fill
                                 src={photo.url}
                                 alt={`${row.option} image ${photoIndex + 1}`}
-                                className="object-cover"
+                                className="pointer-events-none object-cover"
                               />
 
+                              <span className="pointer-events-none absolute bottom-1 left-1 flex h-5 w-5 items-center justify-center rounded-md bg-black/55 text-white">
+                                <GripVertical className="h-3.5 w-3.5" />
+                              </span>
+
                               {photoIndex === 0 && (
-                                <span className="absolute bottom-1 left-1 rounded bg-[#E85D4A] px-1.5 py-0.5 text-[7px] font-bold uppercase text-white">
+                                <span className="pointer-events-none absolute right-1 top-1 rounded bg-[#E85D4A] px-1.5 py-0.5 text-[7px] font-bold uppercase text-white">
                                   Main
                                 </span>
                               )}
-                            </div>
+                            </button>
 
                             <button
                               type="button"
                               aria-label={`Remove ${row.option} image ${photoIndex + 1}`}
+                              onPointerDown={(event) =>
+                                event.stopPropagation()
+                              }
                               onClick={() =>
                                 removeVariationPhoto(
                                   row.id,
@@ -2490,27 +4418,33 @@ export default function ProductCreationWizard() {
                           </div>
                         ))}
 
-                        <label className="flex aspect-square min-w-0 cursor-pointer items-center justify-center rounded-lg border-2 border-dashed border-[#C8CEDD] bg-[#F8F9FC] text-[#6877AD] transition hover:border-[#5366B7] hover:bg-[#F1F3FF]">
-                          <Plus className="h-5 w-5" />
-                          <input
-                            type="file"
-                            accept="image/*"
-                            multiple
-                            className="hidden"
-                            onChange={(event) => {
-                              addVariationPhotos(
-                                row.id,
-                                event.target.files
-                              );
-                              event.currentTarget.value = "";
-                            }}
-                          />
-                        </label>
+                        {row.photos.length < 5 && (
+                          <label className="flex aspect-square min-w-0 cursor-pointer items-center justify-center rounded-lg border-2 border-dashed border-[#C8CEDD] bg-[#F8F9FC] text-[#6877AD] transition hover:border-[#5366B7] hover:bg-[#F1F3FF]">
+                            <Plus className="h-5 w-5" />
+                            <input
+                              type="file"
+                              accept="image/*"
+                              multiple
+                              className="hidden"
+                              onChange={(event) => {
+                                addVariationPhotos(
+                                  row.id,
+                                  event.target.files
+                                );
+                                event.currentTarget.value = "";
+                              }}
+                            />
+                          </label>
+                        )}
                       </div>
 
-                      {row.photos.length === 0 && (
+                      {row.photos.length === 0 ? (
                         <p className="mt-2 text-[10px] font-semibold text-[#A15A4E]">
                           Add at least one image for this colour.
+                        </p>
+                      ) : (
+                        <p className="mt-2 text-[10px] font-semibold text-[#858DA2]">
+                          Up to 5 images per colour.
                         </p>
                       )}
                     </div>
@@ -2519,7 +4453,7 @@ export default function ProductCreationWizard() {
               </div>
             </div>
 
-            <div className="flex min-w-0 flex-col rounded-2xl bg-[#26356F] p-4 text-white">
+            <div className="hidden lg:flex min-w-0 flex-col rounded-2xl bg-[#26356F] p-4 text-white">
               <div className="flex items-start gap-3">
                 <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#E85D4A]">
                   <Palette className="h-5 w-5" />
@@ -2813,7 +4747,7 @@ export default function ProductCreationWizard() {
               </div>
             </div>
 
-            <div className="flex min-w-0 flex-col rounded-2xl bg-[#26356F] p-4 text-white">
+            <div className="hidden lg:flex min-w-0 flex-col rounded-2xl bg-[#26356F] p-4 text-white">
               <div className="flex items-start gap-3">
                 <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#E85D4A]">
                   <Truck className="h-5 w-5" />
@@ -2875,185 +4809,6 @@ export default function ProductCreationWizard() {
               <div className="mt-auto pt-3">
                 <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-[11px] font-medium text-white/55">
                   All editable shipping fields remain on the left.
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {currentScreen === "grouped-products" && (
-          <div className="grid min-h-0 min-w-0 flex-1 gap-4 lg:grid-cols-[1.15fr_0.85fr]">
-            <div className="flex min-h-0 flex-col rounded-2xl border border-[#E1E5EF] bg-[#F8F9FC] p-4">
-              <div className="mb-3 flex items-start gap-3">
-                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#DDF2E8] text-[#257052]">
-                  <Boxes className="h-5 w-5" />
-                </div>
-                <div>
-                  <h2 className="text-sm font-bold text-[#26335F]">
-                    Existing products
-                  </h2>
-                  <p className="mt-0.5 text-xs text-[#737C96]">
-                    Search by product name or SKU.
-                  </p>
-                </div>
-              </div>
-
-              <div className="relative">
-                <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[#7C849B]" />
-                <input
-                  value={groupQuery}
-                  onChange={(event) =>
-                    setGroupQuery(event.target.value)
-                  }
-                  placeholder="Search products"
-                  className="h-11 w-full rounded-xl border border-[#CDD3E2] bg-white pl-10 pr-3.5 text-sm font-semibold outline-none focus:border-[#5366B7] focus:ring-4 focus:ring-[#5366B7]/10"
-                />
-              </div>
-
-              <div className="mt-3 min-h-0 flex-1 overflow-y-auto">
-                {groupLoading && (
-                  <div className="flex min-h-24 items-center justify-center gap-2 text-sm font-semibold text-[#737C96]">
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    Searching products
-                  </div>
-                )}
-
-                {!groupLoading && groupError && (
-                  <div className="rounded-xl bg-[#FFF0ED] px-3 py-2.5 text-xs font-semibold text-[#A24438]">
-                    {groupError}
-                  </div>
-                )}
-
-                {!groupLoading &&
-                  !groupError &&
-                  !groupQuery.trim() && (
-                    <div className="flex min-h-24 items-center justify-center rounded-xl border border-dashed border-[#C9CFDC] bg-white px-4 text-center text-sm font-medium text-[#8A91A3]">
-                      Type a product name or SKU to search.
-                    </div>
-                  )}
-
-                {!groupLoading &&
-                  !groupError &&
-                  groupQuery.trim() &&
-                  groupResults.length === 0 && (
-                    <div className="rounded-xl bg-white px-3 py-4 text-center text-sm font-medium text-[#8A91A3]">
-                      No products found.
-                    </div>
-                  )}
-
-                {!groupLoading &&
-                  !groupError &&
-                  groupResults.length > 0 && (
-                    <div className="space-y-2">
-                      {groupResults.map((product) => {
-                        const selected = groupSelected.some(
-                          (item) => item.id === product.id
-                        );
-
-                        return (
-                          <button
-                            key={product.id}
-                            type="button"
-                            onClick={() =>
-                              toggleGroupedProduct(product)
-                            }
-                            className={[
-                              "flex w-full items-center gap-3 rounded-xl border p-2.5 text-left",
-                              selected
-                                ? "border-[#5366B7] bg-[#EEF1FF]"
-                                : "border-[#E0E4ED] bg-white",
-                            ].join(" ")}
-                          >
-                            <div className="relative flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-[#F1F3F8]">
-                              {product.image ? (
-                                <Image
-                                  fill
-                                  src={product.image}
-                                  alt={product.name}
-                                  className="object-cover"
-                                />
-                              ) : (
-                                <Package2 className="h-5 w-5 text-[#8991A4]" />
-                              )}
-                            </div>
-                            <div className="min-w-0 flex-1">
-                              <div className="truncate text-sm font-bold text-[#27335F]">
-                                {product.name}
-                              </div>
-                              <div className="mt-1 text-[10px] font-semibold text-[#858DA2]">
-                                {product.sku || "No SKU"} ·{" "}
-                                {product.price
-                                  ? formatPrice(product.price)
-                                  : "No price"}
-                              </div>
-                            </div>
-                            <div
-                              className={[
-                                "flex h-7 w-7 items-center justify-center rounded-full border",
-                                selected
-                                  ? "border-[#5366B7] bg-[#5366B7] text-white"
-                                  : "border-[#CCD1DE] text-transparent",
-                              ].join(" ")}
-                            >
-                              <Check className="h-4 w-4" />
-                            </div>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
-              </div>
-            </div>
-
-            <div className="flex min-w-0 flex-col rounded-2xl bg-[#26356F] p-4 text-white">
-              <div className="flex items-start gap-3">
-                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#E85D4A]">
-                  <Boxes className="h-5 w-5" />
-                </div>
-                <div>
-                  <div className="text-[10px] font-bold uppercase tracking-[0.13em] text-white/50">
-                    Selected products
-                  </div>
-                  <div className="mt-0.5 text-base font-bold">
-                    {groupSelected.length}
-                  </div>
-                </div>
-              </div>
-
-              <div className="mt-4 min-h-0 space-y-2 overflow-y-auto">
-                {groupSelected.length === 0 ? (
-                  <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-4 text-center text-xs text-white/50">
-                    No products selected.
-                  </div>
-                ) : (
-                  groupSelected.map((product) => (
-                    <div
-                      key={product.id}
-                      className="flex items-center gap-3 rounded-xl bg-white/10 px-3 py-2.5"
-                    >
-                      <Package2 className="h-4 w-4 shrink-0 text-[#8FE0B8]" />
-                      <span className="min-w-0 flex-1 truncate text-xs font-bold">
-                        {product.name}
-                      </span>
-                      <button
-                        type="button"
-                        aria-label={`Remove ${product.name}`}
-                        onClick={() =>
-                          toggleGroupedProduct(product)
-                        }
-                        className="text-white/55 hover:text-white"
-                      >
-                        <X className="h-4 w-4" />
-                      </button>
-                    </div>
-                  ))
-                )}
-              </div>
-
-              <div className="mt-auto pt-3">
-                <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-[11px] font-medium text-white/55">
-                  Grouped products use the linked products&apos;
-                  own price, stock and images.
                 </div>
               </div>
             </div>
@@ -3203,7 +4958,7 @@ export default function ProductCreationWizard() {
               </div>
             </div>
 
-            <div className="flex min-w-0 flex-col rounded-2xl bg-[#26356F] p-4 text-white">
+            <div className="hidden lg:flex min-w-0 flex-col rounded-2xl bg-[#26356F] p-4 text-white">
               <div className="flex items-start gap-3">
                 <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#E85D4A]">
                   <Package2 className="h-5 w-5" />
@@ -3284,20 +5039,18 @@ export default function ProductCreationWizard() {
                   </div>
                 )}
 
-                {selectedProductType === "grouped" && (
-                  <div className="flex items-center justify-between rounded-xl bg-white/10 px-3 py-2.5">
-                    <span className="text-xs text-white/60">
-                      Linked products
-                    </span>
-                    <span className="text-xs font-bold">
-                      {groupSelected.length}
-                    </span>
-                  </div>
-                )}
               </div>
 
               <div className="mt-auto pt-3">
-                {confirmation ? (
+                {submitError ? (
+                  <div
+                    aria-live="assertive"
+                    className="flex items-start gap-2 rounded-xl bg-[#FFE3DE] px-3 py-2.5 text-[11px] font-semibold leading-4 text-[#9F3427]"
+                  >
+                    <X className="mt-0.5 h-4 w-4 shrink-0" />
+                    {submitError}
+                  </div>
+                ) : confirmation ? (
                   <div
                     aria-live="polite"
                     className="flex items-start gap-2 rounded-xl bg-[#DDF4E8] px-3 py-2.5 text-[11px] font-semibold leading-4 text-[#236047]"
@@ -3307,8 +5060,11 @@ export default function ProductCreationWizard() {
                   </div>
                 ) : (
                   <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-[11px] font-medium leading-4 text-white/55">
-                    Preview mode — Create Product will not write
-                    to WordPress yet.
+                    {selectedProductType === "simple"
+                      ? "The product and images will be saved when you press Create Product."
+                      : selectedProductType === "variable-size"
+                        ? "The product, shared images and size variations will be saved when you press Create Product."
+                        : "The product, colour variations and ordered image galleries will be saved when you press Create Product."}
                   </div>
                 )}
               </div>
@@ -3316,6 +5072,18 @@ export default function ProductCreationWizard() {
           </div>
         )}
       </section>
+
+      {currentScreen === "publish" && submitError && (
+        <div className="px-4 pb-3 lg:hidden">
+          <div
+            role="alert"
+            className="flex items-start gap-2 rounded-xl border border-[#F1BDB5] bg-[#FFF1EE] px-3 py-2.5 text-xs font-semibold leading-5 text-[#9F3427]"
+          >
+            <X className="mt-0.5 h-4 w-4 shrink-0" />
+            <span>{submitError}</span>
+          </div>
+        </div>
+      )}
 
       <footer
         className="flex items-center gap-3 rounded-b-2xl border-t border-[#E5E8F0] bg-[#F8F9FC] px-4 py-3 md:px-5"
@@ -3335,15 +5103,29 @@ export default function ProductCreationWizard() {
 
         <button
           type="button"
-          disabled={!canContinue}
-          onClick={continueWizard}
+          disabled={
+            !canContinue ||
+            submitting
+          }
+          onClick={() =>
+            void continueWizard()
+          }
           className="flex h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-[#E85D4A] px-5 text-sm font-bold text-white shadow-[0_8px_18px_rgba(232,93,74,0.22)] transition active:scale-[0.99] disabled:cursor-not-allowed disabled:bg-[#C9CCD4] disabled:shadow-none"
         >
-          {actionLabel}
-          {currentScreen === "publish" ? (
-            <Check className="h-4 w-4" />
+          {submitting ? (
+            <>
+              <Loader2 className="h-4 w-4 animate-spin" />
+              {submitStage ?? "Creating product"}
+            </>
           ) : (
-            <ChevronRight className="h-4 w-4" />
+            <>
+              {actionLabel}
+              {currentScreen === "publish" ? (
+                <Check className="h-4 w-4" />
+              ) : (
+                <ChevronRight className="h-4 w-4" />
+              )}
+            </>
           )}
         </button>
       </footer>
