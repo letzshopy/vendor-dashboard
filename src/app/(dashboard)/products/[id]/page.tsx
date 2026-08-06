@@ -98,6 +98,7 @@ type Variation = {
   stock_quantity?: number | null;
   manage_stock?: boolean;
   attributes?: ProductAttribute[];
+  image?: ProductImage | null;
 };
 
 type GroupedChild = {
@@ -109,6 +110,36 @@ type GroupedChild = {
   permalink?: string;
 };
 
+type JsonRecord = Record<string, unknown>;
+
+function isRecord(value: unknown): value is JsonRecord {
+  return Boolean(
+    value &&
+      typeof value === "object" &&
+      !Array.isArray(value)
+  );
+}
+
+function parseJsonRecord(raw: string): JsonRecord {
+  if (!raw.trim()) return {};
+
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    return isRecord(parsed) ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function recordError(
+  value: JsonRecord,
+  fallback: string
+): string {
+  return typeof value.error === "string"
+    ? value.error
+    : fallback;
+}
+
 function pillClass(color: "green" | "amber" | "slate" | "red" | "violet" = "slate") {
   const base =
     "inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-medium border";
@@ -117,7 +148,7 @@ function pillClass(color: "green" | "amber" | "slate" | "red" | "violet" = "slat
     amber: "bg-amber-50 text-amber-700 border-amber-100",
     slate: "bg-slate-100 text-slate-700 border-slate-200",
     red: "bg-rose-50 text-rose-700 border-rose-100",
-    violet: "bg-violet-50 text-violet-700 border-violet-100",
+    violet: "bg-[#EEF1FA] text-[#2E3F7D] border-[#D9DEEC]",
   };
   return `${base} ${map[color]}`;
 }
@@ -190,15 +221,15 @@ function SectionCard({
   right?: React.ReactNode;
 }) {
   return (
-    <section className="overflow-hidden rounded-[26px] border border-slate-200/80 bg-white shadow-[0_10px_30px_rgba(15,23,42,0.05)]">
-      <div className="border-b border-slate-100 bg-gradient-to-r from-[#faf7ff] via-white to-[#f4fbff] px-4 py-4 md:px-5">
+    <section className="overflow-hidden border-b border-[#E7EAF2] bg-white md:rounded-2xl md:border md:border-[#E1E5EF] md:shadow-[0_8px_24px_rgba(38,51,95,0.05)]">
+      <div className="border-b border-[#E8EBF2] bg-white px-3 py-3 md:bg-[#F8F9FC] md:px-5 md:py-4">
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-start gap-3">
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-100 to-fuchsia-50 text-violet-700 shadow-sm">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#EEF1FA] text-[#2E3F7D] md:h-11 md:w-11 md:rounded-2xl">
               <Icon className="h-5 w-5" />
             </div>
             <div>
-              <h2 className="text-[17px] font-semibold tracking-tight text-slate-900">
+              <h2 className="text-[16px] font-bold tracking-tight text-[#26335F] md:text-[17px]">
                 {title}
               </h2>
               {hint ? (
@@ -209,7 +240,7 @@ function SectionCard({
           {right ? <div className="shrink-0">{right}</div> : null}
         </div>
       </div>
-      <div className="p-4 md:p-5">{children}</div>
+      <div className="px-3 py-3 md:p-5">{children}</div>
     </section>
   );
 }
@@ -222,7 +253,7 @@ function StatField({
   value: React.ReactNode;
 }) {
   return (
-    <div className="rounded-[20px] border border-slate-200/80 bg-slate-50/70 p-3">
+    <div className="border-b border-[#EEF0F5] bg-white py-2.5 last:border-b-0 md:rounded-xl md:border md:border-slate-200/80 md:bg-[#F8F9FC] md:p-3">
       <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500">
         {label}
       </div>
@@ -254,18 +285,21 @@ export default function ProductViewPage() {
 
         const res = await fetch(`/api/products/${id}`, { cache: "no-store" });
         const raw = await res.text();
+        const result = parseJsonRecord(raw);
 
-        let j: any = {};
-        try {
-          j = raw ? JSON.parse(raw) : {};
-        } catch {
-          j = {};
+        if (!res.ok) {
+          throw new Error(
+            recordError(result, "Failed to load product")
+          );
         }
 
-        if (!res.ok) throw new Error(j?.error || "Failed to load product");
-        setProduct(j as Product);
-      } catch (e: any) {
-        setLoadErr(e?.message || "Failed to load product");
+        setProduct(result as unknown as Product);
+      } catch (error: unknown) {
+        setLoadErr(
+          error instanceof Error
+            ? error.message
+            : "Failed to load product"
+        );
       } finally {
         setLoading(false);
       }
@@ -284,16 +318,14 @@ export default function ProductViewPage() {
             cache: "no-store",
           });
           const raw = await res.text();
-
-          let j: any = {};
-          try {
-            j = raw ? JSON.parse(raw) : {};
-          } catch {
-            j = {};
-          }
+          const result = parseJsonRecord(raw);
 
           if (res.ok) {
-            setVariations(Array.isArray(j?.variations) ? j.variations : []);
+            setVariations(
+              Array.isArray(result.variations)
+                ? (result.variations as Variation[])
+                : []
+            );
           } else {
             setVariations([]);
           }
@@ -313,24 +345,48 @@ export default function ProductViewPage() {
                   cache: "no-store",
                 });
                 const raw = await res.text();
-
-                let j: any = {};
-                try {
-                  j = raw ? JSON.parse(raw) : {};
-                } catch {
-                  j = {};
-                }
+                const result = parseJsonRecord(raw);
 
                 if (!res.ok) return null;
 
+                const loadedChildId = Number(result.id);
+                const childName =
+                  typeof result.name === "string"
+                    ? result.name
+                    : "";
+
+                if (
+                  !Number.isSafeInteger(loadedChildId) ||
+                  loadedChildId <= 0 ||
+                  !childName
+                ) {
+                  return null;
+                }
+
                 return {
-                  id: j.id,
-                  name: j.name,
-                  sku: j.sku,
-                  price: j.price || j.regular_price,
-                  stock_status: j.stock_status,
-                  permalink: j.permalink,
-                } as GroupedChild;
+                  id: loadedChildId,
+                  name: childName,
+                  sku:
+                    typeof result.sku === "string"
+                      ? result.sku
+                      : undefined,
+                  price:
+                    typeof result.price === "string" ||
+                    typeof result.price === "number"
+                      ? result.price
+                      : typeof result.regular_price === "string" ||
+                          typeof result.regular_price === "number"
+                        ? result.regular_price
+                        : undefined,
+                  stock_status:
+                    typeof result.stock_status === "string"
+                      ? result.stock_status
+                      : undefined,
+                  permalink:
+                    typeof result.permalink === "string"
+                      ? result.permalink
+                      : undefined,
+                } satisfies GroupedChild;
               } catch {
                 return null;
               }
@@ -389,8 +445,8 @@ export default function ProductViewPage() {
     return (
       <div className="p-4 md:p-6">
         <div className="flex min-h-[50vh] items-center justify-center">
-          <div className="flex flex-col items-center gap-3 rounded-[26px] border border-slate-200 bg-white px-6 py-6 shadow-sm">
-            <Loader2 className="h-8 w-8 animate-spin text-violet-600" />
+          <div className="flex flex-col items-center gap-3 rounded-2xl border border-[#E1E5EF] bg-white px-6 py-6 shadow-sm">
+            <Loader2 className="h-8 w-8 animate-spin text-[#2E3F7D]" />
             <div className="text-sm font-medium text-slate-600">
               Loading product...
             </div>
@@ -405,7 +461,7 @@ export default function ProductViewPage() {
       <div className="p-4 md:p-6">
         <div className="mx-auto max-w-3xl space-y-4">
           <button
-            onClick={() => router.back()}
+            onClick={() => router.push("/products")}
             className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-50"
           >
             <ArrowLeft className="h-3.5 w-3.5" />
@@ -425,14 +481,14 @@ export default function ProductViewPage() {
   const isGrouped = product.type === "grouped";
 
   return (
-    <main className="mx-auto max-w-7xl px-3 pb-28 pt-3 md:px-4 md:pb-8 md:pt-5">
-      <div className="rounded-[30px] border border-white/80 bg-gradient-to-br from-white via-[#faf6ff] to-[#eef7ff] p-4 shadow-[0_14px_40px_rgba(15,23,42,0.06)] md:p-5">
+    <main className="mx-auto w-full max-w-7xl overflow-x-hidden pb-28 pt-1 md:px-4 md:pb-8 md:pt-3">
+      <div className="border-b border-[#E2E7F1] bg-white px-3 py-3 md:rounded-2xl md:border md:p-5 md:shadow-[0_10px_30px_rgba(38,51,95,0.05)]">
         <div className="flex flex-col gap-4">
           <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
             <div className="min-w-0">
               <button
-                onClick={() => router.back()}
-                className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-slate-50"
+                onClick={() => router.push("/products")}
+                className="inline-flex min-h-9 items-center gap-2 rounded-xl border border-[#D9DEEC] bg-white px-3 text-xs font-bold text-[#2E3F7D] transition hover:bg-[#F7F8FC]"
               >
                 <ArrowLeft className="h-3.5 w-3.5" />
                 Back to Products
@@ -457,11 +513,11 @@ export default function ProductViewPage() {
                 {stockBadge(product.stock_status)}
               </div>
 
-              <h1 className="mt-3 break-words text-[28px] font-semibold tracking-tight text-slate-900 md:text-[34px]">
+              <h1 className="mt-2 break-words text-[24px] font-extrabold tracking-tight text-[#26335F] md:mt-3 md:text-[32px]">
                 {product.name || "Untitled product"}
               </h1>
 
-              <p className="mt-1 text-sm leading-6 text-slate-500">
+              <p className="mt-1 text-xs leading-5 text-slate-500 md:text-sm md:leading-6">
                 SKU: {fmt(product.sku, "—")}
                 {product.color ? ` • Color: ${product.color}` : ""}
               </p>
@@ -470,7 +526,7 @@ export default function ProductViewPage() {
                 <a
                   href={product.permalink}
                   target="_blank"
-                  className="mt-2 inline-flex items-center gap-1.5 text-xs font-medium text-violet-700 hover:underline"
+                  className="mt-2 inline-flex items-center gap-1.5 text-xs font-bold text-[#2E3F7D] hover:underline"
                 >
                   <Eye className="h-3.5 w-3.5" />
                   View on storefront
@@ -480,7 +536,7 @@ export default function ProductViewPage() {
 
             <Link
               href={`/products/${product.id}/edit`}
-              className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-violet-600 px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-violet-700"
+              className="hidden h-10 items-center justify-center gap-2 rounded-xl bg-[#E85D4A] px-4 text-sm font-bold text-white shadow-[0_8px_18px_rgba(232,93,74,0.2)] transition hover:bg-[#D94F3D] md:inline-flex"
             >
               <Pencil className="h-4 w-4" />
               Edit Product
@@ -489,7 +545,7 @@ export default function ProductViewPage() {
         </div>
       </div>
 
-      <div className="mt-4 grid gap-4 xl:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
+      <div className="mt-2 grid gap-2 md:mt-4 md:gap-4 xl:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
         <SectionCard
           title="Product gallery"
           icon={ImageIcon}
@@ -504,8 +560,9 @@ export default function ProductViewPage() {
         >
           {galleryImages.length > 0 ? (
             <div className="space-y-4">
-              <div className="flex min-h-[260px] items-center justify-center rounded-[24px] border border-slate-200 bg-slate-50 p-3 md:min-h-[420px]">
+              <div className="flex min-h-[220px] items-center justify-center border border-slate-200 bg-[#F8F9FC] p-2 md:min-h-[420px] md:rounded-2xl md:p-3">
                 {getImageSrcSafe(mainImage) ? (
+                  // eslint-disable-next-line @next/next/no-img-element
                   <img
                     src={getImageSrcSafe(mainImage)!}
                     alt={mainImage?.name || product.name}
@@ -532,12 +589,13 @@ export default function ProductViewPage() {
                         onClick={() => setActiveImgId(thisId)}
                         className={`overflow-hidden rounded-2xl border bg-slate-50 ${
                           selectedId === thisId
-                            ? "border-violet-500 ring-2 ring-violet-200"
-                            : "border-slate-200 hover:border-violet-300"
+                            ? "border-[#E85D4A] ring-2 ring-[#FFE1DC]"
+                            : "border-slate-200 hover:border-[#5366B7]"
                         }`}
                       >
                         <div className="aspect-square">
                           {thumbSrc ? (
+                            // eslint-disable-next-line @next/next/no-img-element
                             <img
                               src={thumbSrc}
                               alt={img.name || product.name}
@@ -650,7 +708,7 @@ export default function ProductViewPage() {
                     product.tags.map((t, idx) => (
                       <span
                         key={`${t.id ?? "tag"}-${idx}`}
-                        className="rounded-full bg-violet-50 px-3 py-1 text-xs font-medium text-violet-700"
+                        className="rounded-full bg-[#EEF1FA] px-3 py-1 text-xs font-bold text-[#2E3F7D]"
                       >
                         {t.name}
                       </span>
@@ -721,10 +779,24 @@ export default function ProductViewPage() {
                   {variations.map((v) => (
                     <div
                       key={v.id}
-                      className="rounded-[22px] border border-slate-200 bg-slate-50/60 p-3"
+                      className="border-b border-[#E8EBF2] bg-white px-0 py-3 last:border-b-0 md:rounded-2xl md:border md:border-slate-200 md:bg-slate-50/60 md:p-3"
                     >
-                      <div className="text-sm font-semibold text-slate-900">
-                        {variationLabel(v.attributes)}
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-slate-200 bg-white">
+                          {getImageSrcSafe(v.image) ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={getImageSrcSafe(v.image)!}
+                              alt={variationLabel(v.attributes)}
+                              className="h-full w-full object-cover"
+                            />
+                          ) : (
+                            <ImageIcon className="h-5 w-5 text-slate-300" />
+                          )}
+                        </div>
+                        <div className="min-w-0 text-sm font-semibold text-slate-900">
+                          {variationLabel(v.attributes)}
+                        </div>
                       </div>
                       <div className="mt-2 grid gap-2 sm:grid-cols-2">
                         <StatField label="SKU" value={fmt(v.sku, "—")} />
@@ -760,6 +832,7 @@ export default function ProductViewPage() {
                   <table className="min-w-full text-sm">
                     <thead className="bg-slate-50 text-left text-[11px] uppercase tracking-[0.08em] text-slate-500">
                       <tr>
+                        <th className="px-4 py-3">Image</th>
                         <th className="px-4 py-3">Variation</th>
                         <th className="px-4 py-3">SKU</th>
                         <th className="px-4 py-3">Price</th>
@@ -770,6 +843,20 @@ export default function ProductViewPage() {
                     <tbody>
                       {variations.map((v) => (
                         <tr key={v.id} className="border-t border-slate-100 bg-white">
+                          <td className="px-4 py-3">
+                            <div className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
+                              {getImageSrcSafe(v.image) ? (
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img
+                                  src={getImageSrcSafe(v.image)!}
+                                  alt={variationLabel(v.attributes)}
+                                  className="h-full w-full object-cover"
+                                />
+                              ) : (
+                                <ImageIcon className="h-4 w-4 text-slate-300" />
+                              )}
+                            </div>
+                          </td>
                           <td className="px-4 py-3 text-slate-700">
                             {variationLabel(v.attributes)}
                           </td>
@@ -798,7 +885,7 @@ export default function ProductViewPage() {
                 </div>
               </>
             ) : (
-              <div className="rounded-[24px] bg-slate-50 px-4 py-6 text-sm text-slate-500">
+              <div className="border-y border-[#E8EBF2] bg-[#F8F9FC] px-3 py-5 text-sm text-slate-500 md:rounded-2xl md:border-0">
                 No variations found for this product.
               </div>
             )}
@@ -830,7 +917,7 @@ export default function ProductViewPage() {
                   {groupedChildren.map((child) => (
                     <div
                       key={child.id}
-                      className="rounded-[22px] border border-slate-200 bg-slate-50/60 p-3"
+                      className="border-b border-[#E8EBF2] bg-white px-0 py-3 last:border-b-0 md:rounded-2xl md:border md:border-slate-200 md:bg-slate-50/60 md:p-3"
                     >
                       <div className="text-sm font-semibold text-slate-900">
                         {child.name}
@@ -842,7 +929,7 @@ export default function ProductViewPage() {
                         <div className="rounded-[20px] border border-slate-200/80 bg-white p-3">
                           <Link
                             href={`/products/${child.id}`}
-                            className="inline-flex items-center gap-2 text-sm font-medium text-violet-700 hover:underline"
+                            className="inline-flex items-center gap-2 text-sm font-bold text-[#2E3F7D] hover:underline"
                           >
                             Open product
                           </Link>
@@ -882,7 +969,7 @@ export default function ProductViewPage() {
                           <td className="px-4 py-3">
                             <Link
                               href={`/products/${child.id}`}
-                              className="text-violet-700 hover:underline"
+                              className="font-bold text-[#2E3F7D] hover:underline"
                             >
                               Open
                             </Link>
@@ -894,7 +981,7 @@ export default function ProductViewPage() {
                 </div>
               </>
             ) : (
-              <div className="rounded-[24px] bg-slate-50 px-4 py-6 text-sm text-slate-500">
+              <div className="border-y border-[#E8EBF2] bg-[#F8F9FC] px-3 py-5 text-sm text-slate-500 md:rounded-2xl md:border-0">
                 No grouped child products found.
               </div>
             )}
@@ -902,7 +989,7 @@ export default function ProductViewPage() {
         </div>
       )}
 
-      <div className="mt-4 grid gap-4 lg:grid-cols-2">
+      <div className="mt-2 grid gap-2 md:mt-4 md:gap-4 lg:grid-cols-2">
         <SectionCard
           title="Short description"
           icon={Package2}
@@ -963,19 +1050,25 @@ export default function ProductViewPage() {
         </SectionCard>
       </div>
 
-      <div className="sticky bottom-3 z-40 -mx-1 mt-4 md:hidden">
-        <div className="rounded-[26px] border border-slate-200/90 bg-white/92 p-3 shadow-[0_20px_50px_rgba(15,23,42,0.12)] backdrop-blur">
+      <div className="sticky bottom-0 z-40 mt-3 md:hidden">
+        <div
+          className="border-t border-[#E2E7F1] bg-white/95 p-3 shadow-[0_-10px_30px_rgba(38,51,95,0.08)] backdrop-blur"
+          style={{
+            paddingBottom:
+              "calc(0.75rem + env(safe-area-inset-bottom))",
+          }}
+        >
           <div className="flex gap-2">
             <button
-              onClick={() => router.back()}
-              className="inline-flex flex-1 items-center justify-center rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-700"
+              onClick={() => router.push("/products")}
+              className="inline-flex min-h-11 flex-1 items-center justify-center rounded-xl border border-[#C9D0E8] bg-white px-4 text-sm font-bold text-[#2E3F7D]"
             >
               Back
             </button>
 
             <Link
               href={`/products/${product.id}/edit`}
-              className="inline-flex flex-1 items-center justify-center rounded-2xl bg-violet-600 px-4 py-3 text-sm font-semibold text-white"
+              className="inline-flex min-h-11 flex-1 items-center justify-center rounded-xl bg-[#E85D4A] px-4 text-sm font-bold text-white shadow-[0_8px_18px_rgba(232,93,74,0.2)]"
             >
               Edit
             </Link>

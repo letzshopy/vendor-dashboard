@@ -1,17 +1,25 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
-import { ChevronDown, SlidersHorizontal } from "lucide-react";
+import { useEffect, useState, type ReactNode } from "react";
+import {
+  ChevronDown,
+  SlidersHorizontal,
+  X,
+} from "lucide-react";
 
-type Category = { id: number; name: string; parent: number };
+type Category = {
+  id: number;
+  name: string;
+  parent: number;
+};
 
 type Props = {
   categories: Category[];
   initialCategory: string;
   initialStock: string;
   initialType: string;
-  rightSlot?: React.ReactNode;
+  rightSlot?: ReactNode;
 };
 
 export default function ProductsFilters({
@@ -46,139 +54,167 @@ export default function ProductsFilters({
     }
   }, [initialCategory, initialStock, initialType]);
 
-  const hasFilters = Boolean(category || stock || ptype);
+  const activeFilterCount = [category, stock, ptype].filter(Boolean).length;
+  const hasFilters = activeFilterCount > 0;
 
   function applyFilters() {
     const params = new URLSearchParams();
+
     if (category) params.set("category", category);
     if (stock) params.set("stock", stock);
     if (ptype) params.set("ptype", ptype);
-    const qs = params.toString();
-    router.push(qs ? `/products?${qs}` : "/products");
+
+    const queryString = params.toString();
+
+    router.push(
+      queryString
+        ? `/products?${queryString}`
+        : "/products"
+    );
   }
 
   function clearFilters() {
     setCategory("");
     setStock("");
     setPtype("");
+    setOpen(false);
     router.push("/products");
   }
 
   return (
-    <section>
-      <div className="w-full min-w-0 overflow-hidden rounded-[26px] border border-slate-200/80 bg-white shadow-[0_10px_30px_rgba(15,23,42,0.05)]">
-        <div className="px-4 py-4 md:px-5">
-          <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center">
+    <section className="min-w-0 border-b border-[#E8EBF2] bg-white px-3 py-2.5 md:px-4">
+      <div className="flex min-w-0 items-center justify-between gap-2">
+        <div className="flex min-w-0 items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setOpen((current) => !current)}
+            className={[
+              "inline-flex min-h-9 items-center gap-2 rounded-xl border px-3.5 text-sm font-bold transition active:scale-[0.98]",
+              open || hasFilters
+                ? "border-[#C9D0E8] bg-[#EEF1FA] text-[#2E3F7D]"
+                : "border-slate-200 bg-white text-slate-700",
+            ].join(" ")}
+          >
+            <SlidersHorizontal className="h-4 w-4" />
+            Filters
+
+            {hasFilters ? (
+              <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-[#5366B7] px-1.5 text-[10px] text-white">
+                {activeFilterCount}
+              </span>
+            ) : null}
+
+            <ChevronDown
+              className={[
+                "h-4 w-4 transition-transform",
+                open ? "rotate-180" : "",
+              ].join(" ")}
+            />
+          </button>
+
+          {hasFilters ? (
             <button
-  type="button"
-  onClick={() => setOpen((s) => !s)}
-  className="inline-flex w-full shrink-0 items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-3 py-2.5 text-left shadow-sm transition hover:border-violet-300 hover:bg-violet-50/40 sm:w-auto sm:justify-start"
->
-  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-violet-100 text-violet-600">
-    <SlidersHorizontal className="h-4 w-4" />
-  </span>
-
-  <span className="min-w-0">
-    <span className="block text-sm font-semibold text-slate-800">
-      Filters
-    </span>
-  </span>
-
-  <ChevronDown
-    className={`h-4 w-4 shrink-0 text-slate-400 transition ${
-      open ? "rotate-180" : ""
-    }`}
-  />
-</button>
-
-{rightSlot}
-
-{hasFilters && (
-  <span className="self-start rounded-full bg-violet-50 px-3 py-1 text-xs font-semibold text-violet-700 sm:self-auto">
-    Filters active
-  </span>
-)}          </div>
+              type="button"
+              onClick={clearFilters}
+              className="inline-flex min-h-9 items-center gap-1 rounded-xl px-2 text-xs font-bold text-slate-500"
+            >
+              <X className="h-3.5 w-3.5" />
+              Clear
+            </button>
+          ) : null}
         </div>
 
-        {open && (
-          <div className="border-t border-slate-100 px-4 pb-4 pt-4 md:px-5 md:pb-5">
-            <div className="grid gap-3 md:grid-cols-3">
-              <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">
-                  Category
-                </label>
-                <select
-                  value={category}
-                  onChange={(e) => setCategory(e.target.value)}
-                  className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-700 shadow-sm outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-200"
-                >
-                  <option value="">All</option>
-                  {categories
-                    .slice()
-                    .sort((a, b) => a.name.localeCompare(b.name))
-                    .map((c) => (
-                      <option key={c.id} value={String(c.id)}>
-                        {c.name}
-                      </option>
-                    ))}
-                </select>
-              </div>
+        {rightSlot ? (
+          <div className="ml-auto min-w-0">
+            {rightSlot}
+          </div>
+        ) : null}
+      </div>
 
-              <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">
-                  Stock
-                </label>
-                <select
-                  value={stock}
-                  onChange={(e) => setStock(e.target.value)}
-                  className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-700 shadow-sm outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-200"
-                >
-                  <option value="">All</option>
-                  <option value="instock">In stock</option>
-                  <option value="outofstock">Out of stock</option>
-                  <option value="onbackorder">On backorder</option>
-                </select>
-              </div>
+      {open ? (
+        <div className="-mx-3 mt-2.5 border-t border-[#E8EBF2] bg-[#F8F9FC] px-3 py-3 md:-mx-4 md:px-4">
+          <div className="grid gap-3 md:grid-cols-3">
+            <label className="min-w-0">
+              <span className="mb-1.5 block text-[11px] font-bold uppercase tracking-[0.08em] text-slate-500">
+                Category
+              </span>
 
-              <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">
-                  Type
-                </label>
-                <select
-                  value={ptype}
-                  onChange={(e) => setPtype(e.target.value)}
-                  className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-700 shadow-sm outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-200"
-                >
-                  <option value="">All</option>
-                  <option value="simple">Simple</option>
-                  <option value="variable">Variable</option>
-                  <option value="grouped">Grouped</option>
-                </select>
-              </div>
-            </div>
+              <select
+                value={category}
+                onChange={(event) => setCategory(event.target.value)}
+                className="h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none focus:border-[#5366B7] focus:ring-2 focus:ring-[#E5E8F6]"
+              >
+                <option value="">All categories</option>
 
-            <div className="mt-4 flex items-center gap-2">
+                {categories
+                  .slice()
+                  .sort((first, second) =>
+                    first.name.localeCompare(second.name)
+                  )
+                  .map((item) => (
+                    <option key={item.id} value={String(item.id)}>
+                      {item.name}
+                    </option>
+                  ))}
+              </select>
+            </label>
+
+            <label className="min-w-0">
+              <span className="mb-1.5 block text-[11px] font-bold uppercase tracking-[0.08em] text-slate-500">
+                Stock
+              </span>
+
+              <select
+                value={stock}
+                onChange={(event) => setStock(event.target.value)}
+                className="h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none focus:border-[#5366B7] focus:ring-2 focus:ring-[#E5E8F6]"
+              >
+                <option value="">All stock</option>
+                <option value="instock">In stock</option>
+                <option value="outofstock">Out of stock</option>
+                <option value="onbackorder">On backorder</option>
+              </select>
+            </label>
+
+            <label className="min-w-0">
+              <span className="mb-1.5 block text-[11px] font-bold uppercase tracking-[0.08em] text-slate-500">
+                Product type
+              </span>
+
+              <select
+                value={ptype}
+                onChange={(event) => setPtype(event.target.value)}
+                className="h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none focus:border-[#5366B7] focus:ring-2 focus:ring-[#E5E8F6]"
+              >
+                <option value="">All types</option>
+                <option value="simple">Simple</option>
+                <option value="variable">Variable</option>
+                <option value="grouped">Grouped</option>
+              </select>
+            </label>
+          </div>
+
+          <div className="mt-4 flex items-center gap-2">
+            <button
+              type="button"
+              onClick={applyFilters}
+              className="inline-flex min-h-10 items-center justify-center rounded-xl bg-[#E85D4A] px-5 text-sm font-bold text-white"
+            >
+              Apply filters
+            </button>
+
+            {hasFilters ? (
               <button
                 type="button"
-                onClick={applyFilters}
-                className="inline-flex h-11 items-center justify-center rounded-2xl bg-violet-600 px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-violet-700"
+                onClick={clearFilters}
+                className="inline-flex min-h-10 items-center justify-center rounded-xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-600"
               >
-                Apply
+                Reset
               </button>
-
-              {hasFilters && (
-                <button
-                  type="button"
-                  onClick={clearFilters}
-                  className="inline-flex h-11 items-center justify-center rounded-2xl border border-slate-200 bg-white px-5 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50"
-                >
-                  Clear
-                </button>
-              )}
-            </div>
+            ) : null}
           </div>
-        )}
-      </div>
+        </div>
+      ) : null}
     </section>
   );
 }

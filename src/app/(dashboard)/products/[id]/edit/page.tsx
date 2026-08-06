@@ -1,8 +1,15 @@
 "use client";
 
-import { use, useEffect, useMemo, useRef, useState } from "react";
+import {
+  use,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import Link from "next/link";
-import ProductImages, { type ImgItem } from "@/components/ProductImages";
+import LocalProductImages, { type ImgItem } from "@/components/LocalProductImages";
 import TagPicker from "@/components/TagPicker";
 
 type Cat = { id: number; name: string; parent: number };
@@ -18,6 +25,85 @@ type ProductImage = {
   src?: unknown;
   url?: unknown;
 };
+
+type VariationGalleryImage = {
+  id?: unknown;
+  url?: unknown;
+  thumbnail?: unknown;
+};
+
+function isColourAttribute(
+  attribute: {
+    name?: string;
+    slug?: string;
+  }
+): boolean {
+  const identity = [
+    attribute.name || "",
+    attribute.slug || "",
+  ]
+    .join(" ")
+    .toLowerCase();
+
+  return (
+    identity.includes("colour") ||
+    identity.includes("color")
+  );
+}
+
+function variationGalleriesFromResponse(
+  value: unknown
+): Record<number, ImgItem[]> {
+  if (
+    !isRecord(value) ||
+    !Array.isArray(value.galleries)
+  ) {
+    return {};
+  }
+
+  const galleries: Record<number, ImgItem[]> = {};
+
+  for (const entry of value.galleries) {
+    if (!isRecord(entry)) continue;
+
+    const variationId = Number(
+      entry.variation_id
+    );
+
+    if (
+      !Number.isSafeInteger(variationId) ||
+      variationId <= 0 ||
+      !Array.isArray(entry.images)
+    ) {
+      continue;
+    }
+
+    galleries[variationId] =
+      entry.images
+        .flatMap((item): ImgItem[] => {
+          if (!isRecord(item)) return [];
+
+          const image =
+            item as VariationGalleryImage;
+          const id = Number(image.id);
+          const url =
+            typeof image.thumbnail === "string"
+              ? image.thumbnail
+              : typeof image.url === "string"
+                ? image.url
+                : "";
+
+          return Number.isSafeInteger(id) &&
+            id > 0 &&
+            url
+            ? [{ id, url }]
+            : [];
+        })
+        .slice(0, 3);
+  }
+
+  return galleries;
+}
 
 function productImagePayload(
   items: Array<{ id?: unknown }>
@@ -70,6 +156,107 @@ function normalizeBackorders(value: unknown): Backorders {
   return value === "notify" || value === "yes" ? value : "no";
 }
 
+function variationKey(
+  attrs: { id?: number; name?: string; option: string }[]
+): string {
+  return attrs
+    .map((attribute) => {
+      const identity =
+        attribute.id && attribute.id > 0
+          ? String(attribute.id)
+          : attribute.name || "attribute";
+
+      return `${identity}=${attribute.option}`;
+    })
+    .join("|");
+}
+
+function variationLabel(
+  attrs: { id?: number; name?: string; option: string }[]
+): string {
+  return attrs
+    .map(
+      (attribute) =>
+        `${attribute.name || "Option"}: ${attribute.option}`
+    )
+    .join(" / ");
+}
+
+function variationImage(value: unknown): ImgItem | null {
+  if (!isRecord(value)) return null;
+
+  const id = Number(value.id);
+  const url =
+    typeof value.src === "string"
+      ? value.src
+      : typeof value.url === "string"
+        ? value.url
+        : "";
+
+  return Number.isSafeInteger(id) && id > 0 && url
+    ? { id, url }
+    : null;
+}
+
+function variationRowFromValue(value: unknown): VRow | null {
+  if (!isRecord(value)) return null;
+
+  const attrs = Array.isArray(value.attributes)
+    ? value.attributes.flatMap((attribute) => {
+        const item = isRecord(attribute) ? attribute : {};
+        const option =
+          typeof item.option === "string"
+            ? item.option
+            : "";
+
+        if (!option) return [];
+
+        const attrId = Number(item.id);
+
+        return [
+          {
+            id:
+              Number.isSafeInteger(attrId) && attrId > 0
+                ? attrId
+                : undefined,
+            name:
+              typeof item.name === "string"
+                ? item.name
+                : undefined,
+            option,
+          },
+        ];
+      })
+    : [];
+
+  if (attrs.length === 0) return null;
+
+  const variationId = Number(value.id);
+  const managesStock = value.manage_stock === true;
+  const quantity = Number(value.stock_quantity);
+
+  return {
+    id:
+      Number.isSafeInteger(variationId) && variationId > 0
+        ? variationId
+        : undefined,
+    key: variationKey(attrs),
+    attrs,
+    sku: typeof value.sku === "string" ? value.sku : "",
+    regular_price:
+      typeof value.regular_price === "string"
+        ? value.regular_price
+        : "",
+    manage_stock: managesStock,
+    stock_quantity:
+      managesStock && Number.isFinite(quantity)
+        ? quantity
+        : "",
+    backorders: normalizeBackorders(value.backorders),
+    image: variationImage(value.image),
+  };
+}
+
 type Prod = {
   id: number;
   name: string;
@@ -110,7 +297,44 @@ type VRow = {
   manage_stock: boolean;
   stock_quantity: number | "";
   backorders: Backorders;
+  image: ImgItem | null;
 };
+
+function rowUsesColourGallery(
+  row: VRow
+): boolean {
+  return row.attrs.some((attribute) =>
+    isColourAttribute(attribute)
+  );
+}
+
+function rowGalleryImages(
+  row: VRow,
+  galleries: Record<string, ImgItem[]>
+): ImgItem[] {
+  const gallery = galleries[row.key];
+
+  if (Array.isArray(gallery)) {
+    return gallery.slice(0, 3);
+  }
+
+  return row.image ? [row.image] : [];
+}
+
+function uniqueImages(
+  items: ImgItem[],
+  max: number
+): ImgItem[] {
+  const seen = new Set<number>();
+
+  return items
+    .filter((item) => {
+      if (seen.has(item.id)) return false;
+      seen.add(item.id);
+      return true;
+    })
+    .slice(0, max);
+}
 
 function indentCats(cats: Cat[]) {
   const byParent: Record<number, Cat[]> = {};
@@ -231,6 +455,20 @@ export default function EditProductPage({
     Record<number, string[]>
   >({});
   const [rows, setRows] = useState<VRow[]>([]);
+  const [removedVariationIds, setRemovedVariationIds] =
+    useState<number[]>([]);
+  const [variationGalleries, setVariationGalleries] =
+    useState<Record<string, ImgItem[]>>({});
+  const [variationGalleryError, setVariationGalleryError] =
+    useState<string | null>(null);
+  const [dirtyVariationGalleryKeys, setDirtyVariationGalleryKeys] =
+    useState<string[]>([]);
+  const colourVariationProduct = useMemo(
+    () =>
+      ptype === "variable" &&
+      rows.some(rowUsesColourGallery),
+    [ptype, rows]
+  );
 
   const [groupSelected, setGroupSelected] = useState<number[]>([]);
   const [groupQuery, setGroupQuery] = useState("");
@@ -252,6 +490,32 @@ export default function EditProductPage({
 
     return () => cancelAnimationFrame(frame);
   }, [msg]);
+
+  const loadTerms = useCallback(async (attrId: number) => {
+    const response = await fetch(
+      `/api/attributes/terms?id=${attrId}`
+    );
+    const parsed: unknown = await response
+      .json()
+      .catch(() => ({}));
+
+    if (
+      !response.ok ||
+      !isRecord(parsed) ||
+      !Array.isArray(parsed.terms)
+    ) {
+      return;
+    }
+
+    setTermsMap((current) =>
+      current[attrId]
+        ? current
+        : {
+            ...current,
+            [attrId]: parsed.terms as Term[],
+          }
+    );
+  }, []);
 
   useEffect(() => {
     (async () => {
@@ -324,62 +588,75 @@ export default function EditProductPage({
                   ? parsed.variations
                   : [];
 
-              const loadedRows: VRow[] = variations.map((value) => {
-                const variation = isRecord(value) ? value : {};
-                const attrs = Array.isArray(variation.attributes)
-                  ? variation.attributes
-                      .map((attribute) => {
-                        const item = isRecord(attribute) ? attribute : {};
-                        const option = String(item.option || "");
-                        const attrId = Number(item.id);
-
-                        return {
-                          id:
-                            Number.isInteger(attrId) && attrId > 0
-                              ? attrId
-                              : undefined,
-                          name:
-                            typeof item.name === "string"
-                              ? item.name
-                              : undefined,
-                          option,
-                        };
-                      })
-                      .filter((attribute) => attribute.option)
-                  : [];
-
-                const variationId = Number(variation.id);
-                const managesStock = variation.manage_stock === true;
-                const quantity = Number(variation.stock_quantity);
-
-                return {
-                  id:
-                    Number.isInteger(variationId) && variationId > 0
-                      ? variationId
-                      : undefined,
-                  key: attrs
-                    .map((attribute) =>
-                      `${attribute.name || ""}=${attribute.option}`
-                    )
-                    .join("|"),
-                  attrs,
-                  sku:
-                    typeof variation.sku === "string"
-                      ? variation.sku
-                      : "",
-                  regular_price:
-                    typeof variation.regular_price === "string"
-                      ? variation.regular_price
-                      : "",
-                  manage_stock: managesStock,
-                  stock_quantity:
-                    managesStock && Number.isFinite(quantity)
-                      ? quantity
-                      : "",
-                  backorders: normalizeBackorders(variation.backorders),
-                };
+              const loadedRows = variations.flatMap((value) => {
+                const row = variationRowFromValue(value);
+                return row ? [row] : [];
               });
+
               setRows(loadedRows);
+              setRemovedVariationIds([]);
+
+              const colourProduct =
+                varAttrs.some((attribute) =>
+                  isColourAttribute(attribute)
+                );
+
+              if (colourProduct) {
+                const galleryResponse =
+                  await fetch(
+                    `/api/products/${prod.id}/variation-galleries`
+                  );
+                const galleryJson: unknown =
+                  await galleryResponse
+                    .json()
+                    .catch(() => ({}));
+
+                if (galleryResponse.ok) {
+                  const galleriesByVariationId =
+                    variationGalleriesFromResponse(
+                      galleryJson
+                    );
+                  const galleriesByRowKey:
+                    Record<string, ImgItem[]> = {};
+
+                  for (const row of loadedRows) {
+                    if (!row.id) continue;
+
+                    const gallery =
+                      galleriesByVariationId[row.id];
+
+                    galleriesByRowKey[row.key] =
+                      gallery && gallery.length > 0
+                        ? gallery
+                        : row.image
+                          ? [row.image]
+                          : [];
+                  }
+
+                  setVariationGalleries(
+                    galleriesByRowKey
+                  );
+                  setDirtyVariationGalleryKeys([]);
+                  setVariationGalleryError(null);
+                } else {
+                  setVariationGalleries(
+                    Object.fromEntries(
+                      loadedRows.map((row) => [
+                        row.key,
+                        row.image ? [row.image] : [],
+                      ])
+                    )
+                  );
+                  setVariationGalleryError(
+                    "Existing colour galleries could not be loaded. The main variation image is shown instead."
+                  );
+                  setDirtyVariationGalleryKeys([]);
+                }
+              } else {
+                setVariationGalleries({});
+                setDirtyVariationGalleryKeys([]);
+                setVariationGalleryError(null);
+              }
             }
           }
 
@@ -394,14 +671,7 @@ export default function EditProductPage({
         setLoading(false);
       }
     })();
-  }, [id]);
-
-  async function loadTerms(attrId: number) {
-    if (termsMap[attrId]) return;
-    const r = await fetch(`/api/attributes/terms?id=${attrId}`);
-    const j = await r.json();
-    if (r.ok) setTermsMap((m) => ({ ...m, [attrId]: j.terms || [] }));
-  }
+  }, [id, loadTerms]);
 
   function findTerm(attrId: number, termName: string) {
     return (termsMap[attrId] || []).find((t) => t.name === termName);
@@ -441,7 +711,7 @@ export default function EditProductPage({
       .filter((a) => a.terms.length > 0);
 
     if (attrDefs.length === 0) {
-      setRows([]);
+      setErr("Choose at least one variation term.");
       return;
     }
 
@@ -453,34 +723,73 @@ export default function EditProductPage({
         name?: string;
         option: string;
       }[][] = [];
+
       for (const combo of combos) {
         for (const termName of a.terms) {
-          next.push([...combo, { id: a.id, name: a.name, option: termName }]);
+          next.push([
+            ...combo,
+            {
+              id: a.id,
+              name: a.name,
+              option: termName,
+            },
+          ]);
         }
       }
+
       combos = next;
     }
 
-    const built: VRow[] = combos.map((attrsCombo) => {
-      const parts = attrsCombo.map((a) => {
-        const term = findTerm(a.id!, a.option);
-        return skuPartFor(a.name, a.option, term?.slug);
+    const existingKeys = new Set(
+      rows.map((row) => row.key)
+    );
+
+    const additions: VRow[] = combos.flatMap((attrsCombo) => {
+      const key = variationKey(attrsCombo);
+
+      if (existingKeys.has(key)) return [];
+
+      const parts = attrsCombo.map((attribute) => {
+        const term = findTerm(
+          attribute.id!,
+          attribute.option
+        );
+
+        return skuPartFor(
+          attribute.name,
+          attribute.option,
+          term?.slug
+        );
       });
 
-      const autoSku = base ? `${base}-${parts.join("-")}` : "";
+      const autoSku = base
+        ? `${base}-${parts.join("-")}`
+        : "";
 
-      return {
-        key: attrsCombo.map((a) => `${a.name}=${a.option}`).join("|"),
-        attrs: attrsCombo,
-        sku: autoSku,
-        regular_price: "",
-        manage_stock: false,
-        stock_quantity: "",
-        backorders: "no",
-      };
+      return [
+        {
+          key,
+          attrs: attrsCombo,
+          sku: autoSku,
+          regular_price: "",
+          manage_stock: true,
+          stock_quantity: 0,
+          backorders: "no" as Backorders,
+          image: null,
+        },
+      ];
     });
 
-    setRows(built);
+    if (additions.length === 0) {
+      setErr("No new variation combinations were found.");
+      return;
+    }
+
+    setErr(null);
+    setRows((current) => [
+      ...current,
+      ...additions,
+    ]);
   }
 
   function editRow(i: number, patch: Partial<VRow>) {
@@ -489,21 +798,130 @@ export default function EditProductPage({
     );
   }
 
-  useEffect(() => {
-    if (searchDebounce.current) clearTimeout(searchDebounce.current);
-    searchDebounce.current = setTimeout(doGroupSearch, 300);
-  }, [groupQuery]);
+  function editVariationGallery(
+    row: VRow,
+    next: ImgItem[]
+  ) {
+    setVariationGalleries((current) => ({
+      ...current,
+      [row.key]: uniqueImages(next, 3),
+    }));
 
-  async function doGroupSearch() {
+    setDirtyVariationGalleryKeys((current) =>
+      current.includes(row.key)
+        ? current
+        : [...current, row.key]
+    );
+  }
+
+  function removeVariationRow(index: number) {
+    const row = rows[index];
+
+    if (!row) return;
+
+    if (
+      !window.confirm(
+        `Remove variation "${variationLabel(row.attrs)}"? The change is applied when you save.`
+      )
+    ) {
+      return;
+    }
+
+    const variationId = row.id;
+
+    if (variationId) {
+      setRemovedVariationIds((current) =>
+        current.includes(variationId)
+          ? current
+          : [...current, variationId]
+      );
+    }
+
+    setRows((current) =>
+      current.filter(
+        (_, rowIndex) => rowIndex !== index
+      )
+    );
+
+    setVariationGalleries((current) => {
+      const next = { ...current };
+      delete next[row.key];
+      return next;
+    });
+
+    setDirtyVariationGalleryKeys((current) =>
+      current.filter((key) => key !== row.key)
+    );
+  }
+
+  const doGroupSearch = useCallback(async () => {
     const q = groupQuery.trim();
+
     if (!q) {
       setGroupResults([]);
       return;
     }
-    const r = await fetch(`/api/products/search?q=${encodeURIComponent(q)}`);
-    const j = await r.json();
-    if (r.ok) setGroupResults(j.results || []);
-  }
+
+    const response = await fetch(
+      `/api/products/search?q=${encodeURIComponent(q)}`
+    );
+    const parsed: unknown = await response
+      .json()
+      .catch(() => ({}));
+
+    if (
+      response.ok &&
+      isRecord(parsed) &&
+      Array.isArray(parsed.results)
+    ) {
+      setGroupResults(
+        parsed.results.flatMap((value) => {
+          if (!isRecord(value)) return [];
+
+          const productId = Number(value.id);
+          const name =
+            typeof value.name === "string"
+              ? value.name
+              : "";
+
+          if (
+            !Number.isSafeInteger(productId) ||
+            productId <= 0 ||
+            !name
+          ) {
+            return [];
+          }
+
+          return [
+            {
+              id: productId,
+              name,
+              sku:
+                typeof value.sku === "string"
+                  ? value.sku
+                  : "",
+            },
+          ];
+        })
+      );
+    }
+  }, [groupQuery]);
+
+  useEffect(() => {
+    if (searchDebounce.current) {
+      clearTimeout(searchDebounce.current);
+    }
+
+    searchDebounce.current = setTimeout(() => {
+      void doGroupSearch();
+    }, 300);
+
+    return () => {
+      if (searchDebounce.current) {
+        clearTimeout(searchDebounce.current);
+      }
+    };
+  }, [doGroupSearch]);
 
   function swallowEnter(e: React.KeyboardEvent<HTMLFormElement>) {
     if (e.key === "Enter") e.preventDefault();
@@ -517,6 +935,22 @@ export default function EditProductPage({
 
     try {
       if (!p) throw new Error("Product not loaded");
+
+      const colourParentImages =
+        colourVariationProduct &&
+        !variationGalleryError
+          ? uniqueImages(
+              rows.flatMap((row) =>
+                rowUsesColourGallery(row)
+                  ? rowGalleryImages(
+                      row,
+                      variationGalleries
+                    )
+                  : []
+              ),
+              20
+            )
+          : images;
 
       const basePayload: JsonRecord = {
         type: ptype,
@@ -541,7 +975,9 @@ export default function EditProductPage({
           ptype !== "grouped" && (length || width || height)
             ? { length, width, height }
             : undefined,
-        images: productImagePayload(images),
+        images: productImagePayload(
+          colourParentImages
+        ),
         categories: selectedCats.map((id) => ({ id })),
         tags: tags.map((name) => ({ name })),
       };
@@ -570,25 +1006,67 @@ export default function EditProductPage({
       if (!r.ok) throw new Error(j?.error || "Update failed");
 
       if (ptype === "variable") {
+        const dirtyGalleryKeys =
+          new Set(dirtyVariationGalleryKeys);
+
         const vr = await fetch(`/api/products/${p.id}/variations`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            variations: rows.map((row) => ({
-              id: row.id,
-              sku: row.sku || undefined,
-              regular_price: row.regular_price || undefined,
-              manage_stock: row.manage_stock,
-              stock_quantity: row.manage_stock
-                ? Number(row.stock_quantity || 0)
-                : undefined,
-              backorders: row.backorders,
-              attributes: row.attrs,
-            })),
+            variations: rows.map((row) => {
+              const colourGallery =
+                rowUsesColourGallery(row)
+                  ? rowGalleryImages(
+                      row,
+                      variationGalleries
+                    )
+                  : [];
+              const mainImage =
+                colourGallery[0] ?? null;
+              const colourGalleryChanged =
+                dirtyGalleryKeys.has(row.key);
+
+              return {
+                id: row.id,
+                sku: row.sku || undefined,
+                regular_price:
+                  row.regular_price || undefined,
+                manage_stock: row.manage_stock,
+                stock_quantity: row.manage_stock
+                  ? Number(row.stock_quantity || 0)
+                  : undefined,
+                backorders: row.backorders,
+                attributes: row.attrs,
+                ...(rowUsesColourGallery(row)
+                  ? mainImage
+                    ? {
+                        image: {
+                          id: mainImage.id,
+                        },
+                      }
+                    : row.id && colourGalleryChanged
+                      ? {
+                          image: {
+                            id: 0,
+                          },
+                        }
+                      : {}
+                  : row.image
+                    ? {
+                        image: {
+                          id: row.image.id,
+                        },
+                      }
+                    : {}),
+              };
+            }),
+            delete_ids: removedVariationIds,
           }),
         });
 
-        const parsed: unknown = await vr.json().catch(() => null);
+        const parsed: unknown = await vr
+          .json()
+          .catch(() => null);
         const result = isRecord(parsed) ? parsed : {};
 
         if (!vr.ok) {
@@ -598,6 +1076,106 @@ export default function EditProductPage({
               : "Variations update failed"
           );
         }
+
+        const savedRows = Array.isArray(result.variations)
+          ? result.variations.flatMap((value) => {
+              const row = variationRowFromValue(value);
+              return row ? [row] : [];
+            })
+          : [];
+
+        const savedByKey = new Map(
+          savedRows.map((row) => [row.key, row])
+        );
+
+        if (savedRows.length > 0 || rows.length === 0) {
+          setRows((current) =>
+            current.map(
+              (row) => savedByKey.get(row.key) ?? row
+            )
+          );
+        }
+
+        const galleryPayload =
+          rows.flatMap((row) => {
+            if (
+              !rowUsesColourGallery(row) ||
+              !dirtyGalleryKeys.has(row.key)
+            ) {
+              return [];
+            }
+
+            const savedRow =
+              savedByKey.get(row.key) ?? row;
+
+            if (!savedRow.id) {
+              throw new Error(
+                `The variation "${variationLabel(
+                  row.attrs
+                )}" was saved without an ID. Its gallery was not updated.`
+              );
+            }
+
+            return [
+              {
+                variation_id: savedRow.id,
+                image_ids: rowGalleryImages(
+                  row,
+                  variationGalleries
+                ).map((image) => image.id),
+              },
+            ];
+          });
+
+        if (galleryPayload.length > 0) {
+          const galleryResponse = await fetch(
+            `/api/products/${p.id}/variation-galleries`,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                galleries: galleryPayload,
+              }),
+            }
+          );
+
+          const galleryJson: unknown =
+            await galleryResponse
+              .json()
+              .catch(() => ({}));
+          const galleryResult =
+            isRecord(galleryJson)
+              ? galleryJson
+              : {};
+
+          if (
+            !galleryResponse.ok ||
+            galleryResult.ok !== true
+          ) {
+            throw new Error(
+              typeof galleryResult.error === "string"
+                ? galleryResult.error
+                : "Variation galleries update failed"
+            );
+          }
+
+          if (
+            Number(
+              galleryResult.updated_count
+            ) !== galleryPayload.length
+          ) {
+            throw new Error(
+              `Only ${Number(
+                galleryResult.updated_count
+              ) || 0} of ${galleryPayload.length} variation galleries were updated.`
+            );
+          }
+        }
+
+        setDirtyVariationGalleryKeys([]);
+        setRemovedVariationIds([]);
       }
 
       setMsg("Saved.");
@@ -629,72 +1207,123 @@ export default function EditProductPage({
   }
 
   return (
-    <main className="mx-auto max-w-6xl px-4 py-6">
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold text-slate-900">
+    <main className="mx-auto w-full max-w-7xl overflow-x-hidden pb-28 pt-1 md:px-4 md:pb-8 md:pt-3">
+      <div className="flex items-start justify-between gap-3 border-b border-[#E2E7F1] bg-white px-3 py-3 md:mb-4 md:rounded-2xl md:border md:px-4">
+        <div className="min-w-0">
+          <h1 className="text-xl font-extrabold tracking-tight text-[#26335F] md:text-2xl">
             Edit product
           </h1>
-          <p className="mt-1 text-xs text-slate-500">
+          <p className="mt-0.5 hidden text-xs text-slate-500 sm:block">
             Update your product details, media, pricing, and variations.
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex shrink-0 items-center gap-2">
           <Link
             href="/products"
-            className="inline-flex items-center rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 shadow-sm hover:border-violet-300 hover:text-violet-700"
+            className="inline-flex min-h-9 items-center rounded-xl border border-[#C9D0E8] bg-white px-3 text-xs font-bold text-[#2E3F7D] transition hover:bg-[#F7F8FC]"
           >
-            Back to list
+            Back
           </Link>
 
-          <button
-            type="button"
-            className="inline-flex items-center rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 shadow-sm hover:border-violet-300 hover:text-violet-700"
-            onClick={async (e) => {
-              e.preventDefault();
-              const r = await fetch(`/api/products/${p.id}/duplicate`, {
-                method: "POST",
-              });
-              const j = await r.json();
-              if (!r.ok) return alert(j?.error || "Duplicate failed");
-              location.href = "/products";
-            }}
-          >
-            Duplicate
-          </button>
+          <details className="relative md:hidden">
+            <summary className="inline-flex min-h-9 cursor-pointer list-none items-center rounded-xl bg-[#2E3F7D] px-3 text-xs font-bold text-white">
+              More
+            </summary>
 
-          <button
-            type="button"
-            className="inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-medium text-amber-700 shadow-sm hover:bg-amber-100"
-            onClick={async (e) => {
-              e.preventDefault();
-              await fetch(`/api/products/${p.id}/trash`, { method: "DELETE" });
-              location.href = "/products/trash";
-            }}
-          >
-            Trash
-          </button>
+            <div className="absolute right-0 top-11 z-[90] w-52 overflow-hidden rounded-xl border border-[#DDE2EE] bg-white p-1.5 shadow-[0_16px_36px_rgba(38,51,95,0.18)]">
+              <button
+                type="button"
+                className="flex min-h-10 w-full items-center rounded-lg px-3 text-left text-sm font-semibold text-slate-700 hover:bg-[#F7F8FC]"
+                onClick={async (e) => {
+                  e.preventDefault();
+                  const r = await fetch(`/api/products/${p.id}/duplicate`, {
+                    method: "POST",
+                  });
+                  const j = await r.json();
+                  if (!r.ok) return alert(j?.error || "Duplicate failed");
+                  location.href = "/products";
+                }}
+              >
+                Duplicate product
+              </button>
 
-          <button
-            type="button"
-            className="inline-flex items-center rounded-full border border-rose-200 bg-rose-50 px-3 py-1.5 text-xs font-medium text-rose-700 shadow-sm hover:bg-rose-100"
-            onClick={async (e) => {
-              e.preventDefault();
-              if (!confirm("Permanently delete this product?")) return;
-              await fetch(`/api/products/${p.id}/delete`, { method: "DELETE" });
-              location.href = "/products";
-            }}
-          >
-            Delete permanently
-          </button>
+              <button
+                type="button"
+                className="flex min-h-10 w-full items-center rounded-lg px-3 text-left text-sm font-semibold text-amber-700 hover:bg-amber-50"
+                onClick={async (e) => {
+                  e.preventDefault();
+                  await fetch(`/api/products/${p.id}/trash`, { method: "DELETE" });
+                  location.href = "/products/trash";
+                }}
+              >
+                Move to Trash
+              </button>
+
+              <button
+                type="button"
+                className="flex min-h-10 w-full items-center rounded-lg px-3 text-left text-sm font-semibold text-rose-700 hover:bg-rose-50"
+                onClick={async (e) => {
+                  e.preventDefault();
+                  if (!confirm("Permanently delete this product?")) return;
+                  await fetch(`/api/products/${p.id}/delete`, { method: "DELETE" });
+                  location.href = "/products";
+                }}
+              >
+                Delete permanently
+              </button>
+            </div>
+          </details>
+
+          <div className="hidden flex-wrap items-center gap-2 md:flex">
+            <button
+              type="button"
+              className="inline-flex min-h-9 items-center rounded-xl border border-[#C9D0E8] bg-white px-3 text-xs font-bold text-[#2E3F7D] transition hover:bg-[#F7F8FC]"
+              onClick={async (e) => {
+                e.preventDefault();
+                const r = await fetch(`/api/products/${p.id}/duplicate`, {
+                  method: "POST",
+                });
+                const j = await r.json();
+                if (!r.ok) return alert(j?.error || "Duplicate failed");
+                location.href = "/products";
+              }}
+            >
+              Duplicate
+            </button>
+
+            <button
+              type="button"
+              className="inline-flex min-h-9 items-center rounded-xl border border-amber-200 bg-amber-50 px-3 text-xs font-bold text-amber-700 hover:bg-amber-100"
+              onClick={async (e) => {
+                e.preventDefault();
+                await fetch(`/api/products/${p.id}/trash`, { method: "DELETE" });
+                location.href = "/products/trash";
+              }}
+            >
+              Trash
+            </button>
+
+            <button
+              type="button"
+              className="inline-flex min-h-9 items-center rounded-xl border border-rose-200 bg-rose-50 px-3 text-xs font-bold text-rose-700 hover:bg-rose-100"
+              onClick={async (e) => {
+                e.preventDefault();
+                if (!confirm("Permanently delete this product?")) return;
+                await fetch(`/api/products/${p.id}/delete`, { method: "DELETE" });
+                location.href = "/products";
+              }}
+            >
+              Delete permanently
+            </button>
+          </div>
         </div>
       </div>
 
       {msg && (
         <div
           ref={saveMessageRef}
-          className="mb-4 flex items-center justify-between gap-3 rounded-2xl border border-emerald-100 bg-emerald-50/90 px-4 py-3 text-xs text-emerald-800 shadow-sm md:text-sm"
+          className="border-y border-emerald-100 bg-emerald-50/90 px-3 py-3 text-xs text-emerald-800 md:mx-0 md:mb-4 md:rounded-2xl md:border md:px-4 md:text-sm"
         >
           <div className="flex items-start gap-3">
             <div className="mt-0.5 flex h-6 w-6 items-center justify-center rounded-full bg-emerald-500/10">
@@ -717,32 +1346,19 @@ export default function EditProductPage({
         </div>
       )}
 
-      <div className="rounded-3xl border border-slate-100 bg-white/80 shadow-sm shadow-indigo-100">
-        <div className="border-b border-violet-50 bg-gradient-to-r from-[#f7f2ff] via-[#fef6ff] to-[#f5fbff] px-4 py-3">
+      <div className="bg-white md:rounded-2xl md:border md:border-[#E1E5EF] md:shadow-[0_8px_24px_rgba(38,51,95,0.05)]">
+        <div className="border-b border-[#E2E7F1] bg-[#F8F9FC] px-3 py-3 md:px-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="text-xs font-medium text-slate-600">
               Product type
             </div>
-            <div className="flex flex-wrap gap-2 text-xs">
-              {(["simple", "variable", "grouped"] as ProductType[]).map((t) => {
-                const label = t[0].toUpperCase() + t.slice(1);
-                const active = ptype === t;
-                return (
-                  <button
-                    key={t}
-                    type="button"
-                    onClick={() => setPtype(t)}
-                    className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 transition ${
-                      active
-                        ? "border-violet-400 bg-violet-500 text-white shadow-sm"
-                        : "border-slate-200 bg-white text-slate-700 hover:border-violet-300 hover:text-violet-700"
-                    }`}
-                  >
-                    <span className="h-1.5 w-1.5 rounded-full bg-white/80" />
-                    {label}
-                  </button>
-                );
-              })}
+            <div className="inline-flex items-center gap-2 rounded-full border border-[#D9DEEC] bg-white px-3 py-1.5 text-xs font-semibold text-[#2E3F7D]">
+              <span className="h-1.5 w-1.5 rounded-full bg-[#E85D4A]" />
+              {ptype === "variable"
+                ? "Variable product"
+                : ptype === "grouped"
+                  ? "Grouped product"
+                  : "Simple product"}
             </div>
           </div>
         </div>
@@ -750,17 +1366,17 @@ export default function EditProductPage({
         <form
           onSubmit={submit}
           onKeyDown={swallowEnter}
-          className="space-y-8 p-4 md:p-6"
+          className="space-y-2 pb-0 md:space-y-6 md:p-6"
         >
-          <section className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,1.5fr)]">
-            <div className="space-y-4 rounded-2xl border border-slate-100 bg-slate-50/70 p-4">
-              <h2 className="text-sm font-semibold text-slate-900">Basics</h2>
+          <section className="grid gap-2 md:gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1.5fr)] lg:gap-6">
+            <div className="space-y-4 border-b border-[#E7EAF2] bg-white px-3 py-4 md:rounded-2xl md:border md:border-[#E1E5EF] md:bg-[#F8F9FC] md:p-4">
+              <h2 className="text-sm font-bold text-[#26335F]">Basics</h2>
 
               <div className="grid gap-3 md:grid-cols-2">
                 <div className="md:col-span-2">
                   <ReqLabel>Title</ReqLabel>
                   <input
-                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs shadow-inner focus:border-violet-400 focus:outline-none"
+                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs shadow-inner focus:border-[#5366B7] focus:outline-none"
                     value={title}
                     onChange={(e) => setTitle(e.target.value)}
                     required
@@ -770,7 +1386,7 @@ export default function EditProductPage({
                 <div>
                   <ReqLabel>SKU</ReqLabel>
                   <input
-                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs shadow-inner focus:border-violet-400 focus:outline-none"
+                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs shadow-inner focus:border-[#5366B7] focus:outline-none"
                     value={sku}
                     onChange={(e) => setSku(e.target.value)}
                   />
@@ -779,7 +1395,7 @@ export default function EditProductPage({
                 <div>
                   <ReqLabel>Color</ReqLabel>
                   <input
-                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs shadow-inner focus:border-violet-400 focus:outline-none"
+                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs shadow-inner focus:border-[#5366B7] focus:outline-none"
                     value={color}
                     onChange={(e) => setColor(e.target.value)}
                     placeholder="e.g. Pink, Navy Blue, Maroon"
@@ -789,7 +1405,7 @@ export default function EditProductPage({
                 <div>
                   <ReqLabel>Status</ReqLabel>
                   <select
-                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs focus:border-violet-400 focus:outline-none"
+                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs focus:border-[#5366B7] focus:outline-none"
                     value={status}
                     onChange={(e) =>
                       setStatus(e.target.value as "draft" | "publish")
@@ -803,7 +1419,7 @@ export default function EditProductPage({
                 <div>
                   <ReqLabel>Visibility</ReqLabel>
                   <select
-                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs focus:border-violet-400 focus:outline-none"
+                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs focus:border-[#5366B7] focus:outline-none"
                     value={visibility}
                     onChange={(e) =>
                       setVisibility(
@@ -824,8 +1440,8 @@ export default function EditProductPage({
               </div>
             </div>
 
-            <div className="space-y-4 rounded-2xl border border-slate-100 bg-slate-50/70 p-4">
-              <h2 className="text-sm font-semibold text-slate-900">
+            <div className="space-y-4 border-b border-[#E7EAF2] bg-white px-3 py-4 md:rounded-2xl md:border md:border-[#E1E5EF] md:bg-[#F8F9FC] md:p-4">
+              <h2 className="text-sm font-bold text-[#26335F]">
                 Descriptions
               </h2>
 
@@ -836,7 +1452,7 @@ export default function EditProductPage({
                   </label>
                   <textarea
                     rows={3}
-                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs shadow-inner focus:border-violet-400 focus:outline-none"
+                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs shadow-inner focus:border-[#5366B7] focus:outline-none"
                     value={shortDesc}
                     onChange={(e) => setShortDesc(e.target.value)}
                   />
@@ -848,7 +1464,7 @@ export default function EditProductPage({
                   </label>
                   <textarea
                     rows={5}
-                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs shadow-inner focus:border-violet-400 focus:outline-none"
+                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs shadow-inner focus:border-[#5366B7] focus:outline-none"
                     value={desc}
                     onChange={(e) => setDesc(e.target.value)}
                   />
@@ -859,9 +1475,9 @@ export default function EditProductPage({
 
           {ptype === "simple" && (
             <>
-              <section className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,1.3fr)]">
-                <div className="space-y-4 rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
-                  <h2 className="text-sm font-semibold text-slate-900">
+              <section className="grid gap-2 md:gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1.3fr)] lg:gap-6">
+                <div className="space-y-4 border-b border-[#E7EAF2] bg-white px-3 py-4 md:rounded-2xl md:border md:border-[#E1E5EF] md:p-4 md:shadow-[0_6px_18px_rgba(38,51,95,0.04)]">
+                  <h2 className="text-sm font-bold text-[#26335F]">
                     Pricing
                   </h2>
 
@@ -871,7 +1487,7 @@ export default function EditProductPage({
                         Regular price
                       </label>
                       <input
-                        className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs focus:border-violet-400 focus:outline-none"
+                        className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs focus:border-[#5366B7] focus:outline-none"
                         value={regular}
                         onChange={(e) => setRegular(e.target.value)}
                         placeholder="e.g. 999"
@@ -881,8 +1497,8 @@ export default function EditProductPage({
                   </div>
                 </div>
 
-                <div className="space-y-4 rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
-                  <h2 className="text-sm font-semibold text-slate-900">
+                <div className="space-y-4 border-b border-[#E7EAF2] bg-white px-3 py-4 md:rounded-2xl md:border md:border-[#E1E5EF] md:p-4 md:shadow-[0_6px_18px_rgba(38,51,95,0.04)]">
+                  <h2 className="text-sm font-bold text-[#26335F]">
                     Inventory
                   </h2>
 
@@ -902,7 +1518,7 @@ export default function EditProductPage({
                         <input
                           type="number"
                           min={0}
-                          className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs focus:border-violet-400 focus:outline-none"
+                          className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs focus:border-[#5366B7] focus:outline-none"
                           value={stockQty}
                           onChange={(e) =>
                             setStockQty(
@@ -919,7 +1535,7 @@ export default function EditProductPage({
                           Backorders
                         </label>
                         <select
-                          className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs focus:border-violet-400 focus:outline-none"
+                          className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs focus:border-[#5366B7] focus:outline-none"
                           value={backorders}
                           onChange={(e) =>
                             setBackorders(
@@ -940,9 +1556,9 @@ export default function EditProductPage({
           )}
 
           {ptype !== "grouped" && (
-            <section className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,1.3fr)]">
-              <div className="space-y-4 rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
-                <h2 className="text-sm font-semibold text-slate-900">
+            <section className="grid gap-2 md:gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1.3fr)] lg:gap-6">
+              <div className="space-y-4 border-b border-[#E7EAF2] bg-white px-3 py-4 md:rounded-2xl md:border md:border-[#E1E5EF] md:p-4 md:shadow-[0_6px_18px_rgba(38,51,95,0.04)]">
+                <h2 className="text-sm font-bold text-[#26335F]">
                   Shipping
                 </h2>
 
@@ -952,7 +1568,7 @@ export default function EditProductPage({
                       Weight
                     </label>
                     <input
-                      className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs focus:border-violet-400 focus:outline-none"
+                      className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs focus:border-[#5366B7] focus:outline-none"
                       value={weight}
                       onChange={(e) => setWeight(e.target.value)}
                       placeholder="kg"
@@ -964,7 +1580,7 @@ export default function EditProductPage({
                       Length
                     </label>
                     <input
-                      className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs focus:border-violet-400 focus:outline-none"
+                      className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs focus:border-[#5366B7] focus:outline-none"
                       value={length}
                       onChange={(e) => setLength(e.target.value)}
                       placeholder="cm"
@@ -976,7 +1592,7 @@ export default function EditProductPage({
                       Width
                     </label>
                     <input
-                      className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs focus:border-violet-400 focus:outline-none"
+                      className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs focus:border-[#5366B7] focus:outline-none"
                       value={width}
                       onChange={(e) => setWidth(e.target.value)}
                       placeholder="cm"
@@ -988,7 +1604,7 @@ export default function EditProductPage({
                       Height
                     </label>
                     <input
-                      className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs focus:border-violet-400 focus:outline-none"
+                      className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs focus:border-[#5366B7] focus:outline-none"
                       value={height}
                       onChange={(e) => setHeight(e.target.value)}
                       placeholder="cm"
@@ -997,8 +1613,8 @@ export default function EditProductPage({
                 </div>
               </div>
 
-              <div className="space-y-4 rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
-                <h2 className="text-sm font-semibold text-slate-900">Tax</h2>
+              <div className="space-y-4 border-b border-[#E7EAF2] bg-white px-3 py-4 md:rounded-2xl md:border md:border-[#E1E5EF] md:p-4 md:shadow-[0_6px_18px_rgba(38,51,95,0.04)]">
+                <h2 className="text-sm font-bold text-[#26335F]">Tax</h2>
 
                 <div className="grid gap-3 md:grid-cols-2">
                   <div>
@@ -1006,7 +1622,7 @@ export default function EditProductPage({
                       Tax status
                     </label>
                     <select
-                      className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs focus:border-violet-400 focus:outline-none"
+                      className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs focus:border-[#5366B7] focus:outline-none"
                       value={taxStatus}
                       onChange={(e) =>
                         setTaxStatus(
@@ -1028,7 +1644,7 @@ export default function EditProductPage({
                       Tax class
                     </label>
                     <input
-                      className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs focus:border-violet-400 focus:outline-none"
+                      className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs focus:border-[#5366B7] focus:outline-none"
                       value={taxClass}
                       onChange={(e) => setTaxClass(e.target.value)}
                       placeholder="Leave blank for standard"
@@ -1039,16 +1655,28 @@ export default function EditProductPage({
             </section>
           )}
 
-          <section className="grid gap-6 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,2fr)]">
-            <div className="space-y-4 rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
-              <h2 className="text-sm font-semibold text-slate-900">
+          <section className="grid gap-2 md:gap-4 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,2fr)] lg:gap-6">
+            <div className="space-y-4 border-b border-[#E7EAF2] bg-white px-3 py-4 md:rounded-2xl md:border md:border-[#E1E5EF] md:p-4 md:shadow-[0_6px_18px_rgba(38,51,95,0.04)]">
+              <h2 className="text-sm font-bold text-[#26335F]">
                 Product images
               </h2>
-              <ProductImages value={images} onChange={setImages} max={5} />
+              {colourVariationProduct ? (
+                <div className="rounded-xl border border-[#D9DEEC] bg-[#F7F8FC] px-3 py-3 text-xs text-slate-600">
+                  Colour images are managed inside each variation below.
+                  The saved colour galleries automatically become the
+                  parent product gallery.
+                </div>
+              ) : (
+                <LocalProductImages
+                  value={images}
+                  onChange={setImages}
+                  max={5}
+                />
+              )}
             </div>
 
-            <div className="space-y-4 rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
-              <h2 className="text-sm font-semibold text-slate-900">
+            <div className="space-y-4 border-b border-[#E7EAF2] bg-white px-3 py-4 md:rounded-2xl md:border md:border-[#E1E5EF] md:p-4 md:shadow-[0_6px_18px_rgba(38,51,95,0.04)]">
+              <h2 className="text-sm font-bold text-[#26335F]">
                 Categorisation
               </h2>
 
@@ -1057,7 +1685,7 @@ export default function EditProductPage({
                   <ReqLabel>Categories</ReqLabel>
                   <button
                     type="button"
-                    className="flex w-full items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-left text-xs text-slate-700 hover:border-violet-300 focus:outline-none"
+                    className="flex w-full items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-left text-xs text-slate-700 hover:border-[#5366B7] focus:outline-none"
                     onClick={() => setCatOpen((o) => !o)}
                   >
                     {selectedCats.length === 0 ? (
@@ -1080,7 +1708,7 @@ export default function EditProductPage({
                       <div className="border-b px-2 py-1.5">
                         <input
                           autoFocus
-                          className="w-full rounded-lg border border-slate-200 bg-slate-50 px-2 py-1 text-xs focus:border-violet-400 focus:outline-none"
+                          className="w-full rounded-lg border border-slate-200 bg-slate-50 px-2 py-1 text-xs focus:border-[#5366B7] focus:outline-none"
                           placeholder="Search…"
                           value={catQuery}
                           onChange={(e) => setCatQuery(e.target.value)}
@@ -1129,7 +1757,7 @@ export default function EditProductPage({
                         </button>
                         <button
                           type="button"
-                          className="rounded-lg bg-violet-500 px-3 py-1 text-[11px] font-medium text-white hover:bg-violet-600"
+                          className="rounded-lg bg-[#2E3F7D] px-3 py-1 text-[11px] font-bold text-white hover:bg-[#26366F]"
                           onClick={() => setCatOpen(false)}
                         >
                           Done
@@ -1153,14 +1781,14 @@ export default function EditProductPage({
 
           {ptype === "variable" && (
             <>
-              <section className="space-y-4 rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
-                <h2 className="text-sm font-semibold text-slate-900">
+              <section className="space-y-4 border-b border-[#E7EAF2] bg-white px-3 py-4 md:rounded-2xl md:border md:border-[#E1E5EF] md:p-4 md:shadow-[0_6px_18px_rgba(38,51,95,0.04)]">
+                <h2 className="text-sm font-bold text-[#26335F]">
                   Attributes for variations
                 </h2>
 
                 <div className="flex flex-wrap gap-2">
                   <select
-                    className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs focus:border-violet-400 focus:outline-none"
+                    className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs focus:border-[#5366B7] focus:outline-none"
                     value={varChosenAttr}
                     onChange={(e) =>
                       setVarChosenAttr(
@@ -1180,7 +1808,7 @@ export default function EditProductPage({
 
                   <button
                     type="button"
-                    className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium hover:border-violet-300 hover:text-violet-700"
+                    className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium hover:border-[#5366B7] hover:text-[#2E3F7D]"
                     onClick={addVarAttrRow}
                   >
                     Add
@@ -1188,10 +1816,10 @@ export default function EditProductPage({
 
                   <button
                     type="button"
-                    className="rounded-full bg-violet-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-violet-600"
+                    className="rounded-xl bg-[#E85D4A] px-3 py-2 text-xs font-bold text-white hover:bg-[#D94F3D]"
                     onClick={generateVariations}
                   >
-                    Generate variations
+                    Add selected variations
                   </button>
                 </div>
 
@@ -1213,8 +1841,8 @@ export default function EditProductPage({
                             onClick={() => toggleVarTerm(aid, t.name)}
                             className={`rounded-full border px-2.5 py-1 text-[11px] ${
                               (varChosenTerms[aid] || []).includes(t.name)
-                                ? "border-violet-400 bg-violet-500 text-white"
-                                : "border-slate-200 bg-white text-slate-700 hover:border-violet-300"
+                                ? "border-[#2E3F7D] bg-[#2E3F7D] text-white"
+                                : "border-slate-200 bg-white text-slate-700 hover:border-[#5366B7]"
                             }`}
                             title={t.slug}
                           >
@@ -1233,29 +1861,205 @@ export default function EditProductPage({
                 </div>
               </section>
 
-              <section className="space-y-4 rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
-                <h2 className="text-sm font-semibold text-slate-900">
-                  Variations
-                </h2>
+              <section className="space-y-4 border-b border-[#E7EAF2] bg-white px-3 py-4 md:rounded-2xl md:border md:border-[#E1E5EF] md:p-4 md:shadow-[0_6px_18px_rgba(38,51,95,0.04)]">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <h2 className="text-sm font-bold text-[#26335F]">
+                      Variations
+                    </h2>
+                    <p className="mt-1 text-[11px] text-slate-500">
+                      Colour variations allow up to 3 images. The first image is used as the variation image. Size variations use the shared product images above.
+                    </p>
+                  </div>
+                  <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-semibold text-slate-600">
+                    {rows.length} variation{rows.length === 1 ? "" : "s"}
+                  </span>
+                </div>
+
+                {variationGalleryError && (
+                  <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-800">
+                    {variationGalleryError}
+                  </div>
+                )}
 
                 {rows.length === 0 && (
-                  <div className="text-xs text-slate-600">
-                    No variations yet. Choose terms and click{" "}
-                    <span className="font-semibold">Generate variations</span>.
+                  <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 px-3 py-4 text-xs text-slate-600">
+                    No variations remain. Choose terms above and click{" "}
+                    <span className="font-semibold">
+                      Add selected variations
+                    </span>.
                   </div>
                 )}
 
                 {rows.length > 0 && (
-                  <div className="overflow-x-auto rounded-xl border border-slate-100">
-                    <table className="min-w-full text-xs">
+                  <>
+                    <div className="space-y-3 md:hidden">
+                      {rows.map((row, i) => (
+                        <article
+                          key={row.id ?? row.key}
+                          className="border-b border-[#E7EAF2] bg-white px-0 py-3 last:border-b-0"
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0 text-sm font-bold text-[#26335F]">
+                              {variationLabel(row.attrs)}
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => removeVariationRow(i)}
+                              className="shrink-0 rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-1 text-[11px] font-bold text-rose-700"
+                            >
+                              Remove
+                            </button>
+                          </div>
+
+                          <div className="mt-3">
+                            {rowUsesColourGallery(row) ? (
+                              <LocalProductImages
+                                value={rowGalleryImages(
+                                  row,
+                                  variationGalleries
+                                )}
+                                onChange={(next) =>
+                                  editVariationGallery(
+                                    row,
+                                    next
+                                  )
+                                }
+                                max={3}
+                                compact
+                              />
+                            ) : (
+                              <div className="flex items-center gap-3 rounded-xl border border-[#E1E5EF] bg-[#F8F9FC] p-2.5">
+                                <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-slate-200 bg-white">
+                                  {row.image ? (
+                                    // eslint-disable-next-line @next/next/no-img-element
+                                    <img
+                                      src={row.image.url}
+                                      alt={variationLabel(row.attrs)}
+                                      className="h-full w-full object-cover"
+                                    />
+                                  ) : (
+                                    <span className="px-1 text-center text-[9px] text-slate-400">
+                                      Shared
+                                    </span>
+                                  )}
+                                </div>
+                                <p className="text-[11px] leading-5 text-slate-500">
+                                  This variation uses the shared product images.
+                                </p>
+                              </div>
+                            )}
+                          </div>
+
+                          <div className="mt-3 grid grid-cols-2 gap-3">
+                            <label className="col-span-2">
+                              <span className="mb-1 block text-[11px] font-semibold text-slate-600">
+                                SKU
+                              </span>
+                              <input
+                                className="w-full rounded-xl border border-slate-200 bg-[#F8F9FC] px-3 py-2 text-xs focus:border-[#5366B7] focus:outline-none"
+                                value={row.sku}
+                                onChange={(e) =>
+                                  editRow(i, {
+                                    sku: e.target.value,
+                                  })
+                                }
+                              />
+                            </label>
+
+                            <label>
+                              <span className="mb-1 block text-[11px] font-semibold text-slate-600">
+                                Price
+                              </span>
+                              <input
+                                className="w-full rounded-xl border border-slate-200 bg-[#F8F9FC] px-3 py-2 text-xs focus:border-[#5366B7] focus:outline-none"
+                                value={row.regular_price}
+                                onChange={(e) =>
+                                  editRow(i, {
+                                    regular_price:
+                                      e.target.value,
+                                  })
+                                }
+                              />
+                            </label>
+
+                            <label>
+                              <span className="mb-1 block text-[11px] font-semibold text-slate-600">
+                                Quantity
+                              </span>
+                              <input
+                                className="w-full rounded-xl border border-slate-200 bg-[#F8F9FC] px-3 py-2 text-xs focus:border-[#5366B7] focus:outline-none disabled:opacity-40"
+                                type="number"
+                                min={0}
+                                disabled={!row.manage_stock}
+                                value={row.stock_quantity}
+                                onChange={(e) =>
+                                  editRow(i, {
+                                    stock_quantity:
+                                      e.target.value === ""
+                                        ? ""
+                                        : Number(
+                                            e.target.value
+                                          ),
+                                  })
+                                }
+                              />
+                            </label>
+
+                            <label className="col-span-2 flex min-h-10 items-center gap-2 rounded-xl border border-[#E1E5EF] bg-[#F8F9FC] px-3 text-xs font-semibold text-slate-700">
+                              <input
+                                type="checkbox"
+                                checked={row.manage_stock}
+                                onChange={(e) =>
+                                  editRow(i, {
+                                    manage_stock:
+                                      e.target.checked,
+                                  })
+                                }
+                              />
+                              Manage stock for this variation
+                            </label>
+
+                            <label className="col-span-2">
+                              <span className="mb-1 block text-[11px] font-semibold text-slate-600">
+                                Backorders
+                              </span>
+                              <select
+                                className="w-full rounded-xl border border-slate-200 bg-[#F8F9FC] px-3 py-2 text-xs focus:border-[#5366B7] focus:outline-none"
+                                value={row.backorders}
+                                onChange={(e) =>
+                                  editRow(i, {
+                                    backorders:
+                                      normalizeBackorders(
+                                        e.target.value
+                                      ),
+                                  })
+                                }
+                              >
+                                <option value="no">Do not allow</option>
+                                <option value="notify">
+                                  Allow, but notify
+                                </option>
+                                <option value="yes">Allow</option>
+                              </select>
+                            </label>
+                          </div>
+                        </article>
+                      ))}
+                    </div>
+
+                    <div className="hidden overflow-x-auto rounded-xl border border-slate-100 md:block">
+                    <table className="min-w-[1240px] text-xs">
                       <thead className="bg-slate-50 text-left text-[11px] uppercase tracking-wide text-slate-500">
                         <tr>
-                          <th className="px-3 py-2">Combination</th>
+                          <th className="px-3 py-2">Images</th>
+                          <th className="px-3 py-2">Variation</th>
                           <th className="px-3 py-2">SKU</th>
-                          <th className="px-3 py-2">Regular</th>
-                          <th className="px-3 py-2">Manage</th>
+                          <th className="px-3 py-2">Price</th>
+                          <th className="px-3 py-2">Stock</th>
                           <th className="px-3 py-2">Qty</th>
                           <th className="px-3 py-2">Backorders</th>
+                          <th className="px-3 py-2">Action</th>
                         </tr>
                       </thead>
 
@@ -1263,95 +2067,159 @@ export default function EditProductPage({
                         {rows.map((row, i) => (
                           <tr
                             key={row.id ?? row.key}
-                            className="border-t border-slate-100 bg-white"
+                            className="border-t border-slate-100 bg-white align-top"
                           >
-                            <td className="px-3 py-2 text-slate-700">
-                              {row.key}
+                            <td className="min-w-[360px] px-3 py-2">
+                              {rowUsesColourGallery(row) ? (
+                                <LocalProductImages
+                                  value={rowGalleryImages(
+                                    row,
+                                    variationGalleries
+                                  )}
+                                  onChange={(next) =>
+                                    editVariationGallery(
+                                      row,
+                                      next
+                                    )
+                                  }
+                                  max={3}
+                                  compact
+                                />
+                              ) : (
+                                <div className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
+                                  {row.image ? (
+                                    // eslint-disable-next-line @next/next/no-img-element
+                                    <img
+                                      src={row.image.url}
+                                      alt={variationLabel(row.attrs)}
+                                      className="h-full w-full object-cover"
+                                    />
+                                  ) : (
+                                    <span className="px-1 text-center text-[9px] text-slate-400">
+                                      Shared
+                                    </span>
+                                  )}
+                                </div>
+                              )}
                             </td>
+
+                            <td className="max-w-[220px] px-3 py-2 font-medium text-slate-700">
+                              {variationLabel(row.attrs)}
+                            </td>
+
                             <td className="px-3 py-2">
                               <input
-                                className="w-40 rounded-lg border border-slate-200 bg-slate-50 px-2 py-1 text-[11px] focus:border-violet-400 focus:outline-none"
+                                className="w-40 rounded-lg border border-slate-200 bg-slate-50 px-2 py-1 text-[11px] focus:border-[#5366B7] focus:outline-none"
                                 value={row.sku}
                                 onChange={(e) =>
-                                  editRow(i, { sku: e.target.value })
+                                  editRow(i, {
+                                    sku: e.target.value,
+                                  })
                                 }
                               />
                             </td>
+
                             <td className="px-3 py-2">
                               <input
-                                className="w-24 rounded-lg border border-slate-200 bg-slate-50 px-2 py-1 text-[11px] focus:border-violet-400 focus:outline-none"
+                                className="w-24 rounded-lg border border-slate-200 bg-slate-50 px-2 py-1 text-[11px] focus:border-[#5366B7] focus:outline-none"
                                 value={row.regular_price}
                                 onChange={(e) =>
                                   editRow(i, {
-                                    regular_price: e.target.value,
+                                    regular_price:
+                                      e.target.value,
                                   })
                                 }
                               />
                             </td>
-                            <td className="px-3 py-2 text-center">
-                              <input
-                                type="checkbox"
-                                checked={row.manage_stock}
-                                onChange={(e) =>
-                                  editRow(i, {
-                                    manage_stock: e.target.checked,
-                                  })
-                                }
-                              />
+
+                            <td className="px-3 py-2">
+                              <label className="inline-flex items-center gap-2 whitespace-nowrap text-[11px] text-slate-700">
+                                <input
+                                  type="checkbox"
+                                  checked={row.manage_stock}
+                                  onChange={(e) =>
+                                    editRow(i, {
+                                      manage_stock:
+                                        e.target.checked,
+                                    })
+                                  }
+                                />
+                                Manage
+                              </label>
                             </td>
+
                             <td className="px-3 py-2">
                               <input
-                                className="w-20 rounded-lg border border-slate-200 bg-slate-50 px-2 py-1 text-[11px] focus:border-violet-400 focus:outline-none disabled:opacity-40"
+                                className="w-20 rounded-lg border border-slate-200 bg-slate-50 px-2 py-1 text-[11px] focus:border-[#5366B7] focus:outline-none disabled:opacity-40"
                                 type="number"
                                 min={0}
-                                disabled={!rows[i].manage_stock}
+                                disabled={!row.manage_stock}
                                 value={row.stock_quantity}
                                 onChange={(e) =>
                                   editRow(i, {
                                     stock_quantity:
                                       e.target.value === ""
                                         ? ""
-                                        : Number(e.target.value),
+                                        : Number(
+                                            e.target.value
+                                          ),
                                   })
                                 }
                               />
                             </td>
+
                             <td className="px-3 py-2">
                               <select
-                                className="rounded-lg border border-slate-200 bg-slate-50 px-2 py-1 text-[11px] focus:border-violet-400 focus:outline-none"
+                                className="rounded-lg border border-slate-200 bg-slate-50 px-2 py-1 text-[11px] focus:border-[#5366B7] focus:outline-none"
                                 value={row.backorders}
                                 onChange={(e) =>
                                   editRow(i, {
-                                    backorders: normalizeBackorders(
-                                      e.target.value
-                                    ),
+                                    backorders:
+                                      normalizeBackorders(
+                                        e.target.value
+                                      ),
                                   })
                                 }
                               >
                                 <option value="no">No</option>
-                                <option value="notify">Notify</option>
+                                <option value="notify">
+                                  Notify
+                                </option>
                                 <option value="yes">Yes</option>
                               </select>
+                            </td>
+
+                            <td className="px-3 py-2">
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  removeVariationRow(i)
+                                }
+                                className="rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-1 text-[11px] font-semibold text-rose-700 hover:bg-rose-100"
+                              >
+                                Remove
+                              </button>
                             </td>
                           </tr>
                         ))}
                       </tbody>
                     </table>
-                  </div>
+                    </div>
+                  </>
                 )}
               </section>
             </>
           )}
 
           {ptype === "grouped" && (
-            <section className="space-y-4 rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
-              <h2 className="text-sm font-semibold text-slate-900">
+            <section className="space-y-4 border-b border-[#E7EAF2] bg-white px-3 py-4 md:rounded-2xl md:border md:border-[#E1E5EF] md:p-4 md:shadow-[0_6px_18px_rgba(38,51,95,0.04)]">
+              <h2 className="text-sm font-bold text-[#26335F]">
                 Group products
               </h2>
 
               <div className="mb-3 flex flex-wrap gap-2">
                 <input
-                  className="w-64 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs focus:border-violet-400 focus:outline-none"
+                  className="w-full rounded-xl border border-slate-200 bg-[#F8F9FC] px-3 py-2 text-xs focus:border-[#5366B7] focus:outline-none sm:w-64"
                   placeholder="Search by name or SKU"
                   value={groupQuery}
                   onChange={(e) => setGroupQuery(e.target.value)}
@@ -1365,7 +2233,7 @@ export default function EditProductPage({
 
                 <button
                   type="button"
-                  className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium hover:border-violet-300 hover:text-violet-700"
+                  className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium hover:border-[#5366B7] hover:text-[#2E3F7D]"
                   onClick={doGroupSearch}
                 >
                   Search
@@ -1432,7 +2300,13 @@ export default function EditProductPage({
             </section>
           )}
 
-          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-4">
+          <div
+            className="sticky bottom-0 z-40 flex flex-col gap-2 border-t border-[#E2E7F1] bg-white/95 px-3 py-3 shadow-[0_-10px_30px_rgba(38,51,95,0.08)] backdrop-blur md:static md:mx-0 md:flex-row md:items-center md:justify-between md:bg-transparent md:px-0 md:shadow-none"
+            style={{
+              paddingBottom:
+                "calc(0.75rem + env(safe-area-inset-bottom))",
+            }}
+          >
             <div className="flex items-center gap-3">
               {err && (
                 <span className="text-xs font-medium text-rose-600">{err}</span>
@@ -1442,7 +2316,7 @@ export default function EditProductPage({
             <button
               type="submit"
               disabled={busy}
-              className="inline-flex items-center rounded-full bg-gradient-to-r from-[#8b5cff] to-[#ff7ac3] px-5 py-2 text-xs font-semibold text-white shadow-sm hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-60"
+              className="inline-flex min-h-11 w-full items-center justify-center rounded-xl bg-[#E85D4A] px-5 text-sm font-bold text-white shadow-[0_8px_18px_rgba(232,93,74,0.2)] hover:bg-[#D94F3D] disabled:cursor-not-allowed disabled:opacity-60 md:w-auto"
             >
               {busy ? "Saving…" : "Save changes"}
             </button>

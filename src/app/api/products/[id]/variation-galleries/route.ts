@@ -1,3 +1,4 @@
+import { getWooClient } from "@/lib/woo";
 import {
   isRecord,
   parseProductId,
@@ -6,6 +7,9 @@ import {
   readJsonObject,
 } from "@/lib/productPolicy";
 import {
+  getAllVariations,
+} from "@/lib/productOperationsPolicy";
+import {
   fetchInternalWp,
 } from "@/lib/wpClient";
 
@@ -13,16 +17,31 @@ type RouteContext = {
   params: Promise<{ id: string }>;
 };
 
+type GalleryImage = {
+  id: number;
+  url: string;
+  thumbnail: string;
+  alt: string;
+};
+
+type VariationGallery = {
+  variation_id: number;
+  image_ids: number[];
+  images: GalleryImage[];
+};
+
+const MAX_GALLERY_IMAGES = 3;
+const GALLERY_READ_CONCURRENCY = 4;
+
 function normalizedImageIds(
   value: unknown
 ): number[] {
   if (
     !Array.isArray(value) ||
-    value.length === 0 ||
-    value.length > 20
+    value.length > MAX_GALLERY_IMAGES
   ) {
     throw new TypeError(
-      "Each variation gallery requires between 1 and 20 images"
+      "Each variation gallery allows up to 3 images"
     );
   }
 
@@ -81,9 +100,189 @@ function normalizedGalleries(
   });
 }
 
+function galleryImage(
+  value: unknown
+): GalleryImage | null {
+  if (!isRecord(value)) return null;
+
+  const id = Number(value.id);
+  const url =
+    typeof value.full === "string"
+      ? value.full
+      : typeof value.url === "string"
+        ? value.url
+        : "";
+  const thumbnail =
+    typeof value.thumbnail === "string"
+      ? value.thumbnail
+      : url;
+  const alt =
+    typeof value.alt === "string"
+      ? value.alt.slice(0, 300)
+      : "";
+
+  if (
+    !Number.isSafeInteger(id) ||
+    id <= 0 ||
+    !/^https?:\/\//i.test(url)
+  ) {
+    return null;
+  }
+
+  return {
+    id,
+    url,
+    thumbnail:
+      /^https?:\/\//i.test(thumbnail)
+        ? thumbnail
+        : url,
+    alt,
+  };
+}
+
+async function readVariationGallery(
+  variationId: number
+): Promise<VariationGallery> {
+  const response =
+    await fetchInternalWp(
+      `/wp-json/letz/v1/variation-gallery/${variationId}`,
+      {
+        method: "GET",
+        cache: "no-store",
+      },
+      30_000
+    );
+
+  const json: unknown =
+    await response
+      .json()
+      .catch(() => ({}));
+
+  if (!response.ok) {
+    const message =
+      isRecord(json) &&
+      typeof json.message === "string"
+        ? json.message
+        : "Unable to load a variation gallery.";
+
+    throw new Error(message);
+  }
+
+  if (
+    !isRecord(json) ||
+    Number(json.variation_id) !== variationId ||
+    !Array.isArray(json.gallery)
+  ) {
+    throw new Error(
+      "WordPress returned an invalid variation-gallery response"
+    );
+  }
+
+  const images =
+    json.gallery
+      .flatMap((item) => {
+        const image = galleryImage(item);
+        return image ? [image] : [];
+      })
+      .slice(0, MAX_GALLERY_IMAGES);
+
+  return {
+    variation_id: variationId,
+    image_ids: images.map((image) => image.id),
+    images,
+  };
+}
+
+async function readVariationGalleries(
+  variationIds: number[]
+): Promise<VariationGallery[]> {
+  if (variationIds.length === 0) {
+    return [];
+  }
+
+  const results =
+    new Array<VariationGallery>(
+      variationIds.length
+    );
+  let nextIndex = 0;
+
+  async function worker() {
+    while (true) {
+      const index = nextIndex;
+      nextIndex += 1;
+
+      if (index >= variationIds.length) {
+        return;
+      }
+
+      results[index] =
+        await readVariationGallery(
+          variationIds[index]
+        );
+    }
+  }
+
+  const workerCount = Math.min(
+    GALLERY_READ_CONCURRENCY,
+    variationIds.length
+  );
+
+  await Promise.all(
+    Array.from(
+      { length: workerCount },
+      () => worker()
+    )
+  );
+
+  return results;
+}
+
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
+
+export async function GET(
+  _request: Request,
+  context: RouteContext
+) {
+  try {
+    const { id } = await context.params;
+    const productId = parseProductId(id);
+    const woo = await getWooClient();
+    const variations =
+      await getAllVariations(
+        woo,
+        productId
+      );
+
+    const variationIds =
+      variations.flatMap((variation) => {
+        const variationId =
+          Number(variation.id);
+
+        return Number.isSafeInteger(variationId) &&
+          variationId > 0
+          ? [variationId]
+          : [];
+      });
+
+    const galleries =
+      await readVariationGalleries(
+        variationIds
+      );
+
+    return privateJson({
+      galleries,
+      max_images_per_variation:
+        MAX_GALLERY_IMAGES,
+    });
+  } catch (error: unknown) {
+    return productErrorResponse(
+      error,
+      "Failed to load variation galleries"
+    );
+  }
+}
 
 export async function POST(
   request: Request,

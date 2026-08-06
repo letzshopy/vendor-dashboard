@@ -1,13 +1,20 @@
 "use client";
 
+/* eslint-disable @next/next/no-img-element */
+
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ChevronLeft,
   ChevronRight,
+  Copy,
+  Eye,
+  Layers,
   MoreVertical,
   Package2,
+  Pencil,
   Search,
+  Trash2,
 } from "lucide-react";
 
 /** ---------- Types ---------- */
@@ -18,6 +25,8 @@ type P = {
   type?: "simple" | "variable" | "grouped" | string;
   catalog_visibility?: "visible" | "catalog" | "search" | "hidden";
   price?: string;
+  regular_price?: string;
+  dashboard_price?: string;
   stock_status?: "instock" | "outofstock" | "onbackorder";
   manage_stock?: boolean;
   stock_quantity?: number | null;
@@ -49,6 +58,28 @@ function indentCats(cats: Category[]) {
   })(0, 0);
 
   return out;
+}
+
+function formatDashboardPrice(product: P): string {
+  const value = (
+    product.dashboard_price ||
+    product.regular_price ||
+    product.price ||
+    ""
+  ).trim();
+
+  if (!value) {
+    return "-";
+  }
+
+  const [minimum, maximum] =
+    value.split("-", 2);
+
+  if (minimum && maximum) {
+    return `\u20B9${minimum}\u2013\u20B9${maximum}`;
+  }
+
+  return `\u20B9${value}`;
 }
 
 function StockBadge({
@@ -109,24 +140,36 @@ function ActionMenu({
     return () => document.removeEventListener("mousedown", handleClick);
   }, []);
 
+  const itemClass =
+    "flex min-h-10 w-full items-center gap-3 whitespace-nowrap rounded-lg px-3 py-2.5 text-left text-sm font-semibold transition";
+
   return (
     <div className="relative shrink-0" ref={wrapRef}>
       <button
         type="button"
-        onClick={() => setOpen((s) => !s)}
-        className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:border-violet-300 hover:text-violet-700"
+        aria-label={`Open actions for ${product.name}`}
+        aria-expanded={open}
+        onClick={() => setOpen((current) => !current)}
+        className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:border-[#5366B7] hover:bg-[#EEF1FA] hover:text-[#2E3F7D]"
       >
-        <MoreVertical className="h-4 w-4" />
+        <MoreVertical
+          className="h-4 w-4"
+          aria-hidden="true"
+        />
       </button>
 
       {open && (
-        <div className="absolute right-0 top-11 z-30 min-w-[170px] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl">
+        <div className="absolute right-0 top-11 z-[80] w-[220px] max-w-[calc(100vw-2rem)] rounded-xl border border-slate-200 bg-white p-1.5 shadow-[0_18px_45px_rgba(38,51,95,0.2)]">
           <Link
             href={`/products/${product.id}/edit`}
-            className="flex items-center gap-3 px-4 py-3 text-sm text-slate-700 transition hover:bg-slate-50"
+            className={`${itemClass} text-slate-700 hover:bg-slate-50`}
             onClick={() => setOpen(false)}
           >
-            ✏️ <span>Edit</span>
+            <Pencil
+              className="h-4 w-4 shrink-0 text-[#5366B7]"
+              aria-hidden="true"
+            />
+            <span>Edit</span>
           </Link>
 
           <button
@@ -135,9 +178,13 @@ function ActionMenu({
               setOpen(false);
               onBulkClone(product.id);
             }}
-            className="flex w-full items-center gap-3 px-4 py-3 text-left text-sm text-slate-700 transition hover:bg-slate-50"
+            className={`${itemClass} text-slate-700 hover:bg-slate-50`}
           >
-            📚 <span>Bulk-clone</span>
+            <Layers
+              className="h-4 w-4 shrink-0 text-[#5366B7]"
+              aria-hidden="true"
+            />
+            <span>Bulk clone</span>
           </button>
 
           <button
@@ -146,9 +193,13 @@ function ActionMenu({
               setOpen(false);
               onDuplicate(product.id);
             }}
-            className="flex w-full items-center gap-3 px-4 py-3 text-left text-sm text-slate-700 transition hover:bg-slate-50"
+            className={`${itemClass} text-slate-700 hover:bg-slate-50`}
           >
-            📄 <span>Duplicate</span>
+            <Copy
+              className="h-4 w-4 shrink-0 text-[#5366B7]"
+              aria-hidden="true"
+            />
+            <span>Duplicate</span>
           </button>
 
           <button
@@ -157,9 +208,13 @@ function ActionMenu({
               setOpen(false);
               onTrash(product.id);
             }}
-            className="flex w-full items-center gap-3 px-4 py-3 text-left text-sm text-rose-600 transition hover:bg-rose-50"
+            className={`${itemClass} text-rose-600 hover:bg-rose-50`}
           >
-            🗑️ <span>Trash</span>
+            <Trash2
+              className="h-4 w-4 shrink-0"
+              aria-hidden="true"
+            />
+            <span>Trash</span>
           </button>
 
           <button
@@ -168,9 +223,13 @@ function ActionMenu({
               setOpen(false);
               onView(product.permalink);
             }}
-            className="flex w-full items-center gap-3 px-4 py-3 text-left text-sm text-slate-700 transition hover:bg-slate-50"
+            className={`${itemClass} text-slate-700 hover:bg-slate-50`}
           >
-            👁️ <span>View in store</span>
+            <Eye
+              className="h-4 w-4 shrink-0 text-[#5366B7]"
+              aria-hidden="true"
+            />
+            <span>View in store</span>
           </button>
         </div>
       )}
@@ -498,359 +557,443 @@ export default function ProductsClientTable({
   }
 
   return (
-    <div className="w-full min-w-0 overflow-hidden rounded-[26px] border border-slate-200/80 bg-white shadow-[0_10px_30px_rgba(15,23,42,0.05)]">
-      <div className="border-b border-slate-100 bg-gradient-to-r from-white via-[#faf7ff] to-[#f4fbff] px-4 py-4 md:px-5">
-        <div className="flex items-center justify-between gap-3">
-          <h2 className="text-[17px] font-semibold tracking-tight text-slate-900">
-            Product list
-          </h2>
+    <div className="w-full min-w-0 bg-white">
+      <div className="border-b border-[#E8EBF2] px-3 py-3 md:grid md:grid-cols-[minmax(180px,auto)_minmax(320px,1fr)] md:items-center md:gap-x-4 md:gap-y-2 md:px-4 md:py-2.5">
+        <div className="flex items-start justify-between gap-3 md:min-w-0">
+          <div>
+            <h2 className="text-[17px] font-bold text-[#26335F]">
+              All products
+            </h2>
 
-          <div className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">
-            {totalItems} items
+            <p className="mt-0.5 hidden text-xs text-slate-500 lg:block">
+              Search and manage your catalogue.
+            </p>
+          </div>
+
+          <div className="flex shrink-0 items-center gap-3">
+            <label className="inline-flex items-center gap-1.5 text-[11px] font-bold text-slate-500 md:hidden">
+              <input
+                type="checkbox"
+                checked={allChecked}
+                onChange={toggleAll}
+              />
+              Select all
+            </label>
+
+            <span className="inline-flex rounded-full bg-[#EEF1FA] px-3 py-1 text-xs font-bold text-[#2E3F7D]">
+              {totalItems} items
+            </span>
           </div>
         </div>
 
-        <div className="mt-3 space-y-3">
-          <div className="flex items-center gap-2 rounded-[22px] border border-slate-200 bg-slate-50 px-3 py-2.5 shadow-sm">
-            <Search className="h-4 w-4 text-slate-400" />
-            <input
-              className="min-w-0 w-full bg-transparent text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none"
-              placeholder="Search by title or SKU…"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-            />
-          </div>
+        <div className="mt-2 flex min-w-0 items-center gap-2 rounded-xl border border-slate-200 bg-[#F8F9FC] px-3 md:mt-0">
+          <Search className="h-4 w-4 shrink-0 text-slate-400" />
 
-          <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-2">
-            <select
-              className="h-11 min-w-0 w-full rounded-2xl border border-slate-200 bg-white px-3 text-sm text-slate-700 shadow-sm focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-200 sm:px-4"
-              value={bulk}
-              onChange={(e) => setBulk(e.target.value)}
+          <input
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Search product title or SKU"
+            className="h-10 min-w-0 flex-1 bg-transparent text-sm text-slate-700 outline-none placeholder:text-slate-400"
+          />
+
+          {query ? (
+            <button
+              type="button"
+              onClick={() => setQuery("")}
+              className="shrink-0 text-xs font-bold text-[#5366B7]"
             >
-              <option value="">Bulk actions…</option>
+              Clear
+            </button>
+          ) : null}
+        </div>
+
+        <div
+          className={[
+            "min-w-0 flex-col gap-2 md:col-span-2 md:mt-0 md:flex xl:flex-row xl:items-center xl:justify-between",
+            checked.length > 0
+              ? "mt-2 flex"
+              : "hidden",
+          ].join(" ")}
+        >
+          <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] gap-2 sm:flex sm:items-center">
+            <select
+              value={bulk}
+              onChange={(event) => setBulk(event.target.value)}
+              className="h-9 min-w-0 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none focus:border-[#5366B7]"
+            >
+              <option value="">Bulk actions</option>
               <option value="trash">Move to Trash</option>
               <option value="delete">Delete permanently</option>
-              <option value="instock">Set In stock…</option>
-              <option value="outofstock">Set Out of stock…</option>
-              <option value="set-cats">Set categories…</option>
-              <option value="set-tags">Set tags…</option>
-              <option value="set-price">Set price…</option>
+              <option value="instock">Set In stock</option>
+              <option value="outofstock">Set Out of stock</option>
+              <option value="set-cats">Set categories</option>
+              <option value="set-tags">Set tags</option>
+              <option value="set-price">Set price</option>
             </select>
 
             <button
-              className="inline-flex h-11 shrink-0 items-center justify-center rounded-2xl bg-violet-600 px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-violet-700 sm:px-5"
+              type="button"
               onClick={applyBulk}
+              disabled={!bulk || checked.length === 0}
+              className="inline-flex h-9 shrink-0 items-center justify-center rounded-xl bg-[#5366B7] px-4 text-sm font-bold text-white disabled:cursor-not-allowed disabled:bg-slate-300"
             >
               Apply
             </button>
-          </div>
 
-          <div className="flex items-center justify-between gap-2 text-xs text-slate-500">
-            <span className="rounded-full bg-slate-100 px-3 py-1 font-semibold text-slate-600">
+            <span className="col-span-2 text-xs font-semibold text-slate-500 sm:col-span-1">
               {checked.length} selected
             </span>
+          </div>
 
-            <div className="flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5 shadow-sm">
-              <span>Rows</span>
+          <div className="hidden items-center justify-between gap-3 md:flex xl:justify-end">
+            <label className="inline-flex items-center gap-2 text-xs font-semibold text-slate-500">
+              Rows
+
               <select
-                className="bg-transparent text-xs font-semibold text-slate-700 focus:outline-none"
                 value={perPage}
-                onChange={(e) => setPerPage(Number(e.target.value))}
+                onChange={(event) => setPerPage(Number(event.target.value))}
+                className="h-9 rounded-xl border border-slate-200 bg-white px-2 text-xs font-bold text-slate-700 outline-none"
               >
                 <option value={10}>10</option>
                 <option value={25}>25</option>
                 <option value={50}>50</option>
                 <option value={100}>100</option>
               </select>
-            </div>
+            </label>
           </div>
         </div>
       </div>
 
-      {/* Mobile cards */}
-      <div className="block md:hidden">
+      <div className="md:hidden">
         {pageProducts.length > 0 ? (
-          <div className="space-y-2 p-2.5 sm:p-3">
-            {pageProducts.map((p) => {
-              const img = p.images?.[0]?.src;
-              const cats = (p.categories || []).map((c) => c.name).join(", ");
+          <div className="divide-y divide-[#E8EBF2] sm:grid sm:grid-cols-2 sm:gap-3 sm:divide-y-0 sm:p-3">
+            {pageProducts.map((product) => {
+              const image = product.images?.[0]?.src;
+              const categoryNames = (product.categories || [])
+                .map((category) => category.name)
+                .join(", ");
 
               return (
-                <div
-                  key={p.id}
-                  className="min-w-0 rounded-[20px] border border-slate-200 bg-white px-2.5 py-3 shadow-sm transition sm:px-3"
+                <article
+                  key={product.id}
+                  className="min-w-0 bg-white px-3 py-4 sm:rounded-2xl sm:border sm:border-[#E5E9F2] sm:p-3"
                 >
-                  <div className="flex min-w-0 items-start gap-2 sm:gap-3">
-                    <div className="shrink-0 pt-2">
-                      <input
-                        type="checkbox"
-                        checked={checked.includes(p.id)}
-                        onChange={() => toggle(p.id)}
-                      />
-                    </div>
+                  <div className="flex min-w-0 items-start gap-3">
+                    <input
+                      type="checkbox"
+                      checked={checked.includes(product.id)}
+                      onChange={() => toggle(product.id)}
+                      className="mt-2 shrink-0"
+                    />
 
-                    {img ? (
+                    {image ? (
                       <img
-                        src={img}
-                        alt={p.name}
-                        className="h-12 w-12 shrink-0 rounded-2xl border border-slate-100 object-cover sm:h-14 sm:w-14"
+                        src={image}
+                        alt={product.name}
+                        className="h-16 w-16 shrink-0 rounded-xl border border-slate-100 object-cover"
                       />
                     ) : (
-                      <div className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl border border-dashed border-slate-200 bg-slate-50 text-[10px] text-slate-400 sm:h-14 sm:w-14">
+                      <div className="grid h-16 w-16 shrink-0 place-items-center rounded-xl border border-dashed border-slate-200 bg-slate-50 text-[10px] text-slate-400">
                         No image
                       </div>
                     )}
 
                     <div className="min-w-0 flex-1">
-                      <div className="flex items-start justify-between gap-2">
-  <div className="min-w-0 flex-1">
-    <Link
-      href={`/products/${p.id}`}
-      className="block truncate text-sm font-semibold leading-tight text-slate-900"
-      title={p.name}
-    >
-      {p.name || "(no title)"}
-    </Link>
+                      <div className="flex min-w-0 items-start gap-2">
+                        <Link
+                          href={`/products/${product.id}`}
+                          title={product.name}
+                          className="min-w-0 flex-1 line-clamp-2 text-sm font-extrabold leading-5 text-[#26335F]"
+                        >
+                          {product.name || "(no title)"}
+                        </Link>
 
-    <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
-      <div className="text-base font-semibold text-slate-900">
-        {p.price ? `₹${p.price}` : "—"}
-      </div>
+                        <ActionMenu
+                          product={product}
+                          onBulkClone={rowBulkClone}
+                          onDuplicate={rowDuplicate}
+                          onTrash={rowTrash}
+                          onView={rowView}
+                        />
+                      </div>
 
-      <StockBadge
-        status={p.stock_status}
-        qty={
-          typeof p.stock_quantity === "number"
-            ? p.stock_quantity
-            : undefined
-        }
-      />
-    </div>
+                      <div className="mt-2 flex flex-wrap items-center gap-2">
+                        <span className="text-base font-extrabold text-[#26335F]">
+                          {formatDashboardPrice(product)}
+                        </span>
 
-    <div className="mt-1 line-clamp-1 text-sm text-slate-600">
-      {(p.sku || "—") +
-        " - " +
-        (cats || "—") +
-        " - " +
-        (p.catalog_visibility || "visible")}
-    </div>
-  </div>
-
-  <ActionMenu
-    product={p}
-    onBulkClone={rowBulkClone}
-    onDuplicate={rowDuplicate}
-    onTrash={rowTrash}
-    onView={rowView}
-  />
-</div>                    </div>
+                        <StockBadge
+                          status={product.stock_status}
+                          qty={
+                            typeof product.stock_quantity === "number"
+                              ? product.stock_quantity
+                              : undefined
+                          }
+                        />
+                      </div>
+                    </div>
                   </div>
-                </div>
+
+                  <div className="mt-3 grid grid-cols-2 gap-x-3 gap-y-2 border-t border-[#EEF0F5] pt-3 text-xs">
+                    <div className="min-w-0">
+                      <div className="text-[10px] font-bold uppercase tracking-[0.06em] text-slate-400">
+                        SKU
+                      </div>
+                      <div className="mt-0.5 truncate font-semibold text-slate-700">
+                        {product.sku || "-"}
+                      </div>
+                    </div>
+
+                    <div className="min-w-0">
+                      <div className="text-[10px] font-bold uppercase tracking-[0.06em] text-slate-400">
+                        Type
+                      </div>
+                      <div className="mt-0.5 truncate font-semibold capitalize text-slate-700">
+                        {product.type || "-"}
+                      </div>
+                    </div>
+
+                    <div className="min-w-0">
+                      <div className="text-[10px] font-bold uppercase tracking-[0.06em] text-slate-400">
+                        Category
+                      </div>
+                      <div className="mt-0.5 truncate font-semibold text-slate-700">
+                        {categoryNames || "-"}
+                      </div>
+                    </div>
+
+                    <div className="min-w-0">
+                      <div className="text-[10px] font-bold uppercase tracking-[0.06em] text-slate-400">
+                        Visibility
+                      </div>
+                      <div className="mt-0.5 truncate font-semibold capitalize text-slate-700">
+                        {product.catalog_visibility || "visible"}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mt-3 flex items-center justify-between border-t border-[#EEF0F5] pt-3">
+                    <span className="text-[11px] text-slate-400">
+                      Added {fmtDate(product.date_created)}
+                    </span>
+
+                    <Link
+                      href={`/products/${product.id}/edit`}
+                      className="inline-flex min-h-9 items-center justify-center rounded-xl bg-[#EEF1FA] px-3 text-xs font-bold text-[#2E3F7D]"
+                    >
+                      Edit product
+                    </Link>
+                  </div>
+                </article>
               );
             })}
           </div>
         ) : (
-          <div className="px-6 py-12 text-center">
-            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100 text-slate-400">
+          <div className="px-6 py-14 text-center">
+            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-[#EEF1FA] text-[#5366B7]">
               <Package2 className="h-6 w-6" />
             </div>
-            <div className="mt-4 text-sm font-semibold text-slate-700">
-              {query.trim() ? "No products match your search." : "No products found."}
+
+            <div className="mt-4 text-sm font-bold text-[#26335F]">
+              {query.trim()
+                ? "No products match your search."
+                : "No products found."}
             </div>
           </div>
         )}
       </div>
 
-      {/* Desktop table */}
-      <div className="hidden overflow-x-auto md:block">
-        <table className="min-w-full text-sm">
+      <div className="relative hidden overflow-x-auto md:block">
+        <table className="w-full min-w-[1120px] text-sm">
           <thead>
-            <tr className="bg-violet-50/60 text-left text-xs font-medium uppercase tracking-wide text-slate-600">
-              <th className="px-4 py-3">
-                <input type="checkbox" checked={allChecked} onChange={toggleAll} />
+            <tr className="border-b border-[#E5E9F2] bg-[#F7F8FC] text-left text-[11px] font-bold uppercase tracking-[0.05em] text-slate-500">
+              <th className="w-12 px-4 py-3">
+                <input
+                  type="checkbox"
+                  checked={allChecked}
+                  onChange={toggleAll}
+                />
               </th>
-              <th className="px-4 py-3 w-20">Image</th>
-              <th className="px-4 py-3">Title / Actions</th>
-              <th className="px-4 py-3 whitespace-nowrap">SKU</th>
-              <th className="px-4 py-3 whitespace-nowrap">Price</th>
-              <th className="px-4 py-3 whitespace-nowrap">Stock</th>
+              <th className="px-4 py-3">Product</th>
+              <th className="px-4 py-3">Price</th>
+              <th className="px-4 py-3">Stock</th>
               <th className="px-4 py-3">Categories</th>
-              <th className="px-4 py-3 whitespace-nowrap">Type</th>
-              <th className="px-4 py-3 whitespace-nowrap">Visibility</th>
-              <th className="px-4 py-3 whitespace-nowrap">Created</th>
+              <th className="px-4 py-3">Type</th>
+              <th className="px-4 py-3">Visibility</th>
+              <th className="px-4 py-3">Created</th>
+              <th className="sticky right-0 z-20 w-[132px] min-w-[132px] border-l border-[#E5E9F2] bg-[#F7F8FC] px-4 py-3 text-right shadow-[-8px_0_16px_rgba(38,51,95,0.04)]">
+                Actions
+              </th>
             </tr>
           </thead>
+
           <tbody>
-            {pageProducts.map((p) => {
-              const img = p.images?.[0]?.src;
-              const cats = (p.categories || []).map((c) => c.name).join(", ");
+            {pageProducts.map((product) => {
+              const image = product.images?.[0]?.src;
+              const categoryNames = (product.categories || [])
+                .map((category) => category.name)
+                .join(", ");
 
               return (
                 <tr
-                  key={p.id}
-                  className="border-t border-slate-100 bg-white/70 hover:bg-violet-50/40"
+                  key={product.id}
+                  className="group border-b border-[#EEF0F5] align-middle transition hover:bg-[#FAFBFD]"
                 >
-                  <td className="px-4 py-4 align-top">
+                  <td className="px-4 py-3">
                     <input
                       type="checkbox"
-                      checked={checked.includes(p.id)}
-                      onChange={() => toggle(p.id)}
+                      checked={checked.includes(product.id)}
+                      onChange={() => toggle(product.id)}
                     />
                   </td>
 
-                  <td className="px-4 py-4 align-top">
-                    {img ? (
-                      <img
-                        src={img}
-                        alt={p.name}
-                        className="h-14 w-14 rounded-xl border border-slate-100 object-cover shadow-sm"
-                      />
-                    ) : (
-                      <div className="grid h-14 w-14 place-items-center rounded-xl border border-dashed border-slate-200 text-[10px] text-slate-400">
-                        No image
-                      </div>
-                    )}
-                  </td>
+                  <td className="min-w-[280px] px-4 py-3">
+                    <div className="flex min-w-0 items-center gap-3">
+                      {image ? (
+                        <img
+                          src={image}
+                          alt={product.name}
+                          className="h-12 w-12 shrink-0 rounded-xl border border-slate-100 object-cover"
+                        />
+                      ) : (
+                        <div className="grid h-12 w-12 shrink-0 place-items-center rounded-xl border border-dashed border-slate-200 bg-slate-50 text-[9px] text-slate-400">
+                          No image
+                        </div>
+                      )}
 
-                  <td className="px-4 py-4 align-top">
-                    <div className="flex flex-col gap-2">
-                      <Link
-                        href={`/products/${p.id}`}
-                        className="max-w-xs truncate text-sm font-semibold text-slate-800 hover:text-violet-600"
-                        title={p.name}
-                      >
-                        {p.name || "(no title)"}
-                      </Link>
-
-                      <div className="flex flex-wrap gap-1.5 text-slate-500">
+                      <div className="min-w-0">
                         <Link
-                          href={`/products/${p.id}/edit`}
-                          className="flex h-7 w-7 items-center justify-center rounded-full border border-slate-200 bg-white text-[10px] shadow-sm hover:border-violet-400 hover:text-violet-600"
-                          title="Edit"
+                          href={`/products/${product.id}`}
+                          title={product.name}
+                          className="block max-w-[300px] truncate font-bold text-[#26335F] hover:text-[#5366B7]"
                         >
-                          ✏️
+                          {product.name || "(no title)"}
                         </Link>
 
-                        <button
-                          type="button"
-                          onClick={() => rowBulkClone(p.id)}
-                          className="flex h-7 w-7 items-center justify-center rounded-full border border-slate-200 bg-white text-[10px] shadow-sm hover:border-violet-400 hover:text-violet-600"
-                          title="Bulk-clone"
-                        >
-                          📚
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => rowDuplicate(p.id)}
-                          className="flex h-7 w-7 items-center justify-center rounded-full border border-slate-200 bg-white text-[10px] shadow-sm hover:border-violet-400 hover:text-violet-600"
-                          title="Duplicate"
-                        >
-                          📄
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => rowTrash(p.id)}
-                          className="flex h-7 w-7 items-center justify-center rounded-full border border-slate-200 bg-white text-[10px] shadow-sm hover:border-rose-300 hover:text-rose-600"
-                          title="Move to Trash"
-                        >
-                          🗑️
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => rowView(p.permalink)}
-                          className="flex h-7 w-7 items-center justify-center rounded-full border border-slate-200 bg-white text-[10px] shadow-sm hover:border-violet-400 hover:text-violet-600"
-                          title="View product in store"
-                        >
-                          👁️
-                        </button>
+                        <div className="mt-1 truncate text-xs text-slate-400">
+                          SKU: {product.sku || "-"}
+                        </div>
                       </div>
                     </div>
                   </td>
 
-                  <td className="px-4 py-4 align-top text-sm text-slate-700 whitespace-nowrap">
-                    {p.sku || "—"}
+                  <td className="whitespace-nowrap px-4 py-3 font-bold text-[#26335F]">
+                    {formatDashboardPrice(product)}
                   </td>
-                  <td className="px-4 py-4 align-top text-sm font-medium text-slate-800 whitespace-nowrap">
-                    {p.price ? `₹${p.price}` : "—"}
-                  </td>
-                  <td className="px-4 py-4 align-top">
+
+                  <td className="whitespace-nowrap px-4 py-3">
                     <StockBadge
-                      status={p.stock_status}
+                      status={product.stock_status}
                       qty={
-                        typeof p.stock_quantity === "number"
-                          ? p.stock_quantity
+                        typeof product.stock_quantity === "number"
+                          ? product.stock_quantity
                           : undefined
                       }
                     />
                   </td>
-                  <td className="px-4 py-4 align-top text-sm text-slate-700">
-                    {cats || "—"}
+
+                  <td
+                    className="max-w-[220px] truncate px-4 py-3 text-slate-600"
+                    title={categoryNames}
+                  >
+                    {categoryNames || "-"}
                   </td>
-                  <td className="px-4 py-4 align-top text-sm capitalize text-slate-700 whitespace-nowrap">
-                    {p.type || "—"}
+
+                  <td className="whitespace-nowrap px-4 py-3 capitalize text-slate-600">
+                    {product.type || "-"}
                   </td>
-                  <td className="px-4 py-4 align-top text-sm capitalize text-slate-700 whitespace-nowrap">
-                    {p.catalog_visibility || "visible"}
+
+                  <td className="whitespace-nowrap px-4 py-3 capitalize text-slate-600">
+                    {product.catalog_visibility || "visible"}
                   </td>
-                  <td className="px-4 py-4 align-top text-xs text-slate-500 whitespace-nowrap">
-                    {fmtDate(p.date_created)}
+
+                  <td className="whitespace-nowrap px-4 py-3 text-xs text-slate-500">
+                    {fmtDate(product.date_created)}
+                  </td>
+
+                  <td className="sticky right-0 z-10 w-[132px] min-w-[132px] border-l border-[#EEF0F5] bg-white px-4 py-3 shadow-[-8px_0_16px_rgba(38,51,95,0.035)] focus-within:z-[70] group-hover:bg-[#FAFBFD]">
+                    <div className="flex items-center justify-end gap-2">
+                      <Link
+                        href={`/products/${product.id}/edit`}
+                        className="inline-flex min-h-9 items-center justify-center rounded-xl bg-[#EEF1FA] px-3 text-xs font-bold text-[#2E3F7D]"
+                      >
+                        Edit
+                      </Link>
+
+                      <ActionMenu
+                        product={product}
+                        onBulkClone={rowBulkClone}
+                        onDuplicate={rowDuplicate}
+                        onTrash={rowTrash}
+                        onView={rowView}
+                      />
+                    </div>
                   </td>
                 </tr>
               );
             })}
 
-            {filteredProducts.length === 0 && (
+            {pageProducts.length === 0 ? (
               <tr>
-                <td colSpan={10} className="px-6 py-12 text-center text-slate-500">
+                <td
+                  colSpan={9}
+                  className="px-6 py-14 text-center text-sm text-slate-500"
+                >
                   {query.trim()
                     ? "No products match your search."
                     : "No products found."}
                 </td>
               </tr>
-            )}
+            ) : null}
           </tbody>
         </table>
       </div>
 
-      {filteredProducts.length > 0 && (
-        <div className="flex flex-col gap-3 border-t border-slate-100 bg-white px-4 py-4 text-xs text-slate-600 md:flex-row md:items-center md:justify-between md:px-5">
+      {filteredProducts.length > 0 ? (
+        <div className="flex flex-col gap-3 border-t border-[#E8EBF2] bg-[#FAFBFD] px-3 py-4 text-xs text-slate-600 sm:flex-row sm:items-center sm:justify-between md:px-4">
           <div>
             Showing{" "}
-            <span className="font-semibold">
+            <span className="font-bold text-[#26335F]">
               {fromIndex}-{toIndex}
             </span>{" "}
-            of <span className="font-semibold">{totalItems}</span> products
+            of{" "}
+            <span className="font-bold text-[#26335F]">
+              {totalItems}
+            </span>{" "}
+            products
           </div>
 
-          <div className="flex flex-wrap items-center justify-between gap-2 md:justify-end">
+          <div className="flex items-center justify-between gap-2 sm:justify-end">
             <button
-              className="inline-flex items-center gap-1 rounded-full border border-slate-200 px-3 py-2 text-xs font-medium hover:bg-slate-50 disabled:opacity-40"
+              type="button"
               disabled={currentPage <= 1}
-              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              onClick={() =>
+                setPage((current) => Math.max(1, current - 1))
+              }
+              className="inline-flex min-h-9 items-center gap-1 rounded-xl border border-slate-200 bg-white px-3 font-bold text-slate-600 disabled:opacity-40"
             >
               <ChevronLeft className="h-3.5 w-3.5" />
               Previous
             </button>
 
-            <span className="rounded-full bg-slate-100 px-3 py-2 text-xs font-medium text-slate-600">
+            <span className="shrink-0 rounded-xl bg-[#EEF1FA] px-3 py-2 font-bold text-[#2E3F7D]">
               Page {currentPage} of {totalPages}
             </span>
 
             <button
-              className="inline-flex items-center gap-1 rounded-full border border-slate-200 px-3 py-2 text-xs font-medium hover:bg-slate-50 disabled:opacity-40"
+              type="button"
               disabled={currentPage >= totalPages}
-              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              onClick={() =>
+                setPage((current) => Math.min(totalPages, current + 1))
+              }
+              className="inline-flex min-h-9 items-center gap-1 rounded-xl border border-slate-200 bg-white px-3 font-bold text-slate-600 disabled:opacity-40"
             >
               Next
               <ChevronRight className="h-3.5 w-3.5" />
             </button>
           </div>
         </div>
-      )}
-
+      ) : null}
       {/* Set Categories */}
       {showCats && (
         <div className="fixed inset-0 z-[100] flex items-start justify-center bg-black/30 px-4 pt-24">
@@ -895,7 +1038,7 @@ export default function ProductsClientTable({
                 Cancel
               </button>
               <button
-                className="rounded-xl bg-violet-600 px-3 py-2 text-sm font-medium text-white hover:bg-violet-700"
+                className="rounded-xl bg-[#E85D4A] px-3 py-2 text-sm font-bold text-white hover:bg-[#D94F3D]"
                 onClick={doBulkSetCategories}
               >
                 Apply to {checked.length} products
@@ -917,7 +1060,7 @@ export default function ProductsClientTable({
                 Tags (comma separated)
               </label>
               <input
-                className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm text-slate-700 shadow-sm focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-200"
+                className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm text-slate-700 shadow-sm focus:border-[#5366B7] focus:outline-none focus:ring-2 focus:ring-[#E5E8F6]"
                 placeholder="e.g. festive, saree, cotton"
                 value={tagsCSV}
                 onChange={(e) => setTagsCSV(e.target.value)}
@@ -931,7 +1074,7 @@ export default function ProductsClientTable({
                 Cancel
               </button>
               <button
-                className="rounded-xl bg-violet-600 px-3 py-2 text-sm font-medium text-white hover:bg-violet-700"
+                className="rounded-xl bg-[#E85D4A] px-3 py-2 text-sm font-bold text-white hover:bg-[#D94F3D]"
                 onClick={doBulkSetTags}
               >
                 Apply to {checked.length} products
@@ -951,7 +1094,7 @@ export default function ProductsClientTable({
             <div className="space-y-3 px-4 py-3">
               <div className="flex flex-wrap items-center gap-2">
                 <select
-                  className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 shadow-sm focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-200"
+                  className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 shadow-sm focus:border-[#5366B7] focus:outline-none focus:ring-2 focus:ring-[#E5E8F6]"
                   value={priceMode}
                   onChange={(e) =>
                     setPriceMode(e.target.value as typeof priceMode)
@@ -964,7 +1107,7 @@ export default function ProductsClientTable({
                   <option value="decval">Decrease by amount</option>
                 </select>
                 <input
-                  className="w-32 rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-700 shadow-sm focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-200"
+                  className="w-32 rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-700 shadow-sm focus:border-[#5366B7] focus:outline-none focus:ring-2 focus:ring-[#E5E8F6]"
                   placeholder="Value"
                   value={priceValue}
                   onChange={(e) => setPriceValue(e.target.value)}
@@ -979,7 +1122,7 @@ export default function ProductsClientTable({
                 Cancel
               </button>
               <button
-                className="rounded-xl bg-violet-600 px-3 py-2 text-sm font-medium text-white hover:bg-violet-700"
+                className="rounded-xl bg-[#E85D4A] px-3 py-2 text-sm font-bold text-white hover:bg-[#D94F3D]"
                 onClick={doBulkSetPrice}
               >
                 Apply to {checked.length} products
@@ -1012,7 +1155,7 @@ export default function ProductsClientTable({
                     <input
                       type="number"
                       min={0}
-                      className="w-32 rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-700 shadow-sm focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-200"
+                      className="w-32 rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-700 shadow-sm focus:border-[#5366B7] focus:outline-none focus:ring-2 focus:ring-[#E5E8F6]"
                       value={stockQty}
                       onChange={(e) => setStockQty(e.target.value)}
                     />
@@ -1035,7 +1178,7 @@ export default function ProductsClientTable({
                 Cancel
               </button>
               <button
-                className="rounded-xl bg-violet-600 px-3 py-2 text-sm font-medium text-white hover:bg-violet-700"
+                className="rounded-xl bg-[#E85D4A] px-3 py-2 text-sm font-bold text-white hover:bg-[#D94F3D]"
                 onClick={doBulkSetStock}
               >
                 Apply to {checked.length} products
@@ -1068,7 +1211,7 @@ export default function ProductsClientTable({
                   value={cloneCount}
                   disabled={cloneBusy}
                   onChange={(e) => setCloneCount(e.target.value)}
-                  className="h-11 w-full rounded-xl border border-slate-200 px-3 text-sm text-slate-700 shadow-sm focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-200 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="h-11 w-full rounded-xl border border-slate-200 px-3 text-sm text-slate-700 shadow-sm focus:border-[#5366B7] focus:outline-none focus:ring-2 focus:ring-[#E5E8F6] disabled:cursor-not-allowed disabled:opacity-60"
                 />
               </div>
             </div>
@@ -1090,7 +1233,7 @@ export default function ProductsClientTable({
               <button
                 type="button"
                 disabled={cloneBusy}
-                className="rounded-xl bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-60"
+                className="rounded-xl bg-[#E85D4A] px-4 py-2 text-sm font-bold text-white hover:bg-[#D94F3D] disabled:cursor-not-allowed disabled:opacity-60"
                 onClick={confirmBulkClone}
               >
                 {cloneBusy ? "Creating…" : "Create clones"}

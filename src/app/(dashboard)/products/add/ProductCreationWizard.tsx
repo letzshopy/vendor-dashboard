@@ -2,6 +2,8 @@
 
 import Image from "next/image";
 import { useEffect, useMemo, useRef, useState } from "react";
+
+import { optimizeContentImageForUpload } from "@/lib/clientImageOptimizer";
 import {
   ArrowLeft,
   Check,
@@ -484,6 +486,68 @@ export default function ProductCreationWizard() {
     }
 
     void loadCategories();
+
+    return () => controller.abort();
+  }, []);
+
+  useEffect(() => {
+    const controller = new AbortController();
+
+    async function ensureDefaultVariationAttributes() {
+      try {
+        const response = await fetch(
+          "/api/attributes/create",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
+            body: JSON.stringify({
+              preset: "color-size",
+            }),
+            signal: controller.signal,
+          }
+        );
+
+        const raw = await response.text();
+        let value: unknown = {};
+
+        if (raw.trim()) {
+          try {
+            value = JSON.parse(raw);
+          } catch {
+            value = {};
+          }
+        }
+
+        const json =
+          isRecord(value) ? value : {};
+
+        if (!response.ok) {
+          const message =
+            typeof json.error === "string"
+              ? json.error
+              : "Unable to prepare default Size and Colour attributes.";
+
+          throw new Error(message);
+        }
+      } catch (error: unknown) {
+        if (
+          error instanceof DOMException &&
+          error.name === "AbortError"
+        ) {
+          return;
+        }
+
+        console.error(
+          "Default Size and Colour attribute setup failed.",
+          error
+        );
+      }
+    }
+
+    void ensureDefaultVariationAttributes();
 
     return () => controller.abort();
   }, []);
@@ -1062,7 +1126,7 @@ export default function ProductCreationWizard() {
         0,
         Math.max(
           0,
-          5 - currentPhotoCount
+          3 - currentPhotoCount
         )
       );
 
@@ -1274,147 +1338,208 @@ export default function ProductCreationWizard() {
     }).catch(() => undefined);
   }
 
-  async function uploadProductPhotos(
-    photos: LocalPhoto[]
-  ): Promise<number[]> {
-    const uploadedIds: number[] = [];
+  async function readProductImageUploadResponse(
+    response: Response,
+    photoName: string
+  ): Promise<number> {
+    const raw = await response.text();
+    let json: JsonRecord = {};
 
-    for (const photo of photos) {
-      const form = new FormData();
+    if (raw.trim()) {
+      try {
+        const parsed: unknown = JSON.parse(raw);
+        json = isRecord(parsed) ? parsed : {};
+      } catch {
+        json = {};
+      }
+    }
 
-      form.append(
-        "file",
-        photo.file,
-        photo.name
+    if (
+      response.status === 413 ||
+      /request entity too large|payload too large|function_payload_too_large/i.test(
+        raw
+      )
+    ) {
+      throw new Error(
+        `"${photoName}" was still too large for the upload service after preparation.`
       );
-      form.append(
-        "purpose",
-        "product_image"
-      );
+    }
 
-      const response = await fetch(
+    if (!response.ok) {
+      const message =
+        typeof json.error === "string"
+          ? json.error
+          : `Image upload failed with status ${response.status}.`;
+
+      throw new Error(
+        `"${photoName}" could not be uploaded. ${message}`
+      );
+    }
+
+    const id = Number(json.id);
+
+    if (
+      !Number.isSafeInteger(id) ||
+      id <= 0
+    ) {
+      throw new Error(
+        `"${photoName}" returned an invalid upload response. Please try again.`
+      );
+    }
+
+    return id;
+  }
+
+  async function uploadSingleProductPhoto(
+    photo: LocalPhoto
+  ): Promise<number> {
+    let preparedFile: File;
+
+    try {
+      const optimization =
+        await optimizeContentImageForUpload(
+          photo.file
+        );
+
+      preparedFile = optimization.file;
+    } catch (error: unknown) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "The image could not be prepared.";
+
+      throw new Error(
+        `Unable to prepare "${photo.name}". ${message}`
+      );
+    }
+
+    const form = new FormData();
+
+    form.append(
+      "file",
+      preparedFile,
+      preparedFile.name
+    );
+    form.append(
+      "purpose",
+      "product_image"
+    );
+
+    let response: Response;
+
+    try {
+      response = await fetch(
         "/api/media/upload",
         {
           method: "POST",
           body: form,
         }
       );
-
-      const json: unknown =
-        await response.json();
-
-      const id =
-        isRecord(json)
-          ? Number(json.id)
-          : 0;
-
-      if (
-        !response.ok ||
-        !Number.isSafeInteger(id) ||
-        id <= 0
-      ) {
-        const message =
-          isRecord(json) &&
-          typeof json.error === "string"
-            ? json.error
-            : "Image upload failed.";
-
-        const error = new Error(message);
-
-        Object.assign(error, {
-          uploadedIds,
-        });
-
-        throw error;
-      }
-
-      uploadedIds.push(id);
+    } catch {
+      throw new Error(
+        `"${photo.name}" could not be uploaded because the connection was interrupted.`
+      );
     }
 
-    return uploadedIds;
+    return readProductImageUploadResponse(
+      response,
+      photo.name
+    );
   }
 
-  async function uploadProductPhotosConcurrently(
-    photos: LocalPhoto[]
+  async function uploadProductPhotos(
+    photos: LocalPhoto[],
+    onProgress?: (
+      completed: number,
+      total: number
+    ) => void
   ): Promise<number[]> {
-    const results = await Promise.allSettled(
-      photos.map(async (photo) => {
-        const form = new FormData();
+    const orderedIds: Array<number | undefined> =
+      new Array(photos.length);
+    const uploadedIds: number[] = [];
+    let nextIndex = 0;
+    let completed = 0;
+    let firstError: Error | null = null;
 
-        form.append(
-          "file",
-          photo.file,
-          photo.name
-        );
-        form.append(
-          "purpose",
-          "product_image"
-        );
+    async function worker() {
+      while (true) {
+        if (firstError) return;
 
-        const response = await fetch(
-          "/api/media/upload",
-          {
-            method: "POST",
-            body: form,
-          }
-        );
+        const index = nextIndex;
+        nextIndex += 1;
 
-        const json: unknown =
-          await response.json();
+        if (index >= photos.length) return;
 
-        const id =
-          isRecord(json)
-            ? Number(json.id)
-            : 0;
+        try {
+          const id =
+            await uploadSingleProductPhoto(
+              photos[index]
+            );
 
-        if (
-          !response.ok ||
-          !Number.isSafeInteger(id) ||
-          id <= 0
-        ) {
-          const message =
-            isRecord(json) &&
-            typeof json.error === "string"
-              ? json.error
-              : "Image upload failed.";
-
-          throw new Error(message);
+          orderedIds[index] = id;
+          uploadedIds.push(id);
+          completed += 1;
+          onProgress?.(
+            completed,
+            photos.length
+          );
+        } catch (error: unknown) {
+          firstError =
+            error instanceof Error
+              ? error
+              : new Error(
+                  "Image upload failed."
+                );
         }
+      }
+    }
 
-        return id;
-      })
+    const workerCount = Math.min(
+      2,
+      photos.length
     );
 
-    const uploadedIds = results.flatMap(
-      (result) =>
-        result.status === "fulfilled"
-          ? [result.value]
-          : []
+    await Promise.all(
+      Array.from(
+        { length: workerCount },
+        () => worker()
+      )
     );
 
-    const failedResult = results.find(
-      (
-        result
-      ): result is PromiseRejectedResult =>
-        result.status === "rejected"
-    );
-
-    if (failedResult) {
-      const error =
-        failedResult.reason instanceof Error
-          ? failedResult.reason
-          : new Error("Image upload failed.");
-
-      Object.assign(error, {
+    if (firstError) {
+      Object.assign(firstError, {
         uploadedIds,
       });
 
-      throw error;
+      throw firstError;
     }
 
-    return uploadedIds;
+    return orderedIds.map((id) => {
+      if (
+        !Number.isSafeInteger(id) ||
+        Number(id) <= 0
+      ) {
+        throw new Error(
+          "Image upload did not return every media item."
+        );
+      }
+
+      return Number(id);
+    });
   }
 
+  async function uploadProductPhotosConcurrently(
+    photos: LocalPhoto[],
+    onProgress?: (
+      completed: number,
+      total: number
+    ) => void
+  ): Promise<number[]> {
+    return uploadProductPhotos(
+      photos,
+      onProgress
+    );
+  }
   async function verifySkuBeforeUpload() {
     const normalizedSku = sku.trim();
 
@@ -1569,7 +1694,7 @@ export default function ProductCreationWizard() {
 
     if (!sizeAttributeId) {
       const createResponse = await fetch(
-        "/api/attributes",
+        "/api/attributes/create",
         {
           method: "POST",
           headers: {
@@ -1772,7 +1897,7 @@ export default function ProductCreationWizard() {
 
     if (!colourAttributeId) {
       const createResponse = await fetch(
-        "/api/attributes",
+        "/api/attributes/create",
         {
           method: "POST",
           headers: {
@@ -1914,7 +2039,11 @@ export default function ProductCreationWizard() {
   }
 
   async function uploadColourGalleries(
-    rows: VariationRow[]
+    rows: VariationRow[],
+    onProgress?: (
+      completed: number,
+      total: number
+    ) => void
   ): Promise<UploadedColourGallery[]> {
     const tasks = rows.flatMap(
       (row) =>
@@ -1928,103 +2057,103 @@ export default function ProductCreationWizard() {
         )
     );
 
-    const results = await Promise.allSettled(
-      tasks.map(async (task) => {
-        const form = new FormData();
+    const uploaded: Array<{
+      rowId: string;
+      option: string;
+      photoIndex: number;
+      imageId: number;
+    } | null> = new Array(
+      tasks.length
+    ).fill(null);
+    const uploadedIds: number[] = [];
+    let nextIndex = 0;
+    let completed = 0;
+    let firstError: Error | null = null;
 
-        form.append(
-          "file",
-          task.photo.file,
-          task.photo.name
-        );
-        form.append(
-          "purpose",
-          "product_image"
-        );
+    async function worker() {
+      while (true) {
+        if (firstError) return;
 
-        const response = await fetch(
-          "/api/media/upload",
-          {
-            method: "POST",
-            body: form,
-          }
-        );
+        const index = nextIndex;
+        nextIndex += 1;
 
-        const json: unknown =
-          await response.json();
+        if (index >= tasks.length) return;
 
-        const id =
-          isRecord(json)
-            ? Number(json.id)
-            : 0;
+        const task = tasks[index];
 
-        if (
-          !response.ok ||
-          !Number.isSafeInteger(id) ||
-          id <= 0
-        ) {
-          const message =
-            isRecord(json) &&
-            typeof json.error === "string"
-              ? json.error
-              : "Colour image upload failed.";
-
-          throw new Error(message);
-        }
-
-        return {
-          ...task,
-          imageId: id,
-        };
-      })
-    );
-
-    const uploaded = results.flatMap(
-      (result) =>
-        result.status === "fulfilled"
-          ? [result.value]
-          : []
-    );
-
-    const failedResult = results.find(
-      (
-        result
-      ): result is PromiseRejectedResult =>
-        result.status === "rejected"
-    );
-
-    if (failedResult) {
-      const error =
-        failedResult.reason instanceof Error
-          ? failedResult.reason
-          : new Error(
-              "Colour image upload failed."
+        try {
+          const imageId =
+            await uploadSingleProductPhoto(
+              task.photo
             );
 
-      Object.assign(error, {
-        uploadedIds: uploaded.map(
-          (item) => item.imageId
-        ),
+          uploaded[index] = {
+            rowId: task.rowId,
+            option: task.option,
+            photoIndex:
+              task.photoIndex,
+            imageId,
+          };
+          uploadedIds.push(imageId);
+          completed += 1;
+          onProgress?.(
+            completed,
+            tasks.length
+          );
+        } catch (error: unknown) {
+          firstError =
+            error instanceof Error
+              ? error
+              : new Error(
+                  "Colour image upload failed."
+                );
+        }
+      }
+    }
+
+    const workerCount = Math.min(
+      2,
+      tasks.length
+    );
+
+    await Promise.all(
+      Array.from(
+        { length: workerCount },
+        () => worker()
+      )
+    );
+
+    if (firstError) {
+      Object.assign(firstError, {
+        uploadedIds,
       });
 
-      throw error;
+      throw firstError;
     }
+
+    const completedUploads =
+      uploaded.flatMap(
+        (item) => (item ? [item] : [])
+      );
 
     return rows.map((row) => ({
       rowId: row.id,
       option: row.option,
-      imageIds: uploaded
+      imageIds: completedUploads
         .filter(
-          (item) => item.rowId === row.id
+          (item) =>
+            item.rowId === row.id
         )
         .sort(
           (a, b) =>
-            a.photoIndex - b.photoIndex
+            a.photoIndex -
+            b.photoIndex
         )
-        .map((item) => item.imageId),
+        .map(
+          (item) => item.imageId
+        ),
     }));
   }
-
   async function createSizeProduct() {
     if (
       submitting ||
@@ -2068,12 +2197,17 @@ export default function ProductCreationWizard() {
         );
 
       setSubmitStage(
-        `Uploading ${localPhotos.length} images`
+        `Preparing and uploading 0 of ${localPhotos.length} images`
       );
 
       uploadedIds =
         await uploadProductPhotosConcurrently(
-          localPhotos
+          localPhotos,
+          (completed, total) => {
+            setSubmitStage(
+              `Preparing and uploading ${completed} of ${total} images`
+            );
+          }
         );
 
       const payload: JsonRecord = {
@@ -2341,12 +2475,17 @@ export default function ProductCreationWizard() {
         );
 
       setSubmitStage(
-        `Uploading ${imageCount} images`
+        `Preparing and uploading 0 of ${imageCount} images`
       );
 
       const uploadedGalleries =
         await uploadColourGalleries(
-          colourRows
+          colourRows,
+          (completed, total) => {
+            setSubmitStage(
+              `Preparing and uploading ${completed} of ${total} images`
+            );
+          }
         );
 
       uploadedIds =
@@ -2733,10 +2872,21 @@ export default function ProductCreationWizard() {
 
       await verifySkuBeforeUpload();
 
+      setSubmitStage(
+        `Preparing and uploading 0 of ${localPhotos.length} images`
+      );
+
       uploadedIds =
         await uploadProductPhotos(
-          localPhotos
+          localPhotos,
+          (completed, total) => {
+            setSubmitStage(
+              `Preparing and uploading ${completed} of ${total} images`
+            );
+          }
         );
+
+      setSubmitStage("Creating product");
 
       const payload: JsonRecord = {
         type: "simple",
@@ -2952,39 +3102,39 @@ export default function ProductCreationWizard() {
       : "Continue";
 
   return (
-    <main className="mx-auto flex w-full max-w-5xl flex-col rounded-2xl border border-[#D9DEEC] bg-white shadow-[0_10px_32px_rgba(35,50,102,0.08)] md:h-[calc(100dvh-8.75rem)] md:min-h-[560px] md:max-h-[700px]">
-      <header className="rounded-t-2xl bg-[#2E3F7D] px-4 py-3.5 text-white md:px-5">
+    <main className="mx-auto flex w-full max-w-6xl flex-col overflow-hidden bg-white md:h-[calc(100dvh-8.75rem)] md:min-h-[560px] md:max-h-[740px] md:rounded-2xl md:border md:border-[#D9DEEC] md:shadow-[0_10px_32px_rgba(35,50,102,0.08)]">
+      <header className="sticky top-0 z-30 bg-[#2E3F7D] px-3 py-3 text-white md:static md:rounded-t-2xl md:px-5">
         <div className="flex items-center gap-3">
           <button
             type="button"
             aria-label="Go back"
             onClick={goBack}
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/10 transition active:scale-95"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white/10 transition active:scale-95 md:h-10 md:w-10 md:rounded-xl"
           >
             <ArrowLeft className="h-5 w-5" />
           </button>
 
           <div className="flex min-w-0 flex-1 items-center gap-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#E85D4A]">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#E85D4A] md:h-10 md:w-10 md:rounded-xl">
               <HeaderIcon className="h-5 w-5" />
             </div>
 
             <div className="min-w-0">
-              <h1 className="truncate text-lg font-bold tracking-tight">
+              <h1 className="truncate text-base font-bold tracking-tight md:text-lg">
                 {meta.title}
               </h1>
-              <p className="truncate text-xs text-white/65">
+              <p className="hidden truncate text-xs text-white/65 sm:block">
                 {meta.subtitle}
               </p>
             </div>
           </div>
 
-          <span className="shrink-0 rounded-full bg-white/10 px-3 py-1.5 text-[11px] font-bold tracking-wide">
+          <span className="shrink-0 rounded-full bg-white/10 px-2.5 py-1 text-[10px] font-bold tracking-wide md:px-3 md:py-1.5 md:text-[11px]">
             {step} OF {totalSteps}
           </span>
         </div>
 
-        <div className="mt-3 flex gap-1">
+        <div className="mt-2.5 flex gap-1 md:mt-3">
           {Array.from({ length: totalSteps }).map(
             (_, index) => (
               <span
@@ -3001,10 +3151,10 @@ export default function ProductCreationWizard() {
         </div>
       </header>
 
-      <section className="flex min-h-0 flex-1 flex-col overflow-y-auto px-4 py-4 md:overflow-hidden md:px-5">
+      <section className="flex min-h-0 flex-1 flex-col overflow-y-auto px-3 py-3 md:overflow-hidden md:px-5 md:py-4">
         {currentScreen === "category" && (
           <div className="grid flex-1 content-start gap-4 lg:grid-cols-[1.12fr_0.88fr]">
-            <div className="rounded-2xl border border-[#E1E5EF] bg-[#F8F9FC] p-4">
+            <div className="border-b border-[#E7EAF2] bg-white px-1 pb-5 pt-1 md:rounded-2xl md:border md:border-[#E1E5EF] md:bg-[#F8F9FC] md:p-4">
               <div className="mb-3">
                 <h2 className="text-sm font-bold text-[#26335F]">
                   Find an existing category
@@ -3156,7 +3306,7 @@ export default function ProductCreationWizard() {
               </div>
             </div>
 
-            <div className="rounded-2xl border border-[#F1D5CE] bg-[#FFF8F6] p-4">
+            <div className="border-b border-[#F1D5CE] bg-[#FFF9F7] px-1 pb-5 pt-4 md:rounded-2xl md:border md:bg-[#FFF8F6] md:p-4">
               <div className="mb-3 flex items-start gap-3">
                 <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#E85D4A] text-white">
                   <Plus className="h-5 w-5" />
@@ -3312,7 +3462,7 @@ export default function ProductCreationWizard() {
 
         {currentScreen === "identity" && (
           <div className="grid flex-1 content-start gap-4 lg:grid-cols-[1.12fr_0.88fr]">
-            <div className="rounded-2xl border border-[#E1E5EF] bg-[#F8F9FC] p-4">
+            <div className="border-b border-[#E7EAF2] bg-white px-1 pb-5 pt-1 md:rounded-2xl md:border md:border-[#E1E5EF] md:bg-[#F8F9FC] md:p-4">
               <div className="mb-4 flex items-start gap-3">
                 <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#DDE8FF] text-[#315DA8]">
                   <Package2 className="h-5 w-5" />
@@ -3486,7 +3636,7 @@ export default function ProductCreationWizard() {
 
         {currentScreen === "description" && (
           <div className="grid min-h-0 min-w-0 flex-1 content-start gap-4 lg:grid-cols-[1.12fr_0.88fr]">
-            <div className="min-w-0 rounded-2xl border border-[#E1E5EF] bg-[#F8F9FC] p-4">
+            <div className="min-w-0 border-b border-[#E7EAF2] bg-white px-1 pb-5 pt-1 md:rounded-2xl md:border md:border-[#E1E5EF] md:bg-[#F8F9FC] md:p-4">
               <div className="mb-3 flex items-start gap-3">
                 <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#E1E7FF] text-[#4A5FAE]">
                   <FileText className="h-5 w-5" />
@@ -3596,7 +3746,7 @@ export default function ProductCreationWizard() {
 
         {currentScreen === "shared-images" && (
           <div className="grid min-h-0 min-w-0 flex-1 content-start gap-4 lg:grid-cols-[1.15fr_0.85fr]">
-            <div className="min-w-0 overflow-hidden rounded-2xl border border-[#E1E5EF] bg-[#F8F9FC] p-4">
+            <div className="min-w-0 overflow-hidden border-b border-[#E7EAF2] bg-white px-1 pb-5 pt-1 md:rounded-2xl md:border md:border-[#E1E5EF] md:bg-[#F8F9FC] md:p-4">
               <div className="mb-3 flex items-center justify-between gap-3">
                 <div className="min-w-0">
                   <h2 className="text-sm font-bold text-[#26335F]">
@@ -3832,7 +3982,7 @@ export default function ProductCreationWizard() {
 
         {currentScreen === "simple-price-stock" && (
           <div className="grid min-h-0 min-w-0 flex-1 content-start gap-4 lg:grid-cols-[1.08fr_0.92fr]">
-            <div className="rounded-2xl border border-[#E1E5EF] bg-[#F8F9FC] p-4">
+            <div className="border-b border-[#E7EAF2] bg-white px-1 pb-5 pt-1 md:rounded-2xl md:border md:border-[#E1E5EF] md:bg-[#F8F9FC] md:p-4">
               <div className="mb-4 flex items-start gap-3">
                 <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#DDF2E8] text-[#257052]">
                   <IndianRupee className="h-5 w-5" />
@@ -3951,7 +4101,7 @@ export default function ProductCreationWizard() {
         {(currentScreen === "size-variations" ||
           currentScreen === "colour-variations") && (
           <div className="grid min-h-0 min-w-0 flex-1 gap-4 lg:grid-cols-[1.25fr_0.75fr]">
-            <div className="flex min-h-0 min-w-0 flex-col rounded-2xl border border-[#E1E5EF] bg-[#F8F9FC] p-4">
+            <div className="flex min-h-0 min-w-0 flex-col border-b border-[#E7EAF2] bg-white px-1 pb-5 pt-1 md:rounded-2xl md:border md:border-[#E1E5EF] md:bg-[#F8F9FC] md:p-4">
               <div className="flex items-start gap-3">
                 <div
                   className={[
@@ -4247,7 +4397,7 @@ export default function ProductCreationWizard() {
 
         {currentScreen === "colour-images" && (
           <div className="grid min-h-0 min-w-0 flex-1 gap-4 lg:grid-cols-[1.2fr_0.8fr]">
-            <div className="flex min-h-0 flex-col rounded-2xl border border-[#E1E5EF] bg-[#F8F9FC] p-4">
+            <div className="flex min-h-0 flex-col border-b border-[#E7EAF2] bg-white px-1 pb-5 pt-1 md:rounded-2xl md:border md:border-[#E1E5EF] md:bg-[#F8F9FC] md:p-4">
               <div className="mb-3 flex items-start gap-3">
                 <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#FFE0D9] text-[#B24737]">
                   <ImagePlus className="h-5 w-5" />
@@ -4418,7 +4568,7 @@ export default function ProductCreationWizard() {
                           </div>
                         ))}
 
-                        {row.photos.length < 5 && (
+                        {row.photos.length < 3 && (
                           <label className="flex aspect-square min-w-0 cursor-pointer items-center justify-center rounded-lg border-2 border-dashed border-[#C8CEDD] bg-[#F8F9FC] text-[#6877AD] transition hover:border-[#5366B7] hover:bg-[#F1F3FF]">
                             <Plus className="h-5 w-5" />
                             <input
@@ -4444,7 +4594,7 @@ export default function ProductCreationWizard() {
                         </p>
                       ) : (
                         <p className="mt-2 text-[10px] font-semibold text-[#858DA2]">
-                          Up to 5 images per colour.
+                          Up to 3 images per colour.
                         </p>
                       )}
                     </div>
@@ -4520,7 +4670,7 @@ export default function ProductCreationWizard() {
 
         {currentScreen === "shipping" && (
           <div className="grid min-h-0 min-w-0 flex-1 gap-4 lg:grid-cols-[1.2fr_0.8fr]">
-            <div className="min-h-0 min-w-0 overflow-y-auto rounded-2xl border border-[#E1E5EF] bg-[#F8F9FC] p-4">
+            <div className="min-h-0 min-w-0 overflow-y-auto border-b border-[#E7EAF2] bg-white px-1 pb-5 pt-1 md:rounded-2xl md:border md:border-[#E1E5EF] md:bg-[#F8F9FC] md:p-4">
               <div className="grid gap-3 sm:grid-cols-2">
                 <div>
                   <label
@@ -4817,7 +4967,7 @@ export default function ProductCreationWizard() {
 
         {currentScreen === "publish" && (
           <div className="grid min-h-0 min-w-0 flex-1 gap-4 lg:grid-cols-[1.05fr_0.95fr]">
-            <div className="rounded-2xl border border-[#E1E5EF] bg-[#F8F9FC] p-4">
+            <div className="border-b border-[#E7EAF2] bg-white px-1 pb-5 pt-1 md:rounded-2xl md:border md:border-[#E1E5EF] md:bg-[#F8F9FC] md:p-4">
               <div className="mb-4 flex items-start gap-3">
                 <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#DDF2E8] text-[#257052]">
                   <Send className="h-5 w-5" />
@@ -5086,7 +5236,7 @@ export default function ProductCreationWizard() {
       )}
 
       <footer
-        className="flex items-center gap-3 rounded-b-2xl border-t border-[#E5E8F0] bg-[#F8F9FC] px-4 py-3 md:px-5"
+        className="sticky bottom-0 z-30 flex items-center gap-3 border-t border-[#E5E8F0] bg-white/95 px-3 py-3 backdrop-blur md:static md:rounded-b-2xl md:bg-[#F8F9FC] md:px-5"
         style={{
           paddingBottom:
             "calc(0.75rem + env(safe-area-inset-bottom))",

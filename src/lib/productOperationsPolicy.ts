@@ -78,8 +78,21 @@ export function normalizeVariationInput(value: unknown): JsonRecord {
   if (value.stock_quantity !== undefined) output.stock_quantity = nonNegativeInteger(value.stock_quantity, "Variation stock quantity");
   if (value.backorders !== undefined) output.backorders = normalizeBackorders(value.backorders);
   if (value.attributes !== undefined) output.attributes = normalizeVariationAttributes(value.attributes);
-  if (value.image !== undefined && isRecord(value.image)) {
-    output.image = { id: parseProductId(value.image.id) };
+  if (value.image !== undefined) {
+    if (value.image === null) {
+      output.image = { id: 0 };
+    } else if (isRecord(value.image)) {
+      const imageId = Number(value.image.id);
+
+      output.image = {
+        id:
+          Number.isSafeInteger(imageId) && imageId === 0
+            ? 0
+            : parseProductId(value.image.id),
+      };
+    } else {
+      throw new TypeError("Invalid variation image");
+    }
   }
 
   if (Object.keys(output).length === 0 || (Object.keys(output).length === 1 && "id" in output)) {
@@ -131,8 +144,15 @@ export function variationSummary(value: unknown): JsonRecord | null {
     id,
     sku: trustedString(value.sku, 100),
     description: trustedString(value.description, 20_000),
+    price: trustedString(value.price, 40),
     regular_price: trustedString(value.regular_price, 40),
     sale_price: trustedString(value.sale_price, 40),
+    stock_status:
+      value.stock_status === "instock" ||
+      value.stock_status === "outofstock" ||
+      value.stock_status === "onbackorder"
+        ? value.stock_status
+        : "",
     manage_stock: value.manage_stock === true,
     stock_quantity: Number.isFinite(Number(value.stock_quantity))
       ? Number(value.stock_quantity)
