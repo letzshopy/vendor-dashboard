@@ -3,6 +3,9 @@ import axios, {
 } from "axios";
 
 import {
+  getStoreWooCredentials,
+} from "./storeCredentials";
+import {
   getTenantFromCookies,
 } from "./tenant";
 
@@ -22,46 +25,6 @@ function normalizeStoreUrl(
   return value;
 }
 
-function getWooCredentials(): {
-  key: string;
-  secret: string;
-} {
-  const key = (
-    process.env.WC_CONSUMER_KEY || ""
-  ).trim();
-
-  const secret = (
-    process.env.WC_CONSUMER_SECRET || ""
-  ).trim();
-
-  const missingVariables: string[] = [];
-
-  if (!key) {
-    missingVariables.push(
-      "WC_CONSUMER_KEY"
-    );
-  }
-
-  if (!secret) {
-    missingVariables.push(
-      "WC_CONSUMER_SECRET"
-    );
-  }
-
-  if (missingVariables.length > 0) {
-    throw new Error(
-      `Missing WooCommerce authentication configuration: ${
-        missingVariables.join(", ")
-      }`
-    );
-  }
-
-  return {
-    key,
-    secret,
-  };
-}
-
 export async function getWooClient():
   Promise<AxiosInstance> {
   const tenant =
@@ -78,14 +41,15 @@ export async function getWooClient():
   );
 
   /*
-   * WooCommerce credentials are server-controlled.
-   * They must never come from cookies, request data,
-   * or the tenant selector.
+   * WooCommerce credentials remain server-controlled.
+   * Multisite stores use the existing global credentials.
+   * Standalone stores resolve their own credentials from the
+   * server-only standalone credential map.
    */
   const {
     key,
     secret,
-  } = getWooCredentials();
+  } = getStoreWooCredentials(tenant);
 
   return axios.create({
     baseURL:
