@@ -384,37 +384,48 @@ async function uploadToWordPress({ file, purpose }: UploadInput) {
   }
 
   /*
-   * Confirm the media classification after upload. This second,
-   * idempotent write prevents catalog uploads from disappearing from the
-   * vendor Media Library and keeps system media protected even if an older
-   * runtime upload handler ignores the multipart classification fields.
+   * Current WordPress media/upload persists and returns scope/protected.
+   * Trust that confirmed response on the fast path. Keep mark-scope only as
+   * a compatibility fallback for an older runtime that omits or disagrees
+   * with the requested classification.
    */
-  const scopeResponse = await fetch(
-    `${base}/wp-json/letz/v1/media/mark-scope`,
-    {
-      method: "POST",
-      headers: {
-        "X-Letz-Auth": INTERNAL_TOKEN,
-        "Content-Type": "application/json",
-        Accept: "application/json",
+  const expectedProtected = scope === "system";
+  const uploadConfirmedScope =
+    parsed.scope === scope &&
+    parsed.protected === expectedProtected;
+
+  let confirmedProtected = expectedProtected;
+
+  if (!uploadConfirmedScope) {
+    const scopeResponse = await fetch(
+      `${base}/wp-json/letz/v1/media/mark-scope`,
+      {
+        method: "POST",
+        headers: {
+          "X-Letz-Auth": INTERNAL_TOKEN,
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify({ id, scope, purpose }),
+        cache: "no-store",
+        signal: AbortSignal.timeout(15_000),
       },
-      body: JSON.stringify({ id, scope, purpose }),
-      cache: "no-store",
-      signal: AbortSignal.timeout(15_000),
-    },
-  );
+    );
 
-  const scopeResult: unknown = await scopeResponse
-    .json()
-    .catch(() => null);
+    const scopeResult: unknown = await scopeResponse
+      .json()
+      .catch(() => null);
 
-  if (
-    !scopeResponse.ok ||
-    !isRecord(scopeResult) ||
-    scopeResult.scope !== scope ||
-    scopeResult.protected !== (scope === "system")
-  ) {
-    throw new Error("Media classification failed.");
+    if (
+      !scopeResponse.ok ||
+      !isRecord(scopeResult) ||
+      scopeResult.scope !== scope ||
+      scopeResult.protected !== expectedProtected
+    ) {
+      throw new Error("Media classification failed.");
+    }
+
+    confirmedProtected = scopeResult.protected === true;
   }
 
   const imageUrl =
@@ -432,7 +443,9 @@ async function uploadToWordPress({ file, purpose }: UploadInput) {
     filename: file.name,
     purpose,
     scope,
-    protected: scopeResult.protected === true,
+    protected: uploadConfirmedScope
+      ? parsed.protected === true
+      : confirmedProtected,
     item: isRecord(parsed.item) ? parsed.item : null,
   };
 }
