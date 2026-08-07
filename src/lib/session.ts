@@ -3,10 +3,15 @@ export type SessionRole =
   | "vendor_admin"
   | "store_owner";
 
+export type SessionStoreType =
+  | "multisite"
+  | "standalone";
+
 export type SessionStore = {
   blog_id: number;
   store_name: string;
   store_url: string;
+  store_type: SessionStoreType;
 };
 
 export type SessionPayload = {
@@ -74,6 +79,16 @@ function normalizeUrl(value: unknown): string {
   return url;
 }
 
+function normalizeStoreType(value: unknown): SessionStoreType | null {
+  if (value === undefined || value === null || value === "") {
+    return "multisite";
+  }
+
+  return value === "multisite" || value === "standalone"
+    ? value
+    : null;
+}
+
 function normalizeStores(value: unknown): SessionStore[] | null {
   if (!Array.isArray(value)) {
     return null;
@@ -91,8 +106,14 @@ function normalizeStores(value: unknown): SessionStore[] | null {
     const blogId = Number(storeRecord.blog_id);
     const storeUrl = normalizeUrl(storeRecord.store_url);
     const storeName = String(storeRecord.store_name || "").trim();
+    const storeType = normalizeStoreType(storeRecord.store_type);
 
-    if (!Number.isInteger(blogId) || blogId <= 0 || !storeUrl) {
+    if (
+      !Number.isInteger(blogId) ||
+      blogId <= 0 ||
+      !storeUrl ||
+      !storeType
+    ) {
       return null;
     }
 
@@ -100,6 +121,7 @@ function normalizeStores(value: unknown): SessionStore[] | null {
       blog_id: blogId,
       store_name: storeName,
       store_url: storeUrl,
+      store_type: storeType,
     });
   }
 
