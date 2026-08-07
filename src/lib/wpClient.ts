@@ -3,7 +3,12 @@ import axios, {
 } from "axios";
 
 import {
+  getStoreInternalToken,
+  getStoreWpAuthorization,
+} from "./storeCredentials";
+import {
   getTenantFromCookies,
+  type Tenant,
 } from "./tenant";
 
 function normalizeBaseUrl(
@@ -21,6 +26,18 @@ function normalizeBaseUrl(
   }
 
   return value;
+}
+
+async function getVerifiedTenant(): Promise<Tenant> {
+  const tenant = await getTenantFromCookies();
+
+  if (!tenant) {
+    throw new Error(
+      "No verified and authorized vendor tenant is selected"
+    );
+  }
+
+  return tenant;
 }
 
 export function wpAuthHeader(): {
@@ -93,14 +110,7 @@ export function wpInternalAuthHeader(): {
 
 export async function getWpBaseUrl():
   Promise<string> {
-  const tenant =
-    await getTenantFromCookies();
-
-  if (!tenant) {
-    throw new Error(
-      "No verified and authorized vendor tenant is selected"
-    );
-  }
+  const tenant = await getVerifiedTenant();
 
   return normalizeBaseUrl(
     tenant.store_url,
@@ -138,12 +148,16 @@ export async function fetchInternalWp(
     );
   }
 
-  const baseUrl = await getWpBaseUrl();
+  const tenant = await getVerifiedTenant();
+  const baseUrl = normalizeBaseUrl(
+    tenant.store_url,
+    "vendor WordPress"
+  );
   const headers = new Headers(init.headers);
 
   headers.set(
     "X-Letz-Auth",
-    wpInternalAuthHeader()["X-Letz-Auth"]
+    getStoreInternalToken(tenant)
   );
 
   if (!headers.has("Accept")) {
@@ -162,11 +176,17 @@ export async function fetchInternalWp(
 
 export async function getWpClient():
   Promise<AxiosInstance> {
-  const baseUrl = await getWpBaseUrl();
+  const tenant = await getVerifiedTenant();
+  const baseUrl = normalizeBaseUrl(
+    tenant.store_url,
+    "vendor WordPress"
+  );
 
   return axios.create({
     baseURL: `${baseUrl}/wp-json`,
-    headers: wpAuthHeader(),
+    headers: {
+      Authorization: getStoreWpAuthorization(tenant),
+    },
     timeout: 60000,
   });
 }
