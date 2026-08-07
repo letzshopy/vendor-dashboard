@@ -1,24 +1,44 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
-import { usePathname, useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useState, type ComponentType } from "react";
 import {
+  usePathname,
+  useSearchParams,
+} from "next/navigation";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ComponentType,
+} from "react";
+import {
+  ChevronDown,
   LayoutDashboard,
-  ShoppingBag,
+  LifeBuoy,
   Package,
   ReceiptIndianRupee,
-  LifeBuoy,
   Settings2,
-  ChevronDown,
+  ShoppingBag,
   X,
 } from "lucide-react";
 
-type Leaf = { href: string; label: string; ready?: boolean };
+const BRAND_LOGO_URL =
+  process.env.NEXT_PUBLIC_BRAND_LOGO_URL || "";
+
+type Leaf = {
+  href: string;
+  label: string;
+  ready?: boolean;
+};
+
 type Group = {
   key: string;
   label: string;
-  icon: ComponentType<{ className?: string }>;
+  icon: ComponentType<{
+    className?: string;
+  }>;
   items: Leaf[];
 };
 
@@ -28,12 +48,117 @@ type SidebarProps = {
   locked?: boolean;
 };
 
-function basePath(href: string): string {
+function basePath(
+  href: string
+): string {
   try {
-    return new URL(href, "http://local").pathname || href;
+    return (
+      new URL(
+        href,
+        "http://local"
+      ).pathname || href
+    );
   } catch {
     return href.split("?")[0];
   }
+}
+
+function itemMatches(
+  pathname: string,
+  currentTab: string | null,
+  href: string
+): boolean {
+  const itemBase =
+    basePath(href);
+
+  if (itemBase === "/settings") {
+    const url = new URL(
+      href,
+      "http://local"
+    );
+
+    const tab =
+      url.searchParams.get("tab");
+
+    if (!tab) {
+      return pathname === "/settings";
+    }
+
+    if (tab === "profile") {
+      return (
+        pathname === "/settings" &&
+        (
+          currentTab === null ||
+          currentTab === "profile"
+        )
+      );
+    }
+
+    return (
+      pathname === "/settings" &&
+      currentTab === tab
+    );
+  }
+
+  return (
+    pathname === itemBase ||
+    (
+      itemBase !== "/" &&
+      pathname.startsWith(
+        `${itemBase}/`
+      )
+    )
+  );
+}
+
+function activeItemHref(
+  group: Group,
+  pathname: string,
+  currentTab: string | null
+): string | null {
+  const matches = group.items
+    .filter((item) =>
+      itemMatches(
+        pathname,
+        currentTab,
+        item.href
+      )
+    )
+    .sort(
+      (first, second) =>
+        basePath(
+          second.href
+        ).length -
+        basePath(
+          first.href
+        ).length
+    );
+
+  return matches[0]?.href || null;
+}
+
+function createOpenState(
+  groups: Group[],
+  activeGroupKey: string | null
+): Record<string, boolean> {
+  const state: Record<
+    string,
+    boolean
+  > = {};
+
+  for (const group of groups) {
+    state[group.key] =
+      group.key === activeGroupKey;
+  }
+
+  if (
+    !activeGroupKey &&
+    groups[0]
+  ) {
+    state[groups[0].key] = true;
+  }
+
+  return state;
 }
 
 const ALL_GROUPS: Group[] = [
@@ -41,19 +166,49 @@ const ALL_GROUPS: Group[] = [
     key: "home",
     label: "Home",
     icon: LayoutDashboard,
-    items: [{ href: "/dashboard", label: "Dashboard", ready: true }],
+    items: [
+      {
+        href: "/dashboard",
+        label: "Dashboard",
+        ready: true,
+      },
+    ],
   },
   {
     key: "catalog",
     label: "Catalog",
     icon: ShoppingBag,
     items: [
-      { href: "/products/add", label: "Add Product", ready: true },
-      { href: "/products", label: "Products", ready: true },
-      { href: "/categories", label: "Categories", ready: true },
-      { href: "/menu", label: "Menu Layout", ready: true },
-      { href: "/media", label: "Media", ready: true },
-      { href: "/products/trash", label: "Trash Bin", ready: true },
+      {
+        href: "/products/add",
+        label: "Add Product",
+        ready: true,
+      },
+      {
+        href: "/products",
+        label: "Products",
+        ready: true,
+      },
+      {
+        href: "/categories",
+        label: "Categories",
+        ready: true,
+      },
+      {
+        href: "/menu",
+        label: "Menu Layout",
+        ready: true,
+      },
+      {
+        href: "/media",
+        label: "Media",
+        ready: true,
+      },
+      {
+        href: "/products/trash",
+        label: "Trash Bin",
+        ready: true,
+      },
     ],
   },
   {
@@ -61,11 +216,35 @@ const ALL_GROUPS: Group[] = [
     label: "Sales",
     icon: Package,
     items: [
-      { href: "/orders", label: "Orders", ready: true },
-      { href: "/sales/shipment-details", label: "Shipment Details", ready: true },
-      { href: "/customers", label: "Customers", ready: true },
-      { href: "/sales/feedback", label: "Customer Feedback", ready: true },
-      { href: "/offers-discounts", label: "Offers & Discounts", ready: true },
+      {
+        href: "/orders",
+        label: "Orders",
+        ready: true,
+      },
+      {
+        href:
+          "/sales/shipment-details",
+        label: "Shipment Details",
+        ready: true,
+      },
+      {
+        href: "/customers",
+        label: "Customers",
+        ready: true,
+      },
+      {
+        href:
+          "/sales/feedback",
+        label: "Customer Feedback",
+        ready: true,
+      },
+      {
+        href:
+          "/offers-discounts",
+        label:
+          "Offers & Discounts",
+        ready: true,
+      },
     ],
   },
   {
@@ -73,10 +252,29 @@ const ALL_GROUPS: Group[] = [
     label: "Reports & Billing",
     icon: ReceiptIndianRupee,
     items: [
-      { href: "/billing/subscription", label: "Subscription", ready: true },
-      { href: "/subscription-bills", label: "Subscription Invoices", ready: true },
-      { href: "/order-invoices", label: "Order Invoices", ready: true },
-      { href: "/reports", label: "Reports", ready: true },
+      {
+        href:
+          "/billing/subscription",
+        label: "Subscription",
+        ready: true,
+      },
+      {
+        href:
+          "/subscription-bills",
+        label:
+          "Subscription Invoices",
+        ready: true,
+      },
+      {
+        href: "/order-invoices",
+        label: "Order Invoices",
+        ready: true,
+      },
+      {
+        href: "/reports",
+        label: "Reports",
+        ready: true,
+      },
     ],
   },
   {
@@ -84,17 +282,76 @@ const ALL_GROUPS: Group[] = [
     label: "Support",
     icon: LifeBuoy,
     items: [
-      { href: "/support/knowledge-base", label: "Knowledge Base", ready: true },
-      { href: "/support/faq", label: "FAQ", ready: true },
-      { href: "/support/tickets", label: "Tickets", ready: true },
+      {
+        href:
+          "/support/knowledge-base",
+        label: "Knowledge Base",
+        ready: true,
+      },
+      {
+        href: "/support/faq",
+        label: "FAQ",
+        ready: true,
+      },
+      {
+        href: "/support/tickets",
+        label: "Tickets",
+        ready: true,
+      },
     ],
   },
   {
-  key: "settings",
-  label: "Settings",
-  icon: Settings2,
-  items: [{ href: "/settings", label: "Settings", ready: true }],
-},
+    key: "settings",
+    label: "Settings",
+    icon: Settings2,
+    items: [
+      {
+        href: "/settings?tab=profile",
+        label: "Profile",
+        ready: true,
+      },
+      {
+        href: "/settings?tab=kyc",
+        label: "KYC",
+        ready: true,
+      },
+      {
+        href: "/settings?tab=setupSite",
+        label: "Setup Site",
+        ready: true,
+      },
+      {
+        href: "/settings?tab=general",
+        label: "General",
+        ready: true,
+      },
+      {
+        href: "/settings?tab=shipping",
+        label: "Shipping Charge",
+        ready: true,
+      },
+      {
+        href: "/settings?tab=tax",
+        label: "Tax",
+        ready: true,
+      },
+      {
+        href: "/settings?tab=payments",
+        label: "Payments",
+        ready: true,
+      },
+      {
+        href: "/settings?tab=account",
+        label: "Account",
+        ready: true,
+      },
+      {
+        href: "/settings?tab=shipmentFulfillment",
+        label: "Shipment Fulfillment",
+        ready: true,
+      },
+    ],
+  },
 ];
 
 export default function Sidebar({
@@ -102,224 +359,398 @@ export default function Sidebar({
   onClose,
   locked = false,
 }: SidebarProps) {
-  const pathname = usePathname() || "/";
-  const searchParams = useSearchParams();
-  const currentTab = searchParams.get("tab");
+  const pathname =
+    usePathname() || "/";
+
+  const searchParams =
+    useSearchParams();
+
+  const currentTab =
+    searchParams.get("tab");
+
+  const navigationRef =
+    useRef<HTMLElement | null>(
+      null
+    );
 
   const groups = useMemo(() => {
-    if (!locked) return ALL_GROUPS;
-    return ALL_GROUPS.filter((g) => g.key === "settings" || g.key === "billing");
+    if (!locked) {
+      return ALL_GROUPS;
+    }
+
+    return ALL_GROUPS.filter(
+      (group) =>
+        group.key === "settings" ||
+        group.key === "billing"
+    );
   }, [locked]);
 
-  const getInitialOpenState = () => {
-    const initial: Record<string, boolean> = {};
-    for (const g of groups) {
-      initial[g.key] = g.items.some((i) => {
-        const itemBase = basePath(i.href);
-        if (itemBase === "/settings") {
-          const url = new URL(i.href, "http://local");
-          const tab = url.searchParams.get("tab");
-          return pathname === "/settings" && tab && tab === currentTab;
-        }
-        return pathname === itemBase || (itemBase !== "/" && pathname.startsWith(itemBase));
-      });
-    }
+  const activeGroupKey =
+    useMemo(() => {
+      const activeGroup =
+        groups.find(
+          (group) =>
+            activeItemHref(
+              group,
+              pathname,
+              currentTab
+            ) !== null
+        );
 
-    if (locked) initial.settings = true;
+      return (
+        activeGroup?.key || null
+      );
+    }, [
+      groups,
+      pathname,
+      currentTab,
+    ]);
 
-    if (!Object.values(initial).some(Boolean) && groups[0]) {
-      initial[groups[0].key] = true;
-    }
-
-    return initial;
-  };
-
-  const [groupOpen, setGroupOpen] = useState<Record<string, boolean>>(getInitialOpenState);
+  const [
+    groupOpen,
+    setGroupOpen,
+  ] = useState<
+    Record<string, boolean>
+  >(() =>
+    createOpenState(
+      groups,
+      activeGroupKey
+    )
+  );
 
   useEffect(() => {
-    setGroupOpen((prev) => {
-      const next = getInitialOpenState();
-      for (const key of Object.keys(prev)) {
-        if (key in next) {
-          next[key] = prev[key] || next[key];
+    setGroupOpen(
+      createOpenState(
+        groups,
+        activeGroupKey
+      )
+    );
+  }, [
+    groups,
+    activeGroupKey,
+  ]);
+
+  useEffect(() => {
+    const navigation =
+      navigationRef.current;
+
+    if (!navigation) {
+      return;
+    }
+
+    if (
+      window.innerWidth < 768 &&
+      !open
+    ) {
+      return;
+    }
+
+    let secondFrame = 0;
+
+    const firstFrame =
+      window.requestAnimationFrame(
+        () => {
+          secondFrame =
+            window.requestAnimationFrame(
+              () => {
+                const activeItem =
+                  navigation.querySelector<HTMLElement>(
+                    '[aria-current="page"]'
+                  );
+
+                activeItem?.scrollIntoView({
+                  block: "center",
+                  inline: "nearest",
+                });
+              }
+            );
         }
-      }
-      if (!Object.values(next).some(Boolean) && groups[0]) {
-        next[groups[0].key] = true;
-      }
-      return next;
-    });
-  }, [pathname, currentTab, locked]); // eslint-disable-line react-hooks/exhaustive-deps
+      );
 
-  const renderNav = () => (
-    <div className="flex h-full flex-col">
-      <div className="flex items-center justify-between border-b border-white/10 px-4 py-4 md:hidden">
-        <div>
-          <div className="text-base font-semibold text-white">LetzShopy</div>
-          <div className="text-[12px] text-indigo-100/70">Dashboard menu</div>
-        </div>
+    return () => {
+      window.cancelAnimationFrame(
+        firstFrame
+      );
 
-        <button
-          type="button"
-          onClick={onClose}
-          className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-white/10 text-white"
+      if (secondFrame) {
+        window.cancelAnimationFrame(
+          secondFrame
+        );
+      }
+    };
+  }, [
+    open,
+    pathname,
+    currentTab,
+    activeGroupKey,
+  ]);
+
+  function renderNavigation() {
+    return (
+      <div className="flex h-full min-h-0 flex-col">
+        <div
+          className="flex items-center justify-between border-b border-white/10 px-3 pb-3 md:hidden"
+          style={{
+            paddingTop:
+              "calc(0.75rem + var(--ls-safe-area-top))",
+          }}
         >
-          <X className="h-5 w-5" />
-        </button>
-      </div>
-
-      <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-3">
-        {locked && (
-          <div className="mb-3 rounded-2xl border border-amber-300/20 bg-amber-400/10 px-3 py-3 text-[13px] leading-5 text-amber-100">
-            Dashboard locked. Only Settings and Subscription are available until
-            LetzShopy unlocks your store.
-          </div>
-        )}
-
-        {groups.map((g) => {
-          const Icon = g.icon;
-
-          const groupActive = g.items.some((it) => {
-            const itemBase = basePath(it.href);
-
-            if (itemBase === "/settings") {
-              const url = new URL(it.href, "http://local");
-              const tab = url.searchParams.get("tab");
-              return pathname === "/settings" && tab && tab === currentTab;
-            }
-
-            return pathname === itemBase || (itemBase !== "/" && pathname.startsWith(itemBase));
-          });
-
-          const groupBtnCls = [
-            "flex w-full items-center justify-between rounded-2xl px-3 py-3 text-[14px] transition",
-            groupActive
-              ? "bg-[#3C4CC4] text-white shadow-sm shadow-[#1f255a]"
-              : "text-indigo-100 hover:bg-white/10",
-          ].join(" ");
-
-          const iconWrapperCls = [
-            "flex h-9 w-9 items-center justify-center rounded-full",
-            groupActive ? "bg-white/15 text-white" : "bg-white/10 text-indigo-100",
-          ].join(" ");
-
-          return (
-            <div key={g.key} className="mb-1">
-              <button
-                type="button"
-                className={groupBtnCls}
-                onClick={() =>
-                  setGroupOpen((prev) => {
-                    const next: Record<string, boolean> = {};
-                    for (const grp of groups) {
-                      next[grp.key] = grp.key === g.key ? !prev[g.key] : false;
-                    }
-                    return next;
-                  })
-                }
-              >
-                <span className="flex min-w-0 items-center gap-2.5">
-                  <span className={iconWrapperCls}>
-                    <Icon className="h-4.5 w-4.5" />
-                  </span>
-                  <span className="truncate font-medium">{g.label}</span>
-                </span>
-
-                <ChevronDown
-                  className={`h-4 w-4 shrink-0 text-indigo-100/70 transition ${
-                    groupOpen[g.key] ? "rotate-180" : ""
-                  }`}
+          <div className="flex h-11 items-center rounded-2xl bg-white px-3 shadow-sm">
+            <div className="relative h-7 w-[8.25rem]">
+              {BRAND_LOGO_URL ? (
+                <Image
+                  src={BRAND_LOGO_URL}
+                  alt="LetzShopy"
+                  fill
+                  sizes="132px"
+                  className="object-contain"
                 />
-              </button>
-
-              {groupOpen[g.key] && (
-                <div className="mt-1 space-y-1 pl-5">
-                  {g.items.map((it) => {
-                    const itemBase = basePath(it.href);
-                    let active = false;
-
-                    if (itemBase === "/settings") {
-                      const url = new URL(it.href, "http://local");
-                      const tab = url.searchParams.get("tab");
-                      if (pathname === "/settings" && tab && tab === currentTab) {
-                        active = true;
-                      }
-                    } else {
-                      active =
-                        pathname === itemBase ||
-                        (itemBase !== "/" && pathname.startsWith(itemBase));
-                    }
-
-                    const itemCls = [
-                      "block rounded-xl px-3 py-2.5 text-[14px] leading-5 transition",
-                      active
-                        ? "bg-[#3C4CC4] text-white font-medium shadow-sm shadow-[#1f255a]"
-                        : "text-indigo-100 hover:bg-white/10 hover:text-white",
-                    ].join(" ");
-
-                    return (
-                      <Link
-                        key={it.href}
-                        href={it.ready ? it.href : "#"}
-                        onClick={(e) => {
-                          if (!it.ready) {
-                            e.preventDefault();
-                            alert(`${it.label} coming soon`);
-                            return;
-                          }
-                          onClose?.();
-                        }}
-                        className={itemCls}
-                      >
-                        <span className="flex items-center justify-between gap-2">
-                          <span className="truncate">{it.label}</span>
-                          {!it.ready && (
-                            <span className="rounded bg-white/10 px-1.5 py-0.5 text-[10px] text-indigo-100">
-                              Soon
-                            </span>
-                          )}
-                        </span>
-                      </Link>
-                    );
-                  })}
+              ) : (
+                <div className="flex h-full items-center text-base font-bold text-[#1B2A8F]">
+                  LetzShopy
                 </div>
               )}
             </div>
-          );
-        })}
-      </nav>
+          </div>
 
-      <div className="border-t border-[#3B4AA3] bg-[#222c5e] px-4 py-3 text-[11px] text-indigo-100/80">
-        Made with ❤️
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close navigation"
+            className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-white/10 text-white transition active:scale-95"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        <nav
+          ref={navigationRef}
+          aria-label="Dashboard navigation"
+          className="min-h-0 flex-1 touch-pan-y space-y-2 overflow-y-auto overscroll-contain px-3 pb-[calc(1.5rem+var(--ls-safe-area-bottom))] pt-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:pb-6 md:pt-4"
+        >
+          {locked && (
+            <div className="mb-3 rounded-2xl border border-amber-300/20 bg-amber-400/10 px-3 py-3 text-[13px] leading-5 text-amber-100">
+              Dashboard locked. Only Settings
+              and Subscription are available.
+            </div>
+          )}
+
+          {groups.map((group) => {
+            const Icon =
+              group.icon;
+
+            const selectedHref =
+              activeItemHref(
+                group,
+                pathname,
+                currentTab
+              );
+
+            const groupActive =
+              selectedHref !== null;
+
+            const expanded =
+              Boolean(
+                groupOpen[group.key]
+              );
+
+            return (
+              <div
+                key={group.key}
+                className="space-y-1.5"
+              >
+                <button
+                  type="button"
+                  aria-expanded={expanded}
+                  aria-controls={
+                    `sidebar-group-${group.key}`
+                  }
+                  onClick={() =>
+                    setGroupOpen(
+                      (current) => {
+                        const next:
+                          Record<
+                            string,
+                            boolean
+                          > = {};
+
+                        for (
+                          const item
+                          of groups
+                        ) {
+                          next[item.key] =
+                            item.key ===
+                            group.key
+                              ? !current[
+                                  group.key
+                                ]
+                              : false;
+                        }
+
+                        return next;
+                      }
+                    )
+                  }
+                  className={[
+                    "flex min-h-12 w-full items-center justify-between gap-3 rounded-2xl px-2.5 py-2 text-left transition",
+                    groupActive
+                      ? "bg-white/[0.12] text-white shadow-sm ring-1 ring-white/10"
+                      : "text-indigo-100 hover:bg-white/[0.07] hover:text-white",
+                  ].join(" ")}
+                >
+                  <span className="flex min-w-0 items-center gap-3">
+                    <span
+                      className={[
+                        "inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl transition",
+                        groupActive
+                          ? "bg-[#E85D4A] text-white shadow-sm"
+                          : "bg-white/[0.08] text-indigo-100",
+                      ].join(" ")}
+                    >
+                      <Icon className="h-[18px] w-[18px]" />
+                    </span>
+
+                    <span className="truncate text-[14px] font-semibold">
+                      {group.label}
+                    </span>
+                  </span>
+
+                  <ChevronDown
+                    className={[
+                      "h-4 w-4 shrink-0 text-indigo-100/65 transition-transform duration-200",
+                      expanded
+                        ? "rotate-180"
+                        : "",
+                    ].join(" ")}
+                  />
+                </button>
+
+                {expanded && (
+                  <div
+                    id={
+                      `sidebar-group-${group.key}`
+                    }
+                    className="ml-[1.35rem] space-y-1 border-l border-white/10 pl-3"
+                  >
+                    {group.items.map(
+                      (item) => {
+                        const active =
+                          selectedHref ===
+                          item.href;
+
+                        return (
+                          <Link
+                            key={item.href}
+                            href={
+                              item.ready
+                                ? item.href
+                                : "#"
+                            }
+                            aria-current={
+                              active
+                                ? "page"
+                                : undefined
+                            }
+                            onClick={(
+                              event
+                            ) => {
+                              if (
+                                !item.ready
+                              ) {
+                                event.preventDefault();
+
+                                alert(
+                                  `${item.label} coming soon`
+                                );
+
+                                return;
+                              }
+
+                              onClose?.();
+                            }}
+                            className={[
+                              "flex min-h-11 items-center gap-2.5 rounded-xl px-3 py-2 text-[13px] font-medium transition",
+                              active
+                                ? "bg-white !text-[#26335F] shadow-sm ring-1 ring-[#D9DEEC]"
+                                : "text-indigo-100/85 hover:bg-white/[0.07] hover:text-white",
+                            ].join(" ")}
+                          >
+                            <span
+                              className={[
+                                "h-1.5 w-1.5 shrink-0 rounded-full",
+                                active
+                                  ? "bg-[#E85D4A]"
+                                  : "bg-white/30",
+                              ].join(" ")}
+                            />
+
+                            <span
+                              className={[
+                                "min-w-0 flex-1 truncate",
+                                active
+                                  ? "!text-[#26335F]"
+                                  : "",
+                              ].join(" ")}
+                            >
+                              {item.label}
+                            </span>
+
+                            {!item.ready && (
+                              <span className="rounded-full bg-white/10 px-2 py-0.5 text-[9px] uppercase tracking-wide text-indigo-100">
+                                Soon
+                              </span>
+                            )}
+                          </Link>
+                        );
+                      }
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </nav>
       </div>
-    </div>
-  );
+    );
+  }
 
   return (
     <>
-      <aside className="sticky top-[72px] hidden h-[calc(100vh-72px)] w-[270px] shrink-0 border-r border-white/10 bg-[#27346D] text-indigo-50 md:block">
-        {renderNav()}
+      <aside className="sticky top-[72px] hidden h-[calc(100dvh-72px)] w-[270px] shrink-0 overflow-hidden border-r border-white/10 bg-[linear-gradient(180deg,#2E3F7D_0%,#26366E_100%)] text-indigo-50 md:block">
+        {renderNavigation()}
       </aside>
 
       <div
-        className={`fixed inset-0 z-50 md:hidden ${
-          open ? "pointer-events-auto" : "pointer-events-none"
-        }`}
+        className={[
+          "fixed inset-0 z-[80] md:hidden",
+          open
+            ? "pointer-events-auto"
+            : "pointer-events-none",
+        ].join(" ")}
         aria-hidden={!open}
       >
-        <div
+        <button
+          type="button"
+          aria-label="Close navigation"
           onClick={onClose}
-          className={`absolute inset-0 bg-slate-950/55 backdrop-blur-[2px] transition-opacity duration-200 ${
-            open ? "opacity-100" : "opacity-0"
-          }`}
+          className={[
+            "absolute inset-0 h-full w-full bg-slate-950/60 backdrop-blur-[3px] transition-opacity duration-200",
+            open
+              ? "opacity-100"
+              : "opacity-0",
+          ].join(" ")}
         />
 
         <aside
-          className={`absolute left-0 top-0 h-full w-[86vw] max-w-[320px] bg-[#27346D] text-indigo-50 shadow-2xl transition-transform duration-200 ${
-            open ? "translate-x-0" : "-translate-x-full"
-          }`}
+          aria-label="Mobile dashboard navigation"
+          className={[
+            "absolute left-0 top-0 h-[100dvh] max-h-[100dvh] w-[86vw] max-w-[304px] overflow-hidden bg-[linear-gradient(180deg,#2E3F7D_0%,#26366E_100%)] text-indigo-50 shadow-2xl transition-transform duration-200 ease-out",
+            open
+              ? "translate-x-0"
+              : "-translate-x-full",
+          ].join(" ")}
         >
-          {renderNav()}
+          {renderNavigation()}
         </aside>
       </div>
     </>

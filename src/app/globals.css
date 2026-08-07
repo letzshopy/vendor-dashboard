@@ -284,3 +284,90 @@ select:active {
     width: 5.75rem !important;
   }
 }
+
+/* LetzShopy Capacitor dashboard shell */
+:root {
+  --ls-safe-area-top: env(safe-area-inset-top, 0px);
+  --ls-safe-area-right: env(safe-area-inset-right, 0px);
+  --ls-safe-area-bottom: env(safe-area-inset-bottom, 0px);
+  --ls-safe-area-left: env(safe-area-inset-left, 0px);
+  --ls-app-navy: #2e3f7d;
+  --ls-app-coral: #e85d4a;
+  --ls-app-indigo: #5366b7;
+  --ls-app-background: #f8f9fc;
+  --ls-app-border: #d9deec;
+  --ls-app-heading: #26335f;
+}
+
+.dashboard-app-shell {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: hidden;
+  background: var(--ls-app-background);
+}
+
+.dashboard-app-content {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.dashboard-app-content > * {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.dashboard-mobile-bottom-nav {
+  min-height:
+    calc(4.5rem + var(--ls-safe-area-bottom));
+  padding-right:
+    max(0.25rem, var(--ls-safe-area-right));
+  padding-bottom:
+    var(--ls-safe-area-bottom);
+  padding-left:
+    max(0.25rem, var(--ls-safe-area-left));
+  box-shadow:
+    0 -8px 28px rgba(38, 51, 95, 0.1);
+}
+
+.dashboard-mobile-more-sheet {
+  padding-right:
+    max(1rem, var(--ls-safe-area-right));
+  padding-bottom:
+    calc(1rem + var(--ls-safe-area-bottom));
+  padding-left:
+    max(1rem, var(--ls-safe-area-left));
+}
+
+@media (max-width: 767px) {
+  .dashboard-app-shell,
+  .dashboard-app-shell main,
+  .dashboard-app-content,
+  .dashboard-app-content > * {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .dashboard-app-shell {
+    overflow-x: clip;
+  }
+}
+
+.dashboard-whatsapp-fab {
+  bottom:
+    calc(5.75rem + var(--ls-safe-area-bottom));
+}
+
+@media (min-width: 768px) {
+  .dashboard-whatsapp-fab {
+    bottom: 1.25rem;
+  }
+}
+
+.dashboard-whatsapp-fab > div {
+  position: absolute;
+  right: 0;
+  bottom: 4.5rem;
+  margin-top: 0;
+}

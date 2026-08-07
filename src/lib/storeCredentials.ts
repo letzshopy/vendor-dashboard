@@ -97,6 +97,10 @@ function parseCredentialMap(): Map<number, StandaloneStoreCredential> {
 function standaloneCredentialForTenant(
   tenant: Pick<Tenant, "blog_id" | "store_url" | "store_type">
 ): StandaloneStoreCredential | null {
+  if (tenant.store_type !== "standalone") {
+    return null;
+  }
+
   const credentials = parseCredentialMap().get(tenant.blog_id) || null;
 
   if (!credentials) {
@@ -122,7 +126,7 @@ function standaloneCredentialForTenant(
 export function getStoreInternalToken(tenant: Tenant): string {
   const standalone = standaloneCredentialForTenant(tenant);
 
-  if (tenant.store_type === "standalone" || standalone) {
+  if (tenant.store_type === "standalone") {
     const token = standalone?.internal_token || "";
 
     if (!token) {
@@ -147,7 +151,7 @@ export function getStoreWooCredentials(tenant: Tenant): {
 } {
   const standalone = standaloneCredentialForTenant(tenant);
 
-  if (tenant.store_type === "standalone" || standalone) {
+  if (tenant.store_type === "standalone") {
     const key = standalone?.wc_consumer_key || "";
     const secret = standalone?.wc_consumer_secret || "";
 
@@ -178,7 +182,7 @@ export function getStoreWooCredentials(tenant: Tenant): {
 export function getStoreWpAuthorization(tenant: Tenant): string {
   const standalone = standaloneCredentialForTenant(tenant);
 
-  if (tenant.store_type === "standalone" || standalone) {
+  if (tenant.store_type === "standalone") {
     if (standalone?.wp_auth) {
       return `Basic ${standalone.wp_auth}`;
     }

@@ -4,6 +4,7 @@ import {
   SESSION_TTL_MS,
   type SessionRole,
   type SessionStore,
+  type SessionStoreType,
   signSessionPayload,
 } from "@/lib/session";
 
@@ -88,6 +89,23 @@ function normalizeStoreUrl(
   );
 }
 
+function normalizeStoreType(
+  value: unknown
+): SessionStoreType | null {
+  if (
+    value === undefined ||
+    value === null ||
+    value === ""
+  ) {
+    return "multisite";
+  }
+
+  return value === "multisite" ||
+    value === "standalone"
+    ? value
+    : null;
+}
+
 function normalizeStores(
   value: unknown
 ): SessionStore[] | null {
@@ -115,10 +133,16 @@ function normalizeStores(
       rawStore.store_url
     );
 
+    const storeType =
+      normalizeStoreType(
+        rawStore.store_type
+      );
+
     if (
       !Number.isInteger(blogId) ||
       blogId <= 0 ||
-      !storeUrl
+      !storeUrl ||
+      !storeType
     ) {
       return null;
     }
@@ -136,6 +160,7 @@ function normalizeStores(
       blog_id: blogId,
       store_name: storeName,
       store_url: storeUrl,
+      store_type: storeType,
     });
   }
 

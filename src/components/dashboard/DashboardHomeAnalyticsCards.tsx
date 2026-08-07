@@ -1,7 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useState,
+} from "react";
 import {
   ArrowRight,
   Radio,
@@ -20,150 +24,225 @@ type WebsiteMetricsResponse = {
   error?: string;
 };
 
-function formatNumber(value: number | undefined): string {
-  return new Intl.NumberFormat("en-IN").format(value ?? 0);
+function formatNumber(
+  value: number | undefined
+): string {
+  return new Intl.NumberFormat(
+    "en-IN"
+  ).format(
+    value ?? 0
+  );
 }
 
 export default function DashboardHomeAnalyticsCards() {
-  const [data, setData] = useState<WebsiteMetricsResponse | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
+  const [
+    data,
+    setData,
+  ] =
+    useState<WebsiteMetricsResponse | null>(
+      null
+    );
 
-  async function loadMetrics(isRefresh = false) {
-    try {
-      if (isRefresh) {
-        setRefreshing(true);
-      } else {
-        setLoading(true);
-      }
+  const [
+    loading,
+    setLoading,
+  ] = useState(true);
 
-      const response = await fetch("/api/metrics/website", {
-        cache: "no-store",
-      });
-      const parsed = (await response.json().catch(() => null)) as
-        | WebsiteMetricsResponse
-        | null;
+  const [
+    refreshing,
+    setRefreshing,
+  ] = useState(false);
 
-      if (!response.ok || !parsed?.ok) {
-        setData({
-          ok: false,
-          error:
-            parsed?.error ||
-            "Website activity is temporarily unavailable.",
-        });
-        return;
-      }
+  const loadMetrics =
+    useCallback(
+      async (
+        isRefresh = false
+      ) => {
+        try {
+          if (isRefresh) {
+            setRefreshing(true);
+          } else {
+            setLoading(true);
+          }
 
-      setData(parsed);
-    } catch (error) {
-      setData({
-        ok: false,
-        error:
-          error instanceof Error
-            ? error.message
-            : "Website activity is temporarily unavailable.",
-      });
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }
+          const response =
+            await fetch(
+              "/api/metrics/website",
+              {
+                cache: "no-store",
+              }
+            );
+
+          const parsed =
+            (
+              await response
+                .json()
+                .catch(() => null)
+            ) as
+              | WebsiteMetricsResponse
+              | null;
+
+          if (
+            !response.ok ||
+            !parsed?.ok
+          ) {
+            setData({
+              ok: false,
+              error:
+                parsed?.error ||
+                "Website activity is temporarily unavailable.",
+            });
+
+            return;
+          }
+
+          setData(parsed);
+        } catch (error) {
+          setData({
+            ok: false,
+            error:
+              error instanceof Error
+                ? error.message
+                : "Website activity is temporarily unavailable.",
+          });
+        } finally {
+          setLoading(false);
+          setRefreshing(false);
+        }
+      },
+      []
+    );
 
   useEffect(() => {
     void loadMetrics();
 
-    const timer = window.setInterval(() => {
-      void loadMetrics(true);
-    }, 60_000);
+    const timer =
+      window.setInterval(
+        () => {
+          void loadMetrics(true);
+        },
+        60_000
+      );
 
-    return () => window.clearInterval(timer);
-  }, []);
+    return () =>
+      window.clearInterval(
+        timer
+      );
+  }, [loadMetrics]);
 
   return (
-    <section className="dashboard-home-analytics min-w-0 rounded-[26px] border border-slate-200/70 bg-white p-4 shadow-sm shadow-slate-200/60 md:p-5">
-      <div className="mb-4 flex items-center justify-between gap-3">
+    <section className="rounded-2xl border border-[#DFE5F1] bg-[linear-gradient(120deg,#F2F4FB_0%,#FFFFFF_55%,#FFF6F3_100%)] px-4 py-4 shadow-[0_8px_24px_rgba(38,51,95,0.04)] md:px-5">
+      <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_minmax(320px,auto)] md:items-center">
         <div className="min-w-0">
-          <h2 className="text-base font-semibold text-slate-950">
-            Website activity
-          </h2>
-          <p className="mt-1 text-xs text-slate-500">
-            Live and today&apos;s visitors from Google Analytics.
-          </p>
-        </div>
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <h2 className="text-[17px] font-bold text-[#26335F]">
+                Website Activity
+              </h2>
 
-        <div className="flex shrink-0 items-center gap-2">
-          <button
-            type="button"
-            onClick={() => loadMetrics(true)}
-            disabled={refreshing}
-            className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-slate-50 text-slate-600 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
-            aria-label="Refresh website activity"
-            title="Refresh"
-          >
-            <RefreshCw
-              className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`}
-            />
-          </button>
+              <p className="mt-1 text-xs leading-5 text-slate-500">
+                Live and today&apos;s visitors from Google Analytics.
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={() =>
+                void loadMetrics(true)
+              }
+              disabled={refreshing}
+              aria-label="Refresh website activity"
+              className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/80 text-slate-400 md:hidden"
+            >
+              <RefreshCw
+                className={[
+                  "h-4 w-4",
+                  refreshing
+                    ? "animate-spin"
+                    : "",
+                ].join(" ")}
+              />
+            </button>
+          </div>
 
           <Link
             href="/reports?rt=website"
-            className="inline-flex items-center gap-1 rounded-full bg-indigo-50 px-3 py-2 text-xs font-semibold text-indigo-700 transition hover:bg-indigo-100"
+            className="mt-2 inline-flex min-h-8 items-center gap-1 text-xs font-bold text-[#5366B7]"
           >
-            Full report
+            Open website report
             <ArrowRight className="h-3.5 w-3.5" />
           </Link>
         </div>
-      </div>
 
-      {loading ? (
-        <div className="grid grid-cols-2 gap-3">
-          <div className="h-28 animate-pulse rounded-[22px] bg-slate-100" />
-          <div className="h-28 animate-pulse rounded-[22px] bg-slate-100" />
-        </div>
-      ) : data?.ok ? (
-        <div className="grid grid-cols-2 gap-3" aria-live="polite">
-          <div className="min-w-0 rounded-[22px] border border-emerald-200 bg-gradient-to-br from-emerald-50 to-white p-4">
-            <div className="flex items-center justify-between gap-3">
-              <span className="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-emerald-600 text-white shadow-sm">
+        {data?.ok === false ? (
+          <p className="border-l-2 border-rose-400 pl-3 text-sm text-rose-700">
+            {data.error ||
+              "Website activity is temporarily unavailable."}
+          </p>
+        ) : (
+          <div
+            aria-live="polite"
+            className="grid grid-cols-2 divide-x divide-[#D9DEEC] rounded-xl bg-white/75 px-2 py-3"
+          >
+            <div className="flex min-w-0 items-center gap-3 px-3">
+              <span className="relative inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700">
                 <Radio className="h-5 w-5" />
+                <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-emerald-500" />
               </span>
-              <span className="rounded-full bg-emerald-100 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-emerald-700">
-                Live
-              </span>
-            </div>
-            <div className="mt-4 text-2xl font-bold tracking-tight text-slate-950 md:text-3xl">
-              {formatNumber(data.realtime?.activeUsers)}
-            </div>
-            <div className="mt-1 text-sm font-semibold text-slate-700">
-              Live users now
-            </div>
-          </div>
 
-          <div className="min-w-0 rounded-[22px] border border-indigo-200 bg-gradient-to-br from-indigo-50 to-white p-4">
-            <div className="flex items-center justify-between gap-3">
-              <span className="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-indigo-600 text-white shadow-sm">
+              <div className="min-w-0">
+                <div className="text-[10px] font-bold uppercase tracking-[0.07em] text-slate-500">
+                  Live now
+                </div>
+
+                <div className="mt-0.5 text-2xl font-extrabold text-[#26335F]">
+                  {loading
+                    ? "…"
+                    : formatNumber(
+                        data
+                          ?.realtime
+                          ?.activeUsers
+                      )}
+                </div>
+              </div>
+            </div>
+
+            <div className="flex min-w-0 items-center gap-3 px-3">
+              <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#EEF1FA] text-[#5366B7]">
                 <Users className="h-5 w-5" />
               </span>
-              <span className="rounded-full bg-indigo-100 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-indigo-700">
-                Today
-              </span>
-            </div>
-            <div className="mt-4 text-2xl font-bold tracking-tight text-slate-950 md:text-3xl">
-              {formatNumber(data.today?.activeUsers)}
-            </div>
-            <div className="mt-1 text-sm font-semibold text-slate-700">
-              Total visitors today
+
+              <div className="min-w-0">
+                <div className="text-[10px] font-bold uppercase tracking-[0.07em] text-slate-500">
+                  Visitors today
+                </div>
+
+                <div className="mt-0.5 text-2xl font-extrabold text-[#26335F]">
+                  {loading
+                    ? "…"
+                    : formatNumber(
+                        data
+                          ?.today
+                          ?.activeUsers
+                      )}
+                </div>
+              </div>
             </div>
           </div>
-        </div>
-      ) : (
-        <div className="rounded-[22px] border border-amber-200 bg-amber-50 px-4 py-4 text-sm text-amber-800">
-          <div className="font-semibold">Website activity unavailable</div>
-          <p className="mt-1 text-xs leading-5 text-amber-700">
-            {data?.error || "Please check the GA4 connection."}
-          </p>
-        </div>
-      )}
+        )}
+
+        <button
+          type="button"
+          onClick={() =>
+            void loadMetrics(true)
+          }
+          disabled={refreshing}
+          aria-label="Refresh website activity"
+          className="absolute hidden"
+        >
+          <RefreshCw />
+        </button>
+      </div>
     </section>
   );
 }

@@ -1,13 +1,16 @@
 "use client";
 
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { optimizeContentImageForUpload } from "@/lib/clientImageOptimizer";
+import { actionFeedback } from "@/lib/actionFeedback";
 import {
   ArrowLeft,
   Check,
   CheckCircle2,
+  ChevronDown,
   ChevronRight,
   Eye,
   EyeOff,
@@ -352,6 +355,8 @@ function screenMeta(
 }
 
 export default function ProductCreationWizard() {
+  const router = useRouter();
+
   const [step, setStep] = useState(1);
 
   const [categories, setCategories] = useState<Category[]>([]);
@@ -414,6 +419,8 @@ export default function ProductCreationWizard() {
 
   const [query, setQuery] = useState("");
   const [newCategoryName, setNewCategoryName] = useState("");
+  const [categoryCreateOpen, setCategoryCreateOpen] =
+    useState(false);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] =
     useState<string | null>(null);
@@ -434,6 +441,24 @@ export default function ProductCreationWizard() {
   const [submitStage, setSubmitStage] =
     useState<string | null>(null);
 
+  useEffect(() => {
+    if (
+      !submitting ||
+      !submitStage
+    ) {
+      return;
+    }
+
+    actionFeedback.loading({
+      id: "product-create",
+      title: "Creating product",
+      message: submitStage,
+    });
+  }, [
+    submitting,
+    submitStage,
+  ]);
+
   const flow = useMemo(
     () => flowFor(selectedProductType),
     [selectedProductType]
@@ -443,6 +468,11 @@ export default function ProductCreationWizard() {
     flow[Math.min(step - 1, flow.length - 1)];
   const meta = screenMeta(currentScreen, selectedProductType);
   const HeaderIcon = meta.icon;
+
+  const desktopExpandedScreen =
+    currentScreen === "size-variations" ||
+    currentScreen === "colour-variations" ||
+    currentScreen === "colour-images";
 
   useEffect(() => {
     const controller = new AbortController();
@@ -766,23 +796,15 @@ export default function ProductCreationWizard() {
       return;
     }
 
-    const existingCategory = allCategories.find(
-      (category) =>
-        category.name.toLowerCase() ===
-        name.toLowerCase()
-    );
-
-    if (existingCategory) {
-      setSelectedCategoryId(existingCategory.id);
-      setNewCategoryName("");
-      setCategoryCreateError(null);
-      setConfirmation(null);
-      return;
-    }
-
     try {
       setCategoryCreating(true);
       setCategoryCreateError(null);
+
+      actionFeedback.loading({
+        id: "category-create",
+        title: "Checking category",
+        message: name,
+      });
 
       const response = await fetch(
         "/api/categories/create",
@@ -819,10 +841,15 @@ export default function ProductCreationWizard() {
         );
       }
 
+      const existing =
+        isRecord(json) &&
+        json.existing === true;
+
       setCreatedCategories((current) =>
         current.some(
           (category) =>
-            category.id === createdCategory.id
+            category.id ===
+            createdCategory.id
         )
           ? current
           : [...current, createdCategory]
@@ -832,13 +859,39 @@ export default function ProductCreationWizard() {
         createdCategory.id
       );
       setNewCategoryName("");
+      setCategoryCreateOpen(false);
       setConfirmation(null);
+
+      if (existing) {
+        actionFeedback.info({
+          id: "category-create",
+          title:
+            "Category already exists",
+          message:
+            `${createdCategory.name} selected.`,
+        });
+      } else {
+        actionFeedback.success({
+          id: "category-create",
+          title: "Category created",
+          message:
+            `${createdCategory.name} selected.`,
+        });
+      }
     } catch (error: unknown) {
-      setCategoryCreateError(
+      const message =
         error instanceof Error
           ? error.message
-          : "Unable to create category."
-      );
+          : "Unable to create category.";
+
+      setCategoryCreateError(message);
+
+      actionFeedback.error({
+        id: "category-create",
+        title:
+          "Category action failed",
+        message,
+      });
     } finally {
       setCategoryCreating(false);
     }
@@ -1495,7 +1548,7 @@ export default function ProductCreationWizard() {
     }
 
     const workerCount = Math.min(
-      2,
+      4,
       photos.length
     );
 
@@ -2112,7 +2165,7 @@ export default function ProductCreationWizard() {
     }
 
     const workerCount = Math.min(
-      2,
+      4,
       tasks.length
     );
 
@@ -2154,6 +2207,47 @@ export default function ProductCreationWizard() {
         ),
     }));
   }
+
+  async function completeProductCreate() {
+    const createdName =
+      productName.trim() ||
+      "Product";
+
+    actionFeedback.success({
+      id: "product-create",
+      title:
+        status === "publish"
+          ? "Product created"
+          : "Draft created",
+      message:
+        `${createdName} · Opening Products…`,
+      durationMs: 3200,
+    });
+
+    router.prefetch("/products");
+
+    await new Promise<void>(
+      (resolve) => {
+        window.setTimeout(
+          resolve,
+          450
+        );
+      }
+    );
+
+    router.replace("/products");
+  }
+
+  function notifyProductCreateError(
+    message: string
+  ) {
+    actionFeedback.error({
+      id: "product-create",
+      title: "Product action failed",
+      message,
+    });
+  }
+
   async function createSizeProduct() {
     if (
       submitting ||
@@ -2166,8 +2260,12 @@ export default function ProductCreationWizard() {
       !selectedCategory ||
       selectedCategory.id <= 0
     ) {
-      setSubmitError(
-        "Select a saved product category."
+      const message =
+        "Select a saved product category.";
+
+      setSubmitError(message);
+      notifyProductCreateError(
+        message
       );
       return;
     }
@@ -2363,14 +2461,7 @@ export default function ProductCreationWizard() {
         );
       }
 
-      const createdName =
-        encodeURIComponent(
-          productName.trim()
-        );
-
-      window.location.assign(
-        `/products?created=1&createdName=${createdName}`
-      );
+      await completeProductCreate();
     } catch (error: unknown) {
       const partialIds =
         error instanceof Error &&
@@ -2411,6 +2502,9 @@ export default function ProductCreationWizard() {
           : rawMessage;
 
       setSubmitError(message);
+      notifyProductCreateError(
+        message
+      );
 
       if (
         rawMessage === "SKU already taken"
@@ -2435,8 +2529,12 @@ export default function ProductCreationWizard() {
       !selectedCategory ||
       selectedCategory.id <= 0
     ) {
-      setSubmitError(
-        "Select a saved product category."
+      const message =
+        "Select a saved product category.";
+
+      setSubmitError(message);
+      notifyProductCreateError(
+        message
       );
       return;
     }
@@ -2785,14 +2883,7 @@ export default function ProductCreationWizard() {
         );
       }
 
-      const createdName =
-        encodeURIComponent(
-          productName.trim()
-        );
-
-      window.location.assign(
-        `/products?created=1&createdName=${createdName}`
-      );
+      await completeProductCreate();
     } catch (error: unknown) {
       const partialIds =
         error instanceof Error &&
@@ -2833,6 +2924,9 @@ export default function ProductCreationWizard() {
           : rawMessage;
 
       setSubmitError(message);
+      notifyProductCreateError(
+        message
+      );
 
       if (
         rawMessage === "SKU already taken"
@@ -2857,8 +2951,12 @@ export default function ProductCreationWizard() {
       !selectedCategory ||
       selectedCategory.id <= 0
     ) {
-      setSubmitError(
-        "Select a saved product category."
+      const message =
+        "Select a saved product category.";
+
+      setSubmitError(message);
+      notifyProductCreateError(
+        message
       );
       return;
     }
@@ -2869,6 +2967,8 @@ export default function ProductCreationWizard() {
       setSubmitting(true);
       setSubmitError(null);
       setConfirmation(null);
+
+      setSubmitStage("Checking SKU");
 
       await verifySkuBeforeUpload();
 
@@ -2974,14 +3074,7 @@ export default function ProductCreationWizard() {
         );
       }
 
-      const createdName =
-        encodeURIComponent(
-          productName.trim()
-        );
-
-      window.location.assign(
-        `/products?created=1&createdName=${createdName}`
-      );
+      await completeProductCreate();
     } catch (error: unknown) {
       const partialIds =
         error instanceof Error &&
@@ -3015,6 +3108,9 @@ export default function ProductCreationWizard() {
           : "Product creation failed.";
 
       setSubmitError(message);
+      notifyProductCreateError(
+        message
+      );
 
       if (
         message === "SKU already taken"
@@ -3022,6 +3118,7 @@ export default function ProductCreationWizard() {
         setSkuTaken(true);
       }
     } finally {
+      setSubmitStage(null);
       setSubmitting(false);
     }
   }
@@ -3102,7 +3199,14 @@ export default function ProductCreationWizard() {
       : "Continue";
 
   return (
-    <main className="mx-auto flex w-full max-w-6xl flex-col overflow-hidden bg-white md:h-[calc(100dvh-8.75rem)] md:min-h-[560px] md:max-h-[740px] md:rounded-2xl md:border md:border-[#D9DEEC] md:shadow-[0_10px_32px_rgba(35,50,102,0.08)]">
+    <main
+      className={[
+        "mx-auto flex h-[calc(100dvh-8.75rem)] min-h-0 w-full max-w-6xl flex-col overflow-hidden bg-white md:min-h-[560px] md:max-h-[740px] md:rounded-2xl md:border md:border-[#D9DEEC] md:shadow-[0_10px_32px_rgba(35,50,102,0.08)]",
+        desktopExpandedScreen
+          ? "lg:h-auto lg:max-h-none lg:overflow-visible"
+          : "",
+      ].join(" ")}
+    >
       <header className="sticky top-0 z-30 bg-[#2E3F7D] px-3 py-3 text-white md:static md:rounded-t-2xl md:px-5">
         <div className="flex items-center gap-3">
           <button
@@ -3151,7 +3255,14 @@ export default function ProductCreationWizard() {
         </div>
       </header>
 
-      <section className="flex min-h-0 flex-1 flex-col overflow-y-auto px-3 py-3 md:overflow-hidden md:px-5 md:py-4">
+      <section
+        className={[
+          "flex min-h-0 flex-1 flex-col overflow-y-auto px-3 py-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:overflow-hidden md:px-5 md:py-4",
+          desktopExpandedScreen
+            ? "lg:overflow-visible"
+            : "",
+        ].join(" ")}
+      >
         {currentScreen === "category" && (
           <div className="grid flex-1 content-start gap-4 lg:grid-cols-[1.12fr_0.88fr]">
             <div className="border-b border-[#E7EAF2] bg-white px-1 pb-5 pt-1 md:rounded-2xl md:border md:border-[#E1E5EF] md:bg-[#F8F9FC] md:p-4">
@@ -3307,7 +3418,16 @@ export default function ProductCreationWizard() {
             </div>
 
             <div className="border-b border-[#F1D5CE] bg-[#FFF9F7] px-1 pb-5 pt-4 md:rounded-2xl md:border md:bg-[#FFF8F6] md:p-4">
-              <div className="mb-3 flex items-start gap-3">
+              <button
+                type="button"
+                aria-expanded={categoryCreateOpen}
+                onClick={() =>
+                  setCategoryCreateOpen(
+                    (current) => !current
+                  )
+                }
+                className="mb-0 flex w-full items-start gap-3 text-left md:mb-3 md:pointer-events-none"
+              >
                 <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#E85D4A] text-white">
                   <Plus className="h-5 w-5" />
                 </div>
@@ -3320,8 +3440,24 @@ export default function ProductCreationWizard() {
                     Add it and use it for this product.
                   </p>
                 </div>
-              </div>
 
+                <ChevronDown
+                  className={[
+                    "ml-auto mt-2 h-5 w-5 shrink-0 text-[#93675F] transition-transform md:hidden",
+                    categoryCreateOpen
+                      ? "rotate-180"
+                      : "",
+                  ].join(" ")}
+                />
+              </button>
+
+              <div
+                className={
+                  categoryCreateOpen
+                    ? "mt-3 block md:mt-0"
+                    : "hidden md:block"
+                }
+              >
               <label
                 htmlFor="new-category-name"
                 className="mb-1.5 block text-[11px] font-bold uppercase tracking-[0.12em] text-[#9A6D65]"
@@ -3334,13 +3470,8 @@ export default function ProductCreationWizard() {
                 value={newCategoryName}
                 onChange={(event) => {
                   setNewCategoryName(event.target.value);
+                  setCategoryCreateError(null);
                   setConfirmation(null);
-                }}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter") {
-                    event.preventDefault();
-                    void createAndSelectCategory();
-                  }
                 }}
                 placeholder="Example: Handbags"
                 className="h-12 w-full rounded-xl border border-[#E3C7C0] bg-white px-3.5 text-sm font-semibold text-[#4D2B25] outline-none transition placeholder:font-normal placeholder:text-[#B18D86] focus:border-[#E85D4A] focus:ring-4 focus:ring-[#E85D4A]/10"
@@ -3380,8 +3511,9 @@ export default function ProductCreationWizard() {
                 ].join(" ")}
               >
                 {categoryCreateError ??
-                  "New categories are saved immediately."}
+                  "Existing categories are checked only when you press Create & select."}
               </p>
+              </div>
             </div>
           </div>
         )}
@@ -3421,7 +3553,7 @@ export default function ProductCreationWizard() {
                       chooseProductType(productType.id)
                     }
                     className={[
-                      "relative flex min-h-32 flex-col items-start rounded-2xl border p-4 text-left transition active:scale-[0.985] sm:min-h-40",
+                      "relative flex min-h-[76px] flex-row items-center gap-3 rounded-2xl border p-3 pr-12 text-left transition active:scale-[0.985] sm:min-h-40 sm:flex-col sm:items-start sm:gap-0 sm:p-4 sm:pr-4",
                       selected
                         ? `${productType.selectedClass} shadow-[0_10px_24px_rgba(44,56,104,0.10)]`
                         : "border-[#DFE3ED] bg-white hover:border-[#BFC6D8]",
@@ -3429,18 +3561,20 @@ export default function ProductCreationWizard() {
                   >
                     <div
                       className={[
-                        "flex h-11 w-11 items-center justify-center rounded-xl",
+                        "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl sm:h-11 sm:w-11",
                         productType.iconClass,
                       ].join(" ")}
                     >
                       <Icon className="h-5 w-5" />
                     </div>
 
-                    <div className="mt-3 font-bold text-[#262F52]">
-                      {productType.title}
-                    </div>
-                    <div className="mt-1 text-xs font-medium text-[#7B8397]">
-                      {productType.label}
+                    <div className="min-w-0 flex-1 sm:mt-3 sm:flex-none">
+                      <div className="truncate text-sm font-bold text-[#262F52] sm:text-base">
+                        {productType.title}
+                      </div>
+                      <div className="mt-0.5 truncate text-[11px] font-medium text-[#7B8397] sm:mt-1 sm:text-xs">
+                        {productType.label}
+                      </div>
                     </div>
 
                     <div
@@ -4100,7 +4234,7 @@ export default function ProductCreationWizard() {
 
         {(currentScreen === "size-variations" ||
           currentScreen === "colour-variations") && (
-          <div className="grid min-h-0 min-w-0 flex-1 gap-4 lg:grid-cols-[1.25fr_0.75fr]">
+          <div className="grid min-w-0 content-start gap-4 lg:grid-cols-[1.25fr_0.75fr]">
             <div className="flex min-h-0 min-w-0 flex-col border-b border-[#E7EAF2] bg-white px-1 pb-5 pt-1 md:rounded-2xl md:border md:border-[#E1E5EF] md:bg-[#F8F9FC] md:p-4">
               <div className="flex items-start gap-3">
                 <div
@@ -4228,7 +4362,7 @@ export default function ProductCreationWizard() {
                 </button>
               </div>
 
-              <div className="mt-3 min-h-0 flex-1 scroll-pb-20 overflow-y-auto overscroll-contain pb-20 pr-1">
+              <div className="mt-3 pb-4 lg:pb-0">
                 {(currentScreen === "size-variations"
                   ? sizeRows
                   : colourRows
@@ -4357,7 +4491,7 @@ export default function ProductCreationWizard() {
                 </div>
               </div>
 
-              <div className="mt-4 min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-contain pb-12 pr-1">
+              <div className="mt-4 min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-contain pb-12 pr-1 lg:overflow-visible lg:pb-0 lg:pr-0">
                 {(currentScreen === "size-variations"
                   ? sizeRows
                   : colourRows
@@ -4396,7 +4530,7 @@ export default function ProductCreationWizard() {
         )}
 
         {currentScreen === "colour-images" && (
-          <div className="grid min-h-0 min-w-0 flex-1 gap-4 lg:grid-cols-[1.2fr_0.8fr]">
+          <div className="grid min-w-0 content-start gap-4 lg:grid-cols-[1.2fr_0.8fr]">
             <div className="flex min-h-0 flex-col border-b border-[#E7EAF2] bg-white px-1 pb-5 pt-1 md:rounded-2xl md:border md:border-[#E1E5EF] md:bg-[#F8F9FC] md:p-4">
               <div className="mb-3 flex items-start gap-3">
                 <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#FFE0D9] text-[#B24737]">
@@ -4412,7 +4546,7 @@ export default function ProductCreationWizard() {
                 </div>
               </div>
 
-              <div className="min-h-0 flex-1 overflow-y-auto pr-1">
+              <div className="min-h-0 flex-1 pr-0">
                 <div className="space-y-3">
                   {colourRows.map((row) => (
                     <div
@@ -4623,7 +4757,7 @@ export default function ProductCreationWizard() {
                 </div>
               </div>
 
-              <div className="mt-4 space-y-2 overflow-y-auto">
+              <div className="mt-4 space-y-2 overflow-y-auto lg:overflow-visible">
                 {colourRows.map((row) => (
                   <div
                     key={row.id}
@@ -5236,7 +5370,7 @@ export default function ProductCreationWizard() {
       )}
 
       <footer
-        className="sticky bottom-0 z-30 flex items-center gap-3 border-t border-[#E5E8F0] bg-white/95 px-3 py-3 backdrop-blur md:static md:rounded-b-2xl md:bg-[#F8F9FC] md:px-5"
+        className="sticky bottom-0 z-30 flex shrink-0 items-center gap-3 border-t border-[#E5E8F0] bg-white/95 px-3 py-3 backdrop-blur md:static md:rounded-b-2xl md:bg-[#F8F9FC] md:px-5"
         style={{
           paddingBottom:
             "calc(0.75rem + env(safe-area-inset-bottom))",

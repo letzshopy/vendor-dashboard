@@ -7,8 +7,11 @@ const WORDPRESS_PATH =
   "/wp-json/letz/v1/general-settings";
 
 export async function GET() {
+  const cacheBustedPath =
+    `${WORDPRESS_PATH}?_ls_nocache=${Date.now()}`;
+
   return proxySettingsGet(
-    WORDPRESS_PATH,
+    cacheBustedPath,
     "general settings"
   );
 }

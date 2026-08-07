@@ -167,20 +167,32 @@ export async function optimizeContentImageForUpload(
     );
   }
 
-  if (file.size <= config.triggerBytes) {
-    return {
-      file,
-      optimized: false,
-      originalBytes: file.size,
-      outputBytes: file.size,
-    };
-  }
-
   const loaded = await loadImage(file);
 
   try {
-    const largestSide = Math.max(loaded.width, loaded.height);
-    const initialScale = Math.min(1, config.maxDimension / largestSide);
+    const largestSide = Math.max(
+      loaded.width,
+      loaded.height
+    );
+
+    const shouldOptimize =
+      file.size > config.triggerBytes ||
+      largestSide > config.maxDimension ||
+      sourceType === "image/png";
+
+    if (!shouldOptimize) {
+      return {
+        file,
+        optimized: false,
+        originalBytes: file.size,
+        outputBytes: file.size,
+      };
+    }
+
+    const initialScale = Math.min(
+      1,
+      config.maxDimension / largestSide
+    );
     const outputType = outputTypeFor(sourceType);
     let smallestBlob: Blob | null = null;
 

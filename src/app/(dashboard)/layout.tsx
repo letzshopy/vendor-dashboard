@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { Suspense } from "react";
 
 import WhatsappFab from "@/components/WhatsappFab";
+import ActionFeedbackHost from "@/components/feedback/ActionFeedbackHost";
 import {
   evaluateAccessPolicy,
 } from "@/lib/accessPolicy";
@@ -329,6 +330,7 @@ export default async function DashboardLayout({
           </DashboardShell>
 
           <WhatsappFab />
+          <ActionFeedbackHost />
         </>
       </SubscriptionProvider>
     </Suspense>

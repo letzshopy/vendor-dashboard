@@ -51,7 +51,7 @@ export default function WhatsappFab() {
   if (!WA) return null;
 
   return (
-    <div ref={containerRef} className="fixed z-50 bottom-5 right-5">
+    <div ref={containerRef} className="dashboard-whatsapp-fab fixed right-4 z-50 md:right-5">
       {/* FAB Button */}
       <button
         type="button"
