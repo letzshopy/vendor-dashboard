@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import {
   findAuthorizedStore,
   type SessionRole,
+  type SessionStoreType,
   verifySessionToken,
 } from "./session";
 
@@ -23,6 +24,7 @@ export type Tenant = {
   store_url: string;
   blog_id: number;
   store_name: string;
+  store_type: SessionStoreType;
   role: SessionRole;
   email: string;
 
@@ -158,6 +160,7 @@ export async function getTenantFromCookies():
     store_url: authorizedStore.store_url,
     blog_id: authorizedStore.blog_id,
     store_name: authorizedStore.store_name,
+    store_type: authorizedStore.store_type,
     role: session.saas_role,
     email: session.email,
   };
