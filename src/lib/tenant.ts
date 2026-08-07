@@ -160,7 +160,7 @@ export async function getTenantFromCookies():
     store_url: authorizedStore.store_url,
     blog_id: authorizedStore.blog_id,
     store_name: authorizedStore.store_name,
-    store_type: authorizedStore.store_type,
+    store_type: authorizedStore.store_type || "multisite",
     role: session.saas_role,
     email: session.email,
   };
