@@ -2,11 +2,11 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import {
   Bell,
   Search as SearchIcon,
-  ChevronDown,
   Sparkles,
   Menu,
   Loader2,
@@ -16,6 +16,7 @@ import {
   Store,
   Settings2,
 } from "lucide-react";
+import DashboardAccountMenu from "@/components/DashboardAccountMenu";
 import { useDashboardSubscription } from "@/components/subscription/SubscriptionContext";
 
 const FALLBACK_STORE_URL = process.env.NEXT_PUBLIC_SITE_URL || "#";
@@ -135,28 +136,22 @@ function statusChipClass(status: SubscriptionStatus): string {
   }
 }
 
-function storeInitials(normalizedStore: string): string {
-  if (!normalizedStore) return "VS";
-  const firstPart = normalizedStore.split(".")[0] || "";
-  const clean = firstPart.replace(/[^a-zA-Z]/g, "");
-  if (!clean) return "VS";
-  if (clean.length === 1) return clean.toUpperCase();
-  return (clean[0] + clean[1]).toUpperCase();
-}
-
 function mobileScopeLabel(scope: SearchScope): string {
   return scope === "orders" ? "Search orders..." : "Search products...";
 }
 
 export default function Topbar({ onToggleSidebar }: TopbarProps) {
   const { subscription } = useDashboardSubscription();
-
+  const pathname = usePathname() || "/";
+  const showMobileDashboardTopbar =
+    pathname === "/dashboard";
   const [accountOpen, setAccountOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [searchScope, setSearchScope] = useState<SearchScope>("products");
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [showSearchDropdown, setShowSearchDropdown] = useState(false);
+  const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
 
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
@@ -365,16 +360,6 @@ export default function Topbar({ onToggleSidebar }: TopbarProps) {
     });
   }
 
-  function toggleAccountMenu() {
-    setAccountOpen((prev) => {
-      const next = !prev;
-      if (next) {
-        setNotificationsOpen(false);
-      }
-      return next;
-    });
-  }
-
   function goToSearch() {
     const q = search.trim();
     if (!q) return;
@@ -397,7 +382,6 @@ export default function Topbar({ onToggleSidebar }: TopbarProps) {
   }
 
   const normalizedStore = storeUrl.replace(/^https?:\/\//, "");
-  const initials = storeInitials(normalizedStore);
   const subStatus = deriveStatus(subscription?.status);
 
   const searchDropdown = showSearchDropdown && (
@@ -442,9 +426,17 @@ export default function Topbar({ onToggleSidebar }: TopbarProps) {
   );
 
   return (
-    <header className="sticky top-0 z-40 w-full border-b border-white/10 bg-[#27346D]/95 shadow-sm shadow-black/20 backdrop-blur">
+    <header
+      className={[
+        "sticky top-0 z-40 w-full border-b border-white/10 bg-[#27346D]/95 shadow-sm shadow-black/20 backdrop-blur",
+        showMobileDashboardTopbar
+          ? "block"
+          : "hidden",
+        "md:block",
+      ].join(" ")}
+    >
       <div className="mx-auto w-full max-w-[1600px]">
-        <div className="flex min-h-[72px] items-center justify-between gap-2 px-3 sm:px-4 md:px-6 xl:px-8">
+        <div className="flex min-h-16 items-center justify-between gap-2 px-3 sm:px-4 md:min-h-[72px] md:px-6 xl:px-8">
           <div className="flex min-w-0 items-center gap-2 sm:gap-3 md:gap-4">
             <button
               type="button"
@@ -455,13 +447,14 @@ export default function Topbar({ onToggleSidebar }: TopbarProps) {
             </button>
 
             <div className="flex min-w-0 items-center gap-3">
-              <div className="flex items-center justify-center rounded-2xl bg-white/95 px-3 py-2 shadow-md shadow-black/20">
-                <div className="relative h-7 w-[8.8rem] sm:h-8 sm:w-[9.5rem] md:h-10 md:w-[10.5rem] lg:h-11 lg:w-[12rem]">
+              <div className="flex items-center justify-center rounded-xl bg-white/95 px-2 py-1.5 shadow-md shadow-black/20 md:rounded-2xl md:px-3 md:py-2">
+                <div className="relative h-7 w-[7rem] sm:h-8 sm:w-[8rem] md:h-10 md:w-[10.5rem] lg:h-11 lg:w-[12rem]">
                   {BRAND_LOGO_URL ? (
                     <Image
                       src={BRAND_LOGO_URL}
                       alt="LetzShopy"
                       fill
+                      sizes="(max-width: 767px) 112px, 192px"
                       className="object-contain"
                       priority
                     />
@@ -560,15 +553,30 @@ export default function Topbar({ onToggleSidebar }: TopbarProps) {
               href={storeUrl}
               target="_blank"
               rel="noreferrer"
-              className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-[#1BCFB4] text-white shadow-sm shadow-[#0f7669] transition hover:bg-[#16b5a0]"
+              className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[#DDF8F3] text-[#0F9F8A] shadow-sm transition active:scale-95 md:rounded-full md:bg-[#1BCFB4] md:text-white md:shadow-[#0f7669] md:hover:bg-[#16b5a0]"
               aria-label="View Store"
               title="View Store"
             >
               <Store className="h-4 w-4" />
             </a>
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation();
+                setMobileSearchOpen((current) => !current);
+                setShowSearchDropdown(false);
+                setNotificationsOpen(false);
+                setAccountOpen(false);
+              }}
+              aria-label="Open dashboard search"
+              aria-expanded={mobileSearchOpen}
+              className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[#EEF1FA] text-[#2E3F7D] shadow-sm transition active:scale-95 md:hidden"
+            >
+              <SearchIcon className="h-5 w-5" />
+            </button>
             <Link
   href="/settings"
-  className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-[#f5f3ff] text-[#27346D] shadow-sm transition hover:bg-[#ebe6ff]"
+  className="hidden h-10 w-10 items-center justify-center rounded-full bg-[#f5f3ff] text-[#27346D] shadow-sm transition hover:bg-[#ebe6ff] md:inline-flex"
   aria-label="Settings"
   title="Settings"
 >
@@ -578,7 +586,7 @@ export default function Topbar({ onToggleSidebar }: TopbarProps) {
               <button
                 type="button"
                 onClick={toggleNotifications}
-                className={`relative inline-flex h-10 w-10 items-center justify-center rounded-full ${SURFACE_CLASS} text-[#27346D] shadow-sm hover:bg-[#ebe6ff]`}
+                className="relative inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[#EEF1FA] text-[#2E3F7D] shadow-sm transition active:scale-95 md:rounded-full md:bg-[#f5f3ff] md:text-[#27346D] md:hover:bg-[#ebe6ff]"
               >
                 <Bell className="h-4 w-4" />
                 {unreadCount > 0 && (
@@ -678,130 +686,59 @@ export default function Topbar({ onToggleSidebar }: TopbarProps) {
               )}
             </div>
 
-            <div className="relative z-[70]" ref={accountRef}>
-              <button
-                onClick={toggleAccountMenu}
-                className={`flex items-center gap-1 rounded-full border border-indigo-300/50 ${SURFACE_CLASS} px-1.5 py-1.5 text-xs text-[#27346D] shadow-sm hover:bg-[#ebe6ff] sm:px-2`}
-              >
-                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-[#A05AFF] to-[#4BCBEB] text-xs font-bold text-white shadow-md shadow-[#141936]">
-                  {initials}
-                </div>
-                <ChevronDown
-                  className={`hidden h-4 w-4 text-[#4f5cc7] transition sm:block ${
-                    accountOpen ? "rotate-180" : ""
-                  }`}
-                />
-              </button>
-
-              {accountOpen && (
-                <div className="absolute right-0 top-full mt-2 w-[18rem] max-w-[calc(100vw-1rem)] overflow-hidden rounded-2xl border border-slate-200 bg-white text-sm text-slate-900 shadow-2xl shadow-slate-300">
-                  <div className="flex items-center gap-2 border-b border-slate-100 bg-[#f9f7ff] px-3 py-3">
-                    <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-[#A05AFF] to-[#4BCBEB] text-xs font-bold text-white shadow-md shadow-[#e5d4ff]">
-                      {initials}
-                    </div>
-                    <div className="min-w-0">
-                      <div className="text-sm font-semibold text-slate-900">
-                        Your Store
-                      </div>
-                      <div className="truncate text-[11px] text-slate-500">
-                        {normalizedStore || "yourstore.letzshopy.in"}
-                      </div>
-                      {loginEmail && (
-                        <div className="truncate text-[11px] text-slate-500">
-                          {loginEmail}
-                        </div>
-                      )}
-                      <div className="mt-1 text-[11px] font-medium text-indigo-600">
-                        Subscription: {statusLabel(subStatus)}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="py-1">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setAccountOpen(false);
-                        window.location.href = "/settings?tab=profile";
-                      }}
-                      className="block w-full px-3 py-3 text-left text-slate-800 hover:bg-[#f6f1ff]"
-                    >
-                      <div className="text-[15px]">
-                        Store Profile &amp; Settings
-                      </div>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setAccountOpen(false);
-                        window.location.href = "/billing/subscription";
-                      }}
-                      className="block w-full px-3 py-3 text-left hover:bg-[#f6f1ff]"
-                    >
-                      <div className="text-[15px]">Subscription</div>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setAccountOpen(false);
-                        window.location.href = "/subscription-bills";
-                      }}
-                      className="block w-full px-3 py-3 text-left hover:bg-[#f6f1ff]"
-                    >
-                      <div className="text-[15px]">Subscription Invoices</div>
-                    </button>
-
-                    <hr className="my-1 border-slate-100" />
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setAccountOpen(false);
-                        window.location.href = "/support/tickets";
-                      }}
-                      className="block w-full px-3 py-3 text-left hover:bg-[#f6f1ff]"
-                    >
-                      <div className="text-[15px]">Help Desk</div>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setAccountOpen(false);
-                        window.location.href = "/settings?tab=account";
-                      }}
-                      className="block w-full px-3 py-3 text-left hover:bg-[#f6f1ff]"
-                    >
-                      <div className="text-[15px]">Account &amp; Security</div>
-                    </button>
-
-                    <hr className="my-1 border-slate-100" />
-
-                    <button
-                      className="block w-full px-3 py-3 text-left text-[15px] text-rose-600 hover:bg-rose-50"
-                      onClick={async () => {
-                        setAccountOpen(false);
-                        try {
-                          await fetch("/api/auth/logout", { method: "POST" });
-                        } catch (e) {
-                          console.error(e);
-                        }
-                        window.location.href = "/signin";
-                      }}
-                    >
-                      Logout
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
+            <DashboardAccountMenu
+              open={accountOpen}
+              onOpenChange={setAccountOpen}
+              onBeforeOpen={() => {
+                setNotificationsOpen(false);
+                setMobileSearchOpen(false);
+                setShowSearchDropdown(false);
+              }}
+              context="dashboard"
+              storeUrl={storeUrl}
+              loginEmail={loginEmail}
+            />
           </div>
         </div>
 
-        <div className="relative z-10 border-t border-white/10 px-3 pb-3 pt-2 md:hidden">
+        <div
+          className={[
+            "relative z-10 border-t border-white/10 px-3 pb-3 pt-2 md:hidden",
+            mobileSearchOpen ? "block" : "hidden",
+          ].join(" ")}
+        >
   <div className="relative" ref={mobileSearchRef}>
+    <div className="mb-2 grid grid-cols-2 rounded-2xl bg-white/10 p-1">
+      <button
+        type="button"
+        onClick={() => setSearchScope("products")}
+        aria-label="Search products"
+        aria-pressed={searchScope === "products"}
+        className={[
+          "min-h-10 rounded-xl px-3 text-sm font-semibold transition",
+          searchScope === "products"
+            ? "bg-white text-[#2E3F7D] shadow-sm"
+            : "text-white/75",
+        ].join(" ")}
+      >
+        Products
+      </button>
+
+      <button
+        type="button"
+        onClick={() => setSearchScope("orders")}
+        aria-label="Search orders"
+        aria-pressed={searchScope === "orders"}
+        className={[
+          "min-h-10 rounded-xl px-3 text-sm font-semibold transition",
+          searchScope === "orders"
+            ? "bg-white text-[#2E3F7D] shadow-sm"
+            : "text-white/75",
+        ].join(" ")}
+      >
+        Orders
+      </button>
+    </div>
     <form onSubmit={handleSearchSubmit}>
       <div className="flex h-12 items-center rounded-full border border-white/15 bg-white/95 px-3 shadow-sm">
         <SearchIcon className="h-5 w-5 shrink-0 text-[#7B3EF3]" />
@@ -816,30 +753,9 @@ export default function Topbar({ onToggleSidebar }: TopbarProps) {
         {isSearching ? (
           <Loader2 className="mr-2 h-4 w-4 shrink-0 animate-spin text-[#7B3EF3]" />
         ) : null}
-
-        <div className="relative shrink-0">
-          <select
-            value={searchScope}
-            onChange={(e) => setSearchScope(e.target.value as SearchScope)}
-            className="h-9 w-9 cursor-pointer appearance-none rounded-full border-0 bg-[#eef2ff] text-transparent outline-none focus:ring-2 focus:ring-[#A05AFF]/40"
-            aria-label="Choose search type"
-          >
-            <option value="products">Products</option>
-            <option value="orders">Orders</option>
-
-          </select>
-
-          <ChevronDown className="pointer-events-none absolute left-1/2 top-1/2 h-4 w-4 -translate-x-1/2 -translate-y-1/2 text-[#27346D]" />
-        </div>
       </div>
     </form>
-
-    <div className="mt-1 text-center text-[11px] font-medium text-indigo-100/80">
-      Searching in{" "}
-      {searchScope === "orders" ? "Orders" : "Products"}
-    </div>
-
-    {searchDropdown}
+{searchDropdown}
   </div>
 </div>
       </div>
