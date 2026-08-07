@@ -11,7 +11,7 @@ export type SessionStore = {
   blog_id: number;
   store_name: string;
   store_url: string;
-  store_type: SessionStoreType;
+  store_type?: SessionStoreType;
 };
 
 export type SessionPayload = {
