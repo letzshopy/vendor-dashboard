@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   DollarSign,
   Package,
@@ -108,7 +108,7 @@ export default function GeneralTab() {
     null | { type: "success" | "error"; message: string }
   >(null);
 
-  const snapshotRef = useRef<string | null>(null);
+  const [savedSnap, setSavedSnap] = useState<string | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -135,7 +135,7 @@ export default function GeneralTab() {
         };
 
         setP(normalized);
-        snapshotRef.current = JSON.stringify(normalized);
+        setSavedSnap(JSON.stringify(normalized));
       } catch (e: any) {
         setLoadErr(e?.message || "Failed to load settings.");
       } finally {
@@ -146,10 +146,43 @@ export default function GeneralTab() {
 
   const currentSnap = useMemo(() => (p ? JSON.stringify(p) : null), [p]);
 
+  function normalizedText(value: string) {
+    return value
+      .replace(/\r\n/g, "\n")
+      .split("\n")
+      .map((line) => line.trimEnd())
+      .join("\n")
+      .trim();
+  }
+
+  function sameProducts(
+    expected: ProductsGeneral,
+    actual: ProductsGeneral
+  ) {
+    return (
+      expected.currency === actual.currency &&
+      Number(expected.priceDecimals) === Number(actual.priceDecimals) &&
+      expected.weightUnit === actual.weightUnit &&
+      expected.dimensionUnit === actual.dimensionUnit &&
+      expected.reviewsEnabled === actual.reviewsEnabled &&
+      expected.manageStock === actual.manageStock &&
+      expected.notifyLowStock === actual.notifyLowStock &&
+      expected.notifyNoStock === actual.notifyNoStock &&
+      normalizedText(expected.stockEmailRecipient) ===
+        normalizedText(actual.stockEmailRecipient) &&
+      Number(expected.lowStockThreshold) === Number(actual.lowStockThreshold) &&
+      expected.hideOutOfStock === actual.hideOutOfStock &&
+      expected.stockDisplayFormat === actual.stockDisplayFormat &&
+      normalizedText(expected.packslipReturnAddress) ===
+        normalizedText(actual.packslipReturnAddress) &&
+      expected.packslipShowReturn === actual.packslipShowReturn
+    );
+  }
+
   const isDirty = useMemo(() => {
-    if (!snapshotRef.current || !currentSnap) return false;
-    return snapshotRef.current !== currentSnap;
-  }, [currentSnap]);
+    if (!savedSnap || !currentSnap) return false;
+    return savedSnap !== currentSnap;
+  }, [currentSnap, savedSnap]);
 
   useEffect(() => {
     const onBeforeUnload = (e: BeforeUnloadEvent) => {
@@ -244,14 +277,47 @@ export default function GeneralTab() {
       return;
     }
 
-    const updated: ProductsGeneral = j?.products || p;
+    const verifyRes = await fetch("/api/settings/general", {
+      cache: "no-store",
+    });
 
-    setP(updated);
-    snapshotRef.current = JSON.stringify(updated);
+    if (!verifyRes.ok) {
+      throw new Error("Could not verify saved general settings.");
+    }
+
+    const verifyText = await verifyRes.text();
+    const verifyJson = verifyText ? JSON.parse(verifyText) : {};
+
+    if (!verifyJson?.products) {
+      throw new Error("Saved general settings could not be verified.");
+    }
+
+    const persisted = verifyJson.products as ProductsGeneral & {
+      packslipReturnAddress?: string;
+      packslipShowReturn?: boolean;
+    };
+
+    const verified: ProductsGeneral = {
+      ...persisted,
+      packslipReturnAddress: persisted.packslipReturnAddress || "",
+      packslipShowReturn: !!persisted.packslipShowReturn,
+    };
+
+    if (!sameProducts(p, verified)) {
+      setBanner({
+        type: "error",
+        message:
+          "The store returned different General Settings after save. Your edits are still marked unsaved.",
+      });
+      return;
+    }
+
+    setP(verified);
+    setSavedSnap(JSON.stringify(verified));
 
     setBanner({
       type: "success",
-      message: "General settings saved & synced to store.",
+      message: "General settings saved & verified.",
     });
 
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -480,33 +546,90 @@ export default function GeneralTab() {
 
         <SectionCard
           icon={<Printer className="h-5 w-5" />}
-          title="Pack slips"
-          description="Control the From / Return address printed on your pack slips."
+          title="Packing slip sender address"
+          description="Choose which From / Return address appears at the bottom of downloaded packing slips."
         >
-          <Field label="From / Return address">
-            <textarea
-              className={textareaClass + " whitespace-pre-wrap"}
-              rows={4}
-              placeholder="Your address"
-              value={p.packslipReturnAddress}
-              onChange={(e) => setField("packslipReturnAddress", e.target.value)}
-            />
-          </Field>
+          <div className="space-y-3">
+            <label
+              className={
+                "flex cursor-pointer items-start gap-3 rounded-2xl border p-4 transition " +
+                (!p.packslipShowReturn
+                  ? "border-[#B9C3E6] bg-[#F5F7FC]"
+                  : "border-slate-200 bg-white hover:bg-slate-50")
+              }
+            >
+              <input
+                type="radio"
+                name="packslip-address-source"
+                className="mt-0.5 h-4 w-4 border-slate-300 text-[#2E3F7D] focus:ring-[#E85D4A]"
+                checked={!p.packslipShowReturn}
+                onChange={() => setField("packslipShowReturn", false)}
+              />
 
-          <p className="text-xs text-slate-500">
-            This address is printed on the bottom of each pack slip as the return
-            or from address.
+              <div className="min-w-0">
+                <div className="text-sm font-semibold text-slate-900">
+                  Use Store Profile address
+                </div>
+                <p className="mt-1 text-xs leading-5 text-slate-500">
+                  Recommended. The business address saved in Settings → Profile
+                  is used automatically as the From / Return address.
+                </p>
+              </div>
+            </label>
+
+            <label
+              className={
+                "flex cursor-pointer items-start gap-3 rounded-2xl border p-4 transition " +
+                (p.packslipShowReturn
+                  ? "border-[#F2B5AA] bg-[#FFF7F5]"
+                  : "border-slate-200 bg-white hover:bg-slate-50")
+              }
+            >
+              <input
+                type="radio"
+                name="packslip-address-source"
+                className="mt-0.5 h-4 w-4 border-slate-300 text-[#E85D4A] focus:ring-[#E85D4A]"
+                checked={p.packslipShowReturn}
+                onChange={() => setField("packslipShowReturn", true)}
+              />
+
+              <div className="min-w-0">
+                <div className="text-sm font-semibold text-slate-900">
+                  Use a different return address
+                </div>
+                <p className="mt-1 text-xs leading-5 text-slate-500">
+                  Choose this only when parcels should be returned to a different
+                  address from the Store Profile address.
+                </p>
+              </div>
+            </label>
+          </div>
+
+          {p.packslipShowReturn ? (
+            <Field label="Custom From / Return address">
+              <textarea
+                className={textareaClass + " whitespace-pre-wrap"}
+                rows={4}
+                placeholder={"Business / contact name\nAddress line 1\nCity, State, PIN\nMobile"}
+                value={p.packslipReturnAddress}
+                onChange={(e) =>
+                  setField("packslipReturnAddress", e.target.value)
+                }
+              />
+            </Field>
+          ) : (
+            <div className="rounded-2xl border border-[#E1E5EF] bg-[#F8F9FC] px-4 py-3 text-xs leading-5 text-slate-600">
+              <span className="font-semibold text-[#2E3F7D]">
+                Store Profile address selected.
+              </span>{" "}
+              No separate packing-slip address needs to be maintained here.
+            </div>
+          )}
+
+          <p className="text-xs leading-5 text-slate-500">
+            This sender address is printed at the bottom of each packing slip.
+            Customer Shipping Address and Mobile remain at the top.
           </p>
-
-          <label className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50/70 px-4 py-3 text-sm text-slate-800">
-            <input
-              type="checkbox"
-              className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
-              checked={p.packslipShowReturn}
-              onChange={(e) => setField("packslipShowReturn", e.target.checked)}
-            />
-            <span>Show return address on pack slips</span>
-          </label>
         </SectionCard>
 
         <div className="sticky bottom-3 z-10 md:bottom-4">

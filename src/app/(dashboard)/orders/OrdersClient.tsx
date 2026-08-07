@@ -394,6 +394,7 @@ export default function OrdersClient({
 }: OrdersClientProps) {
   const [selected, setSelected] = useState<number[]>([]);
   const [action, setAction] = useState<string>("");
+  const [packSlipBusy, setPackSlipBusy] = useState(false);
 
   const [rowsPerPage, setRowsPerPage] = useState(25);
   const [page, setPage] = useState(1);
@@ -456,13 +457,23 @@ export default function OrdersClient({
     location.reload();
   }
 
-  function printPackSlips() {
+  async function downloadPackSlips() {
     if (selected.length === 0) {
-      alert("Select at least one order to print pack slips.");
+      alert("Select at least one order to download packing slips.");
       return;
     }
-    const ids = selected.join(",");
-    window.open(`/orders/packslips?ids=${encodeURIComponent(ids)}`, "_blank");
+
+    setPackSlipBusy(true);
+
+    try {
+      const mod = await import("./ui/PackingSlipPdfClient");
+      await mod.default.generateForOrders(selected, storeName);
+    } catch (error) {
+      console.error(error);
+      alert("Failed to download packing slip PDF.");
+    } finally {
+      setPackSlipBusy(false);
+    }
   }
 
   async function moveOneToTrash(orderId: number) {
@@ -523,10 +534,12 @@ export default function OrdersClient({
             </button>
 
             <button
-              onClick={printPackSlips}
-              className="inline-flex h-11 items-center justify-center rounded-2xl border border-slate-200 bg-white px-5 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50"
+              type="button"
+              onClick={downloadPackSlips}
+              disabled={packSlipBusy}
+              className="inline-flex h-11 items-center justify-center rounded-2xl border border-slate-200 bg-white px-5 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              Print Pack Slips
+              {packSlipBusy ? "Preparing PDF..." : "Download Pack Slips"}
             </button>
 
             <OrdersExportButton categories={categories} />
