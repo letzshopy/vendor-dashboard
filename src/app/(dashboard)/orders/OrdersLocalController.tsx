@@ -1,9 +1,9 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import OrdersClient from "./OrdersClient";
 import { STATUS_LABEL, WCOrder } from "@/lib/order-utils";
-import { SlidersHorizontal } from "lucide-react";
+import { ChevronRight, SlidersHorizontal } from "lucide-react";
 
 type Category = { id: number; name: string; parent: number };
 
@@ -38,6 +38,7 @@ export default function OrdersLocalController({
   const [to, setTo] = useState<string>("");
   const [s, setS] = useState<string>("");
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const statusRailRef = useRef<HTMLDivElement | null>(null);
 
   const [filtersVersion, setFiltersVersion] = useState(0);
   const [searchVersion, setSearchVersion] = useState(0);
@@ -126,9 +127,12 @@ export default function OrdersLocalController({
     <div className="space-y-4">
       <section
         aria-label="Order status"
-        className="-mx-3 md:mx-0"
+        className="relative -mx-3 md:mx-0"
       >
-        <div className="flex gap-2 overflow-x-auto px-3 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:flex-wrap md:px-0">
+        <div
+          ref={statusRailRef}
+          className="flex gap-2 overflow-x-auto px-3 pb-1 pr-14 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:flex-wrap md:px-0 md:pr-0"
+        >
           {STATUS_TABS.map((tab) => {
             const active = status === tab.key;
             const count = statusCounts[tab.key] || 0;
@@ -163,6 +167,22 @@ export default function OrdersLocalController({
               </button>
             );
           })}
+        </div>
+
+        <div className="pointer-events-none absolute inset-y-0 right-0 flex w-14 items-center justify-end bg-gradient-to-l from-white via-white/95 to-transparent pr-2 md:hidden">
+          <button
+            type="button"
+            aria-label="Scroll order statuses"
+            onClick={() =>
+              statusRailRef.current?.scrollBy({
+                left: 180,
+                behavior: "smooth",
+              })
+            }
+            className="pointer-events-auto inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-white text-[#5366B7] shadow-md"
+          >
+            <ChevronRight className="h-4 w-4" />
+          </button>
         </div>
       </section>
       <section className="space-y-3">

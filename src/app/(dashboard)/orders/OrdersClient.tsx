@@ -395,6 +395,10 @@ export default function OrdersClient({
   const [selected, setSelected] = useState<number[]>([]);
   const [action, setAction] = useState<string>("");
   const [packSlipBusy, setPackSlipBusy] = useState(false);
+  const [previewImage, setPreviewImage] = useState<{
+    src: string;
+    alt: string;
+  } | null>(null);
 
   const [rowsPerPage, setRowsPerPage] = useState(25);
   const [page, setPage] = useState(1);
@@ -680,11 +684,25 @@ export default function OrdersClient({
 
                           <div className="mt-3 flex min-w-0 gap-3">
                             {img ? (
-                              <img
-                                src={img}
-                                alt=""
-                                className="h-[68px] w-[68px] shrink-0 rounded-[14px] border border-slate-100 object-cover"
-                              />
+                              <button
+                                type="button"
+                                aria-label={`Preview ${first?.name || "ordered product"}`}
+                                onClick={() =>
+                                  setPreviewImage({
+                                    src: img,
+                                    alt:
+                                      first?.name ||
+                                      `Order ${o.number || o.id} product`,
+                                  })
+                                }
+                                className="h-[68px] w-[68px] shrink-0 overflow-hidden rounded-[14px] border border-slate-100 bg-slate-50"
+                              >
+                                <img
+                                  src={img}
+                                  alt=""
+                                  className="h-full w-full object-cover"
+                                />
+                              </button>
                             ) : (
                               <div className="grid h-[68px] w-[68px] shrink-0 place-items-center rounded-[14px] border border-dashed border-slate-200 bg-slate-50 text-[10px] font-medium text-slate-400">
                                 No image
@@ -953,6 +971,42 @@ export default function OrdersClient({
           </div>
         )}
       </section>
+
+      {previewImage ? (
+        <div
+          className="fixed inset-0 z-[130] flex items-center justify-center bg-slate-950/80 p-4 backdrop-blur-sm"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Product image preview"
+          onClick={() => setPreviewImage(null)}
+        >
+          <div
+            className="relative flex max-h-[88dvh] w-full max-w-lg flex-col overflow-hidden rounded-[24px] bg-white shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              type="button"
+              aria-label="Close image preview"
+              onClick={() => setPreviewImage(null)}
+              className="absolute right-3 top-3 z-10 inline-flex h-10 w-10 items-center justify-center rounded-full bg-white/95 text-slate-700 shadow-md"
+            >
+              <X className="h-5 w-5" />
+            </button>
+
+            <div className="flex min-h-0 flex-1 items-center justify-center bg-slate-100 p-3">
+              <img
+                src={previewImage.src}
+                alt={previewImage.alt}
+                className="max-h-[76dvh] w-auto max-w-full rounded-[16px] object-contain"
+              />
+            </div>
+
+            <div className="border-t border-slate-100 bg-white px-4 py-3 text-center text-xs font-semibold text-slate-600">
+              {previewImage.alt}
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
