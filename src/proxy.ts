@@ -322,53 +322,11 @@ async function getOnboardingStatus(
 }
 
 async function getAgreementAccepted(
-  req: NextRequest,
-  session: SessionPayload
+  _req: NextRequest,
+  _session: SessionPayload
 ): Promise<boolean> {
-  if (session.saas_role !== "store_owner") {
-    return true;
-  }
-
-  try {
-    const statusUrl = req.nextUrl.clone();
-
-    statusUrl.pathname =
-      "/api/account/agreement-status";
-    statusUrl.search = "";
-
-    const response = await fetch(
-      statusUrl.toString(),
-      {
-        headers: {
-          cookie:
-            req.headers.get("cookie") ||
-            "",
-        },
-        cache: "no-store",
-      }
-    );
-
-    if (!response.ok) {
-      return false;
-    }
-
-    const parsed: unknown = await response
-      .json()
-      .catch(() => null);
-
-    if (!isRecord(parsed)) {
-      return false;
-    }
-
-    const legal = parsed.legal;
-
-    return (
-      isRecord(legal) &&
-      legal.vendorAgreementAccepted === true
-    );
-  } catch {
-    return false;
-  }
+  // Temporarily disabled globally.
+  return true;
 }
 
 export async function proxy(req: NextRequest) {
