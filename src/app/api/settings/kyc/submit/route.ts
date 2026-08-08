@@ -1,3 +1,4 @@
+import { requireStoreFeature } from "@/lib/storeCapabilityServer";
 import {
   NextResponse,
   type NextRequest,
@@ -28,6 +29,9 @@ function isRecord(value: unknown): value is JsonRecord {
 export async function POST(
   request: NextRequest
 ) {
+  const storeFeatureError = await requireStoreFeature("kyc");
+  if (storeFeatureError) return storeFeatureError;
+
   try {
     if (!INTERNAL_TOKEN) {
       return NextResponse.json(

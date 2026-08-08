@@ -1,5 +1,6 @@
+import { assertStoreFeatureAvailable } from "@/lib/storeCapabilityServer";
 // src/lib/saleEventsApi.ts
-import { getWpBaseUrl } from "@/lib/wpClient";
+import { getWpBaseUrl, getStoreInternalAuthHeader } from "@/lib/wpClient";
 import { getWooClient } from "@/lib/woo";
 
 export type SaleEventStatus = "scheduled" | "live" | "closed";
@@ -62,20 +63,15 @@ export type SaleEventPayload = {
   promotional_copy: string;
 };
 
-function getSaleEventAuthHeaders(): Record<string, string> {
-  const token = process.env.LETZ_INTERNAL_TOKEN;
-
-  if (!token) {
-    throw new Error("Missing LETZ_INTERNAL_TOKEN in dashboard env");
-  }
-
+async function getSaleEventAuthHeaders(): Promise<Record<string, string>> {
   return {
-    "X-Letz-Auth": token,
+    ...(await getStoreInternalAuthHeader()),
     Accept: "application/json",
   };
 }
 
 async function vendorWpBase() {
+  await assertStoreFeatureAvailable("sale_events");
   const base = await getWpBaseUrl();
   return base.replace(/\/$/, "");
 }
@@ -139,7 +135,7 @@ export async function fetchSaleEvents(): Promise<SaleEvent[]> {
   try {
     const base = await vendorWpBase();
     const res = await fetch(`${base}/wp-json/letz/v1/sale-events`, {
-      headers: getSaleEventAuthHeaders(),
+      headers: await getSaleEventAuthHeaders(),
       cache: "no-store",
     });
 
@@ -169,7 +165,7 @@ export async function fetchSaleEvent(
   try {
     const base = await vendorWpBase();
     const res = await fetch(`${base}/wp-json/letz/v1/sale-events/${id}`, {
-      headers: getSaleEventAuthHeaders(),
+      headers: await getSaleEventAuthHeaders(),
       cache: "no-store",
     });
 
@@ -201,7 +197,7 @@ export async function createSaleEvent(
   const res = await fetch(`${base}/wp-json/letz/v1/sale-events`, {
     method: "POST",
     headers: {
-      ...getSaleEventAuthHeaders(),
+      ...(await getSaleEventAuthHeaders()),
       "Content-Type": "application/json",
     },
     body: JSON.stringify(payload),
@@ -231,7 +227,7 @@ export async function updateSaleEvent(
   const res = await fetch(`${base}/wp-json/letz/v1/sale-events/${id}`, {
     method: "PATCH",
     headers: {
-      ...getSaleEventAuthHeaders(),
+      ...(await getSaleEventAuthHeaders()),
       "Content-Type": "application/json",
     },
     body: JSON.stringify(payload),
@@ -257,7 +253,7 @@ export async function deleteSaleEvent(id: string | number) {
 
   const res = await fetch(`${base}/wp-json/letz/v1/sale-events/${id}`, {
     method: "DELETE",
-    headers: getSaleEventAuthHeaders(),
+    headers: await getSaleEventAuthHeaders(),
     cache: "no-store",
   });
 

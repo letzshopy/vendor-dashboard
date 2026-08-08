@@ -1,3 +1,5 @@
+import { isStandaloneV1DashboardPathAllowed } from "@/lib/storeCapabilities";
+import { getTenantFromCookies } from "@/lib/tenant";
 import Link from "next/link";
 import {
   ArrowRight,
@@ -36,7 +38,16 @@ const OFFER_TOOLS = [
   },
 ];
 
-export default function OffersDiscountsPage() {
+export default async function OffersDiscountsPage() {
+  const tenant = await getTenantFromCookies();
+  const storeType = tenant?.store_type || "multisite";
+  const visibleOfferTools = OFFER_TOOLS.filter((tool) =>
+    isStandaloneV1DashboardPathAllowed(
+      storeType,
+      tool.href
+    )
+  );
+
   return (
     <main className="mx-auto w-full min-w-0 max-w-7xl px-3 pb-28 pt-4 md:px-4 md:pb-8 md:pt-5">
       <section className="rounded-[30px] border border-white/80 bg-gradient-to-br from-white via-[#faf6ff] to-[#eef7ff] p-4 shadow-[0_14px_40px_rgba(15,23,42,0.06)] md:p-5">
@@ -56,7 +67,7 @@ export default function OffersDiscountsPage() {
       </section>
 
       <section className="mt-5 grid gap-4 lg:grid-cols-3">
-        {OFFER_TOOLS.map((tool) => {
+        {visibleOfferTools.map((tool) => {
           const Icon = tool.icon;
 
           return (

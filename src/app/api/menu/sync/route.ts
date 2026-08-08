@@ -1,3 +1,4 @@
+import { requireStoreFeature } from "@/lib/storeCapabilityServer";
 import {
   NextRequest,
   NextResponse,
@@ -53,6 +54,9 @@ async function responseJson(
 export async function GET(
   request: NextRequest
 ) {
+  const storeFeatureError = await requireStoreFeature("menu");
+  if (storeFeatureError) return storeFeatureError;
+
   try {
     const query = new URLSearchParams();
     const source =
@@ -135,6 +139,9 @@ export async function GET(
 export async function POST(
   request: NextRequest
 ) {
+  const storeFeatureError = await requireStoreFeature("menu");
+  if (storeFeatureError) return storeFeatureError;
+
   const contentLength = Number(
     request.headers.get("content-length") ||
       "0"

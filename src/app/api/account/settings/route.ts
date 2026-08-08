@@ -1,10 +1,12 @@
 import { NextResponse } from "next/server";
-import {
-  fetchInternalWp,
-} from "@/lib/wpClient";
+
+import { requireStoreFeature } from "@/lib/storeCapabilityServer";
 import {
   getTenantFromCookies,
 } from "@/lib/tenant";
+import {
+  fetchInternalWp,
+} from "@/lib/wpClient";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -156,6 +158,15 @@ function privateJson(
 }
 
 export async function GET() {
+  const storeFeatureError =
+    await requireStoreFeature(
+      "account_mutation"
+    );
+
+  if (storeFeatureError) {
+    return storeFeatureError;
+  }
+
   try {
     const response = await fetchInternalWp(
       "/wp-json/letz/v1/account-settings",
@@ -213,6 +224,15 @@ export async function GET() {
 }
 
 export async function PUT(request: Request) {
+  const storeFeatureError =
+    await requireStoreFeature(
+      "account_mutation"
+    );
+
+  if (storeFeatureError) {
+    return storeFeatureError;
+  }
+
   const contentLength = Number(
     request.headers.get("content-length") ||
       "0"

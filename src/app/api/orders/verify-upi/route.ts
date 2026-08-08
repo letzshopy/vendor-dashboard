@@ -1,3 +1,4 @@
+import { requireStoreFeature } from "@/lib/storeCapabilityServer";
 import { fetchInternalWp } from "@/lib/wpClient";
 import {
   isRecord,
@@ -9,8 +10,13 @@ import {
   requestErrorResponse,
 } from "@/lib/orderPolicy";
 
-function safeRuntimeMessage(value: unknown): string | null {
-  if (!isRecord(value) || typeof value.message !== "string") {
+function safeRuntimeMessage(
+  value: unknown
+): string | null {
+  if (
+    !isRecord(value) ||
+    typeof value.message !== "string"
+  ) {
     return null;
   }
 
@@ -27,27 +33,47 @@ function safeRuntimeMessage(value: unknown): string | null {
 }
 
 export async function POST(request: Request) {
+  const storeFeatureError =
+    await requireStoreFeature("upi");
+
+  if (storeFeatureError) {
+    return storeFeatureError;
+  }
+
   try {
-    const body = await readJsonObject(request, 8 * 1024);
-    const orderId = parseOrderId(body.orderId);
+    const body = await readJsonObject(
+      request,
+      8 * 1024
+    );
+
+    const orderId = parseOrderId(
+      body.orderId
+    );
+
     const response = await fetchInternalWp(
       `/wp-json/letz/v1/orders/${orderId}/verify-upi`,
       {
         method: "POST",
         headers: {
-          "Content-Type": "application/json",
+          "Content-Type":
+            "application/json",
         },
         body: JSON.stringify({}),
       }
     );
-    const result: unknown = await response
-      .json()
-      .catch(() => null);
+
+    const result: unknown =
+      await response
+        .json()
+        .catch(() => null);
 
     if (!response.ok) {
-      const status = [400, 404, 409].includes(response.status)
-        ? response.status
-        : 502;
+      const status =
+        [400, 404, 409].includes(
+          response.status
+        )
+          ? response.status
+          : 502;
 
       return privateJson(
         {
@@ -60,8 +86,13 @@ export async function POST(request: Request) {
       );
     }
 
-    if (!isRecord(result) || result.ok !== true) {
-      throw new Error("Unexpected payment verification response");
+    if (
+      !isRecord(result) ||
+      result.ok !== true
+    ) {
+      throw new Error(
+        "Unexpected payment verification response"
+      );
     }
 
     return privateJson({
@@ -73,7 +104,11 @@ export async function POST(request: Request) {
           : "processing",
     });
   } catch (error) {
-    logOrderError("verify-upi", error);
+    logOrderError(
+      "verify-upi",
+      error
+    );
+
     return requestErrorResponse(
       error,
       "Payment verification failed."

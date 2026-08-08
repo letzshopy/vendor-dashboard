@@ -1,3 +1,4 @@
+import { requireStoreFeature } from "@/lib/storeCapabilityServer";
 import { getWooClient } from "@/lib/woo";
 import {
   isRecord,
@@ -245,6 +246,9 @@ export async function GET(
   _request: Request,
   context: RouteContext
 ) {
+  const storeFeatureError = await requireStoreFeature("variation_galleries");
+  if (storeFeatureError) return storeFeatureError;
+
   try {
     const { id } = await context.params;
     const productId = parseProductId(id);
@@ -288,6 +292,9 @@ export async function POST(
   request: Request,
   context: RouteContext
 ) {
+  const storeFeatureError = await requireStoreFeature("variation_galleries");
+  if (storeFeatureError) return storeFeatureError;
+
   try {
     const { id } = await context.params;
     const productId = parseProductId(id);

@@ -8,12 +8,13 @@ import {
   mediaScopeForPurpose,
   type MediaPurpose,
 } from "@/lib/mediaPolicy";
-import { getWpBaseUrl } from "@/lib/wpClient";
-
+import {
+  getStoreInternalAuthHeader,
+  getWpBaseUrl,
+} from "@/lib/wpClient";
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
-const INTERNAL_TOKEN = process.env.LETZ_INTERNAL_TOKEN || "";
 const MAX_UPLOAD_BYTES = 15 * 1024 * 1024;
 const MAX_REDIRECTS = 3;
 
@@ -355,7 +356,7 @@ async function uploadToWordPress({ file, purpose }: UploadInput) {
     {
       method: "POST",
       headers: {
-        "X-Letz-Auth": INTERNAL_TOKEN,
+        ...(await getStoreInternalAuthHeader()),
         Accept: "application/json",
       },
       body,
@@ -402,7 +403,7 @@ async function uploadToWordPress({ file, purpose }: UploadInput) {
       {
         method: "POST",
         headers: {
-          "X-Letz-Auth": INTERNAL_TOKEN,
+          ...(await getStoreInternalAuthHeader()),
           "Content-Type": "application/json",
           Accept: "application/json",
         },
@@ -458,19 +459,6 @@ function isClientError(message: string) {
 
 export async function POST(request: NextRequest) {
   try {
-    if (!INTERNAL_TOKEN) {
-      return NextResponse.json(
-        {
-          ok: false,
-          error: "Media service is not configured.",
-        },
-        {
-          status: 500,
-          headers: PRIVATE_HEADERS,
-        },
-      );
-    }
-
     const input = await parseUploadInput(request);
     const validationError = validateFile(input.file);
 

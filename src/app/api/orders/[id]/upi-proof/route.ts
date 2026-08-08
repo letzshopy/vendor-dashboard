@@ -1,3 +1,4 @@
+import { requireStoreFeature } from "@/lib/storeCapabilityServer";
 import { fetchInternalWp } from "@/lib/wpClient";
 import {
   logOrderError,
@@ -22,6 +23,9 @@ export async function GET(
   _request: Request,
   context: RouteContext
 ) {
+  const storeFeatureError = await requireStoreFeature("upi");
+  if (storeFeatureError) return storeFeatureError;
+
   try {
     const { id } = await context.params;
     const orderId = parseOrderId(id);

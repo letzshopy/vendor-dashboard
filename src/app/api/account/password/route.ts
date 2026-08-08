@@ -1,5 +1,7 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
+
+import { requireStoreFeature } from "@/lib/storeCapabilityServer";
 import {
   verifySessionToken,
 } from "@/lib/session";
@@ -64,6 +66,15 @@ function validatePassword(
 }
 
 export async function POST(request: Request) {
+  const storeFeatureError =
+    await requireStoreFeature(
+      "account_mutation"
+    );
+
+  if (storeFeatureError) {
+    return storeFeatureError;
+  }
+
   if (!SESSION_SIGNING_SECRET) {
     return privateJson(
       {

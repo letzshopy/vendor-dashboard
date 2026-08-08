@@ -1,3 +1,4 @@
+import { requireStoreFeature } from "@/lib/storeCapabilityServer";
 import { NextResponse } from "next/server";
 
 import { fetchInternalWp } from "@/lib/wpClient";
@@ -399,6 +400,9 @@ function gatewayEnabled(
 }
 
 export async function GET() {
+  const storeFeatureError = await requireStoreFeature("payments");
+  if (storeFeatureError) return storeFeatureError;
+
   try {
     const state =
       await getPaymentsOption();
@@ -608,11 +612,17 @@ async function handleSave(
 export async function POST(
   request: Request
 ) {
+  const storeFeatureError = await requireStoreFeature("payments");
+  if (storeFeatureError) return storeFeatureError;
+
   return handleSave(request);
 }
 
 export async function PUT(
   request: Request
 ) {
+  const storeFeatureError = await requireStoreFeature("payments");
+  if (storeFeatureError) return storeFeatureError;
+
   return handleSave(request);
 }

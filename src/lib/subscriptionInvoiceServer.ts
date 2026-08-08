@@ -1,3 +1,4 @@
+import { isCurrentStoreFeatureAllowed } from "@/lib/storeCapabilityServer";
 import "server-only";
 
 import { getWpBaseUrl } from "@/lib/wpClient";
@@ -301,6 +302,10 @@ function buildDomainInvoices(
 }
 
 export async function getBillingInvoices(): Promise<SubscriptionInvoice[]> {
+  if (!(await isCurrentStoreFeatureAllowed("subscription_billing"))) {
+    return [];
+  }
+
   const [subscription, account, domainRenewal] = await Promise.all([
     fetchInternalBillingJson<WpSubscription>(
       "/wp-json/letz/v1/subscription/status/"

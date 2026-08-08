@@ -1,3 +1,4 @@
+import { requireStoreFeature } from "@/lib/storeCapabilityServer";
 import {
   NextResponse,
   type NextRequest,
@@ -163,6 +164,9 @@ async function syncOnboarding(
 export async function POST(
   request: NextRequest
 ) {
+  const storeFeatureError = await requireStoreFeature("subscription_billing");
+  if (storeFeatureError) return storeFeatureError;
+
   try {
     if (!INTERNAL_TOKEN) {
       return NextResponse.json(

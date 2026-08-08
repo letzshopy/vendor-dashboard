@@ -1,3 +1,4 @@
+import { requireStoreFeature } from "@/lib/storeCapabilityServer";
 import { NextResponse } from "next/server";
 
 import {
@@ -64,6 +65,9 @@ async function readRequestJson(
 export async function POST(
   request: Request
 ) {
+  const storeFeatureError = await requireStoreFeature("shipping");
+  if (storeFeatureError) return storeFeatureError;
+
   let payload: unknown;
 
   try {

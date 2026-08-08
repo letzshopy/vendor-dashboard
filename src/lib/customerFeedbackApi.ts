@@ -1,5 +1,6 @@
+import { assertStoreFeatureAvailable } from "@/lib/storeCapabilityServer";
 // src/lib/customerFeedbackApi.ts
-import { getWpBaseUrl } from "@/lib/wpClient";
+import { getWpBaseUrl, getStoreInternalAuthHeader } from "@/lib/wpClient";
 import { getWooClient } from "@/lib/woo";
 
 export type CustomerFeedbackStatus = "show" | "hide";
@@ -30,20 +31,15 @@ export type FeedbackOrderOption = {
   date_created: string;
 };
 
-function getFeedbackAuthHeaders(): Record<string, string> {
-  const token = process.env.LETZ_INTERNAL_TOKEN;
-
-  if (!token) {
-    throw new Error("Missing LETZ_INTERNAL_TOKEN in dashboard env");
-  }
-
+async function getFeedbackAuthHeaders(): Promise<Record<string, string>> {
   return {
-    "X-Letz-Auth": token,
+    ...(await getStoreInternalAuthHeader()),
     Accept: "application/json",
   };
 }
 
 async function vendorWpBase() {
+  await assertStoreFeatureAvailable("customer_feedback");
   const base = await getWpBaseUrl();
   return base.replace(/\/$/, "");
 }
@@ -87,7 +83,7 @@ export async function fetchCustomerFeedbackList(): Promise<CustomerFeedback[]> {
     const url = `${base}/wp-json/letz/v1/customer-feedback?per_page=100`;
 
     const res = await fetch(url, {
-      headers: getFeedbackAuthHeaders(),
+      headers: await getFeedbackAuthHeaders(),
       cache: "no-store",
     });
 
@@ -110,7 +106,7 @@ export async function fetchCustomerFeedback(id: string | number): Promise<Custom
     const url = `${base}/wp-json/letz/v1/customer-feedback/${id}`;
 
     const res = await fetch(url, {
-      headers: getFeedbackAuthHeaders(),
+      headers: await getFeedbackAuthHeaders(),
       cache: "no-store",
     });
 
@@ -141,7 +137,7 @@ export async function createCustomerFeedback(payload: {
   const res = await fetch(`${base}/wp-json/letz/v1/customer-feedback`, {
     method: "POST",
     headers: {
-      ...getFeedbackAuthHeaders(),
+      ...(await getFeedbackAuthHeaders()),
       "Content-Type": "application/json",
     },
     body: JSON.stringify(payload),
@@ -172,7 +168,7 @@ export async function updateCustomerFeedback(
   const res = await fetch(`${base}/wp-json/letz/v1/customer-feedback/${id}`, {
     method: "PATCH",
     headers: {
-      ...getFeedbackAuthHeaders(),
+      ...(await getFeedbackAuthHeaders()),
       "Content-Type": "application/json",
     },
     body: JSON.stringify(payload),
@@ -191,7 +187,7 @@ export async function deleteCustomerFeedback(id: string | number) {
 
   const res = await fetch(`${base}/wp-json/letz/v1/customer-feedback/${id}`, {
     method: "DELETE",
-    headers: getFeedbackAuthHeaders(),
+    headers: await getFeedbackAuthHeaders(),
     cache: "no-store",
   });
 
@@ -213,7 +209,7 @@ export async function uploadCustomerFeedbackImage(file: File): Promise<{
 
   const res = await fetch(`${base}/wp-json/letz/v1/customer-feedback/image`, {
     method: "POST",
-    headers: getFeedbackAuthHeaders(),
+    headers: await getFeedbackAuthHeaders(),
     body: fd,
     cache: "no-store",
   });

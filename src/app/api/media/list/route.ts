@@ -3,12 +3,12 @@ import {
   type NextRequest,
 } from "next/server";
 
-import { getWpBaseUrl } from "@/lib/wpClient";
+import {
+  getStoreInternalAuthHeader,
+  getWpBaseUrl,
+} from "@/lib/wpClient";
 
 export const dynamic = "force-dynamic";
-
-const INTERNAL_TOKEN =
-  process.env.LETZ_INTERNAL_TOKEN || "";
 
 const PRIVATE_HEADERS = {
   "Cache-Control":
@@ -29,20 +29,6 @@ export async function GET(
   request: NextRequest
 ) {
   try {
-    if (!INTERNAL_TOKEN) {
-      return NextResponse.json(
-        {
-          ok: false,
-          error:
-            "Media service is not configured.",
-        },
-        {
-          status: 500,
-          headers: PRIVATE_HEADERS,
-        }
-      );
-    }
-
     const idValue =
       request.nextUrl.searchParams
         .get("id")
@@ -127,8 +113,7 @@ export async function GET(
       `${base}/wp-json/letz/v1/media/catalog-list?${params.toString()}`,
       {
         headers: {
-          "X-Letz-Auth":
-            INTERNAL_TOKEN,
+          ...(await getStoreInternalAuthHeader()),
           Accept: "application/json",
         },
         cache: "no-store",

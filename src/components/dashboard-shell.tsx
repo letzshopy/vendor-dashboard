@@ -1,9 +1,13 @@
 "use client";
 
+import type { SessionStoreType } from "@/lib/session";
+import { isStandaloneV1DashboardPathAllowed } from "@/lib/storeCapabilities";
+
 import {
   useEffect,
   useState,
 } from "react";
+import { usePathname } from "next/navigation";
 
 import MobileBottomNav from "@/components/MobileBottomNav";
 import MobilePageHeader from "@/components/MobilePageHeader";
@@ -15,10 +19,17 @@ import SubscriptionAccessNotice from "@/components/subscription/SubscriptionAcce
 export default function DashboardShell({
   children,
   locked = false,
+  storeType = "multisite",
 }: {
   children: React.ReactNode;
   locked?: boolean;
+  storeType?: SessionStoreType;
 }) {
+  const pathname = usePathname() || "/";
+  const pathAllowed = isStandaloneV1DashboardPathAllowed(
+    storeType,
+    pathname
+  );
   const [sidebarOpen, setSidebarOpen] =
     useState(false);
 
@@ -92,13 +103,25 @@ export default function DashboardShell({
             setSidebarOpen(false)
           }
           locked={locked}
+          storeType={storeType}
         />
 
         <div className="flex min-w-0 flex-1 flex-col">
           <main className="min-w-0 flex-1 overflow-x-clip">
             <div className="dashboard-app-content flex w-full min-w-0 max-w-none flex-col gap-3 px-3 py-3 pb-28 sm:px-4 md:gap-5 md:px-5 md:py-5 md:pb-10 xl:px-6">
               <SubscriptionAccessNotice />
-              {children}
+              {pathAllowed ? (
+                children
+              ) : (
+                <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+                  <h1 className="text-xl font-semibold text-slate-900">
+                    Feature unavailable
+                  </h1>
+                  <p className="mt-2 text-sm leading-6 text-slate-600">
+                    This feature is not enabled for this standalone store yet.
+                  </p>
+                </div>
+              )}
             </div>
           </main>
 
@@ -108,6 +131,7 @@ export default function DashboardShell({
 
       <MobileBottomNav
         locked={locked}
+        storeType={storeType}
       />
     </div>
   );

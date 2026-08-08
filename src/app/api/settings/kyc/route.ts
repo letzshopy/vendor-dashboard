@@ -1,3 +1,4 @@
+import { requireStoreFeature } from "@/lib/storeCapabilityServer";
 import {
   NextResponse,
   type NextRequest,
@@ -150,6 +151,9 @@ export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 export async function GET() {
+  const storeFeatureError = await requireStoreFeature("kyc");
+  if (storeFeatureError) return storeFeatureError;
+
   try {
     if (!INTERNAL_TOKEN) {
       return serviceError(500);
@@ -214,6 +218,9 @@ export async function GET() {
 export async function POST(
   request: NextRequest
 ) {
+  const storeFeatureError = await requireStoreFeature("kyc");
+  if (storeFeatureError) return storeFeatureError;
+
   try {
     return await saveKyc(request);
   } catch (error: unknown) {
@@ -231,5 +238,8 @@ export async function POST(
 export async function PATCH(
   request: NextRequest
 ) {
+  const storeFeatureError = await requireStoreFeature("kyc");
+  if (storeFeatureError) return storeFeatureError;
+
   return POST(request);
 }

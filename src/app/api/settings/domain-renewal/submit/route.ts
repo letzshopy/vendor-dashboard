@@ -1,3 +1,4 @@
+import { requireStoreFeature } from "@/lib/storeCapabilityServer";
 import { NextResponse, type NextRequest } from "next/server";
 
 import { getWpBaseUrl } from "@/lib/wpClient";
@@ -33,6 +34,9 @@ async function readJson(response: Response): Promise<unknown> {
 }
 
 export async function POST(request: NextRequest) {
+  const storeFeatureError = await requireStoreFeature("domain_renewal");
+  if (storeFeatureError) return storeFeatureError;
+
   try {
     if (!INTERNAL_TOKEN) {
       return NextResponse.json(

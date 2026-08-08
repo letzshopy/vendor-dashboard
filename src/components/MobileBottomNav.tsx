@@ -1,5 +1,8 @@
 "use client";
 
+import type { SessionStoreType } from "@/lib/session";
+import { isStandaloneV1NavigationHrefAllowed } from "@/lib/storeCapabilities";
+
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -26,6 +29,7 @@ import {
 
 type MobileBottomNavProps = {
   locked?: boolean;
+  storeType?: SessionStoreType;
 };
 
 type NavItem = {
@@ -159,8 +163,27 @@ function BottomNavLink({
 
 export default function MobileBottomNav({
   locked = false,
+  storeType = "multisite",
 }: MobileBottomNavProps) {
   const pathname = usePathname() || "/";
+  const visibleMoreItems =
+    storeType === "standalone"
+      ? moreItems.filter((item) =>
+          isStandaloneV1NavigationHrefAllowed(
+            storeType,
+            item.href
+          )
+        )
+      : moreItems;
+  const visibleLockedItems =
+    storeType === "standalone"
+      ? lockedItems.filter((item) =>
+          isStandaloneV1NavigationHrefAllowed(
+            storeType,
+            item.href
+          )
+        )
+      : lockedItems;
   const [moreOpen, setMoreOpen] =
     useState(false);
 
@@ -189,7 +212,7 @@ export default function MobileBottomNav({
         aria-label="Restricted dashboard navigation"
         className="dashboard-mobile-bottom-nav fixed inset-x-0 bottom-0 z-[60] flex items-start justify-around border-t border-[#D9DEEC] bg-white/95 px-3 backdrop-blur-xl md:hidden"
       >
-        {lockedItems.map((item) => (
+        {visibleLockedItems.map((item) => (
           <BottomNavLink
             key={item.href}
             item={item}
@@ -212,7 +235,7 @@ export default function MobileBottomNav({
     );
 
   const moreActive =
-    moreItems.some((item) =>
+    visibleMoreItems.some((item) =>
       pathIsActive(
         pathname,
         item.href
@@ -371,7 +394,7 @@ export default function MobileBottomNav({
             </div>
 
             <div className="mt-4 grid grid-cols-2 gap-3">
-              {moreItems.map((item) => {
+              {visibleMoreItems.map((item) => {
                 const Icon = item.icon;
                 const active =
                   pathIsActive(

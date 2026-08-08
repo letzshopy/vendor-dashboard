@@ -1,3 +1,4 @@
+import { requireStoreFeature } from "@/lib/storeCapabilityServer";
 import { NextRequest, NextResponse } from "next/server";
 
 import { fetchInternalWp } from "@/lib/wpClient";
@@ -121,6 +122,9 @@ function normalizeSettings(value: unknown) {
 }
 
 export async function GET() {
+  const storeFeatureError = await requireStoreFeature("welcome_offer");
+  if (storeFeatureError) return storeFeatureError;
+
   try {
     const response = await fetchInternalWp(
       "/wp-json/letz/v1/welcome-coupon",
@@ -148,6 +152,9 @@ export async function GET() {
 }
 
 export async function PUT(request: NextRequest) {
+  const storeFeatureError = await requireStoreFeature("welcome_offer");
+  if (storeFeatureError) return storeFeatureError;
+
   try {
     const declaredLength = Number(
       request.headers.get("content-length") || 0

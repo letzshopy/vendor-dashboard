@@ -1,3 +1,4 @@
+import { requireStoreFeature } from "@/lib/storeCapabilityServer";
 import { getTenantFromCookies } from "@/lib/tenant";
 import { proxySettingsGet } from "@/lib/settingsProxy";
 
@@ -46,6 +47,9 @@ function errorResponse(
 }
 
 export async function GET() {
+  const storeFeatureError = await requireStoreFeature("profile");
+  if (storeFeatureError) return storeFeatureError;
+
   const tenant =
     await getTenantFromCookies();
 

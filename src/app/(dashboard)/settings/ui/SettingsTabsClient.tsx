@@ -1,5 +1,8 @@
 "use client";
 
+import type { SessionStoreType } from "@/lib/session";
+import { isStandaloneV1SettingsTabAllowed } from "@/lib/storeCapabilities";
+
 import type React from "react";
 import { useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -119,23 +122,44 @@ const TABS: TabDef[] = [
   },
 ];
 
-function normalizeTab(rawTab: string | null): TabId {
-  if (rawTab === "pages") return "setupSite";
-  if (TABS.some((t) => t.id === rawTab)) return rawTab as TabId;
-  return "profile";
+function normalizeTab(
+  rawTab: string | null,
+  availableTabs: TabDef[]
+): TabId {
+  const normalizedRaw = rawTab === "pages" ? "setupSite" : rawTab;
+  const matched = availableTabs.find((tab) => tab.id === normalizedRaw);
+  return matched?.id || availableTabs[0]?.id || "tax";
 }
 
-export default function SettingsTabsClient() {
+export default function SettingsTabsClient({
+  storeType = "multisite",
+}: {
+  storeType?: SessionStoreType;
+}) {
   const sp = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  const activeId = normalizeTab(sp.get("tab"));
+  const visibleTabs = useMemo(
+    () =>
+      TABS.filter((tab) =>
+        isStandaloneV1SettingsTabAllowed(
+          storeType,
+          tab.id
+        )
+      ),
+    [storeType]
+  );
+
+  const activeId = normalizeTab(sp.get("tab"), visibleTabs);
   const activeTab = useMemo(
-    () => TABS.find((t) => t.id === activeId) ?? TABS[0],
-    [activeId]
+    () =>
+      visibleTabs.find((tab) => tab.id === activeId) ??
+      visibleTabs[0] ??
+      TABS[0],
+    [activeId, visibleTabs]
   );
 
   function setTab(id: TabId) {
@@ -193,7 +217,7 @@ export default function SettingsTabsClient() {
               </div>
 
               <nav className="space-y-1 p-3">
-                {TABS.map((tab) => {
+                {visibleTabs.map((tab) => {
                   const isActive = tab.id === activeTab.id;
                   const Icon = tab.icon;
 
@@ -315,7 +339,7 @@ export default function SettingsTabsClient() {
 
           <div className="max-h-[calc(84vh-80px)] overflow-y-auto p-3">
             <div className="space-y-2">
-              {TABS.map((tab) => {
+              {visibleTabs.map((tab) => {
                 const isActive = tab.id === activeTab.id;
                 const Icon = tab.icon;
 

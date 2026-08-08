@@ -1,8 +1,10 @@
 import { NextRequest } from "next/server";
 
 import { isRecord, privateJson } from "@/lib/orderPolicy";
-import { getWpBaseUrl, wpAuthHeader } from "@/lib/wpClient";
-
+import {
+  getStoreWpAuthorizationHeader,
+  getWpBaseUrl,
+} from "@/lib/wpClient";
 export const dynamic = "force-dynamic";
 
 const MAX_SEARCH_LENGTH = 120;
@@ -66,7 +68,7 @@ export async function GET(request: NextRequest) {
       `${baseUrl}/wp-json/wp/v2/pages?${query.toString()}`,
       {
         method: "GET",
-        headers: { ...wpAuthHeader(), Accept: "application/json" },
+        headers: { ...(await getStoreWpAuthorizationHeader()), Accept: "application/json" },
         cache: "no-store",
         signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
       }

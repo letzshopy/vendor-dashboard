@@ -201,3 +201,21 @@ export function getMasterWpClient():
     timeout: 60000,
   });
 }
+
+export async function getStoreInternalAuthHeader():
+  Promise<{ "X-Letz-Auth": string }> {
+  const tenant = await getVerifiedTenant();
+
+  return {
+    "X-Letz-Auth": getStoreInternalToken(tenant),
+  };
+}
+
+export async function getStoreWpAuthorizationHeader():
+  Promise<{ Authorization: string }> {
+  const tenant = await getVerifiedTenant();
+
+  return {
+    Authorization: getStoreWpAuthorization(tenant),
+  };
+}

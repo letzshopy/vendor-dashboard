@@ -1,3 +1,4 @@
+import { requireStoreFeature } from "@/lib/storeCapabilityServer";
 import { NextResponse } from "next/server";
 
 import { getWpBaseUrl } from "@/lib/wpClient";
@@ -84,6 +85,9 @@ export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 export async function GET() {
+  const storeFeatureError = await requireStoreFeature("subscription_billing");
+  if (storeFeatureError) return storeFeatureError;
+
   try {
     if (!INTERNAL_TOKEN) {
       return NextResponse.json(

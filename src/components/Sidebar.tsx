@@ -1,5 +1,8 @@
 "use client";
 
+import type { SessionStoreType } from "@/lib/session";
+import { isStandaloneV1NavigationHrefAllowed } from "@/lib/storeCapabilities";
+
 import Image from "next/image";
 import Link from "next/link";
 import {
@@ -46,6 +49,7 @@ type SidebarProps = {
   open?: boolean;
   onClose?: () => void;
   locked?: boolean;
+  storeType?: SessionStoreType;
 };
 
 function basePath(
@@ -358,6 +362,7 @@ export default function Sidebar({
   open = false,
   onClose,
   locked = false,
+  storeType = "multisite",
 }: SidebarProps) {
   const pathname =
     usePathname() || "/";
@@ -374,16 +379,31 @@ export default function Sidebar({
     );
 
   const groups = useMemo(() => {
+    const visibleGroups =
+      storeType === "standalone"
+        ? ALL_GROUPS
+            .map((group) => ({
+              ...group,
+              items: group.items.filter((item) =>
+                isStandaloneV1NavigationHrefAllowed(
+                  storeType,
+                  item.href
+                )
+              ),
+            }))
+            .filter((group) => group.items.length > 0)
+        : ALL_GROUPS;
+
     if (!locked) {
-      return ALL_GROUPS;
+      return visibleGroups;
     }
 
-    return ALL_GROUPS.filter(
+    return visibleGroups.filter(
       (group) =>
         group.key === "settings" ||
         group.key === "billing"
     );
-  }, [locked]);
+  }, [locked, storeType]);
 
   const activeGroupKey =
     useMemo(() => {

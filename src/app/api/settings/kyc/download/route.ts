@@ -1,3 +1,4 @@
+import { requireStoreFeature } from "@/lib/storeCapabilityServer";
 import {
   NextResponse,
   type NextRequest,
@@ -24,6 +25,9 @@ function validFileKey(
 export async function GET(
   request: NextRequest
 ) {
+  const storeFeatureError = await requireStoreFeature("kyc");
+  if (storeFeatureError) return storeFeatureError;
+
   try {
     if (!INTERNAL_TOKEN) {
       return NextResponse.json(

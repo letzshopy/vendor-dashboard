@@ -1,3 +1,4 @@
+import { requireStoreFeature } from "@/lib/storeCapabilityServer";
 import { NextResponse } from "next/server";
 
 import { fetchInternalWp } from "@/lib/wpClient";
@@ -29,6 +30,9 @@ function privateJson(
 }
 
 export async function GET() {
+  const storeFeatureError = await requireStoreFeature("menu");
+  if (storeFeatureError) return storeFeatureError;
+
   try {
     const response = await fetchInternalWp(
       "/wp-json/letzshopy/v1/menus",

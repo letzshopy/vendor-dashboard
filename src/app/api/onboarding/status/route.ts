@@ -1,3 +1,4 @@
+import { requireStoreFeature } from "@/lib/storeCapabilityServer";
 import { NextResponse } from "next/server";
 
 import { getWpBaseUrl } from "@/lib/wpClient";
@@ -34,6 +35,9 @@ function textField(
 }
 
 export async function GET() {
+  const storeFeatureError = await requireStoreFeature("onboarding");
+  if (storeFeatureError) return storeFeatureError;
+
   try {
     if (!INTERNAL_TOKEN) {
       return NextResponse.json(

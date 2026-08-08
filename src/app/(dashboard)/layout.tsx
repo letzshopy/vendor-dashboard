@@ -277,7 +277,9 @@ export default async function DashboardLayout({
     getDashboardLockedFromMaster(
       authorizedStore.blog_id
     ),
-    getDashboardSubscription(cookieHeader),
+    authorizedStore.store_type === "standalone"
+      ? Promise.resolve(null)
+      : getDashboardSubscription(cookieHeader),
     requiresAgreement
       ? getVendorAgreementAccepted(cookieHeader)
       : Promise.resolve(true),
@@ -322,6 +324,7 @@ export default async function DashboardLayout({
 
           <DashboardShell
             locked={dashboardLocked}
+            storeType={authorizedStore.store_type || "multisite"}
           >
             {children}
             {showAgreementGate && (
