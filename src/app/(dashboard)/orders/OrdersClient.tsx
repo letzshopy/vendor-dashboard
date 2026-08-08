@@ -501,8 +501,8 @@ export default function OrdersClient({
 
   return (
     <div className="space-y-4">
-      <section className="overflow-hidden rounded-[26px] border border-slate-200/80 bg-white shadow-[0_10px_30px_rgba(15,23,42,0.05)]">
-        <div className="border-b border-slate-100 bg-gradient-to-r from-white via-[#faf7ff] to-[#f4fbff] px-4 py-4">
+      <section className="md:overflow-hidden md:rounded-[22px] md:border md:border-slate-200/80 md:bg-white md:shadow-[0_8px_24px_rgba(15,23,42,0.04)]">
+        <div className="hidden border-b border-slate-100 bg-slate-50/70 px-4 py-4 md:block">
           <div className="flex items-center justify-between gap-3">
             <h2 className="text-[16px] font-semibold text-slate-900">
               Order list
@@ -552,8 +552,59 @@ export default function OrdersClient({
 
         {/* Mobile list */}
         <div className="block md:hidden">
+          {selected.length > 0 ? (
+            <div className="mb-3 rounded-2xl border border-[#D9DEEC] bg-[#F5F7FF] p-2.5 shadow-sm">
+              <div className="mb-2 flex items-center justify-between gap-3">
+                <span className="text-xs font-bold text-[#405296]">
+                  {selected.length} selected
+                </span>
+
+                <button
+                  type="button"
+                  onClick={() => setSelected([])}
+                  className="text-xs font-semibold text-slate-500"
+                >
+                  Clear
+                </button>
+              </div>
+
+              <div className="flex gap-2">
+                <select
+                  value={action}
+                  onChange={(e) => setAction(e.target.value)}
+                  className="h-10 min-w-0 flex-1 rounded-xl border border-[#D9DEEC] bg-white px-3 text-xs font-semibold text-slate-700 outline-none"
+                >
+                  <option value="">Bulk action</option>
+                  <option value="trash">Move to trash</option>
+                  <option value="status:processing">Set Processing</option>
+                  <option value="status:completed">Set Completed</option>
+                  <option value="status:on-hold">Set On hold</option>
+                  <option value="status:cancelled">Set Cancelled</option>
+                </select>
+
+                <button
+                  type="button"
+                  disabled={!action}
+                  onClick={applyBulk}
+                  className="h-10 shrink-0 rounded-xl bg-[#5366B7] px-3.5 text-xs font-bold text-white disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  Apply
+                </button>
+
+                <button
+                  type="button"
+                  onClick={downloadPackSlips}
+                  disabled={packSlipBusy}
+                  className="h-10 shrink-0 rounded-xl border border-[#D9DEEC] bg-white px-3 text-xs font-bold text-[#405296] disabled:opacity-50"
+                >
+                  {packSlipBusy ? "..." : "Slip"}
+                </button>
+              </div>
+            </div>
+          ) : null}
+
           {paginatedOrders.length > 0 ? (
-            <div className="space-y-2 p-3">
+            <div className="space-y-2.5">
               {paginatedOrders.map((o) => {
                 const first = o.line_items?.[0];
                 const img = first?.image?.src || "";
@@ -565,80 +616,154 @@ export default function OrdersClient({
                   (o as any).meta_data || []
                 );
                 const hasShipment = !!(shipment.awb || shipment.courier);
+                const extraItemCount = Math.max(
+                  0,
+                  (o.line_items?.length || 0) - 1
+                );
+                const isUpi =
+                  String((o as any).payment_method || "") === "letz_upi";
 
                 return (
-                  <div
+                  <article
                     key={o.id}
-                    className="rounded-[20px] border border-slate-200 bg-white px-3 py-3 shadow-sm"
+                    className={[
+                      "overflow-hidden rounded-[18px] border bg-white transition",
+                      selected.includes(o.id)
+                        ? "border-[#AAB4E1] shadow-[0_6px_18px_rgba(83,102,183,0.10)]"
+                        : "border-slate-200/90 shadow-[0_3px_12px_rgba(15,23,42,0.035)]",
+                    ].join(" ")}
                   >
-                    <div className="flex items-start gap-3">
-                      <div className="pt-3">
+                    <div className="px-3.5 pt-3.5">
+                      <div className="flex items-start gap-2.5">
                         <input
                           type="checkbox"
+                          aria-label={`Select order ${o.number || o.id}`}
                           checked={selected.includes(o.id)}
-                          onChange={(e) => toggleOne(o.id, e.currentTarget.checked)}
+                          onChange={(e) =>
+                            toggleOne(o.id, e.currentTarget.checked)
+                          }
+                          className="mt-1 h-4 w-4 shrink-0 accent-[#5366B7]"
                         />
-                      </div>
 
-                      {img ? (
-                        <img
-                          src={img}
-                          alt=""
-                          className="h-16 w-16 shrink-0 rounded-2xl border border-slate-100 object-cover"
-                        />
-                      ) : (
-                        <div className="grid h-16 w-16 shrink-0 place-items-center rounded-2xl border border-dashed border-slate-200 bg-slate-50 text-[10px] text-slate-400">
-                          No image
-                        </div>
-                      )}
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <Link
+                                href={`/orders/${o.id}`}
+                                className="text-[13px] font-bold text-[#5366B7]"
+                              >
+                                #{o.number || o.id}
+                              </Link>
 
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="min-w-0">
-                            <Link
-                              href={`/orders/${o.id}`}
-                              className="block truncate text-[15px] font-semibold text-slate-900"
-                            >
-                              #{o.number || o.id}
-                            </Link>
-                            <div className="mt-0.5 truncate text-[14px] font-medium text-slate-700">
-                              {customerName}
+                              <div className="mt-0.5 truncate text-[15px] font-bold leading-tight text-slate-900">
+                                {customerName}
+                              </div>
+                            </div>
+
+                            <div className="flex shrink-0 items-start gap-1">
+                              <div className="pt-0.5 text-right">
+                                <div className="text-[16px] font-extrabold tracking-tight text-slate-950">
+                                  ₹{o.total}
+                                </div>
+                                <div className="mt-0.5 text-[10px] font-medium text-slate-400">
+                                  {formatShortDate(o.date_created_gmt)}
+                                </div>
+                              </div>
+
+                              <ActionMenu
+                                order={o}
+                                storeName={storeName}
+                                onTrash={moveOneToTrash}
+                              />
                             </div>
                           </div>
 
-                          <ActionMenu order={o} storeName={storeName} onTrash={moveOneToTrash} />
-                        </div>
+                          <div className="mt-3 flex min-w-0 gap-3">
+                            {img ? (
+                              <img
+                                src={img}
+                                alt=""
+                                className="h-[68px] w-[68px] shrink-0 rounded-[14px] border border-slate-100 object-cover"
+                              />
+                            ) : (
+                              <div className="grid h-[68px] w-[68px] shrink-0 place-items-center rounded-[14px] border border-dashed border-slate-200 bg-slate-50 text-[10px] font-medium text-slate-400">
+                                No image
+                              </div>
+                            )}
 
-                        <div className="mt-2 flex flex-wrap items-center gap-2">
-                          <span className={statusPillClass(o.status)}>
-                            {String(o.status || "").replace("_", " ")}
-                          </span>
-                          <span className="text-[15px] font-semibold text-slate-900">
-                            ₹{o.total}
-                          </span>
-                        </div>
+                            <div className="min-w-0 flex-1 py-0.5">
+                              <div className="line-clamp-2 text-[13px] font-semibold leading-[1.35] text-slate-800">
+                                {first?.name || "No product"}
+                              </div>
 
-                        <div className="mt-2 text-[14px] text-slate-600">
-                          {(first?.name || "No product") +
-                            (first?.sku ? ` (${first.sku})` : "")}
-                        </div>
+                              {first?.sku ? (
+                                <div className="mt-1 truncate text-[11px] font-medium text-slate-400">
+                                  SKU {first.sku}
+                                </div>
+                              ) : null}
 
-                        <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-slate-500">
-                          <span>{formatShortDate(o.date_created_gmt)}</span>
-                          {o.billing?.phone ? <span>{o.billing.phone}</span> : null}
-                          {hasShipment ? (
-                            <span>{shipment.courier || "Shipment added"}</span>
-                          ) : (
-                            <span>Shipment not set</span>
-                          )}
-                        </div>
+                              {extraItemCount > 0 ? (
+                                <div className="mt-1 text-[11px] font-semibold text-[#5366B7]">
+                                  +{extraItemCount} more item
+                                  {extraItemCount === 1 ? "" : "s"}
+                                </div>
+                              ) : null}
+                            </div>
+                          </div>
 
-                        <div className="mt-2">
-                          <UPIVerificationInline order={o as any} />
+                          <div className="mt-3 flex flex-wrap items-center gap-2">
+                            <span className={statusPillClass(o.status)}>
+                              {String(o.status || "").replace(/-/g, " ")}
+                            </span>
+
+                            {o.billing?.phone ? (
+                              <a
+                                href={`tel:${o.billing.phone}`}
+                                className="text-[11px] font-medium text-slate-500"
+                              >
+                                {o.billing.phone}
+                              </a>
+                            ) : null}
+                          </div>
+
+                          <div className="mt-3 grid grid-cols-2 gap-2 border-t border-slate-100 py-3 text-[11px]">
+                            <div className="min-w-0">
+                              <div className="font-medium text-slate-400">
+                                Shipment
+                              </div>
+                              <div
+                                className={[
+                                  "mt-0.5 truncate font-semibold",
+                                  hasShipment
+                                    ? "text-slate-700"
+                                    : "text-amber-600",
+                                ].join(" ")}
+                              >
+                                {hasShipment
+                                  ? shipment.courier || "Shipment added"
+                                  : "Not set"}
+                              </div>
+                            </div>
+
+                            <div className="min-w-0 border-l border-slate-100 pl-3">
+                              <div className="font-medium text-slate-400">
+                                Payment
+                              </div>
+                              <div className="mt-0.5 truncate font-semibold text-slate-700">
+                                {o.payment_method_title || "Not specified"}
+                              </div>
+                            </div>
+                          </div>
                         </div>
                       </div>
                     </div>
-                  </div>
+
+                    {isUpi ? (
+                      <div className="border-t border-slate-100 bg-slate-50/65 px-3.5 py-2.5">
+                        <UPIVerificationInline order={o as any} />
+                      </div>
+                    ) : null}
+                  </article>
                 );
               })}
             </div>
@@ -647,13 +772,13 @@ export default function OrdersClient({
               <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100 text-slate-400">
                 <Package2 className="h-6 w-6" />
               </div>
+
               <div className="mt-4 text-sm font-semibold text-slate-700">
                 No orders found.
               </div>
             </div>
           )}
         </div>
-
         {/* Desktop table */}
         <div className="hidden overflow-x-auto md:block">
           <table className="min-w-full text-sm">
