@@ -922,53 +922,116 @@ export default function OrdersClient({
         </div>
 
         {orders.length > 0 && (
-          <div className="flex flex-col gap-3 border-t border-slate-100 bg-white px-4 py-4 text-xs text-slate-600 md:flex-row md:items-center md:justify-between md:px-5">
-            <div>
-              Showing <span className="font-semibold">{startIndex}</span> –{" "}
-              <span className="font-semibold">{endIndex}</span> of{" "}
-              <span className="font-semibold">{total}</span> orders
-            </div>
+          <>
+            {/* Mobile pagination */}
+            <div className="mt-3 rounded-[18px] border border-slate-200/90 bg-white p-3 shadow-[0_3px_12px_rgba(15,23,42,0.035)] md:hidden">
+              <div className="flex items-center justify-between gap-3">
+                <div className="text-xs font-medium text-slate-500">
+                  <span className="font-bold text-slate-800">
+                    {startIndex}–{endIndex}
+                  </span>{" "}
+                  of {total}
+                </div>
 
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2">
-                <span>Rows</span>
-                <select
-                  className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700"
-                  value={rowsPerPage}
-                  onChange={(e) => setRowsPerPage(Number(e.target.value) || 25)}
-                >
-                  <option value={10}>10</option>
-                  <option value={25}>25</option>
-                  <option value={50}>50</option>
-                  <option value={100}>100</option>
-                </select>
+                <label className="flex items-center gap-2 text-[11px] font-medium text-slate-400">
+                  <span>Rows</span>
+                  <select
+                    className="h-8 rounded-xl border border-slate-200 bg-slate-50 px-2 text-xs font-semibold text-slate-700 outline-none"
+                    value={rowsPerPage}
+                    onChange={(e) =>
+                      setRowsPerPage(Number(e.target.value) || 25)
+                    }
+                  >
+                    <option value={10}>10</option>
+                    <option value={25}>25</option>
+                    <option value={50}>50</option>
+                    <option value={100}>100</option>
+                  </select>
+                </label>
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="mt-3 grid grid-cols-[42px_1fr_42px] items-center gap-2">
                 <button
-                  className="inline-flex items-center gap-1 rounded-full border border-slate-200 px-3 py-2 text-xs font-medium hover:bg-slate-50 disabled:opacity-40"
+                  type="button"
+                  aria-label="Previous page"
                   disabled={currentPage <= 1}
                   onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 disabled:opacity-30"
                 >
-                  <ChevronLeft className="h-3.5 w-3.5" />
-                  Previous
+                  <ChevronLeft className="h-4 w-4" />
                 </button>
 
-                <span className="rounded-full bg-slate-100 px-3 py-2 text-xs font-medium text-slate-600">
+                <div className="flex h-10 items-center justify-center rounded-xl bg-slate-100 text-xs font-semibold text-slate-700">
                   Page {currentPage} of {pageCount}
-                </span>
+                </div>
 
                 <button
-                  className="inline-flex items-center gap-1 rounded-full border border-slate-200 px-3 py-2 text-xs font-medium hover:bg-slate-50 disabled:opacity-40"
+                  type="button"
+                  aria-label="Next page"
                   disabled={currentPage >= pageCount}
-                  onClick={() => setPage((p) => Math.min(pageCount, p + 1))}
+                  onClick={() =>
+                    setPage((p) => Math.min(pageCount, p + 1))
+                  }
+                  className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 disabled:opacity-30"
                 >
-                  Next
-                  <ChevronRight className="h-3.5 w-3.5" />
+                  <ChevronRight className="h-4 w-4" />
                 </button>
               </div>
             </div>
-          </div>
+
+            {/* Desktop pagination */}
+            <div className="hidden border-t border-slate-100 bg-white px-5 py-4 text-xs text-slate-600 md:flex md:items-center md:justify-between">
+              <div>
+                Showing <span className="font-semibold">{startIndex}</span> –{" "}
+                <span className="font-semibold">{endIndex}</span> of{" "}
+                <span className="font-semibold">{total}</span> orders
+              </div>
+
+              <div className="flex items-center gap-4">
+                <div className="flex items-center gap-2">
+                  <span>Rows</span>
+                  <select
+                    className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700"
+                    value={rowsPerPage}
+                    onChange={(e) =>
+                      setRowsPerPage(Number(e.target.value) || 25)
+                    }
+                  >
+                    <option value={10}>10</option>
+                    <option value={25}>25</option>
+                    <option value={50}>50</option>
+                    <option value={100}>100</option>
+                  </select>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    className="inline-flex items-center gap-1 rounded-full border border-slate-200 px-3 py-2 text-xs font-medium hover:bg-slate-50 disabled:opacity-40"
+                    disabled={currentPage <= 1}
+                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  >
+                    <ChevronLeft className="h-3.5 w-3.5" />
+                    Previous
+                  </button>
+
+                  <span className="rounded-full bg-slate-100 px-3 py-2 text-xs font-medium text-slate-600">
+                    Page {currentPage} of {pageCount}
+                  </span>
+
+                  <button
+                    className="inline-flex items-center gap-1 rounded-full border border-slate-200 px-3 py-2 text-xs font-medium hover:bg-slate-50 disabled:opacity-40"
+                    disabled={currentPage >= pageCount}
+                    onClick={() =>
+                      setPage((p) => Math.min(pageCount, p + 1))
+                    }
+                  >
+                    Next
+                    <ChevronRight className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          </>
         )}
       </section>
 
