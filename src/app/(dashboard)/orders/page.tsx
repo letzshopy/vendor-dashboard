@@ -98,50 +98,53 @@ export default async function OrdersPage() {
   }).format(Math.round(metrics.revenue || 0))}`;
 
   return (
-    <main className="dashboard-mobile-page dashboard-orders-page mx-auto w-full min-w-0 max-w-7xl px-3 pb-28 pt-3 md:px-4 md:pb-8 md:pt-5">
-      <div className="min-w-0 rounded-[30px] border border-white/80 bg-gradient-to-br from-white via-[#f7f8ff] to-[#eef7ff] p-4 shadow-[0_14px_40px_rgba(15,23,42,0.06)] md:p-5">
-        <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-between">
+    <main className="dashboard-mobile-page dashboard-orders-page mx-auto w-full min-w-0 max-w-7xl px-3 pb-28 pt-2 md:px-5 md:pb-8 md:pt-5">
+      <header className="mb-3 min-w-0 md:mb-5">
+        {/* Mobile: compact operational summary. The app topbar already identifies Orders. */}
+        <div className="flex items-center justify-between gap-3 md:hidden">
           <div className="min-w-0">
-            <div className="inline-flex items-center gap-2 rounded-full bg-indigo-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-indigo-700">
-              <ClipboardList className="h-3.5 w-3.5" />
-              Orders
+            <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+              <span className="text-[15px] font-bold tracking-tight text-slate-900">
+                {metrics.total} orders
+              </span>
+
+              <span className="text-xs text-slate-300">•</span>
+
+              <span className="text-[13px] font-semibold text-violet-700">
+                {revenueFormatted} revenue
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Desktop/tablet: compact page heading instead of the oversized dashboard hero. */}
+        <div className="hidden items-end justify-between gap-5 md:flex">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.12em] text-violet-600">
+              <ClipboardList className="h-4 w-4" />
+              Order management
             </div>
 
-            <h1 className="mt-3 text-[24px] font-semibold tracking-tight text-slate-900 md:text-[30px]">
-              All Orders
+            <h1 className="mt-1.5 text-[30px] font-bold tracking-tight text-slate-950">
+              Orders
             </h1>
+
+            <div className="mt-1 flex items-center gap-2 text-sm text-slate-500">
+              <span>{metrics.total} orders</span>
+              <span className="text-slate-300">•</span>
+              <span>{revenueFormatted} completed revenue</span>
+            </div>
           </div>
 
           <Link
             href="/orders/new"
-            className="inline-flex h-11 w-full shrink-0 items-center justify-center gap-2 rounded-2xl bg-indigo-600 px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700 sm:w-auto"
+            className="inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-2xl bg-[#5366B7] px-5 text-sm font-semibold text-white shadow-[0_8px_20px_rgba(83,102,183,0.22)] transition hover:bg-[#4558a8]"
           >
             <Plus className="h-4 w-4" />
             Create Order
           </Link>
         </div>
-
-        <div className="mt-5 grid grid-cols-2 gap-3 md:max-w-[420px]">
-          <div className="min-w-0 rounded-[20px] bg-white/90 px-4 py-3 shadow-sm">
-            <div className="text-[11px] uppercase tracking-wide text-slate-500">
-              Total Orders
-            </div>
-            <div className="mt-1 text-xl font-semibold text-slate-900">
-              {metrics.total}
-            </div>
-          </div>
-
-          <div className="min-w-0 rounded-[20px] bg-violet-50 px-4 py-3 shadow-sm">
-            <div className="text-[11px] uppercase tracking-wide text-violet-700">
-              Revenue
-            </div>
-            <div className="mt-1 truncate text-xl font-semibold text-violet-800">
-              {revenueFormatted}
-            </div>
-          </div>
-        </div>
-      </div>
-
+      </header>
       <div className="mt-4 min-w-0">
         <OrdersLocalController
           initial={orders}

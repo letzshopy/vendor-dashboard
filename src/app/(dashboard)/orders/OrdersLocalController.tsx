@@ -2,8 +2,8 @@
 
 import { useMemo, useState } from "react";
 import OrdersClient from "./OrdersClient";
-import { ORDER_STATUSES, STATUS_LABEL, WCOrder } from "@/lib/order-utils";
-import { ChevronDown, SlidersHorizontal } from "lucide-react";
+import { STATUS_LABEL, WCOrder } from "@/lib/order-utils";
+import { SlidersHorizontal } from "lucide-react";
 
 type Category = { id: number; name: string; parent: number };
 
@@ -120,20 +120,15 @@ export default function OrdersLocalController({
     return rows;
   }, [initial, applied, query]);
 
-  const hasActiveFilters = Boolean(
-    (status && status !== "all") || from || to || s.trim()
-  );
+  const hasDateFilters = Boolean(from || to);
 
   return (
     <div className="space-y-4">
-      <section className="overflow-hidden rounded-[26px] border border-slate-200/80 bg-white shadow-[0_10px_30px_rgba(15,23,42,0.05)]">
-        <div className="border-b border-slate-100 bg-gradient-to-r from-white via-[#faf7ff] to-[#f4fbff] px-4 py-4">
-          <h2 className="text-[16px] font-semibold text-slate-900">
-            Status overview
-          </h2>
-        </div>
-
-        <div className="flex flex-wrap gap-2 p-4">
+      <section
+        aria-label="Order status"
+        className="-mx-3 md:mx-0"
+      >
+        <div className="flex gap-2 overflow-x-auto px-3 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:flex-wrap md:px-0">
           {STATUS_TABS.map((tab) => {
             const active = status === tab.key;
             const count = statusCounts[tab.key] || 0;
@@ -146,17 +141,22 @@ export default function OrdersLocalController({
                   setStatus(tab.key);
                   setFiltersVersion((v) => v + 1);
                 }}
-                className={`flex items-center gap-1 rounded-full border px-3 py-2 text-xs font-medium transition ${
+                className={[
+                  "inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full px-3.5 text-xs font-semibold transition",
                   active
-                    ? "border-indigo-600 bg-indigo-600 text-white shadow-sm"
-                    : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
-                }`}
+                    ? "bg-[#5366B7] text-white shadow-[0_5px_14px_rgba(83,102,183,0.22)]"
+                    : "border border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50",
+                ].join(" ")}
               >
                 <span>{tab.label}</span>
+
                 <span
-                  className={`rounded-full px-1.5 py-0.5 text-[10px] ${
-                    active ? "bg-white/15 text-white" : "bg-slate-100 text-slate-600"
-                  }`}
+                  className={[
+                    "inline-flex min-w-5 items-center justify-center rounded-full px-1.5 py-0.5 text-[10px] font-bold",
+                    active
+                      ? "bg-white/18 text-white"
+                      : "bg-slate-100 text-slate-500",
+                  ].join(" ")}
                 >
                   {count}
                 </span>
@@ -165,126 +165,125 @@ export default function OrdersLocalController({
           })}
         </div>
       </section>
+      <section className="space-y-3">
+        <div className="flex items-center gap-2">
+          <input
+            type="search"
+            className="h-11 min-w-0 flex-1 rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-800 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-[#8C98D0] focus:ring-2 focus:ring-[#E6E9F8]"
+            placeholder="Search order, customer, phone, SKU..."
+            value={s}
+            onChange={(e) => setS(e.currentTarget.value)}
+            onKeyDown={(e) =>
+              e.key === "Enter" && setSearchVersion((v) => v + 1)
+            }
+          />
 
-      <section className="overflow-hidden rounded-[26px] border border-slate-200/80 bg-white shadow-[0_10px_30px_rgba(15,23,42,0.05)]">
-        <div className="px-4 py-4">
-          <div className="flex items-center justify-between gap-3">
-            <button
-              type="button"
-              onClick={() => setFiltersOpen((v) => !v)}
-              className="inline-flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-3 py-2.5 shadow-sm transition hover:border-violet-300 hover:bg-violet-50/40"
-            >
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-violet-100 text-violet-600">
-                <SlidersHorizontal className="h-4 w-4" />
-              </span>
+          <button
+            type="button"
+            aria-label="Filter orders"
+            aria-expanded={filtersOpen}
+            onClick={() => setFiltersOpen((v) => !v)}
+            className={[
+              "relative inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-2xl border px-3.5 text-sm font-semibold shadow-sm transition",
+              filtersOpen || hasDateFilters
+                ? "border-[#AAB4E1] bg-[#EEF1FF] text-[#405296]"
+                : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50",
+            ].join(" ")}
+          >
+            <SlidersHorizontal className="h-4.5 w-4.5" />
+            <span className="hidden sm:inline">Filters</span>
 
-              <span className="text-sm font-semibold text-slate-800">
-                Filters
-              </span>
-
-              <ChevronDown
-                className={`h-4 w-4 text-slate-400 transition ${
-                  filtersOpen ? "rotate-180" : ""
-                }`}
-              />
-            </button>
-
-            {hasActiveFilters && (
-              <span className="rounded-full bg-violet-50 px-3 py-1 text-xs font-semibold text-violet-700">
-                Filters active
-              </span>
-            )}
-          </div>
+            {hasDateFilters ? (
+              <span className="absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full border-2 border-white bg-[#5366B7]" />
+            ) : null}
+          </button>
         </div>
 
-        {filtersOpen && (
-          <div className="border-t border-slate-100 px-4 pb-4 pt-4">
-            <div className="grid grid-cols-1 gap-3 xl:grid-cols-[1fr_1.1fr]">
-              <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
-                <div className="space-y-1.5">
-                  <label className="text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">
-                    Status
-                  </label>
-                  <select
-                    className="h-11 rounded-2xl border border-slate-200 px-4 text-sm text-slate-800 focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-200"
-                    value={status}
-                    onChange={(e) => setStatus(e.currentTarget.value)}
-                  >
-                    <option value="all">All statuses</option>
-                    {ORDER_STATUSES.map((st) => (
-                      <option key={st} value={st}>
-                        {STATUS_LABEL[st] || st}
-                      </option>
-                    ))}
-                  </select>
+        {filtersOpen ? (
+          <>
+            <button
+              type="button"
+              aria-label="Close filters"
+              onClick={() => setFiltersOpen(false)}
+              className="fixed inset-0 z-[80] bg-slate-950/35 backdrop-blur-[1px] md:hidden"
+            />
+
+            <div className="fixed inset-x-3 bottom-[calc(env(safe-area-inset-bottom)+4.5rem)] z-[90] max-h-[70dvh] overflow-y-auto rounded-[26px] border border-slate-200 bg-white p-4 shadow-[0_24px_70px_rgba(15,23,42,0.28)] md:static md:z-auto md:max-h-none md:rounded-2xl md:border md:p-4 md:shadow-sm">
+              <div className="mb-4 flex items-center justify-between gap-3">
+                <div>
+                  <div className="text-[15px] font-bold text-slate-900">
+                    Filter orders
+                  </div>
+                  <div className="mt-0.5 text-xs text-slate-500">
+                    Narrow orders by date
+                  </div>
                 </div>
 
-                <div className="space-y-1.5">
-                  <label className="text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">
-                    From date
+                <button
+                  type="button"
+                  onClick={() => setFiltersOpen(false)}
+                  className="rounded-xl bg-slate-100 px-3 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-200"
+                >
+                  Done
+                </button>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="min-w-0 space-y-1.5">
+                  <label className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500">
+                    From
                   </label>
+
                   <input
                     type="date"
-                    className="h-11 rounded-2xl border border-slate-200 px-4 text-sm focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-200"
+                    className="h-11 w-full min-w-0 rounded-2xl border border-slate-200 px-3 text-sm text-slate-800 outline-none focus:border-[#8C98D0] focus:ring-2 focus:ring-[#E6E9F8]"
                     value={from}
                     onChange={(e) => setFrom(e.currentTarget.value)}
                   />
                 </div>
 
-                <div className="space-y-1.5">
-                  <label className="text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">
-                    To date
+                <div className="min-w-0 space-y-1.5">
+                  <label className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500">
+                    To
                   </label>
+
                   <input
                     type="date"
-                    className="h-11 rounded-2xl border border-slate-200 px-4 text-sm focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-200"
+                    className="h-11 w-full min-w-0 rounded-2xl border border-slate-200 px-3 text-sm text-slate-800 outline-none focus:border-[#8C98D0] focus:ring-2 focus:ring-[#E6E9F8]"
                     value={to}
                     onChange={(e) => setTo(e.currentTarget.value)}
                   />
                 </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">
-                    Apply
-                  </label>
-                  <button
-                    type="button"
-                    className="h-11 w-full rounded-2xl bg-slate-900 px-4 text-sm font-semibold text-white hover:bg-slate-800"
-                    onClick={() => setFiltersVersion((v) => v + 1)}
-                  >
-                    Apply
-                  </button>
-                </div>
               </div>
 
-              <div className="space-y-1.5">
-                <label className="text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">
-                  Search
-                </label>
-                <div className="flex flex-col gap-3 sm:flex-row">
-                  <input
-                    className="h-11 w-full rounded-2xl border border-slate-200 px-4 text-sm focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-200"
-                    placeholder="Search # / name / email / phone / SKU / product"
-                    value={s}
-                    onChange={(e) => setS(e.currentTarget.value)}
-                    onKeyDown={(e) =>
-                      e.key === "Enter" && setSearchVersion((v) => v + 1)
-                    }
-                  />
-                  <button
-                    type="button"
-                    className="rounded-2xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800"
-                    onClick={() => setSearchVersion((v) => v + 1)}
-                  >
-                    Search
-                  </button>
-                </div>
+              <div className="mt-4 grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setFrom("");
+                    setTo("");
+                    setFiltersVersion((v) => v + 1);
+                  }}
+                  className="h-11 rounded-2xl border border-slate-200 bg-white text-sm font-semibold text-slate-600 hover:bg-slate-50"
+                >
+                  Clear dates
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setFiltersVersion((v) => v + 1);
+                    setFiltersOpen(false);
+                  }}
+                  className="h-11 rounded-2xl bg-[#5366B7] text-sm font-semibold text-white shadow-sm hover:bg-[#4558A8]"
+                >
+                  Apply
+                </button>
               </div>
             </div>
-          </div>
-        )}
+          </>
+        ) : null}
       </section>
-
       <OrdersClient
         orders={filtered}
         categories={categories}
