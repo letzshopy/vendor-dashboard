@@ -18,6 +18,9 @@ import {
   findAuthorizedStore,
   verifySessionToken,
 } from "@/lib/session";
+import {
+  fetchInternalWp,
+} from "@/lib/wpClient";
 
 const AUTH_COOKIE_NAME =
   process.env.AUTH_COOKIE_NAME || "ls_vendor_auth";
@@ -167,28 +170,10 @@ async function getDashboardSubscription(
   }
 }
 
-async function getVendorAgreementAccepted(
-  cookieHeader: string
-): Promise<boolean> {
+async function getVendorAgreementAccepted(): Promise<boolean> {
   try {
-    const base =
-      process.env.NEXT_PUBLIC_APP_URL?.replace(
-        /\/$/,
-        ""
-      );
-
-    if (!base) {
-      return false;
-    }
-
-    const response = await fetch(
-      `${base}/api/account/agreement-status`,
-      {
-        cache: "no-store",
-        headers: {
-          Cookie: cookieHeader,
-        },
-      }
+    const response = await fetchInternalWp(
+      "/wp-json/letz/v1/account/agreement/status"
     );
 
     if (!response.ok) {
@@ -279,7 +264,7 @@ export default async function DashboardLayout({
     ),
     getDashboardSubscription(cookieHeader),
     requiresAgreement
-      ? getVendorAgreementAccepted(cookieHeader)
+      ? getVendorAgreementAccepted()
       : Promise.resolve(true),
   ]);
 
