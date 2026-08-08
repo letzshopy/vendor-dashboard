@@ -325,6 +325,7 @@ export default async function DashboardLayout({
           <DashboardShell
             locked={dashboardLocked}
             storeType={authorizedStore.store_type || "multisite"}
+            storeUrl={authorizedStore.store_url}
           >
             {children}
             {showAgreementGate && (

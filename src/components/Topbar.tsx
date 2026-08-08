@@ -25,6 +25,7 @@ const SURFACE_CLASS = "bg-[#f5f3ff]";
 
 type TopbarProps = {
   onToggleSidebar?: () => void;
+  verifiedStoreUrl?: string;
 };
 
 type SubscriptionStatus =
@@ -140,7 +141,10 @@ function mobileScopeLabel(scope: SearchScope): string {
   return scope === "orders" ? "Search orders..." : "Search products...";
 }
 
-export default function Topbar({ onToggleSidebar }: TopbarProps) {
+export default function Topbar({
+  onToggleSidebar,
+  verifiedStoreUrl = "",
+}: TopbarProps) {
   const { subscription } = useDashboardSubscription();
   const pathname = usePathname() || "/";
   const showMobileDashboardTopbar =
@@ -165,7 +169,7 @@ export default function Topbar({ onToggleSidebar }: TopbarProps) {
   const searchAbortRef = useRef<AbortController | null>(null);
   const searchTimeoutRef = useRef<number | null>(null);
 
-  const [storeUrl, setStoreUrl] = useState(FALLBACK_STORE_URL);
+  const [storeUrl, setStoreUrl] = useState(verifiedStoreUrl || FALLBACK_STORE_URL);
   const [loginEmail, setLoginEmail] = useState("");
   const [statusLoading, setStatusLoading] = useState(true);
 
@@ -207,13 +211,13 @@ export default function Topbar({ onToggleSidebar }: TopbarProps) {
           cache: "no-store",
         });
 
-        let storeUrlValue = FALLBACK_STORE_URL;
+        let storeUrlValue = verifiedStoreUrl || FALLBACK_STORE_URL;
         let loginEmailValue = "";
 
         if (accountRes.ok) {
           const accountData =
             (await accountRes.json()) as AccountSettingsResponse;
-          storeUrlValue = accountData?.overview?.store_url || FALLBACK_STORE_URL;
+          storeUrlValue = accountData?.overview?.store_url || verifiedStoreUrl || FALLBACK_STORE_URL;
           loginEmailValue = accountData?.security?.login_email || "";
         }
 
@@ -224,7 +228,7 @@ export default function Topbar({ onToggleSidebar }: TopbarProps) {
       } catch (e) {
         console.warn("Topbar account load failed:", e);
         if (!cancelled) {
-          setStoreUrl(FALLBACK_STORE_URL);
+          setStoreUrl(verifiedStoreUrl || FALLBACK_STORE_URL);
           setLoginEmail("");
         }
       } finally {
@@ -236,7 +240,7 @@ export default function Topbar({ onToggleSidebar }: TopbarProps) {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [verifiedStoreUrl]);
 
   useEffect(() => {
     let cancelled = false;

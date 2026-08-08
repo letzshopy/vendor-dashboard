@@ -20,10 +20,12 @@ export default function DashboardShell({
   children,
   locked = false,
   storeType = "multisite",
+  storeUrl = "",
 }: {
   children: React.ReactNode;
   locked?: boolean;
   storeType?: SessionStoreType;
+  storeUrl?: string;
 }) {
   const pathname = usePathname() || "/";
   const pathAllowed = isStandaloneV1DashboardPathAllowed(
@@ -70,6 +72,7 @@ export default function DashboardShell({
   return (
     <div className="dashboard-app-shell min-h-screen min-w-0 bg-[#F8F9FC] text-[#202A48]">
       <Topbar
+        verifiedStoreUrl={storeUrl}
         onToggleSidebar={() =>
           setSidebarOpen(
             (value) => !value
