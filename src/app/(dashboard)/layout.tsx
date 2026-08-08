@@ -251,8 +251,7 @@ export default async function DashboardLayout({
 
   const cookieHeader = cookieStore.toString();
 
-  const requiresAgreement =
-    session.saas_role === "store_owner";
+  const requiresAgreement = false;
 
   const [
     locked,
