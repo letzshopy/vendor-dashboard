@@ -153,11 +153,11 @@ export function UPIVerificationInline({ order }: Props) {
 
       {showDetails ? (
         <div
-          className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 md:items-center"
+          className="fixed inset-0 z-[120] flex items-end justify-center bg-black/45 md:items-center md:p-6"
           onClick={() => setShowDetails(false)}
         >
           <div
-            className="w-full max-w-md rounded-t-3xl bg-white shadow-2xl md:rounded-3xl"
+            className="flex max-h-[88dvh] w-full max-w-md flex-col overflow-hidden rounded-t-[28px] bg-white shadow-2xl md:max-h-[90dvh] md:rounded-[28px]"
             onClick={(event: MouseEvent<HTMLDivElement>) =>
               event.stopPropagation()
             }
@@ -182,7 +182,7 @@ export function UPIVerificationInline({ order }: Props) {
               </div>
             </div>
 
-            <div className="space-y-3 px-4 py-4 text-sm text-slate-700">
+            <div className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain px-4 py-4 pb-[calc(env(safe-area-inset-bottom)+1.25rem)] text-sm text-slate-700">
               {transactionId ? (
                 <div>
                   <div className="text-xs font-medium uppercase tracking-wide text-slate-400">
