@@ -12,12 +12,69 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import { WCOrder, statusPillClass } from "@/lib/order-utils";
+import { WCOrder } from "@/lib/order-utils";
 import OrdersExportButton from "./ui/OrdersExportButton";
 import { UPIVerificationInline } from "./UPIVerificationInline";
 import { extractShipmentFromMeta } from "@/lib/shipment-meta";
 
 type Category = { id: number; name: string; parent: number };
+/* LETZSHOPY ORDER STATUS PRESENTATION V1
+ * UI-only: all WooCommerce statuses continue to be fetched and shown.
+ * The stronger mobile-first badge makes payment/order state immediately readable.
+ */
+function orderStatusLabel(status?: string) {
+  const normalized = String(status || "pending").toLowerCase();
+
+  switch (normalized) {
+    case "pending":
+      return "Pending payment";
+    case "processing":
+      return "Processing";
+    case "on-hold":
+      return "On hold";
+    case "completed":
+      return "Completed";
+    case "cancelled":
+      return "Cancelled";
+    case "failed":
+      return "Payment failed";
+    case "refunded":
+      return "Refunded";
+    case "trash":
+      return "Trash";
+    default:
+      return normalized.replace(/[-_]+/g, " ");
+  }
+}
+
+function orderStatusPillClass(status?: string) {
+  const normalized = String(status || "pending").toLowerCase();
+
+  const base =
+    "inline-flex min-h-[30px] shrink-0 items-center justify-center whitespace-nowrap rounded-full border px-3 py-1.5 text-[12px] font-extrabold uppercase leading-none tracking-[0.045em] shadow-sm md:min-h-7 md:px-2.5 md:py-1 md:text-[11px] md:font-bold";
+
+  switch (normalized) {
+    case "processing":
+      return `${base} border-blue-200 bg-blue-50 text-blue-800`;
+    case "completed":
+      return `${base} border-emerald-200 bg-emerald-50 text-emerald-800`;
+    case "pending":
+      return `${base} border-amber-300 bg-amber-50 text-amber-900`;
+    case "on-hold":
+      return `${base} border-yellow-300 bg-yellow-50 text-yellow-900`;
+    case "cancelled":
+      return `${base} border-rose-200 bg-rose-50 text-rose-800`;
+    case "failed":
+      return `${base} border-red-300 bg-red-50 text-red-800`;
+    case "refunded":
+      return `${base} border-teal-200 bg-teal-50 text-teal-800`;
+    case "trash":
+      return `${base} border-slate-300 bg-slate-100 text-slate-700`;
+    default:
+      return `${base} border-violet-200 bg-violet-50 text-violet-800`;
+  }
+}
+/* END LETZSHOPY ORDER STATUS PRESENTATION V1 */
 
 type OrdersClientProps = {
   orders: WCOrder[];
@@ -232,7 +289,7 @@ function ActionMenu({
   const customerName =
     `${order.billing?.first_name || ""} ${order.billing?.last_name || ""}`.trim() ||
     "Customer";
-  const statusLabel = String(order.status || "pending").replace(/-/g, " ");
+  const statusLabel = orderStatusLabel(order.status);
 
   useEffect(() => {
     if (!open) return;
@@ -730,8 +787,8 @@ export default function OrdersClient({
                           </div>
 
                           <div className="mt-3 flex flex-wrap items-center gap-2">
-                            <span className={statusPillClass(o.status)}>
-                              {String(o.status || "").replace(/-/g, " ")}
+                            <span className={orderStatusPillClass(o.status)}>
+                              {orderStatusLabel(o.status)}
                             </span>
 
                             {o.billing?.phone ? (
@@ -870,8 +927,8 @@ export default function OrdersClient({
                     </td>
 
                     <td className="px-4 py-4">
-                      <span className={statusPillClass(o.status)}>
-                        {String(o.status || "").replace("_", " ")}
+                      <span className={orderStatusPillClass(o.status)}>
+                        {orderStatusLabel(o.status)}
                       </span>
                     </td>
 
