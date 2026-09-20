@@ -178,7 +178,13 @@ function formatPaymentDate(dateGmt?: string | null, dateLocal?: string | null) {
   });
 }
 
-function getPayGlocalPaymentInfo(order: any) {
+function getPaymentInfo(order: any) {
+  const paymentMethod = String(order?.payment_method || "").toLowerCase();
+  const paymentTitle = String(order?.payment_method_title || "").trim();
+  const paymentTitleLower = paymentTitle.toLowerCase();
+  const orderStatus = String(order?.status || "").toLowerCase();
+  const hasPaidDate = Boolean(order?.date_paid_gmt || order?.date_paid);
+
   const gid = findPaymentMeta(
     order,
     ["payglocalgid", "glgid"],
@@ -190,7 +196,7 @@ function getPayGlocalPaymentInfo(order: any) {
     "payglocalmerchantuniqueid",
     "muid",
   ]);
-  const paymentMode = findPaymentMeta(order, [
+  const payGlocalMode = findPaymentMeta(order, [
     "payglocalpaymentmode",
     "paymentmode",
     "transactionmode",
@@ -212,19 +218,21 @@ function getPayGlocalPaymentInfo(order: any) {
       )
   );
 
-  const paymentMethod = String(order?.payment_method || "").toLowerCase();
-  const paymentTitle = String(order?.payment_method_title || "").toLowerCase();
   const isPayGlocal = Boolean(
     paymentMethod.includes("payglocal") ||
-      paymentTitle.includes("payglocal") ||
-      paymentTitle.includes("pay via upi apps") ||
+      paymentTitleLower.includes("payglocal") ||
+      paymentTitleLower.includes("pay via upi apps") ||
       gid
   );
+  const isManualUpi = paymentMethod === "letz_upi";
+  const isCod = paymentMethod === "cod";
+  const isBankTransfer = paymentMethod === "bacs";
 
   const normalizedGatewayStatus = gatewayStatus
     .trim()
     .toLowerCase()
     .replace(/[\s-]+/g, "_");
+
   const successfulGatewayStatuses = new Set([
     "sent_for_capture",
     "captured",
@@ -245,30 +253,167 @@ function getPayGlocalPaymentInfo(order: any) {
     "voided",
   ]);
 
-  const hasPaidDate = Boolean(order?.date_paid_gmt || order?.date_paid);
-  const orderStatus = String(order?.status || "").toLowerCase();
+  const upiTransaction = findPaymentMeta(order, [
+    "letzupitxn",
+    "letzupitransaction",
+    "upitransaction",
+    "upitransactionnumber",
+    "utrnumber",
+    "utr",
+  ]);
+  const upiProofKey = findPaymentMeta(order, ["letzupiproofkey"]);
+  const upiScreenshotId = findPaymentMeta(order, ["letzupiscreenshotid"]);
+  const upiScreenshotUrl = findPaymentMeta(order, ["letzupiscreenshoturl"]);
+  const hasUpiProof = Boolean(
+    upiProofKey || upiScreenshotId || upiScreenshotUrl
+  );
 
-  let paymentStatus: "paid" | "failed" | "not-paid" | "pending";
-  if (hasPaidDate || successfulGatewayStatuses.has(normalizedGatewayStatus)) {
-    paymentStatus = "paid";
-  } else if (
-    failedGatewayStatuses.has(normalizedGatewayStatus) ||
-    orderStatus === "failed"
-  ) {
-    paymentStatus = "failed";
-  } else if (orderStatus === "cancelled") {
-    paymentStatus = "not-paid";
+  const bankReference = isBankTransfer
+    ? findPaymentMeta(order, [
+        "banktransferutr",
+        "bankutr",
+        "bankreference",
+        "transferreference",
+        "paymentreference",
+        "transactionreference",
+        "transactionid",
+        "transactionnumber",
+        "utrnumber",
+        "utr",
+      ])
+    : "";
+
+  let methodLabel =
+    paymentTitle ||
+    (isManualUpi
+      ? "Manual UPI"
+      : isCod
+        ? "Cash on Delivery"
+        : isBankTransfer
+          ? "Direct Bank Transfer"
+          : paymentMethod || "Not specified");
+
+  if (isPayGlocal) methodLabel = "PayGlocal";
+  if (isManualUpi) methodLabel = "Manual UPI";
+  if (isCod) methodLabel = "Cash on Delivery";
+  if (isBankTransfer) methodLabel = "Direct Bank Transfer";
+
+  let statusKey: "paid" | "failed" | "not-paid" | "pending" | "verification" | "cod";
+  let statusLabel: string;
+
+  if (isManualUpi) {
+    if (orderStatus === "failed") {
+      statusKey = "failed";
+      statusLabel = "Failed";
+    } else if (orderStatus === "cancelled") {
+      statusKey = "not-paid";
+      statusLabel = "Not paid";
+    } else if (
+      hasPaidDate ||
+      orderStatus === "processing" ||
+      orderStatus === "completed"
+    ) {
+      statusKey = "paid";
+      statusLabel = "Verified";
+    } else if (orderStatus === "on-hold") {
+      statusKey = "verification";
+      statusLabel = "Pending verification";
+    } else {
+      statusKey = "pending";
+      statusLabel = "Pending";
+    }
+  } else if (isPayGlocal) {
+    if (
+      hasPaidDate ||
+      successfulGatewayStatuses.has(normalizedGatewayStatus)
+    ) {
+      statusKey = "paid";
+      statusLabel = "Paid";
+    } else if (
+      failedGatewayStatuses.has(normalizedGatewayStatus) ||
+      orderStatus === "failed"
+    ) {
+      statusKey = "failed";
+      statusLabel = "Failed";
+    } else if (orderStatus === "cancelled") {
+      statusKey = "not-paid";
+      statusLabel = "Not paid";
+    } else {
+      statusKey = "pending";
+      statusLabel = "Pending";
+    }
+  } else if (isCod) {
+    if (hasPaidDate) {
+      statusKey = "paid";
+      statusLabel = "Paid";
+    } else if (orderStatus === "failed") {
+      statusKey = "failed";
+      statusLabel = "Failed";
+    } else if (orderStatus === "cancelled") {
+      statusKey = "not-paid";
+      statusLabel = "Not paid";
+    } else {
+      statusKey = "cod";
+      statusLabel = "Pay on delivery";
+    }
   } else {
-    paymentStatus = "pending";
+    if (hasPaidDate) {
+      statusKey = "paid";
+      statusLabel = "Paid";
+    } else if (orderStatus === "failed") {
+      statusKey = "failed";
+      statusLabel = "Failed";
+    } else if (orderStatus === "cancelled") {
+      statusKey = "not-paid";
+      statusLabel = "Not paid";
+    } else {
+      statusKey = "pending";
+      statusLabel = isBankTransfer ? "Pending bank transfer" : "Pending";
+    }
   }
+
+  const referenceLabel = isPayGlocal
+    ? "GID"
+    : isManualUpi
+      ? "UTR / Transaction number"
+      : isBankTransfer
+        ? "Bank reference / UTR"
+        : "Transaction reference";
+
+  const referenceValue = isPayGlocal
+    ? gid
+    : isManualUpi
+      ? upiTransaction
+      : isBankTransfer
+        ? bankReference
+        : String(order?.transaction_id || "").trim();
+
+  const paymentMode = isPayGlocal
+    ? payGlocalMode
+    : isManualUpi
+      ? "UPI"
+      : isBankTransfer
+        ? "Bank transfer"
+        : isCod
+          ? "Cash on Delivery"
+          : paymentTitle || "Not available";
 
   return {
     isPayGlocal,
+    isManualUpi,
+    isCod,
+    isBankTransfer,
+    methodLabel,
+    statusKey,
+    statusLabel,
+    paymentMode,
+    referenceLabel,
+    referenceValue,
     gid,
     merchantUniqueId,
-    paymentMode,
     gatewayStatus,
-    paymentStatus,
+    hasUpiProof,
+    proofUrl: isManualUpi ? `/api/orders/${order.id}/upi-proof` : "",
     paidOn: formatPaymentDate(order?.date_paid_gmt, order?.date_paid),
   };
 }
@@ -451,10 +596,7 @@ export default function OrderDetailClient({ initialOrder }: Props) {
     (order.status === "completed" ? order.date_completed_gmt : "") ||
     "";
 
-  const payGlocalPayment = useMemo(
-    () => getPayGlocalPaymentInfo(order),
-    [order]
-  );
+  const paymentInfo = useMemo(() => getPaymentInfo(order), [order]);
 
   const [productSearchIndex, setProductSearchIndex] = useState<number | null>(
     null
@@ -892,96 +1034,107 @@ export default function OrderDetailClient({ initialOrder }: Props) {
         </div>
       </div>
 
-      {payGlocalPayment.isPayGlocal ? (
-        <SectionCard
-          title="Payment"
-          hint="PayGlocal transaction and WooCommerce payment state"
-          icon={CreditCard}
-        >
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-            <div className="rounded-[18px] border border-slate-200 bg-slate-50/70 px-4 py-3">
-              <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500">
-                Gateway
-              </div>
-              <div className="mt-1 text-sm font-semibold text-slate-900">
-                PayGlocal
-              </div>
+      <SectionCard
+        title="Payment Information"
+        hint="Payment method, status and transaction details"
+        icon={CreditCard}
+      >
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          <div className="rounded-[18px] border border-slate-200 bg-slate-50/70 px-4 py-3">
+            <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500">
+              Payment method
             </div>
-
-            <div className="rounded-[18px] border border-slate-200 bg-slate-50/70 px-4 py-3">
-              <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500">
-                Payment status
-              </div>
-              <div
-                className={`mt-1 text-sm font-semibold ${
-                  payGlocalPayment.paymentStatus === "paid"
-                    ? "text-emerald-700"
-                    : payGlocalPayment.paymentStatus === "failed"
-                      ? "text-rose-700"
-                      : payGlocalPayment.paymentStatus === "not-paid"
-                        ? "text-slate-700"
-                        : "text-amber-700"
-                }`}
-              >
-                {payGlocalPayment.paymentStatus === "paid"
-                  ? "Paid"
-                  : payGlocalPayment.paymentStatus === "failed"
-                    ? "Failed"
-                    : payGlocalPayment.paymentStatus === "not-paid"
-                      ? "Not paid"
-                      : "Pending"}
-              </div>
-            </div>
-
-            <div className="rounded-[18px] border border-slate-200 bg-slate-50/70 px-4 py-3">
-              <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500">
-                Payment mode
-              </div>
-              <div className="mt-1 break-words text-sm font-semibold text-slate-900">
-                {payGlocalPayment.paymentMode || "Not available"}
-              </div>
-            </div>
-
-            <div className="rounded-[18px] border border-slate-200 bg-slate-50/70 px-4 py-3 sm:col-span-2">
-              <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500">
-                GID
-              </div>
-              <div className="mt-1 break-all font-mono text-xs font-semibold text-slate-800">
-                {payGlocalPayment.gid || "Not available"}
-              </div>
-            </div>
-
-            <div className="rounded-[18px] border border-slate-200 bg-slate-50/70 px-4 py-3">
-              <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500">
-                Gateway status
-              </div>
-              <div className="mt-1 break-words text-sm font-semibold text-slate-900">
-                {payGlocalPayment.gatewayStatus || "Not available"}
-              </div>
-            </div>
-
-            <div className="rounded-[18px] border border-slate-200 bg-slate-50/70 px-4 py-3 sm:col-span-2">
-              <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500">
-                Merchant reference
-              </div>
-              <div className="mt-1 break-all font-mono text-xs font-semibold text-slate-800">
-                {payGlocalPayment.merchantUniqueId || "Not available"}
-              </div>
-            </div>
-
-            <div className="rounded-[18px] border border-slate-200 bg-slate-50/70 px-4 py-3">
-              <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500">
-                Paid on
-              </div>
-              <div className="mt-1 text-sm font-semibold text-slate-900">
-                {payGlocalPayment.paymentStatus === "paid"
-                  ? payGlocalPayment.paidOn
-                  : "Not available"}
-              </div>
+            <div className="mt-1 text-sm font-semibold text-slate-900">
+              {paymentInfo.methodLabel}
             </div>
           </div>
-        </SectionCard>
-      ) : null}
+
+          <div className="rounded-[18px] border border-slate-200 bg-slate-50/70 px-4 py-3">
+            <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500">
+              Payment status
+            </div>
+            <div
+              className={`mt-1 text-sm font-semibold ${
+                paymentInfo.statusKey === "paid"
+                  ? "text-emerald-700"
+                  : paymentInfo.statusKey === "failed"
+                    ? "text-rose-700"
+                    : paymentInfo.statusKey === "verification" ||
+                        paymentInfo.statusKey === "pending"
+                      ? "text-amber-700"
+                      : "text-slate-700"
+              }`}
+            >
+              {paymentInfo.statusLabel}
+            </div>
+          </div>
+
+          <div className="rounded-[18px] border border-slate-200 bg-slate-50/70 px-4 py-3">
+            <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500">
+              Payment mode
+            </div>
+            <div className="mt-1 break-words text-sm font-semibold text-slate-900">
+              {paymentInfo.paymentMode || "Not available"}
+            </div>
+          </div>
+
+          <div className="rounded-[18px] border border-slate-200 bg-slate-50/70 px-4 py-3 sm:col-span-2">
+            <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500">
+              {paymentInfo.referenceLabel}
+            </div>
+            <div className="mt-1 break-all font-mono text-xs font-semibold text-slate-800">
+              {paymentInfo.referenceValue ||
+                (paymentInfo.isCod ? "Not applicable" : "Not available")}
+            </div>
+          </div>
+
+          <div className="rounded-[18px] border border-slate-200 bg-slate-50/70 px-4 py-3">
+            <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500">
+              Paid on
+            </div>
+            <div className="mt-1 text-sm font-semibold text-slate-900">
+              {paymentInfo.statusKey === "paid"
+                ? paymentInfo.paidOn
+                : "Not available"}
+            </div>
+          </div>
+
+          {paymentInfo.isPayGlocal ? (
+            <>
+              <div className="rounded-[18px] border border-slate-200 bg-slate-50/70 px-4 py-3">
+                <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500">
+                  Gateway status
+                </div>
+                <div className="mt-1 break-words text-sm font-semibold text-slate-900">
+                  {paymentInfo.gatewayStatus || "Not available"}
+                </div>
+              </div>
+
+              <div className="rounded-[18px] border border-slate-200 bg-slate-50/70 px-4 py-3 sm:col-span-2">
+                <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500">
+                  Merchant reference
+                </div>
+                <div className="mt-1 break-all font-mono text-xs font-semibold text-slate-800">
+                  {paymentInfo.merchantUniqueId || "Not available"}
+                </div>
+              </div>
+            </>
+          ) : null}
+
+          {paymentInfo.isManualUpi && paymentInfo.hasUpiProof ? (
+            <div className="sm:col-span-2 xl:col-span-3">
+              <a
+                href={paymentInfo.proofUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex h-10 items-center justify-center rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50"
+              >
+                View payment proof
+              </a>
+            </div>
+          ) : null}
+        </div>
+      </SectionCard>
 
       <div className="grid gap-4 xl:grid-cols-3">
         <SectionCard title="Billing" hint="Billing contact and address" icon={User}>
