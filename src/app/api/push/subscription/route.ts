@@ -53,6 +53,14 @@ export async function POST(request: Request) {
     );
   }
 
+  if (process.env.VERCEL_ENV !== "production") {
+    return privateJson({
+      ok: true,
+      enabled: true,
+      preview: true,
+    });
+  }
+
   try {
     const response = await fetchInternalWp(
       "/wp-json/letz/v2/push/subscriptions",
@@ -124,6 +132,14 @@ export async function DELETE(request: Request) {
       { error: "Invalid push endpoint." },
       400
     );
+  }
+
+  if (process.env.VERCEL_ENV !== "production") {
+    return privateJson({
+      ok: true,
+      enabled: false,
+      preview: true,
+    });
   }
 
   try {
