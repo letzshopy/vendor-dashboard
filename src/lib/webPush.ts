@@ -238,7 +238,7 @@ function hkdfExpand(
   length: number
 ): Buffer {
   const chunks: Buffer[] = [];
-  let previous = Buffer.alloc(0);
+  let previous: Buffer = Buffer.alloc(0);
   let produced = 0;
   let counter = 1;
 
