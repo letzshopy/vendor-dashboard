@@ -4,8 +4,8 @@ import {
 } from "@/lib/accessPolicy";
 import {
   findAuthorizedStore,
-  SESSION_REFRESH_WINDOW_MS,
-  SESSION_TTL_MS,
+  VENDOR_SESSION_REFRESH_WINDOW_MS,
+  VENDOR_SESSION_TTL_MS,
   signSessionPayload,
   type SessionPayload,
   type SessionStore,
@@ -23,8 +23,10 @@ const LEGACY_ROLE_COOKIE = "ls_role";
 const SESSION_SIGNING_SECRET =
   process.env.DASHBOARD_SECRET || "";
 
-const SESSION_MAX_AGE_SECONDS =
-  Math.floor(SESSION_TTL_MS / 1000);
+const VENDOR_SESSION_MAX_AGE_SECONDS =
+  Math.floor(
+    VENDOR_SESSION_TTL_MS / 1000
+  );
 
 const PUBLIC_PAGE_PATHS = new Set([
   "/",
@@ -204,7 +206,7 @@ function setPersistentAuthCookie(
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",
     path: "/",
-    maxAge: SESSION_MAX_AGE_SECONDS,
+    maxAge: VENDOR_SESSION_MAX_AGE_SECONDS,
   });
 }
 
@@ -226,7 +228,7 @@ function setPersistentTenantCookie(
       sameSite: "lax",
       secure: process.env.NODE_ENV === "production",
       path: "/",
-      maxAge: SESSION_MAX_AGE_SECONDS,
+      maxAge: VENDOR_SESSION_MAX_AGE_SECONDS,
     }
   );
 }
@@ -239,7 +241,7 @@ async function withPersistentVendorSession(
   if (
     session.saas_role === "master_admin" ||
     session.exp - Date.now() >
-      SESSION_REFRESH_WINDOW_MS
+      VENDOR_SESSION_REFRESH_WINDOW_MS
   ) {
     return response;
   }
@@ -249,7 +251,7 @@ async function withPersistentVendorSession(
     {
       ...session,
       iat: issuedAt,
-      exp: issuedAt + SESSION_TTL_MS,
+      exp: issuedAt + VENDOR_SESSION_TTL_MS,
     },
     SESSION_SIGNING_SECRET
   );
