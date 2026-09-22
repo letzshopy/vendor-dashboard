@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { Suspense } from "react";
 
 import WhatsappFab from "@/components/WhatsappFab";
+import OrderPushManager from "@/components/pwa/OrderPushManager";
 import ActionFeedbackHost from "@/components/feedback/ActionFeedbackHost";
 import {
   evaluateAccessPolicy,
@@ -317,6 +318,7 @@ export default async function DashboardLayout({
             )}
           </DashboardShell>
 
+          <OrderPushManager />
           <WhatsappFab />
           <ActionFeedbackHost />
         </>
