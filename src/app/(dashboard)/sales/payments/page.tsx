@@ -35,8 +35,8 @@ export default async function PaymentsPage() {
 
           <p className="mt-1 max-w-3xl text-sm leading-6 text-slate-500">
             Review payment methods, payment status and transaction references
-            across your orders. PayGlocal status is checked only when you ask
-            for a live update.
+            across your orders. PayGlocal status loads automatically for
+            the payment rows currently visible on this page.
           </p>
         </div>
       </header>
