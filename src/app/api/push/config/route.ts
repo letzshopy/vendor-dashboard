@@ -33,7 +33,14 @@ export async function GET() {
         },
       }
     );
-  } catch {
+  } catch (error) {
+    console.error(
+      "Push configuration unavailable:",
+      error instanceof Error
+        ? error.message
+        : "Unknown configuration error"
+    );
+
     return NextResponse.json(
       {
         ok: false,
