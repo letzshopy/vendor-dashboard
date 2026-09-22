@@ -23,7 +23,13 @@ export type SessionPayload = {
   exp: number;
 };
 
-export const SESSION_TTL_MS = 8 * 60 * 60 * 1000;
+// Vendor PWA sessions are persistent on trusted devices. A valid session
+// lives for 90 days and is renewed before expiry by the dashboard proxy.
+export const SESSION_TTL_MS =
+  90 * 24 * 60 * 60 * 1000;
+
+export const SESSION_REFRESH_WINDOW_MS =
+  30 * 24 * 60 * 60 * 1000;
 
 const ALLOWED_ROLES: SessionRole[] = [
   "master_admin",
