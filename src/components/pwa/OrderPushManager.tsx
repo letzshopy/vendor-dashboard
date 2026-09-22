@@ -179,10 +179,6 @@ export default function OrderPushManager() {
 
     setSupported(hasSupport);
 
-    if (!hasSupport) {
-      return;
-    }
-
     let cancelled = false;
 
     async function bootstrap() {
@@ -194,22 +190,36 @@ export default function OrderPushManager() {
           }
         );
 
-        if (!configResponse.ok) {
-          return;
-        }
-
         const config: PushConfigResponse =
-          await configResponse.json();
+          await configResponse
+            .json()
+            .catch(() => ({}));
 
         if (
           cancelled ||
+          !configResponse.ok ||
           !config.ok ||
           !config.publicKey
         ) {
+          if (!cancelled) {
+            setError(
+              config.error ||
+                "Order push notifications are not configured."
+            );
+          }
           return;
         }
 
         setConfigured(true);
+
+        if (!hasSupport) {
+          if (!cancelled) {
+            setError(
+              "This browser cannot receive background order notifications. Open LetzShopy in Chrome and install it as an app."
+            );
+          }
+          return;
+        }
 
         const registration =
           await getPushRegistration();
@@ -228,7 +238,11 @@ export default function OrderPushManager() {
           }
         }
       } catch {
-        // Push setup is non-blocking for the dashboard.
+        if (!cancelled) {
+          setError(
+            "Order notification setup could not be checked."
+          );
+        }
       }
     }
 
@@ -401,13 +415,16 @@ export default function OrderPushManager() {
     }
   }, []);
 
+  const notificationPermission =
+    typeof Notification !== "undefined"
+      ? Notification.permission
+      : "default";
+
   const showPrompt =
-    supported &&
-    configured &&
     !enabled &&
     !dismissed &&
-    typeof Notification !== "undefined" &&
-    Notification.permission !== "denied";
+    (configured || Boolean(error)) &&
+    notificationPermission !== "denied";
 
   return (
     <>
@@ -445,7 +462,11 @@ export default function OrderPushManager() {
 
           <button
             type="button"
-            disabled={busy}
+            disabled={
+              busy ||
+              !supported ||
+              !configured
+            }
             onClick={() =>
               void enableNotifications()
             }
