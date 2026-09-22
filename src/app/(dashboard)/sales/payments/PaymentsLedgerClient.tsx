@@ -6,7 +6,6 @@ import {
   ArrowRight,
   ExternalLink,
   Loader2,
-  RefreshCw,
   Search,
 } from "lucide-react";
 import {
@@ -14,6 +13,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 
@@ -173,6 +173,9 @@ export default function PaymentsLedgerClient() {
   const [liveByOrder, setLiveByOrder] =
     useState<Record<number, LiveState>>({});
 
+  const requestedLiveOrderIds =
+    useRef<Set<number>>(new Set());
+
   const query = useMemo(() => {
     const params = new URLSearchParams({
       page: String(page),
@@ -324,6 +327,46 @@ export default function PaymentsLedgerClient() {
     }
   }, []);
 
+  useEffect(() => {
+    if (!data?.rows.length) return;
+
+    const queue = data.rows.filter(
+      (row) =>
+        row.paymentMethod.kind === "payglocal" &&
+        !requestedLiveOrderIds.current.has(row.orderId)
+    );
+
+    if (!queue.length) return;
+
+    for (const row of queue) {
+      requestedLiveOrderIds.current.add(row.orderId);
+    }
+
+    let cancelled = false;
+    const pending = [...queue];
+
+    async function worker() {
+      while (!cancelled) {
+        const row = pending.shift();
+        if (!row) return;
+        await checkLiveStatus(row);
+      }
+    }
+
+    const workerCount = Math.min(4, pending.length);
+
+    void Promise.all(
+      Array.from(
+        { length: workerCount },
+        () => worker()
+      )
+    );
+
+    return () => {
+      cancelled = true;
+    };
+  }, [data, checkLiveStatus]);
+
   const summary = data?.summary;
   const pagination = data?.pagination;
   const startRow =
@@ -335,10 +378,23 @@ export default function PaymentsLedgerClient() {
     : 0;
 
   function statusFor(row: PaymentLedgerRow) {
-    return (
-      liveByOrder[row.orderId]?.payment?.friendlyStatus ||
-      row.paymentStatus.label
-    );
+    const live = liveByOrder[row.orderId];
+
+    if (row.paymentMethod.kind === "payglocal") {
+      if (live?.payment?.friendlyStatus) {
+        return live.payment.friendlyStatus;
+      }
+
+      if (live?.loading) {
+        return "Checking live status";
+      }
+
+      if (live?.error) {
+        return "Live status unavailable";
+      }
+    }
+
+    return row.paymentStatus.label;
   }
 
   function referenceFor(row: PaymentLedgerRow) {
@@ -448,7 +504,7 @@ export default function PaymentsLedgerClient() {
               Payment transactions
             </h2>
             <p className="mt-0.5 text-xs text-slate-500">
-              PayGlocal status is fetched only when Check is pressed.
+              PayGlocal live status loads automatically for the visible rows.
             </p>
           </div>
 
@@ -554,42 +610,17 @@ export default function PaymentsLedgerClient() {
                       </div>
                     ) : null}
 
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      {row.paymentMethod.kind === "payglocal" ? (
-                        <button
-                          type="button"
-                          disabled={live?.loading}
-                          onClick={() => void checkLiveStatus(row)}
-                          className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-indigo-200 bg-indigo-50 px-3 text-xs font-semibold text-indigo-700 disabled:opacity-60"
-                        >
-                          {live?.loading ? (
-                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                          ) : (
-                            <RefreshCw className="h-3.5 w-3.5" />
-                          )}
-                          {live?.payment ? "Refresh" : "Check status"}
-                        </button>
-                      ) : null}
-
-                      {row.manualUpi?.proofAvailable ? (
-                        <a
-                          href={`/api/orders/${row.orderId}/upi-proof`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-slate-200 px-3 text-xs font-semibold text-slate-700"
-                        >
-                          Proof
-                          <ExternalLink className="h-3.5 w-3.5" />
-                        </a>
-                      ) : null}
-
-                      <Link
-                        href={`/orders/${row.orderId}`}
-                        className="inline-flex h-9 items-center rounded-xl border border-slate-200 px-3 text-xs font-semibold text-slate-700"
+                    {row.manualUpi?.proofAvailable ? (
+                      <a
+                        href={`/api/orders/${row.orderId}/upi-proof`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="mt-3 inline-flex h-9 items-center gap-1.5 rounded-xl border border-slate-200 px-3 text-xs font-semibold text-slate-700"
                       >
-                        View order
-                      </Link>
-                    </div>
+                        View proof
+                        <ExternalLink className="h-3.5 w-3.5" />
+                      </a>
+                    ) : null}
                   </article>
                 );
               })}
@@ -599,7 +630,7 @@ export default function PaymentsLedgerClient() {
               <table className="w-full min-w-[1040px] text-sm">
                 <thead>
                   <tr className="bg-violet-50/60 text-left text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                    {["Order", "Customer", "Method", "Payment status", "Woo status", "Amount", "Reference", "Date", "Action"].map(
+                    {["Order", "Customer", "Method", "Payment status", "Woo status", "Amount", "Reference", "Date"].map(
                       (label) => (
                         <th key={label} className="px-4 py-3">
                           {label}
@@ -660,47 +691,24 @@ export default function PaymentsLedgerClient() {
                         <td className="px-4 py-4 font-bold text-slate-900">
                           {formatMoney(row.amount, row.currency)}
                         </td>
-                        <td className="max-w-[210px] px-4 py-4 break-all font-mono text-[10px] leading-4 text-slate-600">
-                          {referenceFor(row) || "—"}
+                        <td className="max-w-[210px] px-4 py-4">
+                          <div className="break-all font-mono text-[10px] leading-4 text-slate-600">
+                            {referenceFor(row) || "—"}
+                          </div>
+                          {row.manualUpi?.proofAvailable ? (
+                            <a
+                              href={`/api/orders/${row.orderId}/upi-proof`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="mt-2 inline-flex items-center gap-1 text-[10px] font-semibold text-indigo-700 hover:underline"
+                            >
+                              View proof
+                              <ExternalLink className="h-3 w-3" />
+                            </a>
+                          ) : null}
                         </td>
                         <td className="whitespace-nowrap px-4 py-4 text-xs text-slate-500">
                           {formatDate(row.createdAtGmt)}
-                        </td>
-                        <td className="px-4 py-4">
-                          <div className="flex justify-end gap-2">
-                            {row.paymentMethod.kind === "payglocal" ? (
-                              <button
-                                type="button"
-                                disabled={live?.loading}
-                                onClick={() => void checkLiveStatus(row)}
-                                className="inline-flex h-9 items-center gap-1 rounded-xl border border-indigo-200 bg-indigo-50 px-3 text-xs font-semibold text-indigo-700 disabled:opacity-60"
-                              >
-                                {live?.loading ? (
-                                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                                ) : (
-                                  <RefreshCw className="h-3.5 w-3.5" />
-                                )}
-                                {live?.payment ? "Refresh" : "Check"}
-                              </button>
-                            ) : null}
-                            {row.manualUpi?.proofAvailable ? (
-                              <a
-                                href={`/api/orders/${row.orderId}/upi-proof`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 text-slate-600"
-                                title="View payment proof"
-                              >
-                                <ExternalLink className="h-4 w-4" />
-                              </a>
-                            ) : null}
-                            <Link
-                              href={`/orders/${row.orderId}`}
-                              className="inline-flex h-9 items-center rounded-xl border border-slate-200 px-3 text-xs font-semibold text-slate-700"
-                            >
-                              Order
-                            </Link>
-                          </div>
                         </td>
                       </tr>
                     );
