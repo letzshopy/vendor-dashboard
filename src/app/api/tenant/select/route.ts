@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import {
   findAuthorizedStore,
+  SESSION_TTL_MS,
   verifySessionToken,
 } from "@/lib/session";
 
@@ -93,7 +94,7 @@ export async function POST(req: NextRequest) {
       sameSite: "lax",
       secure: process.env.NODE_ENV === "production",
       path: "/",
-      maxAge: 60 * 60 * 8,
+      maxAge: Math.floor(SESSION_TTL_MS / 1000),
     }
   );
 
