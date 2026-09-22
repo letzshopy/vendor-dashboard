@@ -69,6 +69,17 @@ function subscriptionPayload(
   };
 }
 
+async function getPushRegistration() {
+  await navigator.serviceWorker.register(
+    "/sw.js",
+    {
+      scope: "/",
+    }
+  );
+
+  return navigator.serviceWorker.ready;
+}
+
 async function saveSubscription(
   subscription: PushSubscription
 ) {
@@ -201,7 +212,7 @@ export default function OrderPushManager() {
         setConfigured(true);
 
         const registration =
-          await navigator.serviceWorker.ready;
+          await getPushRegistration();
         const existing =
           await registration.pushManager.getSubscription();
 
@@ -306,7 +317,7 @@ export default function OrderPushManager() {
         }
 
         const registration =
-          await navigator.serviceWorker.ready;
+          await getPushRegistration();
 
         let subscription =
           await registration.pushManager.getSubscription();
