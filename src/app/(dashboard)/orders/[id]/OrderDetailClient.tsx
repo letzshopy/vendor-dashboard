@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import type { WCOrder } from "@/lib/order-utils";
 import { statusPillClass } from "@/lib/order-utils";
+import OrderPaymentInformation from "./OrderPaymentInformation";
 import {
   extractShipmentFromMeta,
   mergeShipmentMeta,
@@ -728,6 +729,8 @@ export default function OrderDetailClient({ initialOrder }: Props) {
           </div>
         </div>
       </div>
+
+      <OrderPaymentInformation order={order} />
 
       <div className="grid gap-4 xl:grid-cols-3">
         <SectionCard title="Billing" hint="Billing contact and address" icon={User}>
