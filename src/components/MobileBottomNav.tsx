@@ -19,6 +19,7 @@ import {
   Settings2,
   ShoppingBag,
   Users,
+  WalletCards,
   X,
 } from "lucide-react";
 import {
@@ -50,6 +51,11 @@ const moreItems: NavItem[] = [
     href: "/customers",
     label: "Customers",
     icon: Users,
+  },
+  {
+    href: "/sales/payments",
+    label: "Payments",
+    icon: WalletCards,
   },
   {
     href: "/media",

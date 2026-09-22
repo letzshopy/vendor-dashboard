@@ -134,6 +134,9 @@ const ROOT_HEADERS: Record<
   "/sales/shipment-details": {
     title: "Shipment Details",
   },
+  "/sales/payments": {
+    title: "Payments",
+  },
   "/sales/feedback": {
     title: "Customer Feedback",
     action: {
