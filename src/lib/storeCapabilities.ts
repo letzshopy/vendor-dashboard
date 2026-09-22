@@ -46,6 +46,7 @@ const STANDALONE_V1_ALLOWED_SETTINGS_TABS =
 const STANDALONE_V1_BLOCKED_PATH_PREFIXES = [
   "/menu",
   "/sales/feedback",
+  "/sales/payments",
   "/billing/subscription",
   "/subscription-bills",
   "/offers-discounts/sale-events",
