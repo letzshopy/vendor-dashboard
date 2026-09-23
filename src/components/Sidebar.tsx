@@ -209,6 +209,11 @@ const ALL_GROUPS: Group[] = [
         ready: true,
       },
       {
+        href: "/shoppable-videos",
+        label: "Shoppable Videos",
+        ready: true,
+      },
+      {
         href: "/products/trash",
         label: "Trash Bin",
         ready: true,
