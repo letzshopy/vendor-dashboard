@@ -23,7 +23,16 @@ export type SessionPayload = {
   exp: number;
 };
 
-export const SESSION_TTL_MS = 8 * 60 * 60 * 1000;
+// Master/admin sessions retain the existing short security window.
+export const SESSION_TTL_MS =
+  8 * 60 * 60 * 1000;
+
+// Vendor PWA sessions persist on trusted devices and roll forward on use.
+export const VENDOR_SESSION_TTL_MS =
+  90 * 24 * 60 * 60 * 1000;
+
+export const VENDOR_SESSION_REFRESH_WINDOW_MS =
+  30 * 24 * 60 * 60 * 1000;
 
 const ALLOWED_ROLES: SessionRole[] = [
   "master_admin",
@@ -254,10 +263,15 @@ export async function verifySessionToken(
 
     const now = Date.now();
 
+    const maxSessionTtl =
+      role === "master_admin"
+        ? SESSION_TTL_MS
+        : VENDOR_SESSION_TTL_MS;
+
     if (
       issuedAt > now + 5 * 60 * 1000 ||
       expiresAt <= now ||
-      expiresAt - issuedAt > SESSION_TTL_MS
+      expiresAt - issuedAt > maxSessionTtl
     ) {
       return null;
     }

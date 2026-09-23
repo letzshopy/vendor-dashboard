@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import {
   SESSION_TTL_MS,
+  VENDOR_SESSION_TTL_MS,
   type SessionRole,
   type SessionStore,
   type SessionStoreType,
@@ -24,9 +25,6 @@ const SESSION_SIGNING_SECRET =
 
 const MASTER_WP_URL =
   process.env.MASTER_WP_URL || "";
-
-const SESSION_MAX_AGE_SECONDS =
-  Math.floor(SESSION_TTL_MS / 1000);
 
 const PRIVATE_RESPONSE_HEADERS = {
   "Cache-Control":
@@ -344,7 +342,8 @@ function clearCookie(
 
 function setAuthSessionCookie(
   response: NextResponse,
-  authToken: string
+  authToken: string,
+  maxAgeSeconds: number
 ) {
   response.cookies.set(
     AUTH_COOKIE_NAME,
@@ -357,14 +356,15 @@ function setAuthSessionCookie(
         "production",
       path: "/",
       maxAge:
-        SESSION_MAX_AGE_SECONDS,
+        maxAgeSeconds,
     }
   );
 }
 
 function setTenantCookie(
   response: NextResponse,
-  store: SessionStore
+  store: SessionStore,
+  maxAgeSeconds: number
 ) {
   const tenantPayload = {
     blog_id: store.blog_id,
@@ -385,7 +385,7 @@ function setTenantCookie(
         "production",
       path: "/",
       maxAge:
-        SESSION_MAX_AGE_SECONDS,
+        maxAgeSeconds,
     }
   );
 }
@@ -393,6 +393,7 @@ function setTenantCookie(
 function setLoginSessionState(
   response: NextResponse,
   authToken: string,
+  maxAgeSeconds: number,
   selectedStore?: SessionStore
 ) {
   /*
@@ -412,13 +413,15 @@ function setLoginSessionState(
 
   setAuthSessionCookie(
     response,
-    authToken
+    authToken,
+    maxAgeSeconds
   );
 
   if (selectedStore) {
     setTenantCookie(
       response,
-      selectedStore
+      selectedStore,
+      maxAgeSeconds
     );
   }
 }
@@ -587,6 +590,12 @@ export async function POST(
       );
 
     const issuedAt = Date.now();
+    const sessionTtlMs =
+      role === "master_admin"
+        ? SESSION_TTL_MS
+        : VENDOR_SESSION_TTL_MS;
+    const sessionMaxAgeSeconds =
+      Math.floor(sessionTtlMs / 1000);
 
     const authToken =
       await signSessionPayload(
@@ -599,7 +608,7 @@ export async function POST(
           iat: issuedAt,
           exp:
             issuedAt +
-            SESSION_TTL_MS,
+            sessionTtlMs,
         },
         SESSION_SIGNING_SECRET
       );
@@ -630,6 +639,7 @@ export async function POST(
       setLoginSessionState(
         response,
         authToken,
+        sessionMaxAgeSeconds,
         selectedStore
       );
 
@@ -655,6 +665,7 @@ export async function POST(
     setLoginSessionState(
       response,
       authToken,
+      sessionMaxAgeSeconds,
       selectedStore
     );
 

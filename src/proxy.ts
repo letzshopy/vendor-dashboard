@@ -4,6 +4,9 @@ import {
 } from "@/lib/accessPolicy";
 import {
   findAuthorizedStore,
+  VENDOR_SESSION_REFRESH_WINDOW_MS,
+  VENDOR_SESSION_TTL_MS,
+  signSessionPayload,
   type SessionPayload,
   type SessionStore,
   verifySessionToken,
@@ -19,6 +22,11 @@ const LEGACY_ROLE_COOKIE = "ls_role";
 
 const SESSION_SIGNING_SECRET =
   process.env.DASHBOARD_SECRET || "";
+
+const VENDOR_SESSION_MAX_AGE_SECONDS =
+  Math.floor(
+    VENDOR_SESSION_TTL_MS / 1000
+  );
 
 const PUBLIC_PAGE_PATHS = new Set([
   "/",
@@ -185,6 +193,74 @@ function clearTenantCookie(response: NextResponse) {
     path: "/",
     maxAge: 0,
   });
+
+  return response;
+}
+
+function setPersistentAuthCookie(
+  response: NextResponse,
+  token: string
+) {
+  response.cookies.set(AUTH_COOKIE, token, {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    path: "/",
+    maxAge: VENDOR_SESSION_MAX_AGE_SECONDS,
+  });
+}
+
+function setPersistentTenantCookie(
+  response: NextResponse,
+  store: SessionStore
+) {
+  response.cookies.set(
+    TENANT_COOKIE,
+    encodeURIComponent(
+      JSON.stringify({
+        blog_id: store.blog_id,
+        store_name: store.store_name,
+        store_url: store.store_url,
+      })
+    ),
+    {
+      httpOnly: true,
+      sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
+      path: "/",
+      maxAge: VENDOR_SESSION_MAX_AGE_SECONDS,
+    }
+  );
+}
+
+async function withPersistentVendorSession(
+  response: NextResponse,
+  session: SessionPayload,
+  store?: SessionStore | null
+): Promise<NextResponse> {
+  if (
+    session.saas_role === "master_admin" ||
+    session.exp - Date.now() >
+      VENDOR_SESSION_REFRESH_WINDOW_MS
+  ) {
+    return response;
+  }
+
+  const issuedAt = Date.now();
+  const token = await signSessionPayload(
+    {
+      ...session,
+      iat: issuedAt,
+      exp: issuedAt + VENDOR_SESSION_TTL_MS,
+    },
+    SESSION_SIGNING_SECRET
+  );
+
+  setPersistentAuthCookie(response, token);
+
+  if (store) {
+    setPersistentTenantCookie(response, store);
+  }
 
   return response;
 }
@@ -394,7 +470,10 @@ export async function proxy(req: NextRequest) {
     }
 
     if (SESSION_ONLY_API_PATHS.has(pathname)) {
-      return NextResponse.next();
+      return withPersistentVendorSession(
+        NextResponse.next(),
+        session
+      );
     }
 
     if (session.saas_role === "master_admin") {
@@ -415,7 +494,11 @@ export async function proxy(req: NextRequest) {
     }
 
     if (isRecoveryApi(pathname)) {
-      return NextResponse.next();
+      return withPersistentVendorSession(
+        NextResponse.next(),
+        session,
+        authorizedTenant
+      );
     }
 
     const [
@@ -467,7 +550,11 @@ export async function proxy(req: NextRequest) {
       );
     }
 
-    return NextResponse.next();
+    return withPersistentVendorSession(
+      NextResponse.next(),
+      session,
+      authorizedTenant
+    );
   }
 
   if (isMasterPage(pathname)) {
@@ -480,13 +567,17 @@ export async function proxy(req: NextRequest) {
       session
     );
 
-    return NextResponse.redirect(
-      new URL(
-        authorizedTenant
-          ? "/dashboard"
-          : "/select-store",
-        req.url
-      )
+    return withPersistentVendorSession(
+      NextResponse.redirect(
+        new URL(
+          authorizedTenant
+            ? "/dashboard"
+            : "/select-store",
+          req.url
+        )
+      ),
+      session,
+      authorizedTenant
     );
   }
 
@@ -497,7 +588,10 @@ export async function proxy(req: NextRequest) {
   }
 
   if (pathname === "/select-store") {
-    return NextResponse.next();
+    return withPersistentVendorSession(
+      NextResponse.next(),
+      session
+    );
   }
 
   const authorizedTenant = getAuthorizedTenant(
@@ -506,15 +600,22 @@ export async function proxy(req: NextRequest) {
   );
 
   if (!authorizedTenant) {
-    return clearTenantCookie(
-      NextResponse.redirect(
-        new URL("/select-store", req.url)
-      )
+    return withPersistentVendorSession(
+      clearTenantCookie(
+        NextResponse.redirect(
+          new URL("/select-store", req.url)
+        )
+      ),
+      session
     );
   }
 
   if (isAlwaysAllowedAfterLogin(pathname)) {
-    return NextResponse.next();
+    return withPersistentVendorSession(
+      NextResponse.next(),
+      session,
+      authorizedTenant
+    );
   }
 
   const [
@@ -556,7 +657,11 @@ export async function proxy(req: NextRequest) {
      * The verified server layout presents the
      * mandatory agreement gate.
      */
-    return NextResponse.next();
+    return withPersistentVendorSession(
+      NextResponse.next(),
+      session,
+      authorizedTenant
+    );
   }
 
   if (access.dashboardMode === "restricted") {
@@ -570,10 +675,18 @@ export async function proxy(req: NextRequest) {
       access.reason
     );
 
-    return NextResponse.redirect(url);
+    return withPersistentVendorSession(
+      NextResponse.redirect(url),
+      session,
+      authorizedTenant
+    );
   }
 
-  return NextResponse.next();
+  return withPersistentVendorSession(
+    NextResponse.next(),
+    session,
+    authorizedTenant
+  );
 }
 
 export const config = {

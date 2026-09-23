@@ -283,12 +283,24 @@ export default function Topbar({
       }
     }
 
+    const refreshNotifications = () => {
+      void loadNotifications();
+    };
+
     loadNotifications();
     const timer = setInterval(loadNotifications, 60_000);
+    window.addEventListener(
+      "letzshopy:refresh-notifications",
+      refreshNotifications
+    );
 
     return () => {
       cancelled = true;
       clearInterval(timer);
+      window.removeEventListener(
+        "letzshopy:refresh-notifications",
+        refreshNotifications
+      );
     };
   }, []);
 
