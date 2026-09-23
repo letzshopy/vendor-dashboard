@@ -23,6 +23,10 @@ const ACTIONS = {
     path: "/wp-json/letz/v2/shoppable/publish",
     method: "POST",
   },
+  update: {
+    path: "/wp-json/letz/v2/shoppable/update",
+    method: "PUT",
+  },
   adopt: {
     path: "/wp-json/letz/v2/shoppable/adopt-existing",
     method: "POST",
@@ -180,6 +184,48 @@ export async function POST(request: NextRequest) {
     payload.category_ids = Array.isArray(payload.category_ids)
       ? payload.category_ids.slice(0, 10)
       : [];
+  }
+
+  if (action === "ticket") {
+    payload.kind =
+      payload.kind === "thumbnail"
+        ? "thumbnail"
+        : "video";
+  }
+
+  if (action === "update") {
+    const storyId = Number(payload.story_id || 0);
+
+    if (!Number.isInteger(storyId) || storyId <= 0) {
+      return NextResponse.json(
+        { ok: false, error: "Story ID is required." },
+        { status: 400, headers: PRIVATE_HEADERS }
+      );
+    }
+
+    payload.story_id = storyId;
+    payload.title =
+      typeof payload.title === "string"
+        ? payload.title.trim().slice(0, 180)
+        : "";
+    payload.product_ids = Array.isArray(payload.product_ids)
+      ? payload.product_ids.slice(0, 20)
+      : [];
+    payload.category_ids = Array.isArray(payload.category_ids)
+      ? payload.category_ids.slice(0, 10)
+      : [];
+
+    if ("replacement_media_id" in payload) {
+      payload.replacement_media_id = Number(
+        payload.replacement_media_id || 0
+      );
+    }
+
+    if ("thumbnail_media_id" in payload) {
+      payload.thumbnail_media_id = Number(
+        payload.thumbnail_media_id || 0
+      );
+    }
   }
 
   if (action === "delete") {
