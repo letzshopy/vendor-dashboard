@@ -4,7 +4,9 @@ import {
   CheckCircle2,
   Clapperboard,
   Film,
+  ImagePlus,
   Loader2,
+  Pencil,
   Search,
   ShoppingBag,
   Tag,
@@ -12,6 +14,7 @@ import {
   UploadCloud,
   X,
 } from "lucide-react";
+import ShoppableVideoEditModal from "@/components/ShoppableVideoEditModal";
 import {
   useCallback,
   useEffect,
@@ -28,8 +31,11 @@ type ExistingStory = {
   media_id: number;
   created_at: string;
   managed: boolean;
+  thumbnail_media_id?: number;
   product_ids?: number[];
   category_ids?: number[];
+  tagged_products?: Product[];
+  tagged_categories?: Category[];
   oos_since?: string;
 };
 
@@ -152,7 +158,7 @@ async function readBridge<T>(
 }
 
 async function runAction<T extends ActionResponse>(
-  action: "ticket" | "publish" | "adopt" | "delete",
+  action: "ticket" | "publish" | "update" | "adopt" | "delete",
   payload: Record<string, unknown> = {}
 ): Promise<T> {
   const response = await fetch(
@@ -203,8 +209,90 @@ function formatBytes(bytes: number) {
     : `${Math.round(bytes / 1024)} KB`;
 }
 
+async function uploadStoreAsset(
+  file: File,
+  kind: "video" | "thumbnail"
+) {
+  const ticket =
+    await runAction<UploadTicket>(
+      "ticket",
+      { kind }
+    );
+
+  if (!ticket.upload_url) {
+    throw new Error(
+      "The store did not return an upload destination."
+    );
+  }
+
+  const maxBytes =
+    Number(ticket.max_upload_bytes || 0);
+
+  if (
+    maxBytes > 0 &&
+    file.size > maxBytes
+  ) {
+    throw new Error(
+      `File must be ${formatBytes(maxBytes)} or smaller.`
+    );
+  }
+
+  const body = new FormData();
+  body.append(
+    "file",
+    file,
+    file.name.slice(0, 180)
+  );
+
+  const response = await fetch(
+    ticket.upload_url,
+    {
+      method: "POST",
+      body,
+      mode: "cors",
+      cache: "no-store",
+    }
+  );
+
+  const result: unknown =
+    await response
+      .json()
+      .catch(() => null);
+
+  if (
+    !response.ok ||
+    !result ||
+    typeof result !== "object"
+  ) {
+    throw new Error(
+      messageFrom(
+        result,
+        "File upload failed."
+      )
+    );
+  }
+
+  const upload =
+    result as UploadResponse;
+  const mediaId =
+    Number(upload.media_id || 0);
+
+  if (
+    !Number.isInteger(mediaId) ||
+    mediaId <= 0
+  ) {
+    throw new Error(
+      "Upload returned an invalid media ID."
+    );
+  }
+
+  return mediaId;
+}
+
 export default function ShoppableVideosClient() {
   const fileInputRef =
+    useRef<HTMLInputElement | null>(null);
+  const thumbnailInputRef =
     useRef<HTMLInputElement | null>(null);
   const legacyAdoptionAttemptedRef =
     useRef(false);
@@ -250,6 +338,16 @@ export default function ShoppableVideosClient() {
   ] = useState<File | null>(null);
 
   const [
+    thumbnailFile,
+    setThumbnailFile,
+  ] = useState<File | null>(null);
+
+  const [
+    editingStory,
+    setEditingStory,
+  ] = useState<ExistingStory | null>(null);
+
+  const [
     productQuery,
     setProductQuery,
   ] = useState("");
@@ -282,14 +380,28 @@ export default function ShoppableVideosClient() {
   const maxBytes =
     status?.max_upload_bytes || 0;
 
+  const publishReady =
+    Boolean(status?.ok) &&
+    (status?.legacy_count || 0) === 0;
+
+  const hasTags =
+    selectedProducts.length > 0 ||
+    selectedCategories.length > 0;
+
   const canPublish =
-    Boolean(status?.publish_enabled) &&
+    publishReady &&
     Boolean(selectedFile) &&
-    (
-      selectedProducts.length > 0 ||
-      selectedCategories.length > 0
-    ) &&
+    hasTags &&
     !busy;
+
+  const publishButtonText =
+    !publishReady
+      ? "Preparing store…"
+      : !selectedFile
+        ? "Choose a video"
+        : !hasTags
+          ? "Tag a product"
+          : "Upload & publish";
 
   const loadStatus =
     useCallback(async () => {
@@ -527,89 +639,26 @@ export default function ShoppableVideosClient() {
     setSuccess("");
 
     try {
-      const ticket =
-        await runAction<UploadTicket>(
-          "ticket"
-        );
-
-      if (!ticket.upload_url) {
-        throw new Error(
-          "The store did not return a video upload destination."
-        );
-      }
-
-      const ticketMax =
-        Number(
-          ticket.max_upload_bytes || 0
-        );
-
-      if (
-        ticketMax > 0 &&
-        selectedFile.size > ticketMax
-      ) {
-        throw new Error(
-          `Video must be ${formatBytes(
-            ticketMax
-          )} or smaller.`
-        );
-      }
-
-      const body = new FormData();
-
-      body.append(
-        "file",
-        selectedFile,
-        selectedFile.name.slice(0, 180)
-      );
-
-      const uploadResponse =
-        await fetch(
-          ticket.upload_url,
-          {
-            method: "POST",
-            body,
-            mode: "cors",
-            cache: "no-store",
-          }
-        );
-
-      const uploadBody: unknown =
-        await uploadResponse
-          .json()
-          .catch(() => null);
-
-      if (
-        !uploadResponse.ok ||
-        !uploadBody ||
-        typeof uploadBody !== "object"
-      ) {
-        throw new Error(
-          messageFrom(
-            uploadBody,
-            "Video upload failed."
-          )
-        );
-      }
-
-      const upload =
-        uploadBody as UploadResponse;
-
       const mediaId =
-        Number(upload.media_id || 0);
-
-      if (
-        !Number.isInteger(mediaId) ||
-        mediaId <= 0
-      ) {
-        throw new Error(
-          "Video upload returned an invalid media ID."
+        await uploadStoreAsset(
+          selectedFile,
+          "video"
         );
-      }
+
+      const thumbnailMediaId =
+        thumbnailFile
+          ? await uploadStoreAsset(
+              thumbnailFile,
+              "thumbnail"
+            )
+          : 0;
 
       await runAction<ActionResponse>(
         "publish",
         {
           media_id: mediaId,
+          thumbnail_media_id:
+            thumbnailMediaId,
           title: title.trim(),
           product_ids:
             selectedProducts.map(
@@ -627,6 +676,7 @@ export default function ShoppableVideosClient() {
       );
 
       setSelectedFile(null);
+      setThumbnailFile(null);
       setTitle("");
       setSelectedProducts([]);
       setSelectedCategories([]);
@@ -635,6 +685,10 @@ export default function ShoppableVideosClient() {
 
       if (fileInputRef.current) {
         fileInputRef.current.value = "";
+      }
+
+      if (thumbnailInputRef.current) {
+        thumbnailInputRef.current.value = "";
       }
 
       await loadStatus();
@@ -837,6 +891,70 @@ export default function ShoppableVideosClient() {
             ) : null}
 
             <label className="block">
+              <span className="flex items-center gap-2 text-sm font-semibold text-slate-700">
+                <ImagePlus className="h-4 w-4 text-violet-600" />
+                Thumbnail image
+                <span className="font-normal text-slate-400">
+                  (optional)
+                </span>
+              </span>
+
+              <input
+                ref={thumbnailInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp"
+                disabled={!publishReady || busy}
+                onChange={(event) => {
+                  const file =
+                    event.target.files?.[0] ||
+                    null;
+
+                  if (
+                    file &&
+                    ![
+                      "image/jpeg",
+                      "image/png",
+                      "image/webp",
+                    ].includes(file.type)
+                  ) {
+                    setThumbnailFile(null);
+                    setActionError(
+                      "Thumbnail must be JPG, PNG or WebP."
+                    );
+                    return;
+                  }
+
+                  setActionError("");
+                  setThumbnailFile(file);
+                }}
+                className="mt-2 block w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm file:mr-3 file:rounded-lg file:border-0 file:bg-violet-600 file:px-3 file:py-2 file:font-semibold file:text-white disabled:opacity-55"
+              />
+            </label>
+
+            {thumbnailFile ? (
+              <div className="flex items-center gap-3 rounded-xl border border-violet-100 bg-violet-50 p-3">
+                <div className="h-14 w-12 overflow-hidden rounded-lg bg-white">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={URL.createObjectURL(
+                      thumbnailFile
+                    )}
+                    alt=""
+                    className="h-full w-full object-cover"
+                  />
+                </div>
+                <div className="min-w-0 text-sm text-violet-950">
+                  <div className="truncate font-semibold">
+                    {thumbnailFile.name}
+                  </div>
+                  <div className="mt-1 text-xs text-violet-700">
+                    Used as the storefront reel cover.
+                  </div>
+                </div>
+              </div>
+            ) : null}
+
+            <label className="block">
               <span className="text-sm font-semibold text-slate-700">
                 Video title
               </span>
@@ -855,8 +973,7 @@ export default function ShoppableVideosClient() {
               />
             </label>
 
-            {!status?.publish_enabled &&
-            status?.ok ? (
+            {!publishReady && status?.ok ? (
               <p className="rounded-xl bg-slate-50 p-3 text-xs leading-5 text-slate-600">
                 Shoppable video publishing is being prepared for this store.
               </p>
@@ -1071,9 +1188,20 @@ export default function ShoppableVideosClient() {
         </div>
 
         <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-5">
-          <p className="text-xs leading-5 text-slate-500">
-            When the 11th video is published, the oldest managed video is removed. If all tagged products become unavailable, its seven-day cleanup countdown begins.
-          </p>
+          <div className="max-w-3xl">
+            <p className="text-xs leading-5 text-slate-500">
+              When the 11th video is published, the oldest managed video is removed. If all tagged products become unavailable, its seven-day cleanup countdown begins.
+            </p>
+            {!canPublish && publishReady ? (
+              <p className="mt-1 text-xs font-medium text-amber-700">
+                {!selectedFile
+                  ? "Choose an MP4 video to continue."
+                  : !hasTags
+                    ? "Tag at least one product or category to continue."
+                    : ""}
+              </p>
+            ) : null}
+          </div>
 
           <button
             type="button"
@@ -1088,7 +1216,7 @@ export default function ShoppableVideosClient() {
             ) : (
               <UploadCloud className="h-4 w-4" />
             )}
-            Upload & publish
+            {publishButtonText}
           </button>
         </div>
       </section>
@@ -1157,17 +1285,30 @@ export default function ShoppableVideosClient() {
                 </div>
 
                 {item.managed ? (
-                  <button
-                    type="button"
-                    disabled={busy}
-                    aria-label="Delete video"
-                    onClick={() =>
-                      void removeStory(item)
-                    }
-                    className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-rose-50 text-rose-700 disabled:opacity-50"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
+                  <div className="flex shrink-0 items-center gap-2">
+                    <button
+                      type="button"
+                      disabled={busy}
+                      aria-label="Edit video"
+                      onClick={() =>
+                        setEditingStory(item)
+                      }
+                      className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-50 text-indigo-700 disabled:opacity-50"
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </button>
+                    <button
+                      type="button"
+                      disabled={busy}
+                      aria-label="Delete video"
+                      onClick={() =>
+                        void removeStory(item)
+                      }
+                      className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-rose-50 text-rose-700 disabled:opacity-50"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
                 ) : null}
               </article>
             )
@@ -1181,6 +1322,22 @@ export default function ShoppableVideosClient() {
           ) : null}
         </div>
       </section>
+
+      {editingStory ? (
+        <ShoppableVideoEditModal
+          story={editingStory}
+          onClose={() =>
+            setEditingStory(null)
+          }
+          onSaved={async () => {
+            setEditingStory(null);
+            setSuccess(
+              "Shoppable video updated."
+            );
+            await loadStatus();
+          }}
+        />
+      ) : null}
     </main>
   );
 }
