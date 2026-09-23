@@ -229,6 +229,23 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    if (
+      action === "adopt" &&
+      process.env.VERCEL_ENV !== "production"
+    ) {
+      const adopted = Array.isArray(json.adopted)
+        ? json.adopted.length
+        : 0;
+      const skipped = Array.isArray(json.skipped)
+        ? json.skipped
+        : [];
+
+      console.info("shoppable-adopt-summary", {
+        adopted,
+        skipped,
+      });
+    }
+
     return NextResponse.json(json, {
       status: response.status,
       headers: PRIVATE_HEADERS,
