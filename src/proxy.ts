@@ -42,6 +42,10 @@ const PUBLIC_API_PATHS = new Set([
   "/api/auth/logout",
 ]);
 
+const SERVER_INTERNAL_API_PATHS = new Set([
+  "/api/push/order",
+]);
+
 const SESSION_ONLY_API_PATHS = new Set([
   "/api/auth/me",
   "/api/auth/continue",
@@ -414,6 +418,12 @@ export async function proxy(req: NextRequest) {
     PUBLIC_PAGE_PATHS.has(pathname) ||
     PUBLIC_API_PATHS.has(pathname)
   ) {
+    return NextResponse.next();
+  }
+
+  // Server-to-server routes validate their own internal token in the route.
+  // They must not require a vendor browser session cookie.
+  if (SERVER_INTERNAL_API_PATHS.has(pathname)) {
     return NextResponse.next();
   }
 
