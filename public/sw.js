@@ -118,6 +118,64 @@ self.addEventListener("push", (event) => {
   );
 });
 
+async function openNotificationTarget(
+  targetUrl
+) {
+  const windows = await self.clients.matchAll({
+    type: "window",
+    includeUncontrolled: true,
+  });
+
+  // Prefer an already-open exact order page.
+  for (const client of windows) {
+    if (client.url !== targetUrl) {
+      continue;
+    }
+
+    try {
+      await client.focus();
+      return;
+    } catch {
+      // Try another client or open a fresh app window below.
+    }
+  }
+
+  // Reuse an existing LetzShopy window when possible.
+  for (const client of windows) {
+    let sameOrigin = false;
+
+    try {
+      sameOrigin =
+        new URL(client.url).origin ===
+        self.location.origin;
+    } catch {
+      sameOrigin = false;
+    }
+
+    if (!sameOrigin) {
+      continue;
+    }
+
+    try {
+      if (
+        "navigate" in client &&
+        client.url !== targetUrl
+      ) {
+        await client.navigate(targetUrl);
+      }
+
+      await client.focus();
+      return;
+    } catch {
+      // Do not let one stale/background client swallow the click.
+    }
+  }
+
+  // No usable window exists. Chrome/Android can launch the installed
+  // PWA for an in-scope URL, otherwise it opens the same-origin page.
+  await self.clients.openWindow(targetUrl);
+}
+
 self.addEventListener(
   "notificationclick",
   (event) => {
@@ -142,38 +200,7 @@ self.addEventListener(
     ).href;
 
     event.waitUntil(
-      self.clients
-        .matchAll({
-          type: "window",
-          includeUncontrolled: true,
-        })
-        .then(async (clients) => {
-          for (const client of clients) {
-            if (
-              new URL(client.url).origin ===
-              self.location.origin
-            ) {
-              if (
-                "navigate" in client &&
-                client.url !== targetUrl
-              ) {
-                try {
-                  await client.navigate(
-                    targetUrl
-                  );
-                } catch {
-                  // Fall through to focus the existing client.
-                }
-              }
-
-              return client.focus();
-            }
-          }
-
-          return self.clients.openWindow(
-            targetUrl
-          );
-        })
+      openNotificationTarget(targetUrl)
     );
   }
 );
