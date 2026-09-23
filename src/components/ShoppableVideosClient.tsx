@@ -206,6 +206,8 @@ function formatBytes(bytes: number) {
 export default function ShoppableVideosClient() {
   const fileInputRef =
     useRef<HTMLInputElement | null>(null);
+  const legacyAdoptionAttemptedRef =
+    useRef(false);
 
   const [
     status,
@@ -315,6 +317,56 @@ export default function ShoppableVideosClient() {
   useEffect(() => {
     void loadStatus();
   }, [loadStatus]);
+
+  useEffect(() => {
+    const legacyCount =
+      status?.ok
+        ? status.legacy_count || 0
+        : 0;
+
+    if (
+      legacyCount <= 0 ||
+      legacyAdoptionAttemptedRef.current
+    ) {
+      return;
+    }
+
+    legacyAdoptionAttemptedRef.current =
+      true;
+
+    let active = true;
+
+    void (async () => {
+      setBusy(true);
+      setActionError("");
+
+      try {
+        await runAction<ActionResponse>(
+          "adopt"
+        );
+
+        if (active) {
+          await loadStatus();
+        }
+      } catch (error) {
+        if (active) {
+          setActionError(
+            error instanceof Error
+              ? error.message
+              : "Shoppable video setup could not be completed."
+          );
+        }
+      } finally {
+        if (active) {
+          setBusy(false);
+        }
+      }
+    })();
+
+    return () => {
+      active = false;
+    };
+  }, [status, loadStatus]);
 
   useEffect(() => {
     if (
@@ -459,55 +511,6 @@ export default function ShoppableVideosClient() {
           .replace(/[-_]+/g, " ")
           .slice(0, 180)
       );
-    }
-  }
-
-  async function adoptExisting() {
-    const legacy =
-      status?.legacy_count || 0;
-
-    if (legacy <= 0 || busy) {
-      return;
-    }
-
-    const confirmed =
-      window.confirm(
-        `Manage the existing ${legacy} ReelsWP video(s) with LetzShopy? After adoption they become part of the 10-video retention and 7-day out-of-stock lifecycle.`
-      );
-
-    if (!confirmed) {
-      return;
-    }
-
-    setBusy(true);
-    setActionError("");
-    setSuccess("");
-
-    try {
-      const response =
-        await runAction<ActionResponse>(
-          "adopt"
-        );
-
-      const adopted = Array.isArray(
-        response.adopted
-      )
-        ? response.adopted.length
-        : legacy;
-
-      setSuccess(
-        `${adopted} existing video(s) are now managed by LetzShopy.`
-      );
-
-      await loadStatus();
-    } catch (error) {
-      setActionError(
-        error instanceof Error
-          ? error.message
-          : "Existing videos could not be adopted."
-      );
-    } finally {
-      setBusy(false);
     }
   }
 
@@ -777,36 +780,6 @@ export default function ShoppableVideosClient() {
         </div>
       ) : null}
 
-      {!loading &&
-      status?.ok &&
-      (status.legacy_count || 0) > 0 ? (
-        <section className="rounded-[24px] border border-amber-200 bg-amber-50 p-5">
-          <h2 className="text-lg font-bold text-amber-950">
-            Connect your existing ReelsWP videos
-          </h2>
-
-          <p className="mt-2 text-sm leading-6 text-amber-900">
-            We found {status.legacy_count} existing video(s) in this homepage feed. Connect them once so the dashboard can safely maintain the latest 10 videos and remove videos after seven continuous days with no available tagged products.
-          </p>
-
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() =>
-              void adoptExisting()
-            }
-            className="mt-4 inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-amber-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
-          >
-            {busy ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <CheckCircle2 className="h-4 w-4" />
-            )}
-            Manage existing videos
-          </button>
-        </section>
-      ) : null}
-
       <section className="rounded-[26px] border border-slate-200 bg-white p-5 shadow-sm md:p-6">
         <div className="flex items-center gap-2">
           <UploadCloud className="h-5 w-5 text-indigo-600" />
@@ -885,7 +858,7 @@ export default function ShoppableVideosClient() {
             {!status?.publish_enabled &&
             status?.ok ? (
               <p className="rounded-xl bg-slate-50 p-3 text-xs leading-5 text-slate-600">
-                Uploading unlocks after the existing feed is connected above.
+                Shoppable video publishing is being prepared for this store.
               </p>
             ) : null}
           </div>
