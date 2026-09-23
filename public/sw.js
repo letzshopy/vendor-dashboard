@@ -82,7 +82,7 @@ self.addEventListener("push", (event) => {
         icon: "/icons/icon-192.png",
         badge: "/icons/icon-192.png",
         tag: payload.tag,
-        renotify: true,
+        renotify: false,
         silent: false,
         vibrate: [180, 90, 180, 90, 260],
         data: {
@@ -121,26 +121,26 @@ self.addEventListener("push", (event) => {
 async function openNotificationTarget(
   targetUrl
 ) {
+  // On Android, opening the in-scope URL first gives Chrome the best
+  // chance to foreground the installed PWA instead of navigating a
+  // stale background client that may remain invisible to the user.
+  try {
+    const opened =
+      await self.clients.openWindow(targetUrl);
+
+    if (opened && "focus" in opened) {
+      await opened.focus();
+      return;
+    }
+  } catch {
+    // Fall back to an existing controlled window below.
+  }
+
   const windows = await self.clients.matchAll({
     type: "window",
     includeUncontrolled: true,
   });
 
-  // Prefer an already-open exact order page.
-  for (const client of windows) {
-    if (client.url !== targetUrl) {
-      continue;
-    }
-
-    try {
-      await client.focus();
-      return;
-    } catch {
-      // Try another client or open a fresh app window below.
-    }
-  }
-
-  // Reuse an existing LetzShopy window when possible.
   for (const client of windows) {
     let sameOrigin = false;
 
@@ -167,13 +167,9 @@ async function openNotificationTarget(
       await client.focus();
       return;
     } catch {
-      // Do not let one stale/background client swallow the click.
+      // Try another same-origin client.
     }
   }
-
-  // No usable window exists. Chrome/Android can launch the installed
-  // PWA for an in-scope URL, otherwise it opens the same-origin page.
-  await self.clients.openWindow(targetUrl);
 }
 
 self.addEventListener(
