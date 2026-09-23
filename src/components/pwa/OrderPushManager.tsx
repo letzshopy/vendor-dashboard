@@ -131,6 +131,8 @@ export default function OrderPushManager() {
     useState(false);
   const [enabled, setEnabled] =
     useState(false);
+  const [checking, setChecking] =
+    useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [dismissed, setDismissed] =
@@ -242,6 +244,10 @@ export default function OrderPushManager() {
           setError(
             "Order notification setup could not be checked."
           );
+        }
+      } finally {
+        if (!cancelled) {
+          setChecking(false);
         }
       }
     }
@@ -421,6 +427,7 @@ export default function OrderPushManager() {
       : "default";
 
   const showPrompt =
+    !checking &&
     !enabled &&
     !dismissed &&
     (configured || Boolean(error)) &&
