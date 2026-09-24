@@ -2,7 +2,6 @@
 
 import {
   ImagePlus,
-  Loader2,
   Search,
   ShoppingBag,
   Tag,
@@ -15,6 +14,28 @@ import {
   useRef,
   useState,
 } from "react";
+
+import {
+  useUnsavedChanges,
+} from "@/components/navigation/UnsavedChangesGuard";
+import {
+  AsyncButton,
+} from "@/components/ui/async-button";
+import {
+  BottomSheet,
+} from "@/components/ui/bottom-sheet";
+import {
+  Button,
+} from "@/components/ui/button";
+import {
+  ConfirmDialog,
+} from "@/components/ui/confirm-dialog";
+import {
+  Input,
+} from "@/components/ui/input";
+import {
+  actionFeedback,
+} from "@/lib/actionFeedback";
 
 type Product = {
   id: number;
@@ -42,10 +63,14 @@ type Story = {
 type Props = {
   story: Story;
   onClose: () => void;
-  onSaved: () => Promise<void> | void;
+  onSaved:
+    () =>
+      | Promise<void>
+      | void;
 };
 
-type JsonRecord = Record<string, unknown>;
+type JsonRecord =
+  Record<string, unknown>;
 
 function messageFrom(
   value: unknown,
@@ -53,21 +78,24 @@ function messageFrom(
 ) {
   if (
     value &&
-    typeof value === "object" &&
+    typeof value ===
+      "object" &&
     !Array.isArray(value)
   ) {
     const record =
       value as JsonRecord;
 
     if (
-      typeof record.error === "string" &&
+      typeof record.error ===
+        "string" &&
       record.error.trim()
     ) {
       return record.error;
     }
 
     if (
-      typeof record.message === "string" &&
+      typeof record.message ===
+        "string" &&
       record.message.trim()
     ) {
       return record.message;
@@ -78,30 +106,37 @@ function messageFrom(
 }
 
 async function bridgeGet<T>(
-  type: "products" | "categories",
+  type:
+    | "products"
+    | "categories",
   query: string
 ): Promise<T> {
-  const params = new URLSearchParams({
-    type,
-    q: query,
-  });
+  const params =
+    new URLSearchParams({
+      type,
+      q: query,
+    });
 
-  const response = await fetch(
-    `/api/shoppable-videos/bridge?${params.toString()}`,
-    {
-      cache: "no-store",
-    }
-  );
+  const response =
+    await fetch(
+      `/api/shoppable-videos/bridge?${params.toString()}`,
+      {
+        cache: "no-store",
+      }
+    );
 
   const body: unknown =
     await response
       .json()
-      .catch(() => null);
+      .catch(
+        () => null
+      );
 
   if (
     !response.ok ||
     !body ||
-    typeof body !== "object"
+    typeof body !==
+      "object"
   ) {
     throw new Error(
       messageFrom(
@@ -115,34 +150,42 @@ async function bridgeGet<T>(
 }
 
 async function bridgeAction(
-  action: "ticket" | "update",
+  action:
+    | "ticket"
+    | "update",
   payload: JsonRecord = {}
 ): Promise<JsonRecord> {
-  const response = await fetch(
-    "/api/shoppable-videos/bridge",
-    {
-      method: "POST",
-      headers: {
-        "Content-Type":
-          "application/json",
-      },
-      cache: "no-store",
-      body: JSON.stringify({
-        action,
-        ...payload,
-      }),
-    }
-  );
+  const response =
+    await fetch(
+      "/api/shoppable-videos/bridge",
+      {
+        method:
+          "POST",
+        headers: {
+          "Content-Type":
+            "application/json",
+        },
+        cache: "no-store",
+        body:
+          JSON.stringify({
+            action,
+            ...payload,
+          }),
+      }
+    );
 
   const body: unknown =
     await response
       .json()
-      .catch(() => null);
+      .catch(
+        () => null
+      );
 
   if (
     !response.ok ||
     !body ||
-    typeof body !== "object" ||
+    typeof body !==
+      "object" ||
     Array.isArray(body)
   ) {
     throw new Error(
@@ -158,7 +201,9 @@ async function bridgeAction(
 
 async function uploadAsset(
   file: File,
-  kind: "video" | "thumbnail"
+  kind:
+    | "video"
+    | "thumbnail"
 ) {
   const ticket =
     await bridgeAction(
@@ -180,44 +225,57 @@ async function uploadAsset(
 
   const maxBytes =
     Number(
-      ticket.max_upload_bytes || 0
+      ticket.max_upload_bytes ||
+        0
     );
 
   if (
     maxBytes > 0 &&
-    file.size > maxBytes
+    file.size >
+      maxBytes
   ) {
     throw new Error(
       "Selected file is larger than this store allows."
     );
   }
 
-  const body = new FormData();
+  const body =
+    new FormData();
+
   body.append(
     "file",
     file,
-    file.name.slice(0, 180)
+    file.name.slice(
+      0,
+      180
+    )
   );
 
-  const response = await fetch(
-    uploadUrl,
-    {
-      method: "POST",
-      body,
-      mode: "cors",
-      cache: "no-store",
-    }
-  );
+  const response =
+    await fetch(
+      uploadUrl,
+      {
+        method:
+          "POST",
+        body,
+        mode: "cors",
+        cache:
+          "no-store",
+      }
+    );
 
   const result: unknown =
     await response
       .json()
-      .catch(() => null);
+      .catch(
+        () => null
+      );
 
   if (
     !response.ok ||
     !result ||
-    typeof result !== "object" ||
+    typeof result !==
+      "object" ||
     Array.isArray(result)
   ) {
     throw new Error(
@@ -230,12 +288,15 @@ async function uploadAsset(
 
   const mediaId =
     Number(
-      (result as JsonRecord)
-        .media_id || 0
+      (
+        result as JsonRecord
+      ).media_id || 0
     );
 
   if (
-    !Number.isInteger(mediaId) ||
+    !Number.isInteger(
+      mediaId
+    ) ||
     mediaId <= 0
   ) {
     throw new Error(
@@ -244,6 +305,23 @@ async function uploadAsset(
   }
 
   return mediaId;
+}
+
+function stableIds(
+  values:
+    | Product[]
+    | Category[]
+) {
+  return values
+    .map(
+      (item) =>
+        item.id
+    )
+    .sort(
+      (a, b) =>
+        a - b
+    )
+    .join(",");
 }
 
 export default function ShoppableVideoEditModal({
@@ -255,6 +333,7 @@ export default function ShoppableVideoEditModal({
     useRef<HTMLInputElement | null>(
       null
     );
+
   const thumbnailInputRef =
     useRef<HTMLInputElement | null>(
       null
@@ -263,73 +342,120 @@ export default function ShoppableVideoEditModal({
   const [
     title,
     setTitle,
-  ] = useState(story.title || "");
+  ] =
+    useState(
+      story.title || ""
+    );
 
   const [
     selectedProducts,
     setSelectedProducts,
-  ] = useState<Product[]>(
-    story.tagged_products || []
-  );
+  ] =
+    useState<Product[]>(
+      story.tagged_products ||
+        []
+    );
 
   const [
     selectedCategories,
     setSelectedCategories,
-  ] = useState<Category[]>(
-    story.tagged_categories || []
-  );
+  ] =
+    useState<Category[]>(
+      story.tagged_categories ||
+        []
+    );
 
   const [
     productQuery,
     setProductQuery,
-  ] = useState("");
+  ] =
+    useState("");
 
   const [
     categoryQuery,
     setCategoryQuery,
-  ] = useState("");
+  ] =
+    useState("");
 
   const [
     products,
     setProducts,
-  ] = useState<Product[]>([]);
+  ] =
+    useState<Product[]>(
+      []
+    );
 
   const [
     categories,
     setCategories,
-  ] = useState<Category[]>([]);
+  ] =
+    useState<Category[]>(
+      []
+    );
 
   const [
     replacementFile,
     setReplacementFile,
-  ] = useState<File | null>(null);
+  ] =
+    useState<File | null>(
+      null
+    );
 
   const [
     thumbnailFile,
     setThumbnailFile,
-  ] = useState<File | null>(null);
+  ] =
+    useState<File | null>(
+      null
+    );
 
   const [
     removeThumbnail,
     setRemoveThumbnail,
-  ] = useState(false);
+  ] =
+    useState(false);
 
   const [
     busy,
     setBusy,
-  ] = useState(false);
+  ] =
+    useState(false);
 
   const [
-    error,
-    setError,
-  ] = useState("");
+    closeConfirmOpen,
+    setCloseConfirmOpen,
+  ] =
+    useState(false);
+
+  const initialProductIds =
+    useMemo(
+      () =>
+        stableIds(
+          story.tagged_products ||
+            []
+        ),
+      [story.tagged_products]
+    );
+
+  const initialCategoryIds =
+    useMemo(
+      () =>
+        stableIds(
+          story.tagged_categories ||
+            []
+        ),
+      [
+        story.tagged_categories,
+      ]
+    );
 
   const selectedProductIds =
     useMemo(
       () =>
         new Set(
           selectedProducts.map(
-            (item) => item.id
+            (item) =>
+              item.id
           )
         ),
       [selectedProducts]
@@ -340,15 +466,46 @@ export default function ShoppableVideoEditModal({
       () =>
         new Set(
           selectedCategories.map(
-            (item) => item.id
+            (item) =>
+              item.id
           )
         ),
-      [selectedCategories]
+      [
+        selectedCategories,
+      ]
     );
+
+  const hasTags =
+    selectedProducts.length >
+      0 ||
+    selectedCategories.length >
+      0;
+
+  const dirty =
+    title.trim() !==
+      (story.title ||
+        "").trim() ||
+    Boolean(
+      replacementFile
+    ) ||
+    Boolean(
+      thumbnailFile
+    ) ||
+    removeThumbnail ||
+    stableIds(
+      selectedProducts
+    ) !==
+      initialProductIds ||
+    stableIds(
+      selectedCategories
+    ) !==
+      initialCategoryIds;
 
   useEffect(() => {
     if (
-      productQuery.trim().length < 2
+      productQuery
+        .trim()
+        .length < 2
     ) {
       setProducts([]);
       return;
@@ -362,7 +519,8 @@ export default function ShoppableVideoEditModal({
           try {
             const response =
               await bridgeGet<{
-                items: Product[];
+                items:
+                  Product[];
               }>(
                 "products",
                 productQuery.trim()
@@ -370,7 +528,8 @@ export default function ShoppableVideoEditModal({
 
             if (active) {
               setProducts(
-                response.items || []
+                response.items ||
+                  []
               );
             }
           } catch {
@@ -384,7 +543,10 @@ export default function ShoppableVideoEditModal({
 
     return () => {
       active = false;
-      window.clearTimeout(timer);
+
+      window.clearTimeout(
+        timer
+      );
     };
   }, [productQuery]);
 
@@ -397,7 +559,8 @@ export default function ShoppableVideoEditModal({
           try {
             const response =
               await bridgeGet<{
-                items: Category[];
+                items:
+                  Category[];
               }>(
                 "categories",
                 categoryQuery.trim()
@@ -405,7 +568,8 @@ export default function ShoppableVideoEditModal({
 
             if (active) {
               setCategories(
-                response.items || []
+                response.items ||
+                  []
               );
             }
           } catch {
@@ -419,21 +583,42 @@ export default function ShoppableVideoEditModal({
 
     return () => {
       active = false;
-      window.clearTimeout(timer);
+
+      window.clearTimeout(
+        timer
+      );
     };
   }, [categoryQuery]);
 
-  const hasTags =
-    selectedProducts.length > 0 ||
-    selectedCategories.length > 0;
-
-  async function save() {
-    if (!hasTags || busy) {
-      return;
+  async function save(): Promise<boolean> {
+    if (busy) {
+      return false;
     }
 
+    if (!hasTags) {
+      actionFeedback.warning({
+        id:
+          "shoppable-video-edit",
+        title:
+          "Keep at least one product or category",
+        durationMs: 3000,
+      });
+
+      return false;
+    }
+
+    const feedbackId =
+      "shoppable-video-edit";
+
     setBusy(true);
-    setError("");
+
+    actionFeedback.loading({
+      id: feedbackId,
+      title:
+        replacementFile
+          ? "Uploading replacement video…"
+          : "Saving video…",
+    });
 
     try {
       const replacementMediaId =
@@ -449,29 +634,52 @@ export default function ShoppableVideoEditModal({
         | undefined;
 
       if (thumbnailFile) {
+        actionFeedback.loading({
+          id: feedbackId,
+          title:
+            "Uploading thumbnail…",
+        });
+
         thumbnailMediaId =
           await uploadAsset(
             thumbnailFile,
             "thumbnail"
           );
-      } else if (removeThumbnail) {
-        thumbnailMediaId = 0;
+      } else if (
+        removeThumbnail
+      ) {
+        thumbnailMediaId =
+          0;
       }
 
-      const payload: JsonRecord = {
-        story_id: story.story_id,
-        title: title.trim(),
+      actionFeedback.loading({
+        id: feedbackId,
+        title:
+          "Saving video…",
+      });
+
+      const payload:
+        JsonRecord = {
+        story_id:
+          story.story_id,
+        title:
+          title.trim(),
         product_ids:
           selectedProducts.map(
-            (item) => item.id
+            (item) =>
+              item.id
           ),
         category_ids:
           selectedCategories.map(
-            (item) => item.id
+            (item) =>
+              item.id
           ),
       };
 
-      if (replacementMediaId > 0) {
+      if (
+        replacementMediaId >
+        0
+      ) {
         payload.replacement_media_id =
           replacementMediaId;
       }
@@ -489,171 +697,320 @@ export default function ShoppableVideoEditModal({
         payload
       );
 
-      await onSaved();
-    } catch (saveError) {
-      setError(
-        saveError instanceof Error
-          ? saveError.message
-          : "Video could not be updated."
+      setCloseConfirmOpen(
+        false
       );
+
+      await onSaved();
+
+      return true;
+    } catch (
+      saveError: unknown
+    ) {
+      actionFeedback.error({
+        id: feedbackId,
+        title:
+          "Could not save video",
+        message:
+          saveError instanceof
+            Error
+            ? saveError.message
+            : "Video could not be updated.",
+        durationMs: 4200,
+      });
+
+      return false;
     } finally {
       setBusy(false);
     }
   }
 
+  useUnsavedChanges({
+    id:
+      `shoppable-video-edit-${story.story_id}`,
+    dirty,
+    label:
+      "shoppable video changes",
+    save,
+  });
+
+  function requestClose() {
+    if (busy) {
+      return;
+    }
+
+    if (dirty) {
+      setCloseConfirmOpen(
+        true
+      );
+      return;
+    }
+
+    onClose();
+  }
+
+  function chooseReplacement(
+    file: File | null
+  ) {
+    if (!file) {
+      setReplacementFile(
+        null
+      );
+      return;
+    }
+
+    if (
+      file.type !==
+        "video/mp4" &&
+      !file.name
+        .toLowerCase()
+        .endsWith(
+          ".mp4"
+        )
+    ) {
+      setReplacementFile(
+        null
+      );
+
+      actionFeedback.error({
+        id:
+          "shoppable-video-replacement",
+        title:
+          "Replacement must be MP4",
+        durationMs: 3000,
+      });
+
+      return;
+    }
+
+    setReplacementFile(
+      file
+    );
+  }
+
+  function chooseThumbnail(
+    file: File | null
+  ) {
+    if (!file) {
+      setThumbnailFile(
+        null
+      );
+      return;
+    }
+
+    if (
+      ![
+        "image/jpeg",
+        "image/png",
+        "image/webp",
+      ].includes(
+        file.type
+      )
+    ) {
+      setThumbnailFile(
+        null
+      );
+
+      actionFeedback.error({
+        id:
+          "shoppable-video-edit-thumbnail",
+        title:
+          "Use JPG, PNG or WebP",
+        durationMs: 3000,
+      });
+
+      return;
+    }
+
+    setThumbnailFile(file);
+    setRemoveThumbnail(
+      false
+    );
+  }
+
   return (
-    <div
-      className="fixed inset-0 z-[1000] flex items-end justify-center bg-slate-950/55 p-3 md:items-center"
-      role="dialog"
-      aria-modal="true"
-      aria-label="Edit shoppable video"
-    >
-      <div className="max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-[26px] bg-white p-5 shadow-2xl md:p-6">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <h2 className="text-xl font-bold text-slate-900">
-              Edit shoppable video
-            </h2>
-            <p className="mt-1 text-sm text-slate-500">
-              Replace the video, change its cover image or update tagged products.
-            </p>
-          </div>
-
-          <button
-            type="button"
-            disabled={busy}
-            onClick={onClose}
-            className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-700 disabled:opacity-50"
-            aria-label="Close"
-          >
-            <X className="h-5 w-5" />
-          </button>
-        </div>
-
-        {error ? (
-          <div className="mt-4 rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800">
-            {error}
-          </div>
-        ) : null}
-
-        <div className="mt-5 grid gap-5 md:grid-cols-2">
-          <div className="space-y-4">
-            <label className="block">
-              <span className="text-sm font-semibold text-slate-700">
-                Video title
-              </span>
-              <input
-                value={title}
-                maxLength={180}
-                disabled={busy}
-                onChange={(event) =>
-                  setTitle(
-                    event.target.value
-                  )
-                }
-                className="mt-2 w-full rounded-xl border border-slate-200 p-3 text-sm"
-              />
-            </label>
-
-            <label className="block">
-              <span className="flex items-center gap-2 text-sm font-semibold text-slate-700">
-                <UploadCloud className="h-4 w-4 text-indigo-600" />
-                Replace video
-                <span className="font-normal text-slate-400">
-                  (optional)
-                </span>
-              </span>
-
-              <input
-                ref={replacementInputRef}
-                type="file"
-                accept="video/mp4,.mp4"
-                disabled={busy}
-                onChange={(event) => {
-                  const file =
-                    event.target.files?.[0] ||
-                    null;
-
-                  if (
-                    file &&
-                    file.type !==
-                      "video/mp4" &&
-                    !file.name
-                      .toLowerCase()
-                      .endsWith(".mp4")
-                  ) {
-                    setError(
-                      "Replacement video must be MP4."
-                    );
-                    setReplacementFile(null);
-                    return;
+    <>
+      <BottomSheet
+        open
+        onOpenChange={(
+          open
+        ) => {
+          if (!open) {
+            requestClose();
+          }
+        }}
+        title="Edit shoppable video"
+        description="Update the video, cover or tagged products."
+        popupClassName="md:mx-auto md:max-w-3xl"
+      >
+        <div className="space-y-5">
+          <section className="grid gap-3 sm:grid-cols-[5rem_minmax(0,1fr)]">
+            <div className="flex justify-start">
+              {story.thumbnail &&
+              !removeThumbnail ? (
+                // Remote WordPress media URL.
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={
+                    story.thumbnail
                   }
+                  alt=""
+                  className="h-28 w-20 rounded-xl border border-border object-cover"
+                />
+              ) : (
+                <span className="grid h-28 w-20 place-items-center rounded-xl bg-muted text-muted-foreground">
+                  <ImagePlus className="h-5 w-5" />
+                </span>
+              )}
+            </div>
 
-                  setError("");
-                  setReplacementFile(file);
-                }}
-                className="mt-2 block w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm file:mr-3 file:rounded-lg file:border-0 file:bg-indigo-600 file:px-3 file:py-2 file:font-semibold file:text-white"
-              />
-            </label>
+            <div className="space-y-3">
+              <div>
+                <label className="mb-1.5 block text-xs font-bold text-heading">
+                  Video title
+                </label>
 
-            <div className="rounded-2xl border border-slate-200 p-4">
-              <div className="flex items-center gap-3">
-                {story.thumbnail &&
-                !removeThumbnail &&
-                !thumbnailFile ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={story.thumbnail}
-                    alt=""
-                    className="h-20 w-14 rounded-xl object-cover"
-                  />
-                ) : (
-                  <span className="flex h-20 w-14 items-center justify-center rounded-xl bg-slate-100">
-                    <ImagePlus className="h-5 w-5 text-slate-400" />
-                  </span>
-                )}
-
-                <div className="min-w-0 flex-1">
-                  <div className="text-sm font-semibold text-slate-800">
-                    Thumbnail image
-                  </div>
-                  <div className="mt-1 text-xs text-slate-500">
-                    JPG, PNG or WebP.
-                  </div>
-                </div>
+                <Input
+                  value={title}
+                  maxLength={180}
+                  disabled={busy}
+                  onChange={(
+                    event
+                  ) =>
+                    setTitle(
+                      event.target.value
+                    )
+                  }
+                />
               </div>
 
-              <input
-                ref={thumbnailInputRef}
-                type="file"
-                accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp"
-                disabled={busy}
-                onChange={(event) => {
-                  const file =
-                    event.target.files?.[0] ||
-                    null;
-
-                  if (
-                    file &&
-                    ![
-                      "image/jpeg",
-                      "image/png",
-                      "image/webp",
-                    ].includes(file.type)
-                  ) {
-                    setError(
-                      "Thumbnail must be JPG, PNG or WebP."
-                    );
-                    setThumbnailFile(null);
-                    return;
+              <div className="grid gap-2 sm:grid-cols-2">
+                <input
+                  ref={
+                    replacementInputRef
                   }
+                  type="file"
+                  accept="video/mp4,.mp4"
+                  disabled={busy}
+                  onChange={(
+                    event
+                  ) =>
+                    chooseReplacement(
+                      event.target
+                        .files?.[0] ||
+                        null
+                    )
+                  }
+                  className="hidden"
+                />
 
-                  setError("");
-                  setThumbnailFile(file);
-                  setRemoveThumbnail(false);
-                }}
-                className="mt-3 block w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm file:mr-3 file:rounded-lg file:border-0 file:bg-violet-600 file:px-3 file:py-2 file:font-semibold file:text-white"
-              />
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={busy}
+                  onClick={() =>
+                    replacementInputRef.current?.click()
+                  }
+                >
+                  <UploadCloud className="h-4 w-4" />
+                  {replacementFile
+                    ? "Video selected"
+                    : "Replace video"}
+                </Button>
+
+                <input
+                  ref={
+                    thumbnailInputRef
+                  }
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp"
+                  disabled={busy}
+                  onChange={(
+                    event
+                  ) =>
+                    chooseThumbnail(
+                      event.target
+                        .files?.[0] ||
+                        null
+                    )
+                  }
+                  className="hidden"
+                />
+
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={busy}
+                  onClick={() =>
+                    thumbnailInputRef.current?.click()
+                  }
+                >
+                  <ImagePlus className="h-4 w-4" />
+                  {thumbnailFile
+                    ? "Cover selected"
+                    : "Change cover"}
+                </Button>
+              </div>
+
+              {replacementFile ? (
+                <div className="flex min-w-0 items-center justify-between gap-2 rounded-xl bg-surface-soft px-3 py-2 text-xs">
+                  <span className="truncate font-semibold text-foreground">
+                    {
+                      replacementFile.name
+                    }
+                  </span>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setReplacementFile(
+                        null
+                      );
+
+                      if (
+                        replacementInputRef.current
+                      ) {
+                        replacementInputRef.current.value =
+                          "";
+                      }
+                    }}
+                    className="ls-focus-ring grid h-8 w-8 shrink-0 place-items-center rounded-lg text-muted-foreground hover:bg-muted"
+                    aria-label="Clear replacement video"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              ) : null}
+
+              {thumbnailFile ? (
+                <div className="flex min-w-0 items-center justify-between gap-2 rounded-xl bg-surface-soft px-3 py-2 text-xs">
+                  <span className="truncate font-semibold text-foreground">
+                    {
+                      thumbnailFile.name
+                    }
+                  </span>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setThumbnailFile(
+                        null
+                      );
+
+                      if (
+                        thumbnailInputRef.current
+                      ) {
+                        thumbnailInputRef.current.value =
+                          "";
+                      }
+                    }}
+                    className="ls-focus-ring grid h-8 w-8 shrink-0 place-items-center rounded-lg text-muted-foreground hover:bg-muted"
+                    aria-label="Clear thumbnail"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              ) : null}
 
               {(story.thumbnail ||
                 thumbnailFile) ? (
@@ -661,8 +1018,12 @@ export default function ShoppableVideoEditModal({
                   type="button"
                   disabled={busy}
                   onClick={() => {
-                    setThumbnailFile(null);
-                    setRemoveThumbnail(true);
+                    setThumbnailFile(
+                      null
+                    );
+                    setRemoveThumbnail(
+                      true
+                    );
 
                     if (
                       thumbnailInputRef.current
@@ -671,228 +1032,324 @@ export default function ShoppableVideoEditModal({
                         "";
                     }
                   }}
-                  className="mt-3 text-xs font-semibold text-rose-700"
+                  className="text-left text-xs font-semibold text-destructive"
                 >
                   Remove thumbnail
                 </button>
               ) : null}
             </div>
-          </div>
+          </section>
 
-          <div className="space-y-4">
-            <div className="rounded-2xl border border-slate-200 p-4">
-              <h3 className="flex items-center gap-2 text-sm font-bold text-slate-900">
-                <ShoppingBag className="h-4 w-4 text-indigo-600" />
+          <section className="rounded-2xl border border-border p-3 md:p-4">
+            <div className="flex items-center gap-2">
+              <ShoppingBag className="h-4 w-4 text-primary" />
+
+              <h3 className="text-sm font-bold text-heading">
                 Tagged products
               </h3>
 
-              <div className="relative mt-3">
-                <Search className="absolute left-3 top-3 h-5 w-5 text-slate-400" />
-                <input
-                  value={productQuery}
-                  disabled={busy}
-                  onChange={(event) =>
-                    setProductQuery(
-                      event.target.value
-                    )
-                  }
-                  placeholder="Search product name"
-                  className="w-full rounded-xl border border-slate-200 py-3 pl-10 pr-3 text-sm"
-                />
-              </div>
+              <span className="ml-auto text-[11px] font-semibold text-muted-foreground">
+                {
+                  selectedProducts.length
+                }
+              </span>
+            </div>
 
-              {products.length > 0 ? (
-                <div className="mt-2 max-h-44 space-y-1 overflow-auto rounded-xl border border-slate-100 p-2">
-                  {products.map(
-                    (product) => {
-                      const selected =
-                        selectedProductIds.has(
-                          product.id
-                        );
+            <div className="relative mt-3">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
 
-                      return (
-                        <button
-                          key={product.id}
-                          type="button"
-                          disabled={
-                            selected ||
-                            !product.in_stock ||
-                            busy
-                          }
-                          onClick={() =>
-                            setSelectedProducts(
-                              (current) => [
-                                ...current,
-                                product,
-                              ]
-                            )
-                          }
-                          className="flex w-full items-center justify-between rounded-lg p-2 text-left text-sm hover:bg-indigo-50 disabled:opacity-50"
-                        >
-                          <span className="truncate">
-                            {product.name}
-                          </span>
-                          <span className="ml-2 shrink-0 text-xs text-slate-500">
-                            {selected
-                              ? "Selected"
-                              : product.in_stock
-                                ? "Add +"
-                                : "Out of stock"}
-                          </span>
-                        </button>
+              <Input
+                value={
+                  productQuery
+                }
+                disabled={busy}
+                onChange={(
+                  event
+                ) =>
+                  setProductQuery(
+                    event.target.value
+                  )
+                }
+                placeholder="Search products"
+                className="pl-10"
+              />
+            </div>
+
+            {products.length >
+            0 ? (
+              <div className="mt-2 max-h-44 overflow-y-auto rounded-xl border border-border">
+                {products.map(
+                  (
+                    product
+                  ) => {
+                    const selected =
+                      selectedProductIds.has(
+                        product.id
                       );
-                    }
-                  )}
-                </div>
-              ) : null}
 
+                    return (
+                      <button
+                        key={
+                          product.id
+                        }
+                        type="button"
+                        disabled={
+                          selected ||
+                          !product.in_stock ||
+                          busy
+                        }
+                        onClick={() =>
+                          setSelectedProducts(
+                            (
+                              current
+                            ) => [
+                              ...current,
+                              product,
+                            ]
+                          )
+                        }
+                        className="ls-focus-ring flex min-h-11 w-full items-center justify-between gap-3 border-b border-border px-3 text-left last:border-b-0 hover:bg-muted disabled:opacity-45"
+                      >
+                        <span className="min-w-0 truncate text-sm font-semibold text-foreground">
+                          {
+                            product.name
+                          }
+                        </span>
+
+                        <span className="shrink-0 text-xs font-semibold text-primary">
+                          {!product.in_stock
+                            ? "Out of stock"
+                            : selected
+                              ? "Added"
+                              : "Add"}
+                        </span>
+                      </button>
+                    );
+                  }
+                )}
+              </div>
+            ) : null}
+
+            {selectedProducts.length >
+            0 ? (
               <div className="mt-3 flex flex-wrap gap-2">
                 {selectedProducts.map(
-                  (product) => (
+                  (
+                    product
+                  ) => (
                     <button
-                      key={product.id}
+                      key={
+                        product.id
+                      }
                       type="button"
                       disabled={busy}
                       onClick={() =>
                         setSelectedProducts(
-                          (current) =>
+                          (
+                            current
+                          ) =>
                             current.filter(
-                              (item) =>
+                              (
+                                item
+                              ) =>
                                 item.id !==
                                 product.id
                             )
                         )
                       }
-                      className="inline-flex items-center gap-2 rounded-full bg-indigo-50 px-3 py-2 text-xs font-semibold text-indigo-800"
+                      className="ls-focus-ring inline-flex min-h-9 items-center gap-2 rounded-full bg-secondary px-3 py-1.5 text-xs font-semibold text-secondary-foreground"
                     >
-                      {product.name}
+                      <span className="max-w-[14rem] truncate">
+                        {
+                          product.name
+                        }
+                      </span>
+
                       <X className="h-3 w-3" />
                     </button>
                   )
                 )}
               </div>
-            </div>
+            ) : null}
+          </section>
 
-            <div className="rounded-2xl border border-slate-200 p-4">
-              <h3 className="flex items-center gap-2 text-sm font-bold text-slate-900">
-                <Tag className="h-4 w-4 text-violet-600" />
+          <section className="rounded-2xl border border-border p-3 md:p-4">
+            <div className="flex items-center gap-2">
+              <Tag className="h-4 w-4 text-primary" />
+
+              <h3 className="text-sm font-bold text-heading">
                 Tagged categories
               </h3>
 
-              <input
-                value={categoryQuery}
+              <span className="ml-auto text-[11px] font-semibold text-muted-foreground">
+                Optional
+              </span>
+            </div>
+
+            <div className="relative mt-3">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+
+              <Input
+                value={
+                  categoryQuery
+                }
                 disabled={busy}
-                onChange={(event) =>
+                onChange={(
+                  event
+                ) =>
                   setCategoryQuery(
                     event.target.value
                   )
                 }
-                placeholder="Search category"
-                className="mt-3 w-full rounded-xl border border-slate-200 p-3 text-sm"
+                placeholder="Search categories"
+                className="pl-10"
               />
+            </div>
 
-              {categories.length > 0 ? (
-                <div className="mt-2 max-h-36 space-y-1 overflow-auto rounded-xl border border-slate-100 p-2">
-                  {categories.map(
-                    (category) => {
-                      const selected =
-                        selectedCategoryIds.has(
-                          category.id
-                        );
-
-                      return (
-                        <button
-                          key={category.id}
-                          type="button"
-                          disabled={
-                            selected ||
-                            busy
-                          }
-                          onClick={() =>
-                            setSelectedCategories(
-                              (current) => [
-                                ...current,
-                                category,
-                              ]
-                            )
-                          }
-                          className="flex w-full items-center justify-between rounded-lg p-2 text-left text-sm hover:bg-violet-50 disabled:opacity-50"
-                        >
-                          <span>
-                            {category.name}
-                          </span>
-                          <span className="text-xs text-slate-500">
-                            {selected
-                              ? "Selected"
-                              : "Add +"}
-                          </span>
-                        </button>
+            {categories.length >
+            0 ? (
+              <div className="mt-2 max-h-40 overflow-y-auto rounded-xl border border-border">
+                {categories.map(
+                  (
+                    category
+                  ) => {
+                    const selected =
+                      selectedCategoryIds.has(
+                        category.id
                       );
-                    }
-                  )}
-                </div>
-              ) : null}
 
+                    return (
+                      <button
+                        key={
+                          category.id
+                        }
+                        type="button"
+                        disabled={
+                          selected ||
+                          busy
+                        }
+                        onClick={() =>
+                          setSelectedCategories(
+                            (
+                              current
+                            ) => [
+                              ...current,
+                              category,
+                            ]
+                          )
+                        }
+                        className="ls-focus-ring flex min-h-11 w-full items-center justify-between gap-3 border-b border-border px-3 text-left last:border-b-0 hover:bg-muted disabled:opacity-45"
+                      >
+                        <span className="truncate text-sm font-semibold text-foreground">
+                          {
+                            category.name
+                          }
+                        </span>
+
+                        <span className="shrink-0 text-xs font-semibold text-primary">
+                          {selected
+                            ? "Added"
+                            : "Add"}
+                        </span>
+                      </button>
+                    );
+                  }
+                )}
+              </div>
+            ) : null}
+
+            {selectedCategories.length >
+            0 ? (
               <div className="mt-3 flex flex-wrap gap-2">
                 {selectedCategories.map(
-                  (category) => (
+                  (
+                    category
+                  ) => (
                     <button
-                      key={category.id}
+                      key={
+                        category.id
+                      }
                       type="button"
                       disabled={busy}
                       onClick={() =>
                         setSelectedCategories(
-                          (current) =>
+                          (
+                            current
+                          ) =>
                             current.filter(
-                              (item) =>
+                              (
+                                item
+                              ) =>
                                 item.id !==
                                 category.id
                             )
                         )
                       }
-                      className="inline-flex items-center gap-2 rounded-full bg-violet-50 px-3 py-2 text-xs font-semibold text-violet-800"
+                      className="ls-focus-ring inline-flex min-h-9 items-center gap-2 rounded-full bg-secondary px-3 py-1.5 text-xs font-semibold text-secondary-foreground"
                     >
-                      {category.name}
+                      {
+                        category.name
+                      }
+
                       <X className="h-3 w-3" />
                     </button>
                   )
                 )}
               </div>
-            </div>
+            ) : null}
+          </section>
+
+          {!hasTags ? (
+            <p className="text-xs font-semibold text-amber-700">
+              Keep at least one tagged product or category.
+            </p>
+          ) : null}
+
+          <div className="flex flex-col-reverse gap-2 border-t border-border pt-4 sm:flex-row sm:justify-end">
+            <Button
+              type="button"
+              variant="outline"
+              disabled={busy}
+              onClick={
+                requestClose
+              }
+            >
+              Cancel
+            </Button>
+
+            <AsyncButton
+              type="button"
+              loading={busy}
+              loadingLabel="Saving…"
+              disabled={
+                !dirty ||
+                !hasTags
+              }
+              onClick={() =>
+                void save()
+              }
+            >
+              Save changes
+            </AsyncButton>
           </div>
         </div>
+      </BottomSheet>
 
-        {!hasTags ? (
-          <p className="mt-4 text-xs font-semibold text-amber-700">
-            Keep at least one tagged product or category.
-          </p>
-        ) : null}
-
-        <div className="mt-5 flex justify-end gap-3 border-t border-slate-100 pt-5">
-          <button
-            type="button"
-            disabled={busy}
-            onClick={onClose}
-            className="rounded-xl border border-slate-200 px-4 py-3 text-sm font-semibold text-slate-700 disabled:opacity-50"
-          >
-            Cancel
-          </button>
-
-          <button
-            type="button"
-            disabled={busy || !hasTags}
-            onClick={() =>
-              void save()
-            }
-            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-indigo-600 px-5 py-3 text-sm font-bold text-white disabled:opacity-50"
-          >
-            {busy ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : null}
-            Save changes
-          </button>
-        </div>
-      </div>
-    </div>
+      <ConfirmDialog
+        open={
+          closeConfirmOpen
+        }
+        onOpenChange={
+          setCloseConfirmOpen
+        }
+        title="Unsaved changes"
+        description="Save your video changes before closing?"
+        confirmLabel="Save changes"
+        cancelLabel="Cancel"
+        loading={busy}
+        loadingLabel="Saving…"
+        onConfirm={save}
+      />
+    </>
   );
 }
