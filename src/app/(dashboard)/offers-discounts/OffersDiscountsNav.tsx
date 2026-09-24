@@ -11,19 +11,19 @@ import {
 const ITEMS = [
   {
     href: "/offers-discounts/sale-events",
-    label: "Sale Events",
-    shortLabel: "Sales",
+    label: "Offer Sale",
+    shortLabel: "Offer Sale",
     icon: CalendarRange,
   },
   {
     href: "/offers-discounts/coupons",
-    label: "Coupon Codes",
+    label: "Coupons",
     shortLabel: "Coupons",
     icon: TicketPercent,
   },
   {
     href: "/offers-discounts/welcome-offer",
-    label: "Welcome Offer",
+    label: "Welcome",
     shortLabel: "Welcome",
     icon: Gift,
   },
