@@ -1,8 +1,26 @@
+import {
+  ArrowRight,
+  MapPin,
+  Users,
+} from "lucide-react";
 import Link from "next/link";
+import {
+  headers,
+} from "next/headers";
+
 import CustomersSearch from "./CustomersSearch";
-import { formatOrderDate } from "@/lib/datetime";
-import { headers } from "next/headers";
-import { Users } from "lucide-react";
+import {
+  EmptyState,
+} from "@/components/ui/empty-state";
+import {
+  PageHeader,
+} from "@/components/ui/page-header";
+import {
+  Section,
+} from "@/components/ui/section";
+import {
+  formatOrderDate,
+} from "@/lib/datetime";
 
 type CustRow = {
   id: string;
@@ -21,25 +39,53 @@ type CustRow = {
 
 async function getBaseUrl(): Promise<string> {
   const h = await headers();
-  const proto = h.get("x-forwarded-proto") ?? "http";
-  const host = h.get("x-forwarded-host") ?? h.get("host");
+  const proto =
+    h.get("x-forwarded-proto") ??
+    "http";
+  const host =
+    h.get("x-forwarded-host") ??
+    h.get("host");
+
   return (
-    process.env.NEXT_PUBLIC_BASE_URL ||
-    (host ? `${proto}://${host}` : "http://localhost:3000")
+    process.env
+      .NEXT_PUBLIC_BASE_URL ||
+    (
+      host
+        ? `${proto}://${host}`
+        : "http://localhost:3000"
+    )
   );
 }
 
-async function getCustomers(params: URLSearchParams) {
-  const requestHeaders = await headers();
-  const cookieHeader = requestHeaders.get("cookie");
-  const base = await getBaseUrl();
-  const res = await fetch(`${base}/api/customers?${params.toString()}`, {
-    cache: "no-store",
-    headers: cookieHeader
-      ? { cookie: cookieHeader }
-      : undefined,
-  });
-  if (!res.ok) throw new Error("Failed to load customers");
+async function getCustomers(
+  params: URLSearchParams
+) {
+  const requestHeaders =
+    await headers();
+  const cookieHeader =
+    requestHeaders.get("cookie");
+  const base =
+    await getBaseUrl();
+
+  const res = await fetch(
+    `${base}/api/customers?${params.toString()}`,
+    {
+      cache: "no-store",
+      headers: cookieHeader
+        ? {
+            cookie:
+              cookieHeader,
+          }
+        : undefined,
+    }
+  );
+
+  if (!res.ok) {
+    throw new Error(
+      "Failed to load customers"
+    );
+  }
+
   return res.json() as Promise<{
     items: CustRow[];
     total: number;
@@ -50,297 +96,413 @@ async function getCustomers(params: URLSearchParams) {
   }>;
 }
 
+function initialsFor(
+  name: string
+): string {
+  return (
+    name
+      .split(" ")
+      .map(
+        (part) =>
+          part[0]
+      )
+      .join("")
+      .slice(0, 2) || "?"
+  );
+}
+
+function customerLocation(
+  customer: CustRow
+): string {
+  return [
+    customer.city,
+    customer.state,
+    customer.country,
+  ]
+    .filter(Boolean)
+    .join(", ");
+}
+
+function pageHref(
+  page: number,
+  search: string
+): string {
+  const params =
+    new URLSearchParams({
+      page: String(page),
+    });
+
+  if (search) {
+    params.set(
+      "search",
+      search
+    );
+  }
+
+  return `/customers?${params.toString()}`;
+}
+
 export default async function CustomersPage({
   searchParams,
 }: {
-  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+  searchParams?: Promise<
+    Record<
+      string,
+      | string
+      | string[]
+      | undefined
+    >
+  >;
 }) {
-  const sp = (await searchParams) ?? {};
+  const sp =
+    (await searchParams) ?? {};
 
-  const page = parseInt(String(sp.page ?? "1"), 10);
-  const search = String(sp.search ?? "");
-  const per_page = 20;
-
-  const data = await getCustomers(
-    new URLSearchParams({
-      page: String(page),
-      per_page: String(per_page),
-      search,
-    })
+  const page = Math.max(
+    1,
+    parseInt(
+      String(sp.page ?? "1"),
+      10
+    ) || 1
   );
 
+  const search =
+    String(
+      sp.search ?? ""
+    ).trim();
+
+  const perPage = 20;
+
+  const data =
+    await getCustomers(
+      new URLSearchParams({
+        page: String(page),
+        per_page:
+          String(perPage),
+        search,
+      })
+    );
+
+  const totalPages =
+    Math.max(
+      1,
+      data.pages
+    );
+
   return (
-    <main className="mx-auto max-w-7xl px-3 pb-28 pt-3 md:px-4 md:pb-8 md:pt-5">
-      <div className="rounded-[30px] border border-white/80 bg-gradient-to-br from-white via-[#f7f8ff] to-[#eef7ff] p-4 shadow-[0_14px_40px_rgba(15,23,42,0.06)] md:p-5">
-        <div className="flex items-center justify-between gap-3">
-          <div className="min-w-0">
-            <div className="inline-flex items-center gap-2 rounded-full bg-indigo-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-indigo-700">
-              <Users className="h-3.5 w-3.5" />
-              Customers
-            </div>
-
-            <h1 className="mt-3 text-[24px] font-semibold tracking-tight text-slate-900 md:text-[30px]">
-              Customers
-            </h1>
-          </div>
-
-          <div className="shrink-0 rounded-[20px] bg-white/90 px-4 py-3 text-right shadow-sm">
-            <div className="text-[11px] uppercase tracking-wide text-slate-500">
-              Total
-            </div>
-            <div className="mt-1 text-xl font-semibold text-slate-900">
+    <main className="ls-page mx-auto max-w-[1440px] pb-28 md:pb-8">
+      <PageHeader
+        eyebrow="Sales"
+        icon={Users}
+        title="Customers"
+        description="Customer contacts and purchase activity."
+        actions={
+          <div className="text-right">
+            <div className="text-2xl font-extrabold tracking-tight text-heading">
               {data.total}
             </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="mt-4">
-        <CustomersSearch initialSearch={search} />
-      </div>
-
-      {search && (
-        <div className="mt-3 rounded-2xl border border-slate-200/80 bg-white px-4 py-3 text-sm text-slate-600 shadow-sm">
-          Search result for{" "}
-          <span className="font-semibold text-slate-900">“{search}”</span>
-        </div>
-      )}
-
-      <section className="mt-4 overflow-hidden rounded-[26px] border border-slate-200/80 bg-white shadow-[0_10px_30px_rgba(15,23,42,0.05)]">
-        <div className="border-b border-slate-100 bg-gradient-to-r from-white via-[#faf7ff] to-[#f4fbff] px-4 py-4 md:px-5">
-          <div className="flex items-center justify-between gap-3">
-            <h2 className="text-[16px] font-semibold text-slate-900">
-              Customer list
-            </h2>
-
-            <div className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">
-              Page {data.page} / {Math.max(1, data.pages)}
+            <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+              Total customers
             </div>
           </div>
+        }
+      />
+
+      <div className="mt-5">
+        <CustomersSearch
+          initialSearch={search}
+        />
+      </div>
+
+      {search ? (
+        <div className="mt-3 flex min-w-0 items-center gap-2 text-sm text-muted-foreground">
+          <span className="shrink-0">
+            Results for
+          </span>
+          <span className="truncate font-semibold text-foreground">
+            “{search}”
+          </span>
+        </div>
+      ) : null}
+
+      <Section
+        surface="card"
+        className="mt-5 overflow-hidden !p-0"
+        contentClassName="min-w-0"
+      >
+        <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-3 md:px-5">
+          <h2 className="text-sm font-bold text-heading">
+            Customer list
+          </h2>
+
+          <span className="text-xs font-semibold text-muted-foreground">
+            Page {data.page} of{" "}
+            {totalPages}
+          </span>
         </div>
 
-        {/* Mobile cards */}
-        <div className="block md:hidden">
-          {data.items.length > 0 ? (
-            <div className="space-y-2 p-3">
-              {data.items.map((c) => {
-                const initials =
-                  c.name
-                    .split(" ")
-                    .map((p) => p[0])
-                    .join("")
-                    .slice(0, 2) || "?";
+        {data.items.length ===
+        0 ? (
+          <EmptyState
+            icon={Users}
+            title="No customers found"
+            description={
+              search
+                ? "Try a different name, email or phone number."
+                : "Customers will appear here after they create an account or place an order."
+            }
+          />
+        ) : (
+          <>
+            <div className="divide-y divide-border md:hidden">
+              {data.items.map(
+                (customer) => {
+                  const location =
+                    customerLocation(
+                      customer
+                    );
 
-                return (
-                  <div
-                    key={c.id}
-                    className="rounded-[20px] border border-slate-200 bg-white px-3 py-3 shadow-sm"
-                  >
-                    <div className="flex items-start gap-3">
-                      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-indigo-100 text-sm font-semibold text-indigo-700">
-                        {initials}
-                      </div>
-
-                      <div className="min-w-0 flex-1">
-                        <Link
-                          href={`/customers/${c.id}`}
-                          className="block text-[15px] font-semibold text-indigo-700 hover:underline"
-                        >
-                          {c.name || "(guest)"}
-                        </Link>
-
-                        <div className="mt-1 text-sm text-slate-600">
-                          {c.email || "No email"}
-                        </div>
-
-                        {c.phone && (
-                          <div className="mt-0.5 text-sm text-slate-500">
-                            {c.phone}
-                          </div>
-                        )}
-
-                        <div className="mt-3 grid grid-cols-2 gap-2">
-                          <div className="rounded-2xl bg-slate-50 px-3 py-2">
-                            <div className="text-[11px] uppercase tracking-wide text-slate-500">
-                              Orders
-                            </div>
-                            <div className="mt-1 text-sm font-semibold text-slate-900">
-                              {c.order_count}
-                            </div>
-                          </div>
-
-                          <div className="rounded-2xl bg-slate-50 px-3 py-2">
-                            <div className="text-[11px] uppercase tracking-wide text-slate-500">
-                              Total spent
-                            </div>
-                            <div className="mt-1 text-sm font-semibold text-slate-900">
-                              ₹{c.total_spent.toFixed(2)}
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500">
-                          <span>{c.city || "—"}</span>
-                          <span>{c.state || "—"}</span>
-                          <span>{c.country || "—"}</span>
-                        </div>
-
-                        <div className="mt-2 text-xs text-slate-500">
-                          Last activity:{" "}
-                          <span suppressHydrationWarning>
-                            {c.last_order
-                              ? formatOrderDate(c.last_order)
-                              : c.date_created
-                                ? `Registered ${formatOrderDate(c.date_created)}`
-                                : "No orders yet"}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          ) : (
-            <div className="px-6 py-12 text-center text-sm text-slate-500">
-              No customers found.
-            </div>
-          )}
-        </div>
-
-        {/* Desktop table */}
-        <div className="hidden overflow-x-auto md:block">
-          <table className="w-full text-sm border-collapse">
-            <thead className="bg-slate-50 text-slate-600 border-b border-slate-100">
-              <tr>
-                <th className="py-3 pl-4 pr-3 text-left font-medium">Customer</th>
-                <th className="py-3 px-3 text-left font-medium">Email</th>
-                <th className="py-3 px-3 text-left font-medium">Phone</th>
-                <th className="py-3 px-3 text-left font-medium">City</th>
-                <th className="py-3 px-3 text-left font-medium">State</th>
-                <th className="py-3 px-3 text-right font-medium">Orders</th>
-                <th className="py-3 px-3 text-right font-medium">Total spent</th>
-                <th className="py-3 pr-4 pl-3 text-left font-medium">Last activity</th>
-              </tr>
-            </thead>
-            <tbody>
-              {data.items.map((c, idx) => {
-                const initials =
-                  c.name
-                    .split(" ")
-                    .map((p) => p[0])
-                    .join("")
-                    .slice(0, 2) || "?";
-
-                return (
-                  <tr
-                    key={c.id}
-                    className={`border-b border-slate-100 ${
-                      idx % 2 === 0 ? "bg-white" : "bg-slate-50/40"
-                    }`}
-                  >
-                    <td className="py-3 pl-4 pr-3">
-                      <div className="flex items-center gap-3">
-                        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-indigo-100 text-xs font-semibold text-indigo-700">
-                          {initials}
-                        </div>
-
-                        <div className="flex flex-col">
-                          <Link
-                            href={`/customers/${c.id}`}
-                            className="text-sm font-semibold text-blue-600 hover:underline"
-                          >
-                            {c.name || "(guest)"}
-                          </Link>
-                          {c.country && (
-                            <span className="text-[11px] text-slate-400">
-                              {c.country}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    </td>
-
-                    <td className="py-3 px-3 text-slate-800">{c.email || "—"}</td>
-                    <td className="py-3 px-3 text-slate-800">{c.phone || "—"}</td>
-                    <td className="py-3 px-3 text-slate-800">{c.city || "—"}</td>
-                    <td className="py-3 px-3 text-slate-800">{c.state || "—"}</td>
-
-                    <td className="py-3 px-3 text-right">
-                      <span className="inline-flex items-center justify-end rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-700">
-                        {c.order_count}
-                      </span>
-                    </td>
-
-                    <td className="py-3 px-3 text-right font-medium text-slate-900">
-                      ₹{c.total_spent.toFixed(2)}
-                    </td>
-
-                    <td
-                      className="py-3 pr-4 pl-3 whitespace-nowrap text-slate-700"
-                      suppressHydrationWarning
+                  return (
+                    <Link
+                      key={
+                        customer.id
+                      }
+                      href={
+                        `/customers/${customer.id}`
+                      }
+                      className="flex min-h-[92px] min-w-0 items-center gap-3 px-4 py-3 transition hover:bg-muted/70 active:bg-muted"
                     >
-                      {c.last_order
-                        ? formatOrderDate(c.last_order)
-                        : c.date_created
-                          ? `Registered ${formatOrderDate(c.date_created)}`
-                          : "No orders yet"}
-                    </td>
-                  </tr>
-                );
-              })}
+                      <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-secondary text-sm font-extrabold text-secondary-foreground">
+                        {initialsFor(
+                          customer.name
+                        )}
+                      </span>
 
-              {data.items.length === 0 && (
-                <tr>
-                  <td
-                    colSpan={8}
-                    className="p-6 text-center text-slate-500 text-sm"
-                  >
-                    No customers found.
-                  </td>
-                </tr>
+                      <span className="min-w-0 flex-1">
+                        <span className="flex min-w-0 items-center gap-2">
+                          <span className="truncate text-[15px] font-bold text-heading">
+                            {customer.name ||
+                              "(guest)"}
+                          </span>
+
+                          {customer.order_count >
+                          0 ? (
+                            <span className="shrink-0 rounded-full bg-surface-soft px-2 py-1 text-[10px] font-bold text-muted-foreground">
+                              {
+                                customer.order_count
+                              }{" "}
+                              order
+                              {customer.order_count ===
+                              1
+                                ? ""
+                                : "s"}
+                            </span>
+                          ) : null}
+                        </span>
+
+                        <span className="mt-1 block truncate text-sm text-muted-foreground">
+                          {customer.email ||
+                            customer.phone ||
+                            "No contact details"}
+                        </span>
+
+                        <span className="mt-1.5 flex min-w-0 items-center gap-3 text-xs text-muted-foreground">
+                          {location ? (
+                            <span className="flex min-w-0 items-center gap-1">
+                              <MapPin className="h-3.5 w-3.5 shrink-0" />
+                              <span className="truncate">
+                                {
+                                  location
+                                }
+                              </span>
+                            </span>
+                          ) : null}
+
+                          <span className="shrink-0 font-bold text-heading">
+                            ₹
+                            {customer.total_spent.toLocaleString(
+                              "en-IN",
+                              {
+                                minimumFractionDigits: 0,
+                                maximumFractionDigits: 2,
+                              }
+                            )}
+                          </span>
+                        </span>
+                      </span>
+
+                      <ArrowRight className="h-4 w-4 shrink-0 text-slate-400" />
+                    </Link>
+                  );
+                }
               )}
-            </tbody>
-          </table>
-        </div>
+            </div>
 
-        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 px-4 py-4 text-xs text-slate-600 md:px-5 md:text-sm">
+            <div className="hidden overflow-x-auto md:block">
+              <table className="w-full border-collapse text-sm">
+                <thead className="bg-surface-soft text-left text-xs font-semibold text-muted-foreground">
+                  <tr>
+                    <th className="px-5 py-3">
+                      Customer
+                    </th>
+                    <th className="px-3 py-3">
+                      Phone
+                    </th>
+                    <th className="px-3 py-3">
+                      Location
+                    </th>
+                    <th className="px-3 py-3 text-right">
+                      Orders
+                    </th>
+                    <th className="px-3 py-3 text-right">
+                      Total spent
+                    </th>
+                    <th className="px-5 py-3">
+                      Last activity
+                    </th>
+                  </tr>
+                </thead>
+
+                <tbody className="divide-y divide-border">
+                  {data.items.map(
+                    (
+                      customer
+                    ) => {
+                      const location =
+                        customerLocation(
+                          customer
+                        );
+
+                      return (
+                        <tr
+                          key={
+                            customer.id
+                          }
+                          className="bg-card transition hover:bg-muted/50"
+                        >
+                          <td className="px-5 py-3.5">
+                            <div className="flex min-w-0 items-center gap-3">
+                              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-secondary text-xs font-extrabold text-secondary-foreground">
+                                {initialsFor(
+                                  customer.name
+                                )}
+                              </span>
+
+                              <div className="min-w-0">
+                                <Link
+                                  href={
+                                    `/customers/${customer.id}`
+                                  }
+                                  className="block truncate font-bold text-heading hover:text-primary"
+                                >
+                                  {customer.name ||
+                                    "(guest)"}
+                                </Link>
+
+                                <div className="mt-0.5 max-w-[18rem] truncate text-xs text-muted-foreground">
+                                  {customer.email ||
+                                    "No email"}
+                                </div>
+                              </div>
+                            </div>
+                          </td>
+
+                          <td className="whitespace-nowrap px-3 py-3.5 text-foreground">
+                            {customer.phone ||
+                              "—"}
+                          </td>
+
+                          <td className="max-w-[18rem] px-3 py-3.5 text-muted-foreground">
+                            <span className="block truncate">
+                              {location ||
+                                "—"}
+                            </span>
+                          </td>
+
+                          <td className="px-3 py-3.5 text-right font-semibold text-foreground">
+                            {
+                              customer.order_count
+                            }
+                          </td>
+
+                          <td className="whitespace-nowrap px-3 py-3.5 text-right font-bold text-heading">
+                            ₹
+                            {customer.total_spent.toLocaleString(
+                              "en-IN",
+                              {
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: 2,
+                              }
+                            )}
+                          </td>
+
+                          <td
+                            className="whitespace-nowrap px-5 py-3.5 text-muted-foreground"
+                            suppressHydrationWarning
+                          >
+                            {customer.last_order
+                              ? formatOrderDate(
+                                  customer.last_order
+                                )
+                              : customer.date_created
+                                ? `Registered ${formatOrderDate(
+                                    customer.date_created
+                                  )}`
+                                : "No orders yet"}
+                          </td>
+                        </tr>
+                      );
+                    }
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </>
+        )}
+
+        <div className="flex flex-col gap-3 border-t border-border px-4 py-3 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between md:px-5">
           <span>
-            Page <span className="font-medium">{data.page}</span> of{" "}
-            <span className="font-medium">{Math.max(1, data.pages)}</span> •{" "}
-            <span className="font-medium">{data.total}</span> customers
+            {data.total} customer
+            {data.total === 1
+              ? ""
+              : "s"}
           </span>
 
-          <div className="flex gap-2">
-            <Link
-              href={`/customers?page=${Math.max(
-                1,
-                data.page - 1
-              )}&search=${encodeURIComponent(search)}`}
-              className={`inline-flex items-center rounded-full px-3 py-1.5 border ${
-                data.page === 1
-                  ? "cursor-not-allowed border-slate-200 text-slate-300"
-                  : "border-slate-300 text-slate-700 hover:bg-slate-50"
-              }`}
-            >
-              Prev
-            </Link>
-            <Link
-              href={`/customers?page=${Math.min(
-                Math.max(1, data.pages),
-                data.page + 1
-              )}&search=${encodeURIComponent(search)}`}
-              className={`inline-flex items-center rounded-full px-3 py-1.5 border ${
-                data.page === data.pages || data.pages === 0
-                  ? "cursor-not-allowed border-slate-200 text-slate-300"
-                  : "border-slate-300 text-slate-700 hover:bg-slate-50"
-              }`}
-            >
-              Next
-            </Link>
+          <div className="flex items-center gap-2">
+            {data.page > 1 ? (
+              <Link
+                href={pageHref(
+                  data.page - 1,
+                  search
+                )}
+                className="ls-focus-ring inline-flex min-h-10 items-center justify-center rounded-xl border border-border bg-card px-3 font-semibold text-foreground hover:bg-muted"
+              >
+                Previous
+              </Link>
+            ) : (
+              <span className="inline-flex min-h-10 items-center justify-center rounded-xl border border-border bg-muted px-3 font-semibold text-slate-400">
+                Previous
+              </span>
+            )}
+
+            {data.page <
+            data.pages ? (
+              <Link
+                href={pageHref(
+                  data.page + 1,
+                  search
+                )}
+                className="ls-focus-ring inline-flex min-h-10 items-center justify-center rounded-xl border border-border bg-card px-3 font-semibold text-foreground hover:bg-muted"
+              >
+                Next
+              </Link>
+            ) : (
+              <span className="inline-flex min-h-10 items-center justify-center rounded-xl border border-border bg-muted px-3 font-semibold text-slate-400">
+                Next
+              </span>
+            )}
           </div>
         </div>
-      </section>
+      </Section>
     </main>
   );
 }
