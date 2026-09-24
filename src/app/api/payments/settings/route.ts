@@ -49,14 +49,8 @@ type PaymentSettings = {
     enabled: boolean;
     notes: string;
   };
-  easebuzz: {
+  payglocal: {
     enabled: boolean;
-    mode: string;
-    merchant_key: string;
-    salt: string;
-    merchant_id: string;
-    webhook_secret: string;
-    hint: string;
   };
 };
 
@@ -145,7 +139,7 @@ function normalizeSettings(
 ): PaymentSettings {
   const root = isRecord(value) ? value : {};
   const general = section(root, "general");
-  const easebuzz = section(root, "easebuzz");
+  const payglocal = section(root, "payglocal");
   const upi = section(root, "upi");
   const bank = section(root, "bank");
   const cod = section(root, "cod");
@@ -161,32 +155,10 @@ function normalizeSettings(
         general.default_status
       ),
     },
-    easebuzz: {
+    payglocal: {
       enabled: boolValue(
-        easebuzz.enabled
+        payglocal.enabled
       ),
-      mode:
-        boundedText(easebuzz.mode, 20) ||
-        "test",
-      merchant_key: boundedText(
-        easebuzz.merchant_key,
-        300
-      ),
-      salt: boundedText(
-        easebuzz.salt,
-        300
-      ),
-      merchant_id: boundedText(
-        easebuzz.merchant_id,
-        300
-      ),
-      webhook_secret: boundedText(
-        easebuzz.webhook_secret,
-        300
-      ),
-      hint:
-        boundedText(easebuzz.hint, 80) ||
-        "easebuzz",
     },
     upi: {
       enabled: boolValue(upi.enabled),
@@ -357,33 +329,21 @@ function asWooGateway(
   };
 }
 
-function findEasebuzzGateway(
-  gateways: WooGateway[],
-  hint: string
+function findPayGlocalGateway(
+  gateways: WooGateway[]
 ): WooGateway | undefined {
-  const needle = (
-    hint || "easebuzz"
-  ).toLowerCase();
-
   return (
-    gateways.find((gateway) =>
-      gateway.id
-        .toLowerCase()
-        .includes(needle)
+    gateways.find(
+      (gateway) =>
+        gateway.id ===
+        "payglocal_payment_gateway"
     ) ||
-    gateways.find((gateway) => {
-      const text =
-        `${gateway.title} ${gateway.description}`
-          .toLowerCase();
-
-      return text.includes(needle);
-    }) ||
     gateways.find((gateway) => {
       const text =
         `${gateway.id} ${gateway.title} ${gateway.description}`
           .toLowerCase();
 
-      return text.includes("easebuzz");
+      return text.includes("payglocal");
     })
   );
 }
@@ -405,11 +365,46 @@ export async function GET() {
 
   try {
     const state =
-      await getPaymentsOption();
+      normalizeSettings(
+        await getPaymentsOption()
+      );
 
-    return privateJson(
-      normalizeSettings(state)
-    );
+    try {
+      const woo = await getWooClient();
+      const response =
+        await woo.get("/payment_gateways");
+      const gateways = (
+        Array.isArray(response.data)
+          ? response.data
+          : []
+      )
+        .map(asWooGateway)
+        .filter(
+          (
+            gateway
+          ): gateway is WooGateway =>
+            gateway !== null
+        );
+
+      const payglocalGateway =
+        findPayGlocalGateway(gateways);
+
+      if (payglocalGateway) {
+        state.payglocal.enabled =
+          gatewayEnabled(
+            payglocalGateway.enabled
+          );
+      }
+    } catch (gatewayError: unknown) {
+      console.warn(
+        "PayGlocal gateway status read failed:",
+        gatewayError instanceof Error
+          ? gatewayError.message
+          : "Unknown gateway status error"
+      );
+    }
+
+    return privateJson(state);
   } catch (error: unknown) {
     console.error(
       "Payments settings load failed:",
@@ -507,9 +502,9 @@ async function handleSave(
       cheque:
         acceptPayments &&
         body.cheque.enabled,
-      easebuzz:
+      payglocal_payment_gateway:
         acceptPayments &&
-        body.easebuzz.enabled,
+        body.payglocal.enabled,
     };
 
     const response =
@@ -574,16 +569,13 @@ async function handleSave(
       enableMap.cheque
     );
 
-    const easebuzzGateway =
-      findEasebuzzGateway(
-        gateways,
-        body.easebuzz.hint
-      );
+    const payglocalGateway =
+      findPayGlocalGateway(gateways);
 
-    if (easebuzzGateway) {
+    if (payglocalGateway) {
       queueToggle(
-        easebuzzGateway.id,
-        enableMap.easebuzz
+        payglocalGateway.id,
+        enableMap.payglocal_payment_gateway
       );
     }
 
