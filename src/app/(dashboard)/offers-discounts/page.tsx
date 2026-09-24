@@ -15,21 +15,21 @@ export const metadata = {
 const OFFER_TOOLS = [
   {
     href: "/offers-discounts/sale-events",
-    title: "Sale Events",
+    title: "Offer Sale",
     description:
       "Schedule discounts or free shipping for selected products.",
     icon: CalendarRange,
   },
   {
     href: "/offers-discounts/coupons",
-    title: "Coupon Codes",
+    title: "Coupons",
     description:
       "Create cart discounts and control expiry and usage.",
     icon: TicketPercent,
   },
   {
     href: "/offers-discounts/welcome-offer",
-    title: "Welcome Offer",
+    title: "Welcome",
     description:
       "Reward new customers automatically after signup.",
     icon: Gift,
@@ -60,7 +60,7 @@ export default async function OffersDiscountsPage() {
           Offers & Discounts
         </h1>
         <p className="mt-1 max-w-2xl text-sm leading-6 text-muted-foreground">
-          Create sales, coupon discounts and new-customer offers.
+          Create offer sales, coupons and new-customer offers.
         </p>
       </div>
 
