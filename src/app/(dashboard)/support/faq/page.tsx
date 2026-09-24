@@ -38,7 +38,7 @@ const faqs: FAQ[] = [
       "LetzShopy is offered as a SaaS subscription. You pay a recurring fee for hosting, maintenance and the vendor tools.",
       "During onboarding you may get a short free trial period to test the platform.",
       "Your plan details (name, amount, renewal date) will be visible under Settings → Account → Subscription as this module is finalized.",
-      "Automatic renewal through Easebuzz is planned; until then, renewals may be executed manually by the LetzShopy team and confirmed over email or invoice.",
+      "Automatic renewal through PayGlocal is planned; until then, renewals may be executed manually by the LetzShopy team and confirmed over email or invoice.",
     ],
   },
   {
@@ -46,7 +46,7 @@ const faqs: FAQ[] = [
     q: "Does LetzShopy charge commission on my sales?",
     a: [
       "The main business model is subscription-based rather than commission-based.",
-      "Payment gateway providers (such as Easebuzz) may still charge their own per-transaction fees.",
+      "Payment gateway providers (such as PayGlocal) may still charge their own per-transaction fees.",
       "LetzShopy may add a small payment gateway handling fee per transaction depending on the plan structure communicated on the main site.",
     ],
   },
@@ -92,7 +92,7 @@ const faqs: FAQ[] = [
     q: "What payment methods can I offer to customers?",
     a: [
       "In Settings → Payments you can enable different methods depending on what is configured on your store.",
-      "Typical options include: Easebuzz (online payment gateway), UPI (Manual), direct bank transfer and cash on delivery.",
+      "Typical options include: PayGlocal (online payment gateway), UPI (Manual), direct bank transfer and cash on delivery.",
       "For each method you can control whether it is enabled and, for some, what details are displayed at checkout.",
     ],
   },
