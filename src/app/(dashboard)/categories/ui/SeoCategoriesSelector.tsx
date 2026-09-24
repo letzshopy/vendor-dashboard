@@ -2,7 +2,7 @@
 
 import {
   Check,
-  ChevronDown,
+  Pencil,
   Search,
   Sparkles,
   X,
@@ -16,6 +16,9 @@ import {
 import {
   AsyncButton,
 } from "@/components/ui/async-button";
+import {
+  Button,
+} from "@/components/ui/button";
 import {
   Input,
 } from "@/components/ui/input";
@@ -77,6 +80,14 @@ export default function SeoCategoriesSelector({
       []
     );
 
+  const [
+    savedIds,
+    setSavedIds,
+  ] =
+    useState<number[]>(
+      []
+    );
+
   const [query, setQuery] =
     useState("");
 
@@ -89,6 +100,12 @@ export default function SeoCategoriesSelector({
   const [
     saving,
     setSaving,
+  ] =
+    useState(false);
+
+  const [
+    editing,
+    setEditing,
   ] =
     useState(false);
 
@@ -214,7 +231,7 @@ export default function SeoCategoriesSelector({
           throw new Error(
             responseError(
               payload,
-              "Unable to load highlighted categories."
+              "Unable to load website featured categories."
             )
           );
         }
@@ -259,6 +276,9 @@ export default function SeoCategoriesSelector({
         setSelectedIds(
           ids
         );
+        setSavedIds(
+          ids
+        );
       } catch (
         error: unknown
       ) {
@@ -267,7 +287,7 @@ export default function SeoCategoriesSelector({
             error instanceof
               Error
               ? error.message
-              : "Unable to load highlighted categories."
+              : "Unable to load website featured categories."
           );
         }
       } finally {
@@ -342,6 +362,15 @@ export default function SeoCategoriesSelector({
     );
   }
 
+  function cancelEditing() {
+    setSelectedIds(
+      savedIds
+    );
+    setQuery("");
+    setLocalError("");
+    setEditing(false);
+  }
+
   async function saveCategories() {
     setLocalError("");
 
@@ -373,7 +402,7 @@ export default function SeoCategoriesSelector({
     actionFeedback.loading({
       id: feedbackId,
       title:
-        "Saving website highlights…",
+        "Saving featured categories…",
     });
 
     try {
@@ -418,7 +447,7 @@ export default function SeoCategoriesSelector({
         throw new Error(
           responseError(
             payload,
-            "Unable to save highlighted categories."
+            "Unable to save website featured categories."
           )
         );
       }
@@ -458,11 +487,18 @@ export default function SeoCategoriesSelector({
       setSelectedIds(
         ids
       );
+      setSavedIds(
+        ids
+      );
+      setEditing(
+        false
+      );
+      setQuery("");
 
       actionFeedback.success({
         id: feedbackId,
         title:
-          "Website highlights saved",
+          "Featured categories saved",
         durationMs: 2200,
       });
     } catch (
@@ -471,12 +507,12 @@ export default function SeoCategoriesSelector({
       actionFeedback.error({
         id: feedbackId,
         title:
-          "Could not save highlights",
+          "Could not save featured categories",
         message:
           error instanceof
             Error
             ? error.message
-            : "Unable to save highlighted categories.",
+            : "Unable to save website featured categories.",
         durationMs: 4200,
       });
     } finally {
@@ -485,36 +521,47 @@ export default function SeoCategoriesSelector({
   }
 
   return (
-    <details className="group overflow-visible rounded-2xl border border-border bg-card">
-      <summary className="ls-focus-ring flex min-h-14 cursor-pointer list-none items-center gap-3 px-4 py-3 md:px-5 [&::-webkit-details-marker]:hidden">
+    <section className="overflow-visible rounded-2xl border border-border bg-card">
+      <div className="flex items-start gap-3 px-4 py-4 md:px-5">
         <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-secondary text-secondary-foreground">
           <Sparkles className="h-4.5 w-4.5" />
         </span>
 
-        <span className="min-w-0 flex-1">
-          <span className="block text-sm font-bold text-heading">
-            Website highlights
-          </span>
+        <div className="min-w-0 flex-1">
+          <h2 className="text-sm font-bold text-heading">
+            Website Featured Categories
+          </h2>
 
-          <span className="mt-0.5 block truncate text-xs text-muted-foreground">
-            {loading
-              ? "Loading selection…"
-              : `${selectedIds.length} of ${MAX_CATEGORIES} selected`}
-          </span>
-        </span>
+          <p className="mt-1 text-xs leading-5 text-muted-foreground">
+            These categories are highlighted on your storefront and footer.
+          </p>
+        </div>
 
-        <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-180" />
-      </summary>
+        {!loading &&
+        !editing ? (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() =>
+              setEditing(true)
+            }
+          >
+            <Pencil className="h-3.5 w-3.5" />
+            Edit
+          </Button>
+        ) : null}
+      </div>
 
       <div className="border-t border-border px-4 py-4 md:px-5">
-        <p className="text-sm leading-6 text-muted-foreground">
-          Choose 3–6 categories to highlight on the storefront and footer.
-        </p>
-
-        <div className="mt-4 flex flex-wrap gap-2">
-          {selectedCategories.length >
+        {loading ? (
+          <p className="text-sm text-muted-foreground">
+            Loading featured categories…
+          </p>
+        ) : selectedCategories.length >
           0 ? (
-            selectedCategories.map(
+          <div className="flex flex-wrap gap-2">
+            {selectedCategories.map(
               (
                 category
               ) => (
@@ -532,128 +579,148 @@ export default function SeoCategoriesSelector({
                     }
                   </span>
 
-                  <button
-                    type="button"
-                    onClick={() =>
-                      removeCategory(
-                        category.id
-                      )
-                    }
-                    className="ls-focus-ring grid h-6 w-6 place-items-center rounded-full text-muted-foreground hover:bg-white/70 hover:text-foreground"
-                    aria-label={
-                      `Remove ${category.name}`
-                    }
-                  >
-                    <X className="h-3.5 w-3.5" />
-                  </button>
+                  {editing ? (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        removeCategory(
+                          category.id
+                        )
+                      }
+                      className="ls-focus-ring grid h-6 w-6 place-items-center rounded-full text-muted-foreground hover:bg-white/70 hover:text-foreground"
+                      aria-label={
+                        `Remove ${category.name}`
+                      }
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  ) : null}
                 </span>
               )
-            )
-          ) : (
-            <span className="text-sm text-muted-foreground">
-              No categories selected.
-            </span>
-          )}
-        </div>
-
-        <div className="relative mt-4">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-
-          <Input
-            value={query}
-            onChange={(
-              event
-            ) => {
-              setQuery(
-                event.target.value
-              );
-              setLocalError(
-                ""
-              );
-            }}
-            disabled={
-              loading ||
-              selectedIds.length >=
-                MAX_CATEGORIES
-            }
-            placeholder={
-              selectedIds.length >=
-              MAX_CATEGORIES
-                ? "Maximum categories selected"
-                : "Search categories to add"
-            }
-            className="pl-10"
-          />
-
-          {suggestions.length >
-          0 ? (
-            <div className="absolute left-0 right-0 z-30 mt-2 overflow-hidden rounded-2xl border border-border bg-card shadow-xl">
-              {suggestions.map(
-                (
-                  category
-                ) => (
-                  <button
-                    key={
-                      category.id
-                    }
-                    type="button"
-                    onMouseDown={(
-                      event
-                    ) => {
-                      event.preventDefault();
-                      addCategory(
-                        category
-                      );
-                    }}
-                    className="flex min-h-11 w-full items-center justify-between gap-3 px-4 py-2.5 text-left text-sm hover:bg-muted"
-                  >
-                    <span className="truncate font-semibold text-foreground">
-                      {
-                        category.name
-                      }
-                    </span>
-
-                    <span className="shrink-0 text-xs text-muted-foreground">
-                      {
-                        category.count ||
-                        0
-                      }{" "}
-                      products
-                    </span>
-                  </button>
-                )
-              )}
-            </div>
-          ) : null}
-        </div>
-
-        {localError ? (
-          <p className="mt-3 text-sm font-semibold text-destructive">
-            {localError}
+            )}
+          </div>
+        ) : (
+          <p className="text-sm text-muted-foreground">
+            No featured categories selected.
           </p>
+        )}
+
+        {editing ? (
+          <>
+            <div className="relative mt-4">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+
+              <Input
+                value={query}
+                onChange={(
+                  event
+                ) => {
+                  setQuery(
+                    event.target.value
+                  );
+                  setLocalError(
+                    ""
+                  );
+                }}
+                disabled={
+                  selectedIds.length >=
+                  MAX_CATEGORIES
+                }
+                placeholder={
+                  selectedIds.length >=
+                  MAX_CATEGORIES
+                    ? "Maximum categories selected"
+                    : "Search categories to add"
+                }
+                className="pl-10"
+              />
+
+              {suggestions.length >
+              0 ? (
+                <div className="absolute left-0 right-0 z-30 mt-2 overflow-hidden rounded-2xl border border-border bg-card shadow-xl">
+                  {suggestions.map(
+                    (
+                      category
+                    ) => (
+                      <button
+                        key={
+                          category.id
+                        }
+                        type="button"
+                        onMouseDown={(
+                          event
+                        ) => {
+                          event.preventDefault();
+                          addCategory(
+                            category
+                          );
+                        }}
+                        className="flex min-h-11 w-full items-center justify-between gap-3 px-4 py-2.5 text-left text-sm hover:bg-muted"
+                      >
+                        <span className="truncate font-semibold text-foreground">
+                          {
+                            category.name
+                          }
+                        </span>
+
+                        <span className="shrink-0 text-xs text-muted-foreground">
+                          {
+                            category.count ||
+                            0
+                          }{" "}
+                          products
+                        </span>
+                      </button>
+                    )
+                  )}
+                </div>
+              ) : null}
+            </div>
+
+            {localError ? (
+              <p className="mt-3 text-sm font-semibold text-destructive">
+                {localError}
+              </p>
+            ) : null}
+
+            <div className="mt-4 flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <span className="text-xs text-muted-foreground">
+                Choose{" "}
+                {MIN_CATEGORIES}–
+                {MAX_CATEGORIES} categories.
+              </span>
+
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={
+                    cancelEditing
+                  }
+                  disabled={
+                    saving
+                  }
+                >
+                  Cancel
+                </Button>
+
+                <AsyncButton
+                  type="button"
+                  loading={
+                    saving
+                  }
+                  loadingLabel="Saving…"
+                  onClick={() =>
+                    void saveCategories()
+                  }
+                >
+                  Save
+                </AsyncButton>
+              </div>
+            </div>
+          </>
         ) : null}
-
-        <div className="mt-4 flex items-center justify-between gap-3">
-          <span className="text-xs text-muted-foreground">
-            Minimum{" "}
-            {MIN_CATEGORIES},
-            maximum{" "}
-            {MAX_CATEGORIES}.
-          </span>
-
-          <AsyncButton
-            type="button"
-            loading={saving}
-            loadingLabel="Saving…"
-            disabled={loading}
-            onClick={() =>
-              void saveCategories()
-            }
-          >
-            Save
-          </AsyncButton>
-        </div>
       </div>
-    </details>
+    </section>
   );
 }
