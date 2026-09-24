@@ -1934,9 +1934,9 @@ export default function ShoppableVideosClient() {
         cancelLabel="Cancel"
         loading={busy}
         loadingLabel="Publishing…"
-        onConfirm={
-          publishVideo
-        }
+        onConfirm={async () => {
+          await publishVideo();
+        }}
       />
 
       <ConfirmDialog
