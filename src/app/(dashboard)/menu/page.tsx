@@ -655,12 +655,6 @@ export default function MenuLayoutPage() {
     >(null);
 
   const [
-    actionOpen,
-    setActionOpen,
-  ] =
-    useState(false);
-
-  const [
     moveOpen,
     setMoveOpen,
   ] =
@@ -1638,14 +1632,19 @@ export default function MenuLayoutPage() {
     setAddOpen(false);
   }
 
-  function openActions(
+  function toggleActions(
     context:
       ItemActionContext
   ) {
     setActionContext(
-      context
+      (
+        current
+      ) =>
+        current?.item.id ===
+        context.item.id
+          ? null
+          : context
     );
-    setActionOpen(true);
   }
 
   function moveItem(
@@ -1670,7 +1669,7 @@ export default function MenuLayoutPage() {
     );
 
     setDirty(true);
-    setActionOpen(false);
+    setActionContext(null);
   }
 
   function moveItemTo(
@@ -1758,10 +1757,14 @@ export default function MenuLayoutPage() {
       level,
     };
 
+    const actionsVisible =
+      actionContext?.item.id ===
+      item.id;
+
     return (
       <>
         <div
-          className="relative flex min-h-[66px] items-center gap-3 border-b border-border px-3 py-2.5 last:border-b-0 md:px-4"
+          className="relative flex min-h-[66px] items-center gap-3 overflow-hidden border-b border-border px-3 py-2.5 last:border-b-0 md:px-4"
           style={{
             paddingLeft:
               12 +
@@ -1852,18 +1855,141 @@ export default function MenuLayoutPage() {
           <button
             type="button"
             onClick={() =>
-              openActions(
+              toggleActions(
                 context
               )
             }
             aria-label={
-              "Manage " +
-              item.title
+              actionsVisible
+                ? "Close actions for " +
+                  item.title
+                : "Manage " +
+                  item.title
+            }
+            aria-expanded={
+              actionsVisible
             }
             className="ls-focus-ring grid h-11 w-11 shrink-0 place-items-center rounded-xl text-muted-foreground hover:bg-muted hover:text-foreground"
           >
-            <MoreVertical className="h-5 w-5" />
+            {actionsVisible ? (
+              <X className="h-5 w-5" />
+            ) : (
+              <MoreVertical className="h-5 w-5" />
+            )}
           </button>
+
+          <div
+            className={
+              "absolute inset-y-0 right-0 z-10 flex items-center gap-1 border-l border-border bg-card/98 px-2 shadow-[-10px_0_24px_rgba(38,51,95,0.08)] backdrop-blur transition-transform duration-200 ease-out " +
+              (
+                actionsVisible
+                  ? "translate-x-0"
+                  : "pointer-events-none translate-x-full"
+              )
+            }
+            aria-hidden={
+              !actionsVisible
+            }
+          >
+            <button
+              type="button"
+              disabled={
+                index === 0
+              }
+              onClick={() =>
+                moveItem(
+                  "up"
+                )
+              }
+              className="ls-focus-ring grid h-10 w-10 place-items-center rounded-xl text-primary hover:bg-secondary disabled:opacity-30"
+              aria-label={
+                "Move " +
+                item.title +
+                " up"
+              }
+              title="Move up"
+            >
+              <ArrowUp className="h-4 w-4" />
+            </button>
+
+            <button
+              type="button"
+              disabled={
+                index ===
+                siblingCount - 1
+              }
+              onClick={() =>
+                moveItem(
+                  "down"
+                )
+              }
+              className="ls-focus-ring grid h-10 w-10 place-items-center rounded-xl text-primary hover:bg-secondary disabled:opacity-30"
+              aria-label={
+                "Move " +
+                item.title +
+                " down"
+              }
+              title="Move down"
+            >
+              <ArrowDown className="h-4 w-4" />
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setActionContext(
+                  context
+                );
+                setMoveOpen(
+                  true
+                );
+              }}
+              className="ls-focus-ring grid h-10 w-10 place-items-center rounded-xl text-primary hover:bg-secondary"
+              aria-label={
+                "Move " +
+                item.title +
+                " to another menu position"
+              }
+              title="Move to"
+            >
+              <MoveRight className="h-4 w-4" />
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setRemoveTarget(
+                  context
+                );
+                setActionContext(
+                  null
+                );
+              }}
+              className="ls-focus-ring grid h-10 w-10 place-items-center rounded-xl text-destructive hover:bg-rose-50"
+              aria-label={
+                "Remove " +
+                item.title +
+                " from menu"
+              }
+              title="Remove from menu"
+            >
+              <Trash2 className="h-4 w-4" />
+            </button>
+
+            <button
+              type="button"
+              onClick={() =>
+                setActionContext(
+                  null
+                )
+              }
+              className="ls-focus-ring grid h-10 w-10 place-items-center rounded-xl text-muted-foreground hover:bg-muted hover:text-foreground"
+              aria-label="Close menu item actions"
+              title="Close"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
         </div>
 
         {(item.children ||
@@ -2166,6 +2292,7 @@ export default function MenuLayoutPage() {
         open={
           menuPickerOpen
         }
+        popupClassName="md:mx-auto md:max-w-xl"
         onOpenChange={
           setMenuPickerOpen
         }
@@ -2220,6 +2347,7 @@ export default function MenuLayoutPage() {
         onOpenChange={
           setAddOpen
         }
+        popupClassName="md:mx-auto md:max-w-3xl"
         title="Add Menu Item"
         description="Choose what you want to add."
       >
@@ -2458,101 +2586,8 @@ export default function MenuLayoutPage() {
       </BottomSheet>
 
       <BottomSheet
-        open={
-          actionOpen
-        }
-        onOpenChange={
-          setActionOpen
-        }
-        title={
-          actionContext
-            ?.item.title ||
-          "Menu item"
-        }
-        description={
-          actionContext
-            ? typeLabel(
-                actionContext
-                  .item.type
-              )
-            : undefined
-        }
-      >
-        {actionContext ? (
-          <div className="space-y-2">
-            <button
-              type="button"
-              disabled={
-                actionContext.index ===
-                0
-              }
-              onClick={() =>
-                moveItem(
-                  "up"
-                )
-              }
-              className="ls-focus-ring flex min-h-12 w-full items-center gap-3 rounded-xl border border-border px-3 text-left text-sm font-semibold text-foreground disabled:opacity-40"
-            >
-              <ArrowUp className="h-4 w-4 text-primary" />
-              Move up
-            </button>
-
-            <button
-              type="button"
-              disabled={
-                actionContext.index ===
-                actionContext
-                  .siblingCount -
-                  1
-              }
-              onClick={() =>
-                moveItem(
-                  "down"
-                )
-              }
-              className="ls-focus-ring flex min-h-12 w-full items-center gap-3 rounded-xl border border-border px-3 text-left text-sm font-semibold text-foreground disabled:opacity-40"
-            >
-              <ArrowDown className="h-4 w-4 text-primary" />
-              Move down
-            </button>
-
-            <button
-              type="button"
-              onClick={() => {
-                setActionOpen(
-                  false
-                );
-                setMoveOpen(
-                  true
-                );
-              }}
-              className="ls-focus-ring flex min-h-12 w-full items-center gap-3 rounded-xl border border-border px-3 text-left text-sm font-semibold text-foreground"
-            >
-              <MoveRight className="h-4 w-4 text-primary" />
-              Move to…
-            </button>
-
-            <button
-              type="button"
-              onClick={() => {
-                setActionOpen(
-                  false
-                );
-                setRemoveTarget(
-                  actionContext
-                );
-              }}
-              className="ls-focus-ring flex min-h-12 w-full items-center gap-3 rounded-xl border border-rose-200 bg-rose-50 px-3 text-left text-sm font-semibold text-destructive"
-            >
-              <Trash2 className="h-4 w-4" />
-              Remove from menu
-            </button>
-          </div>
-        ) : null}
-      </BottomSheet>
-
-      <BottomSheet
         open={moveOpen}
+        popupClassName="md:mx-auto md:max-w-xl"
         onOpenChange={(
           open
         ) => {
