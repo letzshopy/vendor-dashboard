@@ -195,6 +195,34 @@ export default function SaleEventFormClient({
   products,
   action,
 }: Props) {
+  const initialPromotionalCopy =
+    event?.promotional_copy ||
+    buildPromotionalCopy({
+      templateIndex: 0,
+      title: event?.title || "",
+      categoryNames: (event?.category_ids || [])
+        .map(
+          (id) =>
+            categories.find(
+              (category) =>
+                category.id === id
+            )?.name || ""
+        )
+        .filter(Boolean),
+      pricingType:
+        event?.pricing_type ||
+        "percentage",
+      discountValue:
+        String(
+          event?.discount_value ||
+            ""
+        ),
+      startDate:
+        event?.start_date || "",
+      endDate:
+        event?.end_date || "",
+    });
+
   const [selectedCategories, setSelectedCategories] = useState<number[]>(
     event?.category_ids || []
   );
@@ -219,7 +247,7 @@ export default function SaleEventFormClient({
   const [promoTemplateIndex, setPromoTemplateIndex] = useState(0);
   const [promoEdited, setPromoEdited] = useState(Boolean(event?.promotional_copy));
   const [promotionalCopy, setPromotionalCopy] = useState(
-    event?.promotional_copy || ""
+    initialPromotionalCopy
   );
   const [homepageVisible, setHomepageVisible] = useState(
     event ? event.homepage_visible : true
@@ -238,7 +266,7 @@ export default function SaleEventFormClient({
       title: event?.title || "",
       startDate: event?.start_date || "",
       endDate: event?.end_date || "",
-      promotionalCopy: event?.promotional_copy || "",
+      promotionalCopy: initialPromotionalCopy,
       homepageVisible: event ? event.homepage_visible : true,
     })
   );
@@ -305,12 +333,6 @@ export default function SaleEventFormClient({
       setPromotionalCopy(generatedPromotionalCopy);
     }
   }, [generatedPromotionalCopy, promoEdited]);
-
-  useEffect(() => {
-    if (mode === "create") {
-      setPromoTemplateIndex(Math.floor(Math.random() * 3));
-    }
-  }, [mode]);
 
   function toggleCategory(id: number) {
     setSelectedCategories((prev) =>
