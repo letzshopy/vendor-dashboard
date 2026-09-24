@@ -426,6 +426,14 @@ export default function SaleEventFormClient({
         Back to Sale Events
       </Link>
 
+      <div className="mt-3 md:hidden">
+        <h1 className="text-[20px] font-extrabold tracking-tight text-heading">
+          {mode === "create"
+            ? "Create Sale Event"
+            : "Edit Sale Event"}
+        </h1>
+      </div>
+
       <div className="mt-4 hidden md:block">
         <div className="text-[11px] font-bold uppercase tracking-[0.08em] text-accent">
           Offers & Discounts
