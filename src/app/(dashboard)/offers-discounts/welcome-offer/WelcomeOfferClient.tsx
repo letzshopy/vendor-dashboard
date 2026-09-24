@@ -294,7 +294,11 @@ export default function WelcomeOfferClient() {
     );
 
   useEffect(() => {
-    if (promoEdited) {
+    if (
+      promoEdited ||
+      !settings.enabled ||
+      !settings.homepage_visible
+    ) {
       return;
     }
 
