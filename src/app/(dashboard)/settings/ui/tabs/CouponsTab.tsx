@@ -491,7 +491,8 @@ export default function CouponsTab() {
   useEffect(() => {
     if (
       !form ||
-      promoEdited
+      promoEdited ||
+      !form.homepage_visible
     ) {
       return;
     }
