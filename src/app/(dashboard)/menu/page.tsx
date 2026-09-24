@@ -2461,19 +2461,9 @@ export default function MenuLayoutPage() {
         open={
           actionOpen
         }
-        onOpenChange={(
-          open
-        ) => {
-          setActionOpen(
-            open
-          );
-
-          if (!open) {
-            setActionContext(
-              null
-            );
-          }
-        }}
+        onOpenChange={
+          setActionOpen
+        }
         title={
           actionContext
             ?.item.title ||
