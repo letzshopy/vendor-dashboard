@@ -11,6 +11,7 @@ import { usePathname } from "next/navigation";
 
 import MobileBottomNav from "@/components/MobileBottomNav";
 import NavigationProgress from "@/components/navigation/NavigationProgress";
+import { UnsavedChangesProvider } from "@/components/navigation/UnsavedChangesGuard";
 import MobilePageHeader from "@/components/MobilePageHeader";
 import Sidebar from "@/components/Sidebar";
 import Topbar from "@/components/Topbar";
@@ -71,7 +72,8 @@ export default function DashboardShell({
   }, [sidebarOpen]);
 
   return (
-    <div className="dashboard-app-shell min-h-screen min-w-0 bg-[#F8F9FC] text-[#202A48]">
+    <UnsavedChangesProvider>
+      <div className="dashboard-app-shell min-h-screen min-w-0 bg-[#F8F9FC] text-[#202A48]">
       <NavigationProgress />
 
       <Topbar
@@ -139,6 +141,7 @@ export default function DashboardShell({
         locked={locked}
         storeType={storeType}
       />
-    </div>
+      </div>
+    </UnsavedChangesProvider>
   );
 }
