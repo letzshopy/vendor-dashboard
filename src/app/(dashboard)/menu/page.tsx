@@ -50,6 +50,7 @@ import {
 import {
   actionFeedback,
 } from "@/lib/actionFeedback";
+import { useUnsavedChanges } from "@/components/navigation/UnsavedChangesGuard";
 
 type MenuItem = {
   id: string;
@@ -1310,12 +1311,12 @@ export default function MenuLayoutPage() {
     bootLoading,
   ]);
 
-  async function saveAndSync() {
+  async function saveAndSync(): Promise<boolean> {
     if (
       syncing ||
       loadingMenu
     ) {
-      return;
+      return false;
     }
 
     const def =
@@ -1443,6 +1444,8 @@ export default function MenuLayoutPage() {
           "Menu saved",
         durationMs: 2200,
       });
+
+      return true;
     } catch (
       caught: unknown
     ) {
@@ -1457,6 +1460,8 @@ export default function MenuLayoutPage() {
             : "Menu save failed.",
         durationMs: 4200,
       });
+
+      return false;
     } finally {
       setSyncing(false);
     }
@@ -1494,7 +1499,7 @@ export default function MenuLayoutPage() {
     );
   }
 
-  function confirmDiscard() {
+  async function saveBeforeMenuSwitch() {
     if (!pendingMenuKey) {
       setDiscardOpen(
         false
@@ -1502,9 +1507,18 @@ export default function MenuLayoutPage() {
       return;
     }
 
-    setDirty(false);
+    const nextKey =
+      pendingMenuKey;
+
+    const saved =
+      await saveAndSync();
+
+    if (!saved) {
+      return;
+    }
+
     setMenuKey(
-      pendingMenuKey
+      nextKey
     );
     setPendingMenuKey(
       null
@@ -2027,6 +2041,13 @@ export default function MenuLayoutPage() {
       </>
     );
   }
+
+  useUnsavedChanges({
+    id: "menu-layout",
+    dirty,
+    label: "menu layout",
+    save: saveAndSync,
+  });
 
   const busy =
     bootLoading ||
@@ -2711,12 +2732,12 @@ export default function MenuLayoutPage() {
             );
           }
         }}
-        title="Discard unsaved changes?"
-        description="Your current menu changes have not been saved."
-        confirmLabel="Discard changes"
-        destructive
+        title="Unsaved menu changes"
+        description="Save your changes before switching to another menu?"
+        confirmLabel="Save changes"
+        cancelLabel="Cancel"
         onConfirm={
-          confirmDiscard
+          saveBeforeMenuSwitch
         }
       />
     </main>
