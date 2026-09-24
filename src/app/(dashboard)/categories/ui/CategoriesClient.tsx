@@ -1,6 +1,8 @@
 "use client";
 
 import {
+  Check,
+  ChevronDown,
   ChevronRight,
   FolderOpen,
   Pencil,
@@ -41,9 +43,6 @@ import {
 import {
   Section,
 } from "@/components/ui/section";
-import {
-  Select,
-} from "@/components/ui/select";
 import {
   actionFeedback,
 } from "@/lib/actionFeedback";
@@ -508,9 +507,6 @@ export default function CategoriesClient({
   ] =
     useState("");
 
-  const [parent, setParent] =
-    useState(0);
-
   const [
     newImage,
     setNewImage,
@@ -703,7 +699,6 @@ export default function CategoriesClient({
   function resetCreateForm() {
     setName("");
     setDescription("");
-    setParent(0);
     setNewImage(null);
     setNewMenuHeading("");
   }
@@ -797,7 +792,7 @@ export default function CategoriesClient({
                   name.trim(),
                 description:
                   description.trim(),
-                parent,
+                parent: 0,
                 image_id:
                   newImage?.id,
               }),
@@ -1170,48 +1165,114 @@ export default function CategoriesClient({
       value: string
     ) => void
   ) {
+    const selected =
+      value
+        ? menuHeadings.find(
+            (heading) =>
+              String(
+                heading.index
+              ) === value
+          )
+        : null;
+
     return (
       <div>
         <FieldLabel>
-          Menu heading{" "}
+          Add to Website Menu{" "}
           <span className="font-medium text-muted-foreground">
             (optional)
           </span>
         </FieldLabel>
 
-        <Select
-          value={value}
-          onChange={(
-            event
-          ) =>
-            onChange(
-              event.target.value
-            )
-          }
-        >
-          <option value="">
-            Do not change menu
-          </option>
+        <details className="group overflow-hidden rounded-xl border border-input bg-card">
+          <summary className="ls-focus-ring flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 px-3 text-sm [&::-webkit-details-marker]:hidden">
+            <span
+              className={
+                selected
+                  ? "font-semibold text-foreground"
+                  : "text-muted-foreground"
+              }
+            >
+              {selected
+                ? selected.title
+                : "Not added to menu"}
+            </span>
 
-          {menuHeadings.map(
-            (
-              heading
-            ) => (
-              <option
-                key={
-                  heading.index
-                }
-                value={
-                  heading.index
-                }
-              >
-                {
-                  heading.title
-                }
-              </option>
-            )
-          )}
-        </Select>
+            <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-180" />
+          </summary>
+
+          <div className="max-h-56 overflow-y-auto border-t border-border p-1.5">
+            <button
+              type="button"
+              onClick={(event) => {
+                onChange("");
+                const details =
+                  event.currentTarget.closest(
+                    "details"
+                  );
+                details?.removeAttribute(
+                  "open"
+                );
+              }}
+              className="ls-focus-ring flex min-h-11 w-full items-center justify-between gap-3 rounded-lg px-3 text-left text-sm hover:bg-muted"
+            >
+              <span className="text-muted-foreground">
+                Not added to menu
+              </span>
+
+              {!value ? (
+                <Check className="h-4 w-4 text-primary" />
+              ) : null}
+            </button>
+
+            {menuHeadings.map(
+              (heading) => {
+                const optionValue =
+                  String(
+                    heading.index
+                  );
+
+                const active =
+                  value ===
+                  optionValue;
+
+                return (
+                  <button
+                    key={
+                      heading.index
+                    }
+                    type="button"
+                    onClick={(
+                      event
+                    ) => {
+                      onChange(
+                        optionValue
+                      );
+                      const details =
+                        event.currentTarget.closest(
+                          "details"
+                        );
+                      details?.removeAttribute(
+                        "open"
+                      );
+                    }}
+                    className="ls-focus-ring flex min-h-11 w-full items-center justify-between gap-3 rounded-lg px-3 text-left text-sm font-semibold text-foreground hover:bg-muted"
+                  >
+                    <span className="truncate">
+                      {
+                        heading.title
+                      }
+                    </span>
+
+                    {active ? (
+                      <Check className="h-4 w-4 shrink-0 text-primary" />
+                    ) : null}
+                  </button>
+                );
+              }
+            )}
+          </div>
+        </details>
 
         {menuError ? (
           <p className="mt-1.5 text-xs text-amber-700">
@@ -1297,55 +1358,6 @@ export default function CategoriesClient({
             required
             placeholder="Category name"
           />
-        </div>
-
-        <div>
-          <FieldLabel>
-            Parent category
-          </FieldLabel>
-
-          <Select
-            value={parent}
-            onChange={(
-              event
-            ) =>
-              setParent(
-                Number(
-                  event.target.value
-                )
-              )
-            }
-          >
-            <option
-              value={0}
-            >
-              None
-            </option>
-
-            {flat.map(
-              (
-                category
-              ) => (
-                <option
-                  key={
-                    category.id
-                  }
-                  value={
-                    category.id
-                  }
-                >
-                  {
-                    "— ".repeat(
-                      category.depth
-                    )
-                  }
-                  {
-                    category.name
-                  }
-                </option>
-              )
-            )}
-          </Select>
         </div>
 
         <div>
@@ -1449,61 +1461,6 @@ export default function CategoriesClient({
             }
             placeholder="category-slug"
           />
-        </div>
-
-        <div>
-          <FieldLabel>
-            Parent category
-          </FieldLabel>
-
-          <Select
-            value={
-              editParent
-            }
-            onChange={(
-              event
-            ) =>
-              setEditParent(
-                Number(
-                  event.target.value
-                )
-              )
-            }
-          >
-            <option
-              value={0}
-            >
-              None
-            </option>
-
-            {flat
-              .filter(
-                (item) =>
-                  item.id !==
-                  editId
-              )
-              .map(
-                (item) => (
-                  <option
-                    key={
-                      item.id
-                    }
-                    value={
-                      item.id
-                    }
-                  >
-                    {
-                      "— ".repeat(
-                        item.depth
-                      )
-                    }
-                    {
-                      item.name
-                    }
-                  </option>
-                )
-              )}
-          </Select>
         </div>
 
         <div>
