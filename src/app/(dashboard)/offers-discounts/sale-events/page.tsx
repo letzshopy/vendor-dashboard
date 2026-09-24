@@ -1,7 +1,10 @@
 import Link from "next/link";
 import {
   CalendarRange,
+  Home,
+  Package,
   Plus,
+  Tag,
 } from "lucide-react";
 
 import {
@@ -57,15 +60,15 @@ export default async function SaleEventsPage() {
         <PageHeader
           eyebrow="Offers & Discounts"
           icon={CalendarRange}
-          title="Sale Events"
-          description="Schedule product discounts or free-shipping campaigns."
+          title="Offer Sale"
+          description="Create and schedule product offers or free-shipping campaigns."
           actions={
             <Link
               href="/offers-discounts/sale-events/new"
               className="ls-focus-ring inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground shadow-sm hover:brightness-95"
             >
               <Plus className="h-4 w-4" />
-              Create event
+              New Offer
             </Link>
           }
         />
@@ -77,7 +80,7 @@ export default async function SaleEventsPage() {
             {events.length}
           </span>
           <span className="ml-1.5 text-sm font-semibold text-muted-foreground">
-            events
+            offers
           </span>
         </div>
 
@@ -86,7 +89,7 @@ export default async function SaleEventsPage() {
           className="ls-focus-ring inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground"
         >
           <Plus className="h-4 w-4" />
-          Create
+          New Offer
         </Link>
       </div>
 
@@ -94,56 +97,54 @@ export default async function SaleEventsPage() {
         <span className="rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-700">
           {live} live
         </span>
+
         <span className="rounded-full bg-amber-50 px-3 py-1.5 text-xs font-bold text-amber-700">
           {scheduled} scheduled
         </span>
+
         <span className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-600">
-          {closed} closed
+          {closed} ended
         </span>
       </div>
 
-      <section className="mt-4 overflow-hidden rounded-2xl border border-border bg-card">
-        {events.length ===
-        0 ? (
+      {events.length === 0 ? (
+        <section className="mt-4 rounded-2xl border border-border bg-card">
           <EmptyState
             icon={CalendarRange}
-            title="No sale events yet"
-            description="Create your first scheduled promotion."
+            title="No offers yet"
+            description="Create your first scheduled sale offer."
             action={
               <Link
                 href="/offers-discounts/sale-events/new"
                 className="ls-focus-ring inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground"
               >
                 <Plus className="h-4 w-4" />
-                Create event
+                New Offer
               </Link>
             }
           />
-        ) : (
-          <>
-            <div className="divide-y divide-border md:hidden">
-              {events.map(
-                (item) => (
-                  <article
-                    key={
-                      item.id
-                    }
-                    className="px-4 py-3"
-                  >
-                    <div className="flex min-w-0 items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <Link
-                          href={
-                            `/offers-discounts/sale-events/${item.id}`
-                          }
-                          className="block truncate text-sm font-extrabold text-heading"
-                        >
-                          {
-                            item.title
-                          }
-                        </Link>
+        </section>
+      ) : (
+        <>
+          <div className="mt-4 grid gap-3 md:hidden">
+            {events.map(
+              (item) => (
+                <article
+                  key={item.id}
+                  className="overflow-hidden rounded-2xl border border-border bg-card shadow-[0_5px_18px_rgba(38,51,95,0.05)]"
+                >
+                  <div className="flex min-w-0 items-start justify-between gap-3 px-4 pt-4">
+                    <div className="min-w-0">
+                      <Link
+                        href={`/offers-discounts/sale-events/${item.id}`}
+                        className="block truncate text-[15px] font-extrabold text-heading"
+                      >
+                        {item.title}
+                      </Link>
 
-                        <div className="mt-1 text-xs text-muted-foreground">
+                      <div className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
+                        <CalendarRange className="h-3.5 w-3.5 shrink-0" />
+                        <span className="truncate">
                           {formatSaleEventDate(
                             item.start_date
                           )}{" "}
@@ -151,234 +152,230 @@ export default async function SaleEventsPage() {
                           {formatSaleEventDate(
                             item.end_date
                           )}
-                        </div>
+                        </span>
                       </div>
-
-                      <StatusBadge
-                        status={
-                          item.status
-                        }
-                        label={
-                          item.status ===
-                          "live"
-                            ? "Live"
-                            : item.status ===
-                                "scheduled"
-                              ? "Scheduled"
-                              : "Closed"
-                        }
-                        tone={
-                          item.status ===
-                          "live"
-                            ? "success"
-                            : item.status ===
-                                "scheduled"
-                              ? "warning"
-                              : "neutral"
-                        }
-                      />
                     </div>
 
-                    <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
-                      <span className="font-semibold text-foreground">
+                    <StatusBadge
+                      status={item.status}
+                      label={
+                        item.status ===
+                        "live"
+                          ? "Live"
+                          : item.status ===
+                              "scheduled"
+                            ? "Scheduled"
+                            : "Ended"
+                      }
+                      tone={
+                        item.status ===
+                        "live"
+                          ? "success"
+                          : item.status ===
+                              "scheduled"
+                            ? "warning"
+                            : "neutral"
+                      }
+                    />
+                  </div>
+
+                  <div className="mt-4 grid grid-cols-3 border-y border-border bg-surface-soft">
+                    <div className="min-w-0 px-3 py-3">
+                      <div className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-[0.06em] text-muted-foreground">
+                        <Tag className="h-3 w-3" />
+                        Offer
+                      </div>
+                      <div className="mt-1 truncate text-xs font-extrabold text-heading">
                         {salePricingLabel(
                           item.pricing_type,
                           item.discount_value
                         )}
-                      </span>
+                      </div>
+                    </div>
 
-                      <span>
-                        {
-                          item.effective_product_count
-                        }{" "}
-                        products
-                      </span>
+                    <div className="min-w-0 border-l border-border px-3 py-3">
+                      <div className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-[0.06em] text-muted-foreground">
+                        <Package className="h-3 w-3" />
+                        Products
+                      </div>
+                      <div className="mt-1 text-xs font-extrabold text-heading">
+                        {item.effective_product_count}
+                      </div>
+                    </div>
 
-                      <span>
+                    <div className="min-w-0 border-l border-border px-3 py-3">
+                      <div className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-[0.06em] text-muted-foreground">
+                        <Home className="h-3 w-3" />
+                        Homepage
+                      </div>
+                      <div className="mt-1 text-xs font-extrabold text-heading">
                         {item.homepage_visible
-                          ? "Homepage"
-                          : "Not on homepage"}
-                      </span>
+                          ? "Visible"
+                          : "Hidden"}
+                      </div>
                     </div>
+                  </div>
 
-                    {item.promotional_copy ? (
-                      <p className="mt-2 line-clamp-2 text-xs leading-5 text-muted-foreground">
-                        {
-                          item.promotional_copy
-                        }
-                      </p>
-                    ) : null}
+                  {item.promotional_copy ? (
+                    <p className="line-clamp-2 px-4 pt-3 text-xs leading-5 text-muted-foreground">
+                      {item.promotional_copy}
+                    </p>
+                  ) : null}
 
-                    <div className="mt-3 flex items-center justify-end gap-2">
-                      <Link
-                        href={
-                          `/offers-discounts/sale-events/${item.id}`
-                        }
-                        className="ls-focus-ring inline-flex min-h-10 items-center rounded-xl px-3 text-xs font-bold text-primary hover:bg-secondary"
-                      >
-                        Edit
-                      </Link>
+                  <div className="flex items-center justify-end gap-2 px-3 py-3">
+                    <Link
+                      href={`/offers-discounts/sale-events/${item.id}`}
+                      className="ls-focus-ring inline-flex min-h-10 items-center rounded-xl px-3 text-xs font-bold text-primary hover:bg-secondary"
+                    >
+                      Edit
+                    </Link>
 
-                      <SaleEventDeleteButton
-                        id={
-                          String(
-                            item.id
-                          )
-                        }
-                        title={
-                          item.title
-                        }
-                        action={
-                          deleteSaleEventAction
-                        }
-                      />
-                    </div>
-                  </article>
-                )
-              )}
-            </div>
+                    <SaleEventDeleteButton
+                      id={String(
+                        item.id
+                      )}
+                      title={item.title}
+                      action={
+                        deleteSaleEventAction
+                      }
+                    />
+                  </div>
+                </article>
+              )
+            )}
+          </div>
 
-            <div className="hidden overflow-x-auto md:block">
-              <table className="w-full border-collapse text-sm">
-                <thead className="bg-surface-soft text-left text-xs font-semibold text-muted-foreground">
-                  <tr>
-                    <th className="px-5 py-3">
-                      Event
-                    </th>
-                    <th className="px-3 py-3">
-                      Period
-                    </th>
-                    <th className="px-3 py-3">
-                      Offer
-                    </th>
-                    <th className="px-3 py-3 text-right">
-                      Products
-                    </th>
-                    <th className="px-3 py-3">
-                      Status
-                    </th>
-                    <th className="px-5 py-3 text-right">
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
+          <section className="mt-4 hidden overflow-hidden rounded-2xl border border-border bg-card md:block">
+            <table className="w-full border-collapse text-sm">
+              <thead className="bg-surface-soft text-left text-xs font-semibold text-muted-foreground">
+                <tr>
+                  <th className="px-5 py-3">
+                    Offer
+                  </th>
+                  <th className="px-3 py-3">
+                    Dates
+                  </th>
+                  <th className="px-3 py-3">
+                    Discount
+                  </th>
+                  <th className="px-3 py-3 text-right">
+                    Products
+                  </th>
+                  <th className="px-3 py-3">
+                    Homepage
+                  </th>
+                  <th className="px-3 py-3">
+                    Status
+                  </th>
+                  <th className="px-5 py-3 text-right">
+                    Actions
+                  </th>
+                </tr>
+              </thead>
 
-                <tbody className="divide-y divide-border">
-                  {events.map(
-                    (
-                      item
-                    ) => (
-                      <tr
-                        key={
-                          item.id
-                        }
-                        className="transition hover:bg-muted/50"
-                      >
-                        <td className="px-5 py-3.5">
+              <tbody className="divide-y divide-border">
+                {events.map(
+                  (item) => (
+                    <tr
+                      key={item.id}
+                      className="transition hover:bg-muted/40"
+                    >
+                      <td className="px-5 py-3.5">
+                        <Link
+                          href={`/offers-discounts/sale-events/${item.id}`}
+                          className="font-extrabold text-heading hover:text-primary"
+                        >
+                          {item.title}
+                        </Link>
+
+                        {item.promotional_copy ? (
+                          <div className="mt-0.5 max-w-[24rem] truncate text-xs text-muted-foreground">
+                            {item.promotional_copy}
+                          </div>
+                        ) : null}
+                      </td>
+
+                      <td className="whitespace-nowrap px-3 py-3.5 text-muted-foreground">
+                        {formatSaleEventDate(
+                          item.start_date
+                        )}{" "}
+                        –{" "}
+                        {formatSaleEventDate(
+                          item.end_date
+                        )}
+                      </td>
+
+                      <td className="px-3 py-3.5 font-semibold text-foreground">
+                        {salePricingLabel(
+                          item.pricing_type,
+                          item.discount_value
+                        )}
+                      </td>
+
+                      <td className="px-3 py-3.5 text-right font-bold text-heading">
+                        {item.effective_product_count}
+                      </td>
+
+                      <td className="px-3 py-3.5 text-foreground">
+                        {item.homepage_visible
+                          ? "Visible"
+                          : "Hidden"}
+                      </td>
+
+                      <td className="px-3 py-3.5">
+                        <StatusBadge
+                          status={item.status}
+                          label={
+                            item.status ===
+                            "live"
+                              ? "Live"
+                              : item.status ===
+                                  "scheduled"
+                                ? "Scheduled"
+                                : "Ended"
+                          }
+                          tone={
+                            item.status ===
+                            "live"
+                              ? "success"
+                              : item.status ===
+                                  "scheduled"
+                                ? "warning"
+                                : "neutral"
+                          }
+                        />
+                      </td>
+
+                      <td className="px-5 py-3.5">
+                        <div className="flex justify-end gap-2">
                           <Link
-                            href={
-                              `/offers-discounts/sale-events/${item.id}`
-                            }
-                            className="font-bold text-heading hover:text-primary"
+                            href={`/offers-discounts/sale-events/${item.id}`}
+                            className="ls-focus-ring inline-flex min-h-10 items-center rounded-xl px-3 text-xs font-bold text-primary hover:bg-secondary"
                           >
-                            {
-                              item.title
-                            }
+                            Edit
                           </Link>
 
-                          {item.promotional_copy ? (
-                            <div className="mt-0.5 max-w-[28rem] truncate text-xs text-muted-foreground">
-                              {
-                                item.promotional_copy
-                              }
-                            </div>
-                          ) : null}
-                        </td>
-
-                        <td className="whitespace-nowrap px-3 py-3.5 text-muted-foreground">
-                          {formatSaleEventDate(
-                            item.start_date
-                          )}{" "}
-                          –{" "}
-                          {formatSaleEventDate(
-                            item.end_date
-                          )}
-                        </td>
-
-                        <td className="px-3 py-3.5 text-foreground">
-                          {salePricingLabel(
-                            item.pricing_type,
-                            item.discount_value
-                          )}
-                        </td>
-
-                        <td className="px-3 py-3.5 text-right font-semibold text-foreground">
-                          {
-                            item.effective_product_count
-                          }
-                        </td>
-
-                        <td className="px-3 py-3.5">
-                          <StatusBadge
-                            status={
-                              item.status
+                          <SaleEventDeleteButton
+                            id={String(
+                              item.id
+                            )}
+                            title={
+                              item.title
                             }
-                            label={
-                              item.status ===
-                              "live"
-                                ? "Live"
-                                : item.status ===
-                                    "scheduled"
-                                  ? "Scheduled"
-                                  : "Closed"
-                            }
-                            tone={
-                              item.status ===
-                              "live"
-                                ? "success"
-                                : item.status ===
-                                    "scheduled"
-                                  ? "warning"
-                                  : "neutral"
+                            action={
+                              deleteSaleEventAction
                             }
                           />
-                        </td>
-
-                        <td className="px-5 py-3.5">
-                          <div className="flex justify-end gap-2">
-                            <Link
-                              href={
-                                `/offers-discounts/sale-events/${item.id}`
-                              }
-                              className="ls-focus-ring inline-flex min-h-10 items-center rounded-xl px-3 text-xs font-bold text-primary hover:bg-secondary"
-                            >
-                              Edit
-                            </Link>
-
-                            <SaleEventDeleteButton
-                              id={
-                                String(
-                                  item.id
-                                )
-                              }
-                              title={
-                                item.title
-                              }
-                              action={
-                                deleteSaleEventAction
-                              }
-                            />
-                          </div>
-                        </td>
-                      </tr>
-                    )
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </>
-        )}
-      </section>
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                )}
+              </tbody>
+            </table>
+          </section>
+        </>
+      )}
     </main>
   );
 }
