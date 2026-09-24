@@ -19,6 +19,7 @@ import {
   IndianRupee,
   PackageSearch,
   RefreshCw,
+  Search,
   Sparkles,
   Truck,
   Tag,
@@ -30,6 +31,15 @@ import {
 import {
   AsyncButton,
 } from "@/components/ui/async-button";
+import {
+  BottomSheet,
+} from "@/components/ui/bottom-sheet";
+import {
+  Button,
+} from "@/components/ui/button";
+import {
+  Input,
+} from "@/components/ui/input";
 import {
   Switch,
 } from "@/components/ui/switch";
@@ -139,7 +149,7 @@ function SaleEventSubmitButton({
       }
     >
       {mode === "create"
-        ? "Create Sale Event"
+        ? "Create Offer"
         : "Save Changes"}
     </AsyncButton>
   );
@@ -254,6 +264,10 @@ export default function SaleEventFormClient({
   );
   const [submitting, setSubmitting] = useState(false);
   const formRef = useRef<HTMLFormElement | null>(null);
+  const [categoryPickerOpen, setCategoryPickerOpen] = useState(false);
+  const [productPickerOpen, setProductPickerOpen] = useState(false);
+  const [categoryQuery, setCategoryQuery] = useState("");
+  const [productQuery, setProductQuery] = useState("");
 
   const initialSnapshotRef = useRef(
     JSON.stringify({
@@ -306,6 +320,22 @@ export default function SaleEventFormClient({
     [selectedCategories, categories]
   );
 
+  const filteredCategories = useMemo(() => {
+    const query = categoryQuery.trim().toLowerCase();
+    if (!query) return categories;
+    return categories.filter((category) =>
+      category.name.toLowerCase().includes(query)
+    );
+  }, [categories, categoryQuery]);
+
+  const filteredProducts = useMemo(() => {
+    const query = productQuery.trim().toLowerCase();
+    if (!query) return products;
+    return products.filter((product) =>
+      product.name.toLowerCase().includes(query)
+    );
+  }, [products, productQuery]);
+
   const generatedPromotionalCopy = useMemo(
     () =>
       buildPromotionalCopy({
@@ -341,15 +371,33 @@ export default function SaleEventFormClient({
   }
 
 
-  function excludeProduct(id: number) {
-    setExcludedProducts((prev) =>
-      prev.includes(id) ? prev : [...prev, id]
-    );
-    setExplicitProducts((prev) => prev.filter((item) => item !== id));
-  }
+  function toggleProductSelection(id: number) {
+    const selected = effectiveProductIds.has(id);
+    const includedByCategory = categoryProductIds.has(id);
 
-  function restoreProduct(id: number) {
-    setExcludedProducts((prev) => prev.filter((item) => item !== id));
+    if (selected) {
+      setExplicitProducts((prev) =>
+        prev.filter((item) => item !== id)
+      );
+
+      if (includedByCategory) {
+        setExcludedProducts((prev) =>
+          prev.includes(id) ? prev : [...prev, id]
+        );
+      }
+
+      return;
+    }
+
+    setExcludedProducts((prev) =>
+      prev.filter((item) => item !== id)
+    );
+
+    if (!includedByCategory) {
+      setExplicitProducts((prev) =>
+        prev.includes(id) ? prev : [...prev, id]
+      );
+    }
   }
 
   function previewSale(product: SaleEventProductOption) {
@@ -423,14 +471,14 @@ export default function SaleEventFormClient({
         className="inline-flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-heading"
       >
         <ArrowLeft className="h-4 w-4" />
-        Back to Sale Events
+        Back to Offer Sale
       </Link>
 
       <div className="mt-3 md:hidden">
         <h1 className="text-[20px] font-extrabold tracking-tight text-heading">
           {mode === "create"
-            ? "Create Sale Event"
-            : "Edit Sale Event"}
+            ? "Create Offer"
+            : "Edit Offer"}
         </h1>
       </div>
 
@@ -441,8 +489,8 @@ export default function SaleEventFormClient({
 
         <h1 className="mt-1 text-[30px] font-extrabold tracking-tight text-heading">
           {mode === "create"
-            ? "Create Sale Event"
-            : "Edit Sale Event"}
+            ? "Create Offer"
+            : "Edit Offer"}
         </h1>
 
         <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
@@ -531,107 +579,89 @@ export default function SaleEventFormClient({
         </section>
 
         <section className="rounded-2xl border border-border bg-card p-4 md:p-5">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <div className="flex items-center gap-2">
-                <PackageSearch className="h-5 w-5 text-primary" />
-                <h2 className="text-lg font-semibold text-heading">Choose Products</h2>
-              </div>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Select full categories first. Products are included automatically, and you can remove exceptions below.
-              </p>
-            </div>
-
-            <span className="shrink-0 rounded-full bg-indigo-50 px-3 py-1 text-xs font-semibold text-indigo-700">
-              {effectiveProducts.length} selected
-            </span>
+          <div className="flex items-center gap-2">
+            <PackageSearch className="h-5 w-5 text-primary" />
+            <h2 className="text-lg font-semibold text-heading">
+              Choose Products
+            </h2>
           </div>
 
-          <div className="mt-4">
-            <p className="text-sm font-semibold text-foreground">1. Select Categories</p>
-            <div className="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-              {categories.map((category) => {
-                const active = selectedCategories.includes(category.id);
-                return (
-                  <button
-                    key={category.id}
-                    type="button"
-                    onClick={() => toggleCategory(category.id)}
-                    className={`flex items-center justify-between gap-2 rounded-2xl border px-3 py-3 text-left text-sm transition ${
-                      active
-                        ? "border-indigo-300 bg-indigo-50 text-indigo-800"
-                        : "border-border bg-surface-soft text-slate-700 hover:border-indigo-200 hover:bg-indigo-50/40"
-                    }`}
-                  >
-                    <span className="min-w-0 truncate font-semibold">{category.name}</span>
-                    <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full ${active ? "bg-indigo-600 text-white" : "bg-white text-slate-300"}`}>
-                      {active ? <Check className="h-3.5 w-3.5" /> : null}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Pick categories or individual products. Use the popups instead of scrolling through long lists.
+          </p>
+
+          <div className="mt-4 grid gap-3 md:grid-cols-2">
+            <button
+              type="button"
+              onClick={() => {
+                setCategoryQuery("");
+                setCategoryPickerOpen(true);
+              }}
+              className="ls-focus-ring flex min-h-[76px] items-center justify-between gap-3 rounded-2xl border border-border bg-surface-soft px-4 text-left hover:border-primary/30 hover:bg-secondary/40"
+            >
+              <span className="min-w-0">
+                <span className="block text-sm font-extrabold text-heading">
+                  Categories
+                </span>
+                <span className="mt-1 block truncate text-xs text-muted-foreground">
+                  {selectedCategoryNames.length > 0
+                    ? selectedCategoryNames.join(", ")
+                    : "Choose categories"}
+                </span>
+              </span>
+
+              <span className="shrink-0 rounded-full bg-card px-2.5 py-1 text-xs font-bold text-primary shadow-sm">
+                {selectedCategories.length}
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setProductQuery("");
+                setProductPickerOpen(true);
+              }}
+              className="ls-focus-ring flex min-h-[76px] items-center justify-between gap-3 rounded-2xl border border-border bg-surface-soft px-4 text-left hover:border-primary/30 hover:bg-secondary/40"
+            >
+              <span className="min-w-0">
+                <span className="block text-sm font-extrabold text-heading">
+                  Products
+                </span>
+                <span className="mt-1 block text-xs text-muted-foreground">
+                  Select or remove individual products
+                </span>
+              </span>
+
+              <span className="shrink-0 rounded-full bg-card px-2.5 py-1 text-xs font-bold text-primary shadow-sm">
+                {effectiveProducts.length}
+              </span>
+            </button>
           </div>
 
-          <div className="mt-5">
-            <p className="text-sm font-semibold text-foreground">2. Review Included Products</p>
+          {selectedCategoryNames.length > 0 ? (
+            <div className="mt-3 flex flex-wrap gap-2">
+              {selectedCategoryNames.slice(0, 5).map((name) => (
+                <span
+                  key={name}
+                  className="rounded-full bg-secondary px-2.5 py-1 text-[11px] font-bold text-secondary-foreground"
+                >
+                  {name}
+                </span>
+              ))}
 
-            {effectiveProducts.length > 0 ? (
-              <div className="mt-2 grid max-h-[430px] gap-2 overflow-y-auto rounded-2xl border border-slate-100 bg-surface-soft p-2 sm:grid-cols-2 lg:grid-cols-3">
-                {effectiveProducts.map((product) => (
-                  <div key={product.id} className="flex items-center gap-3 rounded-2xl bg-white p-2.5 shadow-sm">
-                    <div className="h-12 w-12 shrink-0 overflow-hidden rounded-xl bg-slate-100">
-                      {product.image_url ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={product.image_url} alt="" className="h-full w-full object-cover" />
-                      ) : null}
-                    </div>
-
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-xs font-semibold text-foreground">{product.name}</p>
-                      <p className="mt-0.5 text-[11px] text-muted-foreground">
-                        {productBasePrice(product) ? formatMoney(productBasePrice(product)) : "No regular price"}
-                      </p>
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={() => excludeProduct(product.id)}
-                      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-rose-50 text-rose-600 hover:bg-rose-100"
-                      aria-label={`Remove ${product.name}`}
-                    >
-                      <X className="h-4 w-4" />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="mt-2 rounded-2xl border border-dashed border-border bg-surface-soft px-4 py-8 text-center text-sm text-muted-foreground">
-                Choose one or more categories to include products in this event.
-              </div>
-            )}
-          </div>
-
-          {excludedProducts.length > 0 ? (
-            <div className="mt-4 rounded-2xl border border-amber-100 bg-amber-50/70 p-3">
-              <p className="text-xs font-semibold text-amber-800">Excluded products</p>
-              <div className="mt-2 flex flex-wrap gap-2">
-                {products
-                  .filter((product) => excludedProducts.includes(product.id))
-                  .map((product) => (
-                    <button
-                      key={product.id}
-                      type="button"
-                      onClick={() => restoreProduct(product.id)}
-                      className="rounded-full border border-amber-200 bg-white px-3 py-1 text-[11px] font-semibold text-amber-700 hover:bg-amber-100"
-                    >
-                      + Restore {product.name}
-                    </button>
-                  ))}
-              </div>
+              {selectedCategoryNames.length > 5 ? (
+                <span className="rounded-full bg-muted px-2.5 py-1 text-[11px] font-bold text-muted-foreground">
+                  +{selectedCategoryNames.length - 5} more
+                </span>
+              ) : null}
             </div>
           ) : null}
 
+          <div className="mt-3 text-xs text-muted-foreground">
+            {effectiveProducts.length > 0
+              ? `${effectiveProducts.length} product${effectiveProducts.length === 1 ? "" : "s"} selected for this offer.`
+              : "No products selected yet."}
+          </div>
         </section>
 
         <section className="rounded-2xl border border-border bg-card p-4 md:p-5">
@@ -848,6 +878,170 @@ export default function SaleEventFormClient({
           />
         </div>
       </form>
+
+      <BottomSheet
+        open={categoryPickerOpen}
+        onOpenChange={setCategoryPickerOpen}
+        title="Choose Categories"
+        description="Select one or more categories for this offer."
+        popupClassName="md:mx-auto md:max-w-2xl"
+      >
+        <div className="relative">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            value={categoryQuery}
+            onChange={(event) =>
+              setCategoryQuery(event.target.value)
+            }
+            placeholder="Search categories"
+            className="pl-10"
+          />
+        </div>
+
+        <div className="mt-3 max-h-[50dvh] overflow-y-auto rounded-xl border border-border">
+          {filteredCategories.length === 0 ? (
+            <div className="px-4 py-8 text-center text-sm text-muted-foreground">
+              No categories found.
+            </div>
+          ) : (
+            filteredCategories.map((category) => {
+              const active = selectedCategories.includes(category.id);
+
+              return (
+                <button
+                  key={category.id}
+                  type="button"
+                  onClick={() => toggleCategory(category.id)}
+                  className={[
+                    "ls-focus-ring flex min-h-12 w-full items-center justify-between gap-3 border-b border-border px-3 text-left last:border-b-0",
+                    active
+                      ? "bg-secondary"
+                      : "bg-card hover:bg-muted",
+                  ].join(" ")}
+                >
+                  <span className="truncate text-sm font-semibold text-foreground">
+                    {category.name}
+                  </span>
+
+                  <span
+                    className={[
+                      "grid h-6 w-6 shrink-0 place-items-center rounded-full border",
+                      active
+                        ? "border-primary bg-primary text-primary-foreground"
+                        : "border-border bg-card text-transparent",
+                    ].join(" ")}
+                  >
+                    <Check className="h-3.5 w-3.5" />
+                  </span>
+                </button>
+              );
+            })
+          )}
+        </div>
+
+        <div className="mt-4 flex justify-end">
+          <Button
+            type="button"
+            onClick={() => setCategoryPickerOpen(false)}
+          >
+            Done
+          </Button>
+        </div>
+      </BottomSheet>
+
+      <BottomSheet
+        open={productPickerOpen}
+        onOpenChange={setProductPickerOpen}
+        title="Choose Products"
+        description="Select individual products or remove products included through a category."
+        popupClassName="md:mx-auto md:max-w-2xl"
+      >
+        <div className="relative">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            value={productQuery}
+            onChange={(event) =>
+              setProductQuery(event.target.value)
+            }
+            placeholder="Search products"
+            className="pl-10"
+          />
+        </div>
+
+        <div className="mt-3 max-h-[52dvh] overflow-y-auto rounded-xl border border-border">
+          {filteredProducts.length === 0 ? (
+            <div className="px-4 py-8 text-center text-sm text-muted-foreground">
+              No products found.
+            </div>
+          ) : (
+            filteredProducts.map((product) => {
+              const active = effectiveProductIds.has(product.id);
+              const fromCategory = categoryProductIds.has(product.id);
+
+              return (
+                <button
+                  key={product.id}
+                  type="button"
+                  onClick={() => toggleProductSelection(product.id)}
+                  className={[
+                    "ls-focus-ring flex min-h-14 w-full items-center gap-3 border-b border-border px-3 py-2 text-left last:border-b-0",
+                    active
+                      ? "bg-secondary/70"
+                      : "bg-card hover:bg-muted",
+                  ].join(" ")}
+                >
+                  <span className="h-10 w-10 shrink-0 overflow-hidden rounded-xl bg-muted">
+                    {product.image_url ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={product.image_url}
+                        alt=""
+                        className="h-full w-full object-cover"
+                      />
+                    ) : null}
+                  </span>
+
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm font-semibold text-foreground">
+                      {product.name}
+                    </span>
+                    <span className="mt-0.5 block text-[11px] text-muted-foreground">
+                      {productBasePrice(product)
+                        ? formatMoney(productBasePrice(product))
+                        : "No regular price"}
+                      {fromCategory ? " · from category" : ""}
+                    </span>
+                  </span>
+
+                  <span
+                    className={[
+                      "grid h-6 w-6 shrink-0 place-items-center rounded-full border",
+                      active
+                        ? "border-primary bg-primary text-primary-foreground"
+                        : "border-border bg-card text-transparent",
+                    ].join(" ")}
+                  >
+                    <Check className="h-3.5 w-3.5" />
+                  </span>
+                </button>
+              );
+            })
+          )}
+        </div>
+
+        <div className="mt-4 flex items-center justify-between gap-3">
+          <span className="text-xs font-semibold text-muted-foreground">
+            {effectiveProducts.length} selected
+          </span>
+
+          <Button
+            type="button"
+            onClick={() => setProductPickerOpen(false)}
+          >
+            Done
+          </Button>
+        </div>
+      </BottomSheet>
     </main>
   );
 }
