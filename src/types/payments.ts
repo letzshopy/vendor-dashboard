@@ -4,14 +4,9 @@ export interface PaymentsFormValues {
     default_status: string;
   };
 
-  easebuzz: {
+  payglocal: {
     enabled: boolean;
-    mode?: string;
-    merchant_key?: string;
-    salt?: string;
-    merchant_id?: string;
-    webhook_secret?: string;
-    hint?: string;
+    gateway_id?: string;
   };
 
   upi: {
