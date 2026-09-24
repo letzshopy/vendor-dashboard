@@ -31,12 +31,6 @@ import {
   AsyncButton,
 } from "@/components/ui/async-button";
 import {
-  Button,
-} from "@/components/ui/button";
-import {
-  Input,
-} from "@/components/ui/input";
-import {
   Switch,
 } from "@/components/ui/switch";
 import type {
@@ -410,18 +404,19 @@ export default function SaleEventFormClient({
         Back to Sale Events
       </Link>
 
-      <div className="mt-4 rounded-[30px] border border-white/80 bg-gradient-to-br from-white via-[#faf6ff] to-[#eef7ff] p-4 shadow-[0_14px_40px_rgba(15,23,42,0.06)] md:p-5">
-        <div className="inline-flex items-center gap-2 rounded-full bg-indigo-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-indigo-700">
-          <Tag className="h-3.5 w-3.5" />
-          Catalog · Sale Events
+      <div className="mt-4 hidden md:block">
+        <div className="text-[11px] font-bold uppercase tracking-[0.08em] text-accent">
+          Offers & Discounts
         </div>
 
-        <h1 className="mt-3 text-[24px] font-semibold tracking-tight text-heading md:text-[30px]">
-          {mode === "create" ? "Create Sale Event" : "Edit Sale Event"}
+        <h1 className="mt-1 text-[30px] font-extrabold tracking-tight text-heading">
+          {mode === "create"
+            ? "Create Sale Event"
+            : "Edit Sale Event"}
         </h1>
 
-        <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
-          Select categories first, remove any products you do not want, choose the pricing method, and schedule the event.
+        <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
+          Choose products, set the offer and schedule the event.
         </p>
       </div>
 
@@ -738,25 +733,34 @@ export default function SaleEventFormClient({
 
         <section>
           <div className="flex items-center justify-between gap-4 rounded-2xl border border-border bg-card p-4">
-            <div className="flex items-start gap-3">
-              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-violet-50 text-violet-700">
-                <Tag className="h-5 w-5" />
+            <div className="min-w-0">
+              <div className="text-sm font-bold text-heading">
+                Homepage visibility
               </div>
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center justify-between gap-3">
-                  <span className="font-semibold text-heading">Homepage Visibility</span>
-                  <input
-                    type="checkbox"
-                    name="homepage_visible"
-                    defaultChecked={homepageVisible}
-                    className="h-5 w-5 rounded border-slate-300 text-primary"
-                  />
-                </div>
-                <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                  Visible by default when the event becomes Live.
-                </p>
+
+              <div className="mt-0.5 text-xs leading-5 text-muted-foreground">
+                Show this event in Current Offers while it is live.
               </div>
             </div>
+
+            <Switch
+              checked={homepageVisible}
+              onCheckedChange={(checked) =>
+                setHomepageVisible(
+                  Boolean(checked)
+                )
+              }
+            />
+
+            <input
+              type="hidden"
+              name="homepage_visible"
+              value={
+                homepageVisible
+                  ? "1"
+                  : "0"
+              }
+            />
           </div>
         </section>
 
@@ -802,7 +806,7 @@ export default function SaleEventFormClient({
           />
         </section>
 
-        <div className="sticky bottom-3 z-20 flex items-center justify-between gap-3 rounded-[24px] border border-white/80 bg-white/95 p-3 shadow-[0_18px_50px_rgba(15,23,42,0.16)] backdrop-blur md:static md:justify-end md:bg-transparent md:p-0 md:shadow-none">
+        <div className="sticky bottom-[calc(5.1rem+var(--ls-safe-area-bottom))] z-20 flex items-center justify-end gap-2 rounded-2xl border border-border bg-card/95 p-2.5 shadow-[0_14px_36px_rgba(38,51,95,0.16)] backdrop-blur md:static md:border-0 md:bg-transparent md:p-0 md:shadow-none">
           <Link
             href="/offers-discounts/sale-events"
             className="ls-focus-ring inline-flex min-h-11 items-center justify-center rounded-xl border border-border bg-card px-4 text-sm font-semibold text-foreground hover:bg-muted"
