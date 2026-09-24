@@ -1561,33 +1561,32 @@ export default function ShoppableVideosClient() {
                 className="hidden"
               />
 
-              <button
-                type="button"
-                disabled={
-                  !publishReady ||
-                  busy
-                }
-                onClick={() =>
-                  thumbnailInputRef.current?.click()
-                }
-                className="ls-focus-ring flex min-h-11 w-full items-center gap-2 rounded-xl border border-input bg-card px-3 text-left text-sm hover:bg-muted disabled:opacity-50"
-              >
-                <ImagePlus className="h-4 w-4 shrink-0 text-primary" />
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  disabled={
+                    !publishReady ||
+                    busy
+                  }
+                  onClick={() =>
+                    thumbnailInputRef.current?.click()
+                  }
+                  className="ls-focus-ring flex min-h-11 min-w-0 flex-1 items-center gap-2 rounded-xl border border-input bg-card px-3 text-left text-sm hover:bg-muted disabled:opacity-50"
+                >
+                  <ImagePlus className="h-4 w-4 shrink-0 text-primary" />
 
-                <span className="min-w-0 flex-1 truncate">
-                  {thumbnailFile
-                    ? thumbnailFile.name
-                    : "Choose cover image"}
-                </span>
+                  <span className="min-w-0 flex-1 truncate">
+                    {thumbnailFile
+                      ? thumbnailFile.name
+                      : "Choose cover image"}
+                  </span>
+                </button>
 
                 {thumbnailFile ? (
                   <button
                     type="button"
                     aria-label="Remove thumbnail"
-                    onClick={(
-                      event
-                    ) => {
-                      event.stopPropagation();
+                    onClick={() => {
                       setThumbnailFile(
                         null
                       );
@@ -1599,12 +1598,12 @@ export default function ShoppableVideosClient() {
                           "";
                       }
                     }}
-                    className="grid h-7 w-7 shrink-0 place-items-center rounded-lg text-muted-foreground hover:bg-muted"
+                    className="ls-focus-ring grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-border text-muted-foreground hover:bg-muted"
                   >
                     <X className="h-3.5 w-3.5" />
                   </button>
                 ) : null}
-              </button>
+              </div>
             </div>
           </section>
 
