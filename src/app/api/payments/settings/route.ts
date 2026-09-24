@@ -376,10 +376,44 @@ export async function GET() {
   try {
     const state =
       await getPaymentsOption();
+    const settings =
+      normalizeSettings(state);
 
-    return privateJson(
-      normalizeSettings(state)
-    );
+    try {
+      const woo = await getWooClient();
+      const response =
+        await woo.get("/payment_gateways");
+      const gateways = (
+        Array.isArray(response.data)
+          ? response.data
+          : []
+      )
+        .map(asWooGateway)
+        .filter(
+          (
+            gateway
+          ): gateway is WooGateway =>
+            gateway !== null
+        );
+
+      const payglocalGateway =
+        findPayGlocalGateway(
+          gateways,
+          settings.payglocal.gateway_id
+        );
+
+      if (payglocalGateway) {
+        settings.payglocal.enabled =
+          gatewayEnabled(
+            payglocalGateway.enabled
+          );
+      }
+    } catch {
+      // Stored settings remain the safe fallback if Woo gateway discovery
+      // is temporarily unavailable.
+    }
+
+    return privateJson(settings);
   } catch (error: unknown) {
     console.error(
       "Payments settings load failed:",
