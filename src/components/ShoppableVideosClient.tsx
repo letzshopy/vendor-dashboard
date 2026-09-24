@@ -5,6 +5,7 @@ import {
   Film,
   ImagePlus,
   Pencil,
+  Play,
   Plus,
   RefreshCw,
   Search,
@@ -508,6 +509,14 @@ export default function ShoppableVideosClient() {
   const [
     editingStory,
     setEditingStory,
+  ] =
+    useState<ExistingStory | null>(
+      null
+    );
+
+  const [
+    previewStory,
+    setPreviewStory,
   ] =
     useState<ExistingStory | null>(
       null
@@ -1325,21 +1334,72 @@ export default function ShoppableVideosClient() {
                       }
                       className="flex min-h-28 min-w-0 items-center gap-3 rounded-2xl border border-border bg-card p-3 transition hover:border-primary/30"
                     >
-                      {item.thumbnail ? (
-                        // Remote WordPress media URL.
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          src={
-                            item.thumbnail
-                          }
-                          alt=""
-                          className="h-24 w-16 shrink-0 rounded-xl border border-border object-cover"
-                        />
-                      ) : (
-                        <span className="grid h-24 w-16 shrink-0 place-items-center rounded-xl bg-muted text-muted-foreground">
-                          <Film className="h-5 w-5" />
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setPreviewStory(
+                            item
+                          )
+                        }
+                        className="ls-focus-ring group/video relative h-24 w-16 shrink-0 overflow-hidden rounded-xl border border-border bg-slate-950"
+                        aria-label={
+                          `Preview ${item.title || `Video #${item.story_id}`}`
+                        }
+                      >
+                        {item.video_url ? (
+                          <video
+                            src={
+                              item.video_url
+                            }
+                            poster={
+                              item.thumbnail ||
+                              undefined
+                            }
+                            muted
+                            playsInline
+                            preload="metadata"
+                            className="h-full w-full object-cover"
+                            onLoadedData={(
+                              event
+                            ) => {
+                              const video =
+                                event.currentTarget;
+
+                              if (
+                                video.currentTime ===
+                                0
+                              ) {
+                                try {
+                                  video.currentTime =
+                                    0.05;
+                                } catch {
+                                  // Keep the poster/fallback frame.
+                                }
+                              }
+                            }}
+                          />
+                        ) : item.thumbnail ? (
+                          // Remote WordPress media URL.
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={
+                              item.thumbnail
+                            }
+                            alt=""
+                            className="h-full w-full object-cover"
+                          />
+                        ) : (
+                          <span className="grid h-full w-full place-items-center bg-muted text-muted-foreground">
+                            <Film className="h-5 w-5" />
+                          </span>
+                        )}
+
+                        <span className="absolute inset-0 grid place-items-center bg-slate-950/10 transition group-hover/video:bg-slate-950/20">
+                          <span className="grid h-8 w-8 place-items-center rounded-full bg-white/92 text-primary shadow-sm">
+                            <Play className="h-3.5 w-3.5 fill-current" />
+                          </span>
                         </span>
-                      )}
+                      </button>
 
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-sm font-bold text-heading">
@@ -1429,6 +1489,104 @@ export default function ShoppableVideosClient() {
           Publishing video 11 removes the oldest managed video.
         </span>
       </div>
+
+      <BottomSheet
+        open={
+          previewStory !==
+          null
+        }
+        onOpenChange={(
+          open
+        ) => {
+          if (!open) {
+            setPreviewStory(
+              null
+            );
+          }
+        }}
+        title={
+          previewStory?.title ||
+          "Video preview"
+        }
+        description="Preview the uploaded storefront video."
+        popupClassName="md:mx-auto md:max-w-xl"
+      >
+        {previewStory ? (
+          <div className="space-y-4">
+            <div className="overflow-hidden rounded-2xl bg-slate-950">
+              {previewStory.video_url ? (
+                <video
+                  src={
+                    previewStory.video_url
+                  }
+                  poster={
+                    previewStory.thumbnail ||
+                    undefined
+                  }
+                  controls
+                  autoPlay
+                  playsInline
+                  preload="metadata"
+                  className="mx-auto max-h-[62dvh] w-full bg-slate-950 object-contain"
+                />
+              ) : previewStory.thumbnail ? (
+                // Remote WordPress media URL.
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={
+                    previewStory.thumbnail
+                  }
+                  alt=""
+                  className="mx-auto max-h-[62dvh] w-full object-contain"
+                />
+              ) : (
+                <div className="grid min-h-64 place-items-center text-sm text-white/70">
+                  Video preview is unavailable.
+                </div>
+              )}
+            </div>
+
+            <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-muted-foreground">
+              <span>
+                {
+                  previewStory.tagged_products?.length ||
+                  previewStory.product_ids?.length ||
+                  0
+                }{" "}
+                products ·{" "}
+                {
+                  previewStory.tagged_categories?.length ||
+                  previewStory.category_ids?.length ||
+                  0
+                }{" "}
+                categories
+              </span>
+
+              {previewStory.managed ? (
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => {
+                    const story =
+                      previewStory;
+
+                    setPreviewStory(
+                      null
+                    );
+                    setEditingStory(
+                      story
+                    );
+                  }}
+                >
+                  <Pencil className="h-3.5 w-3.5" />
+                  Edit video
+                </Button>
+              ) : null}
+            </div>
+          </div>
+        ) : null}
+      </BottomSheet>
 
       <BottomSheet
         open={addOpen}
