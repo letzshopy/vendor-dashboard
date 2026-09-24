@@ -1,12 +1,12 @@
 "use client";
 
 import {
-  CheckCircle2,
   Clapperboard,
   Film,
   ImagePlus,
-  Loader2,
   Pencil,
+  Plus,
+  RefreshCw,
   Search,
   ShoppingBag,
   Tag,
@@ -14,7 +14,6 @@ import {
   UploadCloud,
   X,
 } from "lucide-react";
-import ShoppableVideoEditModal from "@/components/ShoppableVideoEditModal";
 import {
   useCallback,
   useEffect,
@@ -22,6 +21,35 @@ import {
   useRef,
   useState,
 } from "react";
+
+import ShoppableVideoEditModal from "@/components/ShoppableVideoEditModal";
+import {
+  useUnsavedChanges,
+} from "@/components/navigation/UnsavedChangesGuard";
+import {
+  AsyncButton,
+} from "@/components/ui/async-button";
+import {
+  BottomSheet,
+} from "@/components/ui/bottom-sheet";
+import {
+  Button,
+} from "@/components/ui/button";
+import {
+  ConfirmDialog,
+} from "@/components/ui/confirm-dialog";
+import {
+  EmptyState,
+} from "@/components/ui/empty-state";
+import {
+  Input,
+} from "@/components/ui/input";
+import {
+  Skeleton,
+} from "@/components/ui/skeleton";
+import {
+  actionFeedback,
+} from "@/lib/actionFeedback";
 
 type ExistingStory = {
   story_id: number;
@@ -70,16 +98,18 @@ type SearchResults<T> = {
   items: T[];
 };
 
-type ActionResponse = Record<string, unknown> & {
-  ok?: boolean;
-  error?: string;
-  message?: string;
-};
+type ActionResponse =
+  Record<string, unknown> & {
+    ok?: boolean;
+    error?: string;
+    message?: string;
+  };
 
-type UploadTicket = ActionResponse & {
-  upload_url?: string;
-  max_upload_bytes?: number;
-};
+type UploadTicket =
+  ActionResponse & {
+    upload_url?: string;
+    max_upload_bytes?: number;
+  };
 
 type UploadResponse = {
   ok?: boolean;
@@ -95,21 +125,27 @@ function messageFrom(
 ) {
   if (
     value &&
-    typeof value === "object" &&
+    typeof value ===
+      "object" &&
     !Array.isArray(value)
   ) {
     const record =
-      value as Record<string, unknown>;
+      value as Record<
+        string,
+        unknown
+      >;
 
     if (
-      typeof record.error === "string" &&
+      typeof record.error ===
+        "string" &&
       record.error.trim()
     ) {
       return record.error;
     }
 
     if (
-      typeof record.message === "string" &&
+      typeof record.message ===
+        "string" &&
       record.message.trim()
     ) {
       return record.message;
@@ -120,31 +156,44 @@ function messageFrom(
 }
 
 async function readBridge<T>(
-  type: "status" | "products" | "categories",
+  type:
+    | "status"
+    | "products"
+    | "categories",
   query = ""
 ): Promise<T> {
   const params =
-    new URLSearchParams({ type });
+    new URLSearchParams({
+      type,
+    });
 
   if (query) {
-    params.set("q", query);
+    params.set(
+      "q",
+      query
+    );
   }
 
-  const response = await fetch(
-    `/api/shoppable-videos/bridge?${params.toString()}`,
-    {
-      cache: "no-store",
-    }
-  );
+  const response =
+    await fetch(
+      `/api/shoppable-videos/bridge?${params.toString()}`,
+      {
+        cache: "no-store",
+      }
+    );
 
-  const body: unknown = await response
-    .json()
-    .catch(() => null);
+  const body: unknown =
+    await response
+      .json()
+      .catch(
+        () => null
+      );
 
   if (
     !response.ok ||
     !body ||
-    typeof body !== "object"
+    typeof body !==
+      "object"
   ) {
     throw new Error(
       messageFrom(
@@ -157,34 +206,51 @@ async function readBridge<T>(
   return body as T;
 }
 
-async function runAction<T extends ActionResponse>(
-  action: "ticket" | "publish" | "update" | "adopt" | "delete",
-  payload: Record<string, unknown> = {}
+async function runAction<
+  T extends ActionResponse,
+>(
+  action:
+    | "ticket"
+    | "publish"
+    | "update"
+    | "adopt"
+    | "delete",
+  payload: Record<
+    string,
+    unknown
+  > = {}
 ): Promise<T> {
-  const response = await fetch(
-    "/api/shoppable-videos/bridge",
-    {
-      method: "POST",
-      headers: {
-        "Content-Type":
-          "application/json",
-      },
-      cache: "no-store",
-      body: JSON.stringify({
-        action,
-        ...payload,
-      }),
-    }
-  );
+  const response =
+    await fetch(
+      "/api/shoppable-videos/bridge",
+      {
+        method:
+          "POST",
+        headers: {
+          "Content-Type":
+            "application/json",
+        },
+        cache: "no-store",
+        body:
+          JSON.stringify({
+            action,
+            ...payload,
+          }),
+      }
+    );
 
-  const body: unknown = await response
-    .json()
-    .catch(() => null);
+  const body: unknown =
+    await response
+      .json()
+      .catch(
+        () => null
+      );
 
   if (
     !response.ok ||
     !body ||
-    typeof body !== "object"
+    typeof body !==
+      "object"
   ) {
     throw new Error(
       messageFrom(
@@ -197,21 +263,36 @@ async function runAction<T extends ActionResponse>(
   return body as T;
 }
 
-function formatBytes(bytes: number) {
-  if (!Number.isFinite(bytes) || bytes <= 0) {
+function formatBytes(
+  bytes: number
+) {
+  if (
+    !Number.isFinite(
+      bytes
+    ) ||
+    bytes <= 0
+  ) {
     return "";
   }
 
-  const mb = bytes / (1024 * 1024);
+  const mb =
+    bytes /
+    (1024 * 1024);
 
   return mb >= 1
-    ? `${mb.toFixed(mb >= 10 ? 0 : 1)} MB`
-    : `${Math.round(bytes / 1024)} KB`;
+    ? `${mb.toFixed(
+        mb >= 10 ? 0 : 1
+      )} MB`
+    : `${Math.round(
+        bytes / 1024
+      )} KB`;
 }
 
 async function uploadStoreAsset(
   file: File,
-  kind: "video" | "thumbnail"
+  kind:
+    | "video"
+    | "thumbnail"
 ) {
   const ticket =
     await runAction<UploadTicket>(
@@ -219,50 +300,69 @@ async function uploadStoreAsset(
       { kind }
     );
 
-  if (!ticket.upload_url) {
+  if (
+    !ticket.upload_url
+  ) {
     throw new Error(
       "The store did not return an upload destination."
     );
   }
 
   const maxBytes =
-    Number(ticket.max_upload_bytes || 0);
+    Number(
+      ticket.max_upload_bytes ||
+        0
+    );
 
   if (
     maxBytes > 0 &&
-    file.size > maxBytes
+    file.size >
+      maxBytes
   ) {
     throw new Error(
-      `File must be ${formatBytes(maxBytes)} or smaller.`
+      `File must be ${formatBytes(
+        maxBytes
+      )} or smaller.`
     );
   }
 
-  const body = new FormData();
+  const body =
+    new FormData();
+
   body.append(
     "file",
     file,
-    file.name.slice(0, 180)
+    file.name.slice(
+      0,
+      180
+    )
   );
 
-  const response = await fetch(
-    ticket.upload_url,
-    {
-      method: "POST",
-      body,
-      mode: "cors",
-      cache: "no-store",
-    }
-  );
+  const response =
+    await fetch(
+      ticket.upload_url,
+      {
+        method:
+          "POST",
+        body,
+        mode: "cors",
+        cache:
+          "no-store",
+      }
+    );
 
   const result: unknown =
     await response
       .json()
-      .catch(() => null);
+      .catch(
+        () => null
+      );
 
   if (
     !response.ok ||
     !result ||
-    typeof result !== "object"
+    typeof result !==
+      "object"
   ) {
     throw new Error(
       messageFrom(
@@ -274,11 +374,17 @@ async function uploadStoreAsset(
 
   const upload =
     result as UploadResponse;
+
   const mediaId =
-    Number(upload.media_id || 0);
+    Number(
+      upload.media_id ||
+        0
+    );
 
   if (
-    !Number.isInteger(mediaId) ||
+    !Number.isInteger(
+      mediaId
+    ) ||
     mediaId <= 0
   ) {
     throw new Error(
@@ -289,142 +395,240 @@ async function uploadStoreAsset(
   return mediaId;
 }
 
+function FeedSkeleton() {
+  return (
+    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+      {Array.from({
+        length: 6,
+      }).map(
+        (
+          _,
+          index
+        ) => (
+          <div
+            key={index}
+            className="flex min-h-28 items-center gap-3 rounded-2xl border border-border bg-card p-3"
+          >
+            <Skeleton className="h-24 w-16 shrink-0 rounded-xl" />
+
+            <div className="min-w-0 flex-1 space-y-2">
+              <Skeleton className="h-4 w-3/4" />
+              <Skeleton className="h-3 w-1/2" />
+              <Skeleton className="h-3 w-2/3" />
+            </div>
+          </div>
+        )
+      )}
+    </div>
+  );
+}
+
 export default function ShoppableVideosClient() {
   const fileInputRef =
-    useRef<HTMLInputElement | null>(null);
+    useRef<HTMLInputElement | null>(
+      null
+    );
+
   const thumbnailInputRef =
-    useRef<HTMLInputElement | null>(null);
+    useRef<HTMLInputElement | null>(
+      null
+    );
+
   const legacyAdoptionAttemptedRef =
     useRef(false);
 
   const [
     status,
     setStatus,
-  ] = useState<Status | null>(null);
+  ] =
+    useState<Status | null>(
+      null
+    );
 
   const [
     loading,
     setLoading,
-  ] = useState(true);
+  ] =
+    useState(true);
 
   const [
     statusError,
     setStatusError,
-  ] = useState("");
-
-  const [
-    actionError,
-    setActionError,
-  ] = useState("");
-
-  const [
-    success,
-    setSuccess,
-  ] = useState("");
+  ] =
+    useState("");
 
   const [
     busy,
     setBusy,
-  ] = useState(false);
+  ] =
+    useState(false);
+
+  const [
+    addOpen,
+    setAddOpen,
+  ] =
+    useState(false);
+
+  const [
+    closeDraftOpen,
+    setCloseDraftOpen,
+  ] =
+    useState(false);
+
+  const [
+    deleteTarget,
+    setDeleteTarget,
+  ] =
+    useState<ExistingStory | null>(
+      null
+    );
 
   const [
     title,
     setTitle,
-  ] = useState("");
+  ] =
+    useState("");
 
   const [
     selectedFile,
     setSelectedFile,
-  ] = useState<File | null>(null);
+  ] =
+    useState<File | null>(
+      null
+    );
 
   const [
     thumbnailFile,
     setThumbnailFile,
-  ] = useState<File | null>(null);
+  ] =
+    useState<File | null>(
+      null
+    );
 
   const [
     editingStory,
     setEditingStory,
-  ] = useState<ExistingStory | null>(null);
+  ] =
+    useState<ExistingStory | null>(
+      null
+    );
 
   const [
     productQuery,
     setProductQuery,
-  ] = useState("");
+  ] =
+    useState("");
 
   const [
     categoryQuery,
     setCategoryQuery,
-  ] = useState("");
+  ] =
+    useState("");
 
   const [
     products,
     setProducts,
-  ] = useState<Product[]>([]);
+  ] =
+    useState<Product[]>(
+      []
+    );
 
   const [
     categories,
     setCategories,
-  ] = useState<Category[]>([]);
+  ] =
+    useState<Category[]>(
+      []
+    );
 
   const [
     selectedProducts,
     setSelectedProducts,
-  ] = useState<Product[]>([]);
+  ] =
+    useState<Product[]>(
+      []
+    );
 
   const [
     selectedCategories,
     setSelectedCategories,
-  ] = useState<Category[]>([]);
+  ] =
+    useState<Category[]>(
+      []
+    );
 
   const maxBytes =
-    status?.max_upload_bytes || 0;
+    status?.max_upload_bytes ||
+    0;
 
   const publishReady =
     Boolean(status?.ok) &&
-    (status?.legacy_count || 0) === 0;
+    (
+      status?.legacy_count ||
+      0
+    ) === 0;
 
   const hasTags =
-    selectedProducts.length > 0 ||
-    selectedCategories.length > 0;
+    selectedProducts.length >
+      0 ||
+    selectedCategories.length >
+      0;
+
+  const draftDirty =
+    addOpen &&
+    Boolean(
+      title.trim() ||
+      selectedFile ||
+      thumbnailFile ||
+      selectedProducts.length ||
+      selectedCategories.length
+    );
 
   const canPublish =
     publishReady &&
-    Boolean(selectedFile) &&
+    Boolean(
+      selectedFile
+    ) &&
     hasTags &&
     !busy;
 
-  const publishButtonText =
-    !publishReady
-      ? "Preparing store…"
-      : !selectedFile
-        ? "Choose a video"
-        : !hasTags
-          ? "Tag a product"
-          : "Upload & publish";
+  const existingCount =
+    status?.existing_count ??
+    status?.items?.length ??
+    0;
+
+  const maxVideos =
+    status?.max_homepage_videos ??
+    10;
 
   const loadStatus =
-    useCallback(async () => {
-      setLoading(true);
-      setStatusError("");
+    useCallback(
+      async () => {
+        setLoading(true);
+        setStatusError("");
 
-      try {
-        const next =
-          await readBridge<Status>(
-            "status"
+        try {
+          const next =
+            await readBridge<Status>(
+              "status"
+            );
+
+          setStatus(next);
+        } catch (
+          error: unknown
+        ) {
+          setStatusError(
+            error instanceof
+              Error
+              ? error.message
+              : "Could not load shoppable videos."
           );
-
-        setStatus(next);
-      } catch (error) {
-        setStatusError(
-          error instanceof Error
-            ? error.message
-            : "Could not load shoppable videos."
-        );
-      } finally {
-        setLoading(false);
-      }
-    }, []);
+        } finally {
+          setLoading(false);
+        }
+      },
+      []
+    );
 
   useEffect(() => {
     void loadStatus();
@@ -433,7 +637,8 @@ export default function ShoppableVideosClient() {
   useEffect(() => {
     const legacyCount =
       status?.ok
-        ? status.legacy_count || 0
+        ? status.legacy_count ||
+          0
         : 0;
 
     if (
@@ -450,7 +655,13 @@ export default function ShoppableVideosClient() {
 
     void (async () => {
       setBusy(true);
-      setActionError("");
+
+      actionFeedback.loading({
+        id:
+          "shoppable-video-adopt",
+        title:
+          "Preparing shoppable videos…",
+      });
 
       try {
         await runAction<ActionResponse>(
@@ -459,14 +670,31 @@ export default function ShoppableVideosClient() {
 
         if (active) {
           await loadStatus();
+
+          actionFeedback.success({
+            id:
+              "shoppable-video-adopt",
+            title:
+              "Shoppable videos ready",
+            durationMs: 1800,
+          });
         }
-      } catch (error) {
+      } catch (
+        error: unknown
+      ) {
         if (active) {
-          setActionError(
-            error instanceof Error
-              ? error.message
-              : "Shoppable video setup could not be completed."
-          );
+          actionFeedback.error({
+            id:
+              "shoppable-video-adopt",
+            title:
+              "Could not finish setup",
+            message:
+              error instanceof
+                Error
+                ? error.message
+                : "Shoppable video setup could not be completed.",
+            durationMs: 4200,
+          });
         }
       } finally {
         if (active) {
@@ -478,11 +706,16 @@ export default function ShoppableVideosClient() {
     return () => {
       active = false;
     };
-  }, [status, loadStatus]);
+  }, [
+    status,
+    loadStatus,
+  ]);
 
   useEffect(() => {
     if (
-      productQuery.trim().length < 2
+      productQuery
+        .trim()
+        .length < 2
     ) {
       setProducts([]);
       return;
@@ -504,7 +737,8 @@ export default function ShoppableVideosClient() {
 
             if (active) {
               setProducts(
-                response.items || []
+                response.items ||
+                  []
               );
             }
           } catch {
@@ -518,7 +752,10 @@ export default function ShoppableVideosClient() {
 
     return () => {
       active = false;
-      window.clearTimeout(timer);
+
+      window.clearTimeout(
+        timer
+      );
     };
   }, [productQuery]);
 
@@ -539,7 +776,8 @@ export default function ShoppableVideosClient() {
 
             if (active) {
               setCategories(
-                response.items || []
+                response.items ||
+                  []
               );
             }
           } catch {
@@ -553,7 +791,10 @@ export default function ShoppableVideosClient() {
 
     return () => {
       active = false;
-      window.clearTimeout(timer);
+
+      window.clearTimeout(
+        timer
+      );
     };
   }, [categoryQuery]);
 
@@ -562,7 +803,8 @@ export default function ShoppableVideosClient() {
       () =>
         new Set(
           selectedProducts.map(
-            (product) => product.id
+            (product) =>
+              product.id
           )
         ),
       [selectedProducts]
@@ -573,44 +815,92 @@ export default function ShoppableVideosClient() {
       () =>
         new Set(
           selectedCategories.map(
-            (category) => category.id
+            (category) =>
+              category.id
           )
         ),
-      [selectedCategories]
+      [
+        selectedCategories,
+      ]
     );
 
-  function selectFile(file: File | null) {
-    setActionError("");
-    setSuccess("");
+  function resetDraft() {
+    setSelectedFile(null);
+    setThumbnailFile(null);
+    setTitle("");
+    setSelectedProducts([]);
+    setSelectedCategories([]);
+    setProductQuery("");
+    setCategoryQuery("");
+    setProducts([]);
+    setCategories([]);
 
+    if (
+      fileInputRef.current
+    ) {
+      fileInputRef.current.value =
+        "";
+    }
+
+    if (
+      thumbnailInputRef.current
+    ) {
+      thumbnailInputRef.current.value =
+        "";
+    }
+  }
+
+  function selectFile(
+    file: File | null
+  ) {
     if (!file) {
       setSelectedFile(null);
       return;
     }
 
     if (
-      file.type !== "video/mp4" &&
+      file.type !==
+        "video/mp4" &&
       !file.name
         .toLowerCase()
-        .endsWith(".mp4")
+        .endsWith(
+          ".mp4"
+        )
     ) {
       setSelectedFile(null);
-      setActionError(
-        "Select an MP4 video. MP4 (H.264/AAC) is recommended for reliable iPhone and Android playback."
-      );
+
+      actionFeedback.error({
+        id:
+          "shoppable-video-file",
+        title:
+          "Select an MP4 video",
+        message:
+          "MP4 (H.264/AAC) is recommended for reliable iPhone and Android playback.",
+        durationMs: 4200,
+      });
+
       return;
     }
 
     if (
       maxBytes > 0 &&
-      file.size > maxBytes
+      file.size >
+        maxBytes
     ) {
       setSelectedFile(null);
-      setActionError(
-        `Video must be ${formatBytes(
-          maxBytes
-        )} or smaller.`
-      );
+
+      actionFeedback.error({
+        id:
+          "shoppable-video-file",
+        title:
+          "Video is too large",
+        message:
+          `Maximum size is ${formatBytes(
+            maxBytes
+          )}.`,
+        durationMs: 4200,
+      });
+
       return;
     }
 
@@ -619,24 +909,114 @@ export default function ShoppableVideosClient() {
     if (!title.trim()) {
       setTitle(
         file.name
-          .replace(/\.mp4$/i, "")
-          .replace(/[-_]+/g, " ")
-          .slice(0, 180)
+          .replace(
+            /\.mp4$/i,
+            ""
+          )
+          .replace(
+            /[-_]+/g,
+            " "
+          )
+          .slice(
+            0,
+            180
+          )
       );
     }
   }
 
-  async function publishVideo() {
-    if (
-      !canPublish ||
-      !selectedFile
-    ) {
+  function selectThumbnail(
+    file: File | null
+  ) {
+    if (!file) {
+      setThumbnailFile(
+        null
+      );
       return;
     }
 
+    if (
+      ![
+        "image/jpeg",
+        "image/png",
+        "image/webp",
+      ].includes(
+        file.type
+      )
+    ) {
+      setThumbnailFile(
+        null
+      );
+
+      actionFeedback.error({
+        id:
+          "shoppable-thumbnail-file",
+        title:
+          "Unsupported thumbnail",
+        message:
+          "Use JPG, PNG or WebP.",
+        durationMs: 3200,
+      });
+
+      return;
+    }
+
+    setThumbnailFile(file);
+  }
+
+  async function publishVideo(): Promise<boolean> {
+    if (busy) {
+      return false;
+    }
+
+    if (
+      !publishReady
+    ) {
+      actionFeedback.warning({
+        id:
+          "shoppable-video-publish",
+        title:
+          "Store is still preparing",
+        durationMs: 2600,
+      });
+
+      return false;
+    }
+
+    if (!selectedFile) {
+      actionFeedback.warning({
+        id:
+          "shoppable-video-publish",
+        title:
+          "Choose an MP4 video",
+        durationMs: 2600,
+      });
+
+      return false;
+    }
+
+    if (!hasTags) {
+      actionFeedback.warning({
+        id:
+          "shoppable-video-publish",
+        title:
+          "Tag a product or category",
+        durationMs: 2600,
+      });
+
+      return false;
+    }
+
+    const feedbackId =
+      "shoppable-video-publish";
+
     setBusy(true);
-    setActionError("");
-    setSuccess("");
+
+    actionFeedback.loading({
+      id: feedbackId,
+      title:
+        "Uploading video…",
+    });
 
     try {
       const mediaId =
@@ -645,699 +1025,980 @@ export default function ShoppableVideosClient() {
           "video"
         );
 
-      const thumbnailMediaId =
-        thumbnailFile
-          ? await uploadStoreAsset(
-              thumbnailFile,
-              "thumbnail"
-            )
-          : 0;
+      let thumbnailMediaId =
+        0;
+
+      if (thumbnailFile) {
+        actionFeedback.loading({
+          id: feedbackId,
+          title:
+            "Uploading thumbnail…",
+        });
+
+        thumbnailMediaId =
+          await uploadStoreAsset(
+            thumbnailFile,
+            "thumbnail"
+          );
+      }
+
+      actionFeedback.loading({
+        id: feedbackId,
+        title:
+          "Publishing video…",
+      });
 
       await runAction<ActionResponse>(
         "publish",
         {
-          media_id: mediaId,
+          media_id:
+            mediaId,
           thumbnail_media_id:
             thumbnailMediaId,
-          title: title.trim(),
+          title:
+            title.trim(),
           product_ids:
             selectedProducts.map(
-              (product) => product.id
+              (product) =>
+                product.id
             ),
           category_ids:
             selectedCategories.map(
-              (category) => category.id
+              (category) =>
+                category.id
             ),
         }
       );
 
-      setSuccess(
-        "Video published to the homepage shoppable feed."
+      resetDraft();
+      setAddOpen(false);
+      setCloseDraftOpen(
+        false
       );
 
-      setSelectedFile(null);
-      setThumbnailFile(null);
-      setTitle("");
-      setSelectedProducts([]);
-      setSelectedCategories([]);
-      setProductQuery("");
-      setCategoryQuery("");
-
-      if (fileInputRef.current) {
-        fileInputRef.current.value = "";
-      }
-
-      if (thumbnailInputRef.current) {
-        thumbnailInputRef.current.value = "";
-      }
+      actionFeedback.success({
+        id: feedbackId,
+        title:
+          "Video published",
+        message:
+          "Added to your homepage shoppable feed.",
+        durationMs: 2400,
+      });
 
       await loadStatus();
-    } catch (error) {
-      setActionError(
-        error instanceof Error
-          ? error.message
-          : "Video could not be published."
-      );
+
+      return true;
+    } catch (
+      error: unknown
+    ) {
+      actionFeedback.error({
+        id: feedbackId,
+        title:
+          "Could not publish video",
+        message:
+          error instanceof
+            Error
+            ? error.message
+            : "Video could not be published.",
+        durationMs: 4200,
+      });
+
+      return false;
     } finally {
       setBusy(false);
     }
   }
 
-  async function removeStory(
-    story: ExistingStory
-  ) {
-    if (!story.managed || busy) {
+  useUnsavedChanges({
+    id:
+      "shoppable-video-create",
+    dirty:
+      draftDirty,
+    label:
+      "shoppable video draft",
+    save: publishVideo,
+  });
+
+  function requestCloseAdd() {
+    if (busy) {
       return;
     }
 
-    const confirmed =
-      window.confirm(
-        `Delete "${
-          story.title ||
-          `Video #${story.story_id}`
-        }" from the homepage feed and remove its managed video file from WordPress?`
+    if (draftDirty) {
+      setCloseDraftOpen(
+        true
       );
-
-    if (!confirmed) {
       return;
     }
+
+    setAddOpen(false);
+    resetDraft();
+  }
+
+  async function deleteStory() {
+    const story =
+      deleteTarget;
+
+    if (
+      !story ||
+      !story.managed ||
+      busy
+    ) {
+      return;
+    }
+
+    const feedbackId =
+      `shoppable-video-delete-${story.story_id}`;
 
     setBusy(true);
-    setActionError("");
-    setSuccess("");
+
+    actionFeedback.loading({
+      id: feedbackId,
+      title:
+        "Deleting video…",
+      message:
+        story.title ||
+        `Video #${story.story_id}`,
+    });
 
     try {
       await runAction<ActionResponse>(
         "delete",
         {
-          story_id: story.story_id,
+          story_id:
+            story.story_id,
         }
       );
 
-      setSuccess(
-        "Video removed from the feed and managed media storage."
+      setDeleteTarget(
+        null
       );
 
+      actionFeedback.success({
+        id: feedbackId,
+        title:
+          "Video deleted",
+        durationMs: 2200,
+      });
+
       await loadStatus();
-    } catch (error) {
-      setActionError(
-        error instanceof Error
-          ? error.message
-          : "Video could not be deleted."
-      );
+    } catch (
+      error: unknown
+    ) {
+      actionFeedback.error({
+        id: feedbackId,
+        title:
+          "Could not delete video",
+        message:
+          error instanceof
+            Error
+            ? error.message
+            : "Video could not be deleted.",
+        durationMs: 4200,
+      });
     } finally {
       setBusy(false);
     }
   }
 
+  const items =
+    status?.items || [];
+
   return (
-    <main className="mx-auto max-w-6xl space-y-6 px-4 py-6 md:px-6">
-      <header className="rounded-[28px] border border-indigo-100 bg-gradient-to-r from-indigo-50 via-white to-violet-50 p-5 md:p-7">
-        <div className="flex items-center gap-3">
-          <span className="rounded-2xl bg-indigo-600 p-3 text-white">
-            <Clapperboard className="h-6 w-6" />
+    <>
+      <div className="flex items-center justify-between gap-3 py-0.5">
+        <div className="min-w-0">
+          <span className="text-[21px] font-extrabold tracking-tight text-heading md:text-base">
+            {existingCount}
           </span>
 
-          <div>
-            <h1 className="text-2xl font-bold text-slate-900">
-              Shoppable Videos
-            </h1>
-
-            <p className="mt-1 text-sm text-slate-600">
-              Upload short videos, tag products and publish them directly to your storefront.
-            </p>
-          </div>
+          <span className="ml-1.5 text-sm font-semibold text-muted-foreground">
+            of {maxVideos} videos
+          </span>
         </div>
 
-        <div className="mt-5 grid gap-3 sm:grid-cols-3">
-          <div className="rounded-2xl border border-indigo-100 bg-white/80 p-3">
-            <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-              Homepage feed
-            </div>
-            <div className="mt-1 text-lg font-bold text-slate-900">
-              {status?.existing_count ?? "—"} / {status?.max_homepage_videos ?? 10}
-            </div>
-          </div>
-
-          <div className="rounded-2xl border border-indigo-100 bg-white/80 p-3">
-            <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-              Feed
-            </div>
-            <div className="mt-1 text-sm font-bold text-slate-900">
-              {status?.group_name || "Checking…"}
-            </div>
-          </div>
-
-          <div className="rounded-2xl border border-indigo-100 bg-white/80 p-3">
-            <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-              Storage rule
-            </div>
-            <div className="mt-1 text-sm font-bold text-slate-900">
-              Latest 10 only
-            </div>
-          </div>
-        </div>
-      </header>
+        <Button
+          type="button"
+          onClick={() =>
+            setAddOpen(true)
+          }
+          disabled={
+            !status?.publish_enabled ||
+            busy
+          }
+        >
+          <Plus className="h-4 w-4" />
+          Add video
+        </Button>
+      </div>
 
       {statusError ? (
-        <div className="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800">
+        <div className="mt-3 rounded-xl bg-rose-50 px-3 py-2.5 text-sm font-semibold text-destructive">
           {statusError}
-        </div>
-      ) : null}
-
-      {actionError ? (
-        <div className="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800">
-          {actionError}
-        </div>
-      ) : null}
-
-      {success ? (
-        <div className="flex items-start gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">
-          <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0" />
-          <span>{success}</span>
-        </div>
-      ) : null}
-
-      {loading ? (
-        <div className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white p-5 text-sm text-slate-500">
-          <Loader2 className="h-4 w-4 animate-spin" />
-          Loading shoppable video settings…
         </div>
       ) : null}
 
       {!loading &&
       status &&
       !status.ok ? (
-        <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+        <div className="mt-3 rounded-xl bg-amber-50 px-3 py-2.5 text-sm font-semibold text-amber-800">
           {status.message ||
             "Shoppable Videos is not configured for this store yet."}
         </div>
       ) : null}
 
-      <section className="rounded-[26px] border border-slate-200 bg-white p-5 shadow-sm md:p-6">
-        <div className="flex items-center gap-2">
-          <UploadCloud className="h-5 w-5 text-indigo-600" />
-          <h2 className="text-lg font-bold text-slate-900">
-            Publish a shoppable video
-          </h2>
+      <section className="mt-3 overflow-hidden rounded-2xl border border-border bg-card md:mt-4">
+        <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-3 md:px-5">
+          <div className="min-w-0">
+            <h2 className="text-sm font-bold text-heading">
+              Homepage videos
+            </h2>
+
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              Newest videos appear first.
+            </p>
+          </div>
+
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            onClick={() =>
+              void loadStatus()
+            }
+            disabled={
+              loading ||
+              busy
+            }
+            aria-label="Refresh videos"
+            title="Refresh videos"
+          >
+            <RefreshCw
+              className={
+                `h-4 w-4 ${loading ? "animate-spin" : ""}`
+              }
+            />
+          </Button>
         </div>
 
-        <p className="mt-1 text-sm text-slate-500">
-          MP4 is required. The video uploads directly to your own store.
-          {maxBytes > 0
-            ? ` Maximum size: ${formatBytes(
-                maxBytes
-              )}.`
-            : ""}
-        </p>
+        <div className="p-3 md:p-4">
+          {loading ? (
+            <FeedSkeleton />
+          ) : items.length ===
+            0 ? (
+            <EmptyState
+              icon={Clapperboard}
+              title="No shoppable videos yet"
+              description="Add a short video and tag at least one product or category."
+              action={
+                <Button
+                  type="button"
+                  onClick={() =>
+                    setAddOpen(
+                      true
+                    )
+                  }
+                >
+                  <Plus className="h-4 w-4" />
+                  Add video
+                </Button>
+              }
+            />
+          ) : (
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+              {items.map(
+                (item) => {
+                  const productCount =
+                    item.tagged_products?.length ||
+                    item.product_ids?.length ||
+                    0;
 
-        <div className="mt-5 grid gap-5 lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]">
-          <div className="space-y-4">
-            <label className="block">
-              <span className="text-sm font-semibold text-slate-700">
-                Video
+                  const categoryCount =
+                    item.tagged_categories?.length ||
+                    item.category_ids?.length ||
+                    0;
+
+                  return (
+                    <article
+                      key={
+                        item.story_id
+                      }
+                      className="flex min-h-28 min-w-0 items-center gap-3 rounded-2xl border border-border bg-card p-3 transition hover:border-primary/30"
+                    >
+                      {item.thumbnail ? (
+                        // Remote WordPress media URL.
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={
+                            item.thumbnail
+                          }
+                          alt=""
+                          className="h-24 w-16 shrink-0 rounded-xl border border-border object-cover"
+                        />
+                      ) : (
+                        <span className="grid h-24 w-16 shrink-0 place-items-center rounded-xl bg-muted text-muted-foreground">
+                          <Film className="h-5 w-5" />
+                        </span>
+                      )}
+
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-bold text-heading">
+                          {item.title ||
+                            `Video #${item.story_id}`}
+                        </p>
+
+                        <div className="mt-1 flex min-w-0 flex-wrap gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
+                          <span>
+                            {productCount}{" "}
+                            product
+                            {productCount ===
+                            1
+                              ? ""
+                              : "s"}
+                          </span>
+
+                          <span>
+                            {categoryCount}{" "}
+                            categor
+                            {categoryCount ===
+                            1
+                              ? "y"
+                              : "ies"}
+                          </span>
+                        </div>
+
+                        {item.oos_since ? (
+                          <p className="mt-1.5 text-[11px] font-semibold text-amber-700">
+                            Cleanup countdown active
+                          </p>
+                        ) : (
+                          <p className="mt-1.5 text-[11px] text-muted-foreground">
+                            {item.managed
+                              ? "Managed by LetzShopy"
+                              : "Existing reel"}
+                          </p>
+                        )}
+
+                        {item.managed ? (
+                          <div className="mt-2 flex items-center gap-2">
+                            <Button
+                              type="button"
+                              variant="secondary"
+                              size="sm"
+                              disabled={busy}
+                              onClick={() =>
+                                setEditingStory(
+                                  item
+                                )
+                              }
+                            >
+                              <Pencil className="h-3.5 w-3.5" />
+                              Edit
+                            </Button>
+
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              disabled={busy}
+                              onClick={() =>
+                                setDeleteTarget(
+                                  item
+                                )
+                              }
+                              className="text-destructive"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                              Delete
+                            </Button>
+                          </div>
+                        ) : null}
+                      </div>
+                    </article>
+                  );
+                }
+              )}
+            </div>
+          )}
+        </div>
+      </section>
+
+      <div className="mt-3 flex items-center gap-2 px-1 text-xs text-muted-foreground">
+        <span className="h-2 w-2 rounded-full bg-primary" />
+        <span>
+          Publishing video 11 removes the oldest managed video.
+        </span>
+      </div>
+
+      <BottomSheet
+        open={addOpen}
+        onOpenChange={(
+          open
+        ) => {
+          if (open) {
+            setAddOpen(
+              true
+            );
+          } else {
+            requestCloseAdd();
+          }
+        }}
+        title="Add shoppable video"
+        description="Upload one MP4 and connect it to products."
+        popupClassName="md:mx-auto md:max-w-3xl"
+      >
+        <div className="space-y-5">
+          <section>
+            <div className="mb-2 text-xs font-bold uppercase tracking-[0.08em] text-muted-foreground">
+              Video
+            </div>
+
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="video/mp4,.mp4"
+              disabled={
+                !publishReady ||
+                busy
+              }
+              onChange={(
+                event
+              ) =>
+                selectFile(
+                  event.target
+                    .files?.[0] ||
+                    null
+                )
+              }
+              className="hidden"
+            />
+
+            <button
+              type="button"
+              disabled={
+                !publishReady ||
+                busy
+              }
+              onClick={() =>
+                fileInputRef.current?.click()
+              }
+              className="ls-focus-ring flex min-h-16 w-full items-center gap-3 rounded-2xl border border-dashed border-input bg-surface-soft px-4 text-left hover:border-primary/40 disabled:opacity-50"
+            >
+              <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-secondary text-secondary-foreground">
+                <UploadCloud className="h-5 w-5" />
               </span>
 
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-sm font-bold text-heading">
+                  {selectedFile
+                    ? selectedFile.name
+                    : "Choose MP4 video"}
+                </span>
+
+                <span className="mt-1 block text-xs text-muted-foreground">
+                  {selectedFile
+                    ? formatBytes(
+                        selectedFile.size
+                      )
+                    : maxBytes > 0
+                      ? `Maximum ${formatBytes(
+                          maxBytes
+                        )}`
+                      : "Uploads directly to your store"}
+                </span>
+              </span>
+            </button>
+          </section>
+
+          <section className="grid gap-3 sm:grid-cols-2">
+            <div>
+              <label className="mb-1.5 block text-xs font-bold text-heading">
+                Video title
+              </label>
+
+              <Input
+                value={title}
+                maxLength={180}
+                disabled={busy}
+                onChange={(
+                  event
+                ) =>
+                  setTitle(
+                    event.target.value
+                  )
+                }
+                placeholder="New cotton saree collection"
+              />
+            </div>
+
+            <div>
+              <label className="mb-1.5 block text-xs font-bold text-heading">
+                Thumbnail{" "}
+                <span className="font-medium text-muted-foreground">
+                  (optional)
+                </span>
+              </label>
+
               <input
-                ref={fileInputRef}
+                ref={
+                  thumbnailInputRef
+                }
                 type="file"
-                accept="video/mp4,.mp4"
+                accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp"
                 disabled={
-                  !status?.publish_enabled ||
+                  !publishReady ||
                   busy
                 }
-                onChange={(event) =>
-                  selectFile(
+                onChange={(
+                  event
+                ) =>
+                  selectThumbnail(
                     event.target
                       .files?.[0] ||
                       null
                   )
                 }
-                className="mt-2 block w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm file:mr-3 file:rounded-lg file:border-0 file:bg-indigo-600 file:px-3 file:py-2 file:font-semibold file:text-white disabled:opacity-55"
+                className="hidden"
               />
-            </label>
 
-            {selectedFile ? (
-              <div className="rounded-xl border border-indigo-100 bg-indigo-50 p-3 text-sm text-indigo-950">
-                <div className="font-semibold">
-                  {selectedFile.name}
-                </div>
-                <div className="mt-1 text-xs text-indigo-700">
-                  {formatBytes(
-                    selectedFile.size
-                  )}
-                </div>
-              </div>
-            ) : null}
-
-            <label className="block">
-              <span className="flex items-center gap-2 text-sm font-semibold text-slate-700">
-                <ImagePlus className="h-4 w-4 text-violet-600" />
-                Thumbnail image
-                <span className="font-normal text-slate-400">
-                  (optional)
-                </span>
-              </span>
-
-              <input
-                ref={thumbnailInputRef}
-                type="file"
-                accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp"
-                disabled={!publishReady || busy}
-                onChange={(event) => {
-                  const file =
-                    event.target.files?.[0] ||
-                    null;
-
-                  if (
-                    file &&
-                    ![
-                      "image/jpeg",
-                      "image/png",
-                      "image/webp",
-                    ].includes(file.type)
-                  ) {
-                    setThumbnailFile(null);
-                    setActionError(
-                      "Thumbnail must be JPG, PNG or WebP."
-                    );
-                    return;
-                  }
-
-                  setActionError("");
-                  setThumbnailFile(file);
-                }}
-                className="mt-2 block w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm file:mr-3 file:rounded-lg file:border-0 file:bg-violet-600 file:px-3 file:py-2 file:font-semibold file:text-white disabled:opacity-55"
-              />
-            </label>
-
-            {thumbnailFile ? (
-              <div className="flex items-center gap-3 rounded-xl border border-violet-100 bg-violet-50 p-3">
-                <div className="h-14 w-12 overflow-hidden rounded-lg bg-white">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={URL.createObjectURL(
-                      thumbnailFile
-                    )}
-                    alt=""
-                    className="h-full w-full object-cover"
-                  />
-                </div>
-                <div className="min-w-0 text-sm text-violet-950">
-                  <div className="truncate font-semibold">
-                    {thumbnailFile.name}
-                  </div>
-                  <div className="mt-1 text-xs text-violet-700">
-                    Used as the storefront reel cover.
-                  </div>
-                </div>
-              </div>
-            ) : null}
-
-            <label className="block">
-              <span className="text-sm font-semibold text-slate-700">
-                Video title
-              </span>
-
-              <input
-                value={title}
-                maxLength={180}
-                disabled={busy}
-                onChange={(event) =>
-                  setTitle(
-                    event.target.value
-                  )
+              <button
+                type="button"
+                disabled={
+                  !publishReady ||
+                  busy
                 }
-                placeholder="Example: New cotton saree collection"
-                className="mt-2 w-full rounded-xl border border-slate-200 p-3 text-sm"
-              />
-            </label>
+                onClick={() =>
+                  thumbnailInputRef.current?.click()
+                }
+                className="ls-focus-ring flex min-h-11 w-full items-center gap-2 rounded-xl border border-input bg-card px-3 text-left text-sm hover:bg-muted disabled:opacity-50"
+              >
+                <ImagePlus className="h-4 w-4 shrink-0 text-primary" />
 
-            {!publishReady && status?.ok ? (
-              <p className="rounded-xl bg-slate-50 p-3 text-xs leading-5 text-slate-600">
-                Shoppable video publishing is being prepared for this store.
-              </p>
-            ) : null}
-          </div>
+                <span className="min-w-0 flex-1 truncate">
+                  {thumbnailFile
+                    ? thumbnailFile.name
+                    : "Choose cover image"}
+                </span>
 
-          <div className="space-y-5">
-            <div className="rounded-2xl border border-slate-200 p-4">
-              <h3 className="flex items-center gap-2 text-sm font-bold text-slate-900">
-                <ShoppingBag className="h-4 w-4 text-indigo-600" />
+                {thumbnailFile ? (
+                  <button
+                    type="button"
+                    aria-label="Remove thumbnail"
+                    onClick={(
+                      event
+                    ) => {
+                      event.stopPropagation();
+                      setThumbnailFile(
+                        null
+                      );
+
+                      if (
+                        thumbnailInputRef.current
+                      ) {
+                        thumbnailInputRef.current.value =
+                          "";
+                      }
+                    }}
+                    className="grid h-7 w-7 shrink-0 place-items-center rounded-lg text-muted-foreground hover:bg-muted"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                ) : null}
+              </button>
+            </div>
+          </section>
+
+          <section className="rounded-2xl border border-border p-3 md:p-4">
+            <div className="flex items-center gap-2">
+              <ShoppingBag className="h-4 w-4 text-primary" />
+
+              <h3 className="text-sm font-bold text-heading">
                 Tag products
               </h3>
 
-              <p className="mt-1 text-xs text-slate-500">
-                Search and select more than one product.
-              </p>
+              <span className="ml-auto text-[11px] font-semibold text-muted-foreground">
+                {
+                  selectedProducts.length
+                }{" "}
+                selected
+              </span>
+            </div>
 
-              <div className="relative mt-3">
-                <Search className="absolute left-3 top-3 h-5 w-5 text-slate-400" />
+            <div className="relative mt-3">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
 
-                <input
-                  value={productQuery}
-                  disabled={busy}
-                  onChange={(event) =>
-                    setProductQuery(
-                      event.target.value
-                    )
-                  }
-                  placeholder="Search product name"
-                  className="w-full rounded-xl border border-slate-200 py-3 pl-10 pr-3 text-sm"
-                />
-              </div>
+              <Input
+                value={
+                  productQuery
+                }
+                disabled={busy}
+                onChange={(
+                  event
+                ) =>
+                  setProductQuery(
+                    event.target.value
+                  )
+                }
+                placeholder="Search products"
+                className="pl-10"
+              />
+            </div>
 
-              {products.length > 0 ? (
-                <div className="mt-2 max-h-56 space-y-2 overflow-auto rounded-xl border border-slate-100 p-2">
-                  {products.map(
-                    (product) => {
-                      const selected =
-                        selectedProductIds.has(
-                          product.id
-                        );
-
-                      return (
-                        <button
-                          key={product.id}
-                          type="button"
-                          disabled={
-                            selected ||
-                            !product.in_stock ||
-                            busy
-                          }
-                          onClick={() =>
-                            setSelectedProducts(
-                              (current) => [
-                                ...current,
-                                product,
-                              ]
-                            )
-                          }
-                          className="flex min-h-12 w-full items-center gap-3 rounded-xl p-2 text-left hover:bg-indigo-50 disabled:opacity-50"
-                        >
-                          {product.thumbnail ? (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img
-                              src={product.thumbnail}
-                              alt=""
-                              className="h-10 w-10 rounded-lg object-cover"
-                            />
-                          ) : (
-                            <span className="h-10 w-10 rounded-lg bg-slate-100" />
-                          )}
-
-                          <span className="min-w-0 flex-1 truncate text-sm font-medium text-slate-800">
-                            {product.name}
-                          </span>
-
-                          <span className="text-xs text-slate-500">
-                            {!product.in_stock
-                              ? "Out of stock"
-                              : selected
-                                ? "Selected"
-                                : "Add +"}
-                          </span>
-                        </button>
+            {products.length >
+            0 ? (
+              <div className="mt-2 max-h-48 overflow-y-auto rounded-xl border border-border">
+                {products.map(
+                  (
+                    product
+                  ) => {
+                    const selected =
+                      selectedProductIds.has(
+                        product.id
                       );
-                    }
-                  )}
-                </div>
-              ) : null}
 
+                    return (
+                      <button
+                        key={
+                          product.id
+                        }
+                        type="button"
+                        disabled={
+                          selected ||
+                          !product.in_stock ||
+                          busy
+                        }
+                        onClick={() =>
+                          setSelectedProducts(
+                            (
+                              current
+                            ) => [
+                              ...current,
+                              product,
+                            ]
+                          )
+                        }
+                        className="ls-focus-ring flex min-h-12 w-full items-center gap-3 border-b border-border px-3 text-left last:border-b-0 hover:bg-muted disabled:opacity-45"
+                      >
+                        {product.thumbnail ? (
+                          // Remote WooCommerce product image.
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={
+                              product.thumbnail
+                            }
+                            alt=""
+                            className="h-9 w-9 shrink-0 rounded-lg object-cover"
+                          />
+                        ) : (
+                          <span className="h-9 w-9 shrink-0 rounded-lg bg-muted" />
+                        )}
+
+                        <span className="min-w-0 flex-1 truncate text-sm font-semibold text-foreground">
+                          {
+                            product.name
+                          }
+                        </span>
+
+                        <span className="shrink-0 text-xs font-semibold text-primary">
+                          {!product.in_stock
+                            ? "Out of stock"
+                            : selected
+                              ? "Added"
+                              : "Add"}
+                        </span>
+                      </button>
+                    );
+                  }
+                )}
+              </div>
+            ) : null}
+
+            {selectedProducts.length >
+            0 ? (
               <div className="mt-3 flex flex-wrap gap-2">
                 {selectedProducts.map(
-                  (product) => (
+                  (
+                    product
+                  ) => (
                     <button
-                      key={product.id}
+                      key={
+                        product.id
+                      }
                       type="button"
-                      disabled={busy}
+                      disabled={
+                        busy
+                      }
                       onClick={() =>
                         setSelectedProducts(
-                          (current) =>
+                          (
+                            current
+                          ) =>
                             current.filter(
-                              (item) =>
+                              (
+                                item
+                              ) =>
                                 item.id !==
                                 product.id
                             )
                         )
                       }
-                      className="inline-flex items-center gap-2 rounded-full bg-indigo-50 px-3 py-2 text-xs font-semibold text-indigo-800"
+                      className="ls-focus-ring inline-flex min-h-9 items-center gap-2 rounded-full bg-secondary px-3 py-1.5 text-xs font-semibold text-secondary-foreground"
                     >
-                      {product.name}
+                      <span className="max-w-[14rem] truncate">
+                        {
+                          product.name
+                        }
+                      </span>
+
                       <X className="h-3 w-3" />
                     </button>
                   )
                 )}
               </div>
-            </div>
+            ) : null}
+          </section>
 
-            <div className="rounded-2xl border border-slate-200 p-4">
-              <h3 className="flex items-center gap-2 text-sm font-bold text-slate-900">
-                <Tag className="h-4 w-4 text-violet-600" />
+          <section className="rounded-2xl border border-border p-3 md:p-4">
+            <div className="flex items-center gap-2">
+              <Tag className="h-4 w-4 text-primary" />
+
+              <h3 className="text-sm font-bold text-heading">
                 Tag categories
-                <span className="font-normal text-slate-400">
-                  (optional)
-                </span>
               </h3>
 
-              <p className="mt-1 text-xs text-slate-500">
-                Category tags dynamically include its currently available products.
-              </p>
+              <span className="ml-auto text-[11px] font-semibold text-muted-foreground">
+                Optional
+              </span>
+            </div>
 
-              <input
-                value={categoryQuery}
+            <div className="relative mt-3">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+
+              <Input
+                value={
+                  categoryQuery
+                }
                 disabled={busy}
-                onChange={(event) =>
+                onChange={(
+                  event
+                ) =>
                   setCategoryQuery(
                     event.target.value
                   )
                 }
-                placeholder="Search product category"
-                className="mt-3 w-full rounded-xl border border-slate-200 p-3 text-sm"
+                placeholder="Search categories"
+                className="pl-10"
               />
+            </div>
 
-              {categories.length > 0 ? (
-                <div className="mt-2 max-h-48 space-y-1 overflow-auto rounded-xl border border-slate-100 p-2">
-                  {categories.map(
-                    (category) => {
-                      const selected =
-                        selectedCategoryIds.has(
-                          category.id
-                        );
-
-                      return (
-                        <button
-                          key={category.id}
-                          type="button"
-                          disabled={
-                            selected ||
-                            busy
-                          }
-                          onClick={() =>
-                            setSelectedCategories(
-                              (current) => [
-                                ...current,
-                                category,
-                              ]
-                            )
-                          }
-                          className="flex w-full items-center justify-between rounded-lg p-2 text-left text-sm hover:bg-violet-50 disabled:opacity-50"
-                        >
-                          <span>
-                            {category.name}
-                          </span>
-                          <span className="text-xs text-slate-500">
-                            {selected
-                              ? "Selected"
-                              : "Add +"}
-                          </span>
-                        </button>
+            {categories.length >
+            0 ? (
+              <div className="mt-2 max-h-40 overflow-y-auto rounded-xl border border-border">
+                {categories.map(
+                  (
+                    category
+                  ) => {
+                    const selected =
+                      selectedCategoryIds.has(
+                        category.id
                       );
-                    }
-                  )}
-                </div>
-              ) : null}
 
+                    return (
+                      <button
+                        key={
+                          category.id
+                        }
+                        type="button"
+                        disabled={
+                          selected ||
+                          busy
+                        }
+                        onClick={() =>
+                          setSelectedCategories(
+                            (
+                              current
+                            ) => [
+                              ...current,
+                              category,
+                            ]
+                          )
+                        }
+                        className="ls-focus-ring flex min-h-11 w-full items-center justify-between gap-3 border-b border-border px-3 text-left text-sm last:border-b-0 hover:bg-muted disabled:opacity-45"
+                      >
+                        <span className="truncate font-semibold text-foreground">
+                          {
+                            category.name
+                          }
+                        </span>
+
+                        <span className="shrink-0 text-xs font-semibold text-primary">
+                          {selected
+                            ? "Added"
+                            : "Add"}
+                        </span>
+                      </button>
+                    );
+                  }
+                )}
+              </div>
+            ) : null}
+
+            {selectedCategories.length >
+            0 ? (
               <div className="mt-3 flex flex-wrap gap-2">
                 {selectedCategories.map(
-                  (category) => (
+                  (
+                    category
+                  ) => (
                     <button
-                      key={category.id}
+                      key={
+                        category.id
+                      }
                       type="button"
-                      disabled={busy}
+                      disabled={
+                        busy
+                      }
                       onClick={() =>
                         setSelectedCategories(
-                          (current) =>
+                          (
+                            current
+                          ) =>
                             current.filter(
-                              (item) =>
+                              (
+                                item
+                              ) =>
                                 item.id !==
                                 category.id
                             )
                         )
                       }
-                      className="inline-flex items-center gap-2 rounded-full bg-violet-50 px-3 py-2 text-xs font-semibold text-violet-800"
+                      className="ls-focus-ring inline-flex min-h-9 items-center gap-2 rounded-full bg-secondary px-3 py-1.5 text-xs font-semibold text-secondary-foreground"
                     >
-                      {category.name}
+                      {
+                        category.name
+                      }
+
                       <X className="h-3 w-3" />
                     </button>
                   )
                 )}
               </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-5">
-          <div className="max-w-3xl">
-            <p className="text-xs leading-5 text-slate-500">
-              When the 11th video is published, the oldest managed video is removed. If all tagged products become unavailable, its seven-day cleanup countdown begins.
-            </p>
-            {!canPublish && publishReady ? (
-              <p className="mt-1 text-xs font-medium text-amber-700">
-                {!selectedFile
-                  ? "Choose an MP4 video to continue."
-                  : !hasTags
-                    ? "Tag at least one product or category to continue."
-                    : ""}
-              </p>
             ) : null}
-          </div>
+          </section>
 
-          <button
-            type="button"
-            disabled={!canPublish}
-            onClick={() =>
-              void publishVideo()
-            }
-            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-indigo-600 px-5 py-3 text-sm font-bold text-white shadow-sm disabled:opacity-50"
-          >
-            {busy ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <UploadCloud className="h-4 w-4" />
-            )}
-            {publishButtonText}
-          </button>
-        </div>
-      </section>
-
-      <section className="rounded-[26px] border border-slate-200 bg-white p-5 shadow-sm md:p-6">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h2 className="text-lg font-bold text-slate-900">
-              Current homepage videos
-            </h2>
-
-            <p className="mt-1 text-sm text-slate-500">
-              Newest videos are shown first on the storefront.
+          {!hasTags ? (
+            <p className="text-xs font-semibold text-amber-700">
+              Tag at least one product or category.
             </p>
-          </div>
-
-          <button
-            type="button"
-            disabled={loading || busy}
-            onClick={() =>
-              void loadStatus()
-            }
-            className="rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 disabled:opacity-50"
-          >
-            Refresh
-          </button>
-        </div>
-
-        <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {(status?.items || []).map(
-            (item) => (
-              <article
-                key={item.story_id}
-                className="flex min-w-0 items-center gap-3 rounded-2xl border border-slate-200 p-3"
-              >
-                {item.thumbnail ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={item.thumbnail}
-                    alt=""
-                    className="h-20 w-14 shrink-0 rounded-xl object-cover"
-                  />
-                ) : (
-                  <span className="flex h-20 w-14 shrink-0 items-center justify-center rounded-xl bg-slate-100">
-                    <Film className="h-6 w-6 text-slate-400" />
-                  </span>
-                )}
-
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-bold text-slate-900">
-                    {item.title ||
-                      `Video #${item.story_id}`}
-                  </p>
-
-                  <p className="mt-1 text-xs text-slate-500">
-                    {item.managed
-                      ? "Managed by LetzShopy"
-                      : "Existing ReelsWP video"}
-                  </p>
-
-                  {item.oos_since ? (
-                    <p className="mt-1 text-xs font-medium text-amber-700">
-                      Out-of-stock cleanup countdown active
-                    </p>
-                  ) : null}
-                </div>
-
-                {item.managed ? (
-                  <div className="flex shrink-0 items-center gap-2">
-                    <button
-                      type="button"
-                      disabled={busy}
-                      aria-label="Edit video"
-                      onClick={() =>
-                        setEditingStory(item)
-                      }
-                      className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-50 text-indigo-700 disabled:opacity-50"
-                    >
-                      <Pencil className="h-4 w-4" />
-                    </button>
-                    <button
-                      type="button"
-                      disabled={busy}
-                      aria-label="Delete video"
-                      onClick={() =>
-                        void removeStory(item)
-                      }
-                      className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-rose-50 text-rose-700 disabled:opacity-50"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  </div>
-                ) : null}
-              </article>
-            )
-          )}
-
-          {(status?.items || []).length ===
-          0 ? (
-            <div className="col-span-full rounded-2xl border border-dashed border-slate-200 p-8 text-center text-sm text-slate-500">
-              No shoppable videos yet.
-            </div>
           ) : null}
+
+          <div className="flex flex-col-reverse gap-2 border-t border-border pt-4 sm:flex-row sm:justify-end">
+            <Button
+              type="button"
+              variant="outline"
+              disabled={busy}
+              onClick={
+                requestCloseAdd
+              }
+            >
+              Cancel
+            </Button>
+
+            <AsyncButton
+              type="button"
+              loading={busy}
+              loadingLabel="Publishing…"
+              disabled={
+                !canPublish
+              }
+              onClick={() =>
+                void publishVideo()
+              }
+            >
+              <UploadCloud className="h-4 w-4" />
+              Publish video
+            </AsyncButton>
+          </div>
         </div>
-      </section>
+      </BottomSheet>
+
+      <ConfirmDialog
+        open={
+          closeDraftOpen
+        }
+        onOpenChange={
+          setCloseDraftOpen
+        }
+        title="Unsaved video"
+        description="Publish this video before closing?"
+        confirmLabel="Publish video"
+        cancelLabel="Cancel"
+        loading={busy}
+        loadingLabel="Publishing…"
+        onConfirm={
+          publishVideo
+        }
+      />
+
+      <ConfirmDialog
+        open={
+          deleteTarget !==
+          null
+        }
+        onOpenChange={(
+          open
+        ) => {
+          if (
+            !open &&
+            !busy
+          ) {
+            setDeleteTarget(
+              null
+            );
+          }
+        }}
+        title="Delete video?"
+        description={
+          deleteTarget
+            ? `Delete “${deleteTarget.title || `Video #${deleteTarget.story_id}`}” from the homepage feed? Its managed video file will also be removed.`
+            : undefined
+        }
+        confirmLabel="Delete video"
+        loading={busy}
+        loadingLabel="Deleting…"
+        destructive
+        onConfirm={
+          deleteStory
+        }
+      />
 
       {editingStory ? (
         <ShoppableVideoEditModal
-          story={editingStory}
+          story={
+            editingStory
+          }
           onClose={() =>
-            setEditingStory(null)
+            setEditingStory(
+              null
+            )
           }
           onSaved={async () => {
-            setEditingStory(null);
-            setSuccess(
-              "Shoppable video updated."
+            setEditingStory(
+              null
             );
+
+            actionFeedback.success({
+              id:
+                "shoppable-video-edit",
+              title:
+                "Video updated",
+              durationMs: 2200,
+            });
+
             await loadStatus();
           }}
         />
       ) : null}
-    </main>
+    </>
   );
 }
