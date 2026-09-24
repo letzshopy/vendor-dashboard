@@ -663,6 +663,12 @@ export function useUnsavedChanges({
     );
   }
 
+  const {
+    register,
+    unregister,
+    hasUnsavedChanges,
+  } = context;
+
   const saveRef =
     useRef(save);
 
@@ -672,7 +678,7 @@ export function useUnsavedChanges({
   }, [save]);
 
   useEffect(() => {
-    context.register({
+    register({
       id,
       dirty,
       label,
@@ -681,18 +687,18 @@ export function useUnsavedChanges({
     });
 
     return () =>
-      context.unregister(
+      unregister(
         id
       );
   }, [
-    context,
+    register,
+    unregister,
     id,
     dirty,
     label,
   ]);
 
   return {
-    hasUnsavedChanges:
-      context.hasUnsavedChanges,
+    hasUnsavedChanges,
   };
 }
