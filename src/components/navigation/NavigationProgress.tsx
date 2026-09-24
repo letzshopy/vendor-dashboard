@@ -28,6 +28,13 @@ export default function NavigationProgress() {
     useRef(locationKey);
 
   useEffect(() => {
+    function startProgress() {
+      startedAtRef.current =
+        performance.now();
+
+      setActive(true);
+    }
+
     function onClick(
       event: MouseEvent
     ) {
@@ -117,10 +124,11 @@ export default function NavigationProgress() {
         return;
       }
 
-      startedAtRef.current =
-        performance.now();
+      startProgress();
+    }
 
-      setActive(true);
+    function onProgrammaticNavigation() {
+      startProgress();
     }
 
     document.addEventListener(
@@ -129,12 +137,23 @@ export default function NavigationProgress() {
       true
     );
 
-    return () =>
+    window.addEventListener(
+      "letzshopy:navigation-start",
+      onProgrammaticNavigation
+    );
+
+    return () => {
       document.removeEventListener(
         "click",
         onClick,
         true
       );
+
+      window.removeEventListener(
+        "letzshopy:navigation-start",
+        onProgrammaticNavigation
+      );
+    };
   }, []);
 
   useEffect(() => {
