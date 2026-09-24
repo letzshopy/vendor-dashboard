@@ -2,7 +2,15 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import {
+  useFormStatus,
+} from "react-dom";
 import {
   ArrowLeft,
   BadgePercent,
@@ -16,6 +24,21 @@ import {
   Tag,
   X,
 } from "lucide-react";
+import {
+  useUnsavedChanges,
+} from "@/components/navigation/UnsavedChangesGuard";
+import {
+  AsyncButton,
+} from "@/components/ui/async-button";
+import {
+  Button,
+} from "@/components/ui/button";
+import {
+  Input,
+} from "@/components/ui/input";
+import {
+  Switch,
+} from "@/components/ui/switch";
 import type {
   SaleEvent,
   SaleEventCategoryOption,
@@ -102,6 +125,32 @@ function promotionalOfferLabel(
   return "special sale prices";
 }
 
+
+function SaleEventSubmitButton({
+  mode,
+}: {
+  mode: "create" | "edit";
+}) {
+  const { pending } =
+    useFormStatus();
+
+  return (
+    <AsyncButton
+      type="submit"
+      loading={pending}
+      loadingLabel={
+        mode === "create"
+          ? "Creating…"
+          : "Saving…"
+      }
+    >
+      {mode === "create"
+        ? "Create Sale Event"
+        : "Save Changes"}
+    </AsyncButton>
+  );
+}
+
 function buildPromotionalCopy({
   templateIndex,
   title,
@@ -177,6 +226,27 @@ export default function SaleEventFormClient({
   const [promoEdited, setPromoEdited] = useState(Boolean(event?.promotional_copy));
   const [promotionalCopy, setPromotionalCopy] = useState(
     event?.promotional_copy || ""
+  );
+  const [homepageVisible, setHomepageVisible] = useState(
+    event ? event.homepage_visible : true
+  );
+  const [submitting, setSubmitting] = useState(false);
+  const formRef = useRef<HTMLFormElement | null>(null);
+
+  const initialSnapshotRef = useRef(
+    JSON.stringify({
+      selectedCategories: event?.category_ids || [],
+      explicitProducts: event?.explicit_product_ids || [],
+      excludedProducts: event?.excluded_product_ids || [],
+      pricingType: event?.pricing_type || "percentage",
+      discountValue: String(event?.discount_value || ""),
+      manualPrices: event?.manual_prices || {},
+      title: event?.title || "",
+      startDate: event?.start_date || "",
+      endDate: event?.end_date || "",
+      promotionalCopy: event?.promotional_copy || "",
+      homepageVisible: event ? event.homepage_visible : true,
+    })
   );
 
   const selectedCategoryTree = useMemo(
@@ -281,13 +351,60 @@ export default function SaleEventFormClient({
     return manual > 0 ? formatMoney(Math.ceil(manual)) : "Enter price";
   }
 
-  const homepageVisible = event ? event.homepage_visible : true;
+  const currentSnapshot = JSON.stringify({
+    selectedCategories,
+    explicitProducts,
+    excludedProducts,
+    pricingType,
+    discountValue,
+    manualPrices,
+    title,
+    startDate,
+    endDate,
+    promotionalCopy,
+    homepageVisible,
+  });
+
+  const dirty =
+    !submitting &&
+    currentSnapshot !==
+      initialSnapshotRef.current;
+
+  async function saveFromGuard(): Promise<boolean> {
+    if (!formRef.current || submitting) {
+      return false;
+    }
+
+    setSubmitting(true);
+
+    try {
+      const data =
+        new FormData(
+          formRef.current
+        );
+
+      await action(data);
+      return true;
+    } catch {
+      setSubmitting(false);
+      return false;
+    }
+  }
+
+  useUnsavedChanges({
+    id:
+      `sale-event-${mode}-${event?.id || "new"}`,
+    dirty,
+    label:
+      "sale event changes",
+    save: saveFromGuard,
+  });
 
   return (
     <main className="mx-auto max-w-7xl px-3 pb-28 pt-3 md:px-4 md:pb-8 md:pt-5">
       <Link
         href="/offers-discounts/sale-events"
-        className="inline-flex items-center gap-2 text-sm font-medium text-slate-500 hover:text-slate-900"
+        className="inline-flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-heading"
       >
         <ArrowLeft className="h-4 w-4" />
         Back to Sale Events
@@ -299,16 +416,23 @@ export default function SaleEventFormClient({
           Catalog · Sale Events
         </div>
 
-        <h1 className="mt-3 text-[24px] font-semibold tracking-tight text-slate-900 md:text-[30px]">
+        <h1 className="mt-3 text-[24px] font-semibold tracking-tight text-heading md:text-[30px]">
           {mode === "create" ? "Create Sale Event" : "Edit Sale Event"}
         </h1>
 
-        <p className="mt-2 max-w-2xl text-sm text-slate-500">
+        <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
           Select categories first, remove any products you do not want, choose the pricing method, and schedule the event.
         </p>
       </div>
 
-      <form action={action} className="mt-5 space-y-5">
+      <form
+        ref={formRef}
+        action={action}
+        onSubmit={() =>
+          setSubmitting(true)
+        }
+        className="mt-4 space-y-4 md:mt-5"
+      >
         {event?.id ? <input type="hidden" name="id" value={event.id} /> : null}
 
         <input
@@ -332,63 +456,63 @@ export default function SaleEventFormClient({
           value={JSON.stringify(manualPrices)}
         />
 
-        <section className="rounded-[28px] border border-slate-200 bg-white p-4 shadow-sm md:p-5">
+        <section className="rounded-2xl border border-border bg-card p-4 md:p-5">
           <div className="flex items-center gap-2">
-            <CalendarRange className="h-5 w-5 text-indigo-600" />
-            <h2 className="text-lg font-semibold text-slate-900">Event Details</h2>
+            <CalendarRange className="h-5 w-5 text-primary" />
+            <h2 className="text-lg font-semibold text-heading">Event Details</h2>
           </div>
 
           <div className="mt-4 grid gap-4 md:grid-cols-3">
             <div className="md:col-span-1">
-              <label className="text-sm font-semibold text-slate-800">Event Title</label>
+              <label className="text-sm font-semibold text-foreground">Event Title</label>
               <input
                 name="title"
                 required
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 placeholder="Example: New Year Sale"
-                className="mt-2 h-11 w-full rounded-2xl border border-slate-200 bg-slate-50 px-3 text-sm text-slate-900 outline-none focus:border-indigo-400 focus:bg-white"
+                className="mt-2 h-11 w-full rounded-xl border border-input bg-card px-3 text-sm text-foreground outline-none focus:border-ring"
               />
             </div>
 
             <div>
-              <label className="text-sm font-semibold text-slate-800">Start Date</label>
+              <label className="text-sm font-semibold text-foreground">Start Date</label>
               <input
                 type="date"
                 name="start_date"
                 required
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
-                className="mt-2 h-11 w-full rounded-2xl border border-slate-200 bg-slate-50 px-3 text-sm text-slate-900 outline-none focus:border-indigo-400 focus:bg-white"
+                className="mt-2 h-11 w-full rounded-2xl border border-border bg-surface-soft px-3 text-sm text-heading outline-none focus:border-ring focus:bg-white"
               />
             </div>
 
             <div>
-              <label className="text-sm font-semibold text-slate-800">End Date</label>
+              <label className="text-sm font-semibold text-foreground">End Date</label>
               <input
                 type="date"
                 name="end_date"
                 required
                 value={endDate}
                 onChange={(e) => setEndDate(e.target.value)}
-                className="mt-2 h-11 w-full rounded-2xl border border-slate-200 bg-slate-50 px-3 text-sm text-slate-900 outline-none focus:border-indigo-400 focus:bg-white"
+                className="mt-2 h-11 w-full rounded-2xl border border-border bg-surface-soft px-3 text-sm text-heading outline-none focus:border-ring focus:bg-white"
               />
             </div>
           </div>
 
-          <p className="mt-3 text-xs text-slate-500">
+          <p className="mt-3 text-xs text-muted-foreground">
             Event status is automatic: Scheduled, Live, or Closed based on these dates.
           </p>
         </section>
 
-        <section className="rounded-[28px] border border-slate-200 bg-white p-4 shadow-sm md:p-5">
+        <section className="rounded-2xl border border-border bg-card p-4 md:p-5">
           <div className="flex items-start justify-between gap-3">
             <div>
               <div className="flex items-center gap-2">
-                <PackageSearch className="h-5 w-5 text-indigo-600" />
-                <h2 className="text-lg font-semibold text-slate-900">Choose Products</h2>
+                <PackageSearch className="h-5 w-5 text-primary" />
+                <h2 className="text-lg font-semibold text-heading">Choose Products</h2>
               </div>
-              <p className="mt-1 text-sm text-slate-500">
+              <p className="mt-1 text-sm text-muted-foreground">
                 Select full categories first. Products are included automatically, and you can remove exceptions below.
               </p>
             </div>
@@ -399,7 +523,7 @@ export default function SaleEventFormClient({
           </div>
 
           <div className="mt-4">
-            <p className="text-sm font-semibold text-slate-800">1. Select Categories</p>
+            <p className="text-sm font-semibold text-foreground">1. Select Categories</p>
             <div className="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
               {categories.map((category) => {
                 const active = selectedCategories.includes(category.id);
@@ -411,7 +535,7 @@ export default function SaleEventFormClient({
                     className={`flex items-center justify-between gap-2 rounded-2xl border px-3 py-3 text-left text-sm transition ${
                       active
                         ? "border-indigo-300 bg-indigo-50 text-indigo-800"
-                        : "border-slate-200 bg-slate-50 text-slate-700 hover:border-indigo-200 hover:bg-indigo-50/40"
+                        : "border-border bg-surface-soft text-slate-700 hover:border-indigo-200 hover:bg-indigo-50/40"
                     }`}
                   >
                     <span className="min-w-0 truncate font-semibold">{category.name}</span>
@@ -425,10 +549,10 @@ export default function SaleEventFormClient({
           </div>
 
           <div className="mt-5">
-            <p className="text-sm font-semibold text-slate-800">2. Review Included Products</p>
+            <p className="text-sm font-semibold text-foreground">2. Review Included Products</p>
 
             {effectiveProducts.length > 0 ? (
-              <div className="mt-2 grid max-h-[430px] gap-2 overflow-y-auto rounded-2xl border border-slate-100 bg-slate-50 p-2 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="mt-2 grid max-h-[430px] gap-2 overflow-y-auto rounded-2xl border border-slate-100 bg-surface-soft p-2 sm:grid-cols-2 lg:grid-cols-3">
                 {effectiveProducts.map((product) => (
                   <div key={product.id} className="flex items-center gap-3 rounded-2xl bg-white p-2.5 shadow-sm">
                     <div className="h-12 w-12 shrink-0 overflow-hidden rounded-xl bg-slate-100">
@@ -439,8 +563,8 @@ export default function SaleEventFormClient({
                     </div>
 
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-xs font-semibold text-slate-800">{product.name}</p>
-                      <p className="mt-0.5 text-[11px] text-slate-500">
+                      <p className="truncate text-xs font-semibold text-foreground">{product.name}</p>
+                      <p className="mt-0.5 text-[11px] text-muted-foreground">
                         {productBasePrice(product) ? formatMoney(productBasePrice(product)) : "No regular price"}
                       </p>
                     </div>
@@ -457,7 +581,7 @@ export default function SaleEventFormClient({
                 ))}
               </div>
             ) : (
-              <div className="mt-2 rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-8 text-center text-sm text-slate-500">
+              <div className="mt-2 rounded-2xl border border-dashed border-border bg-surface-soft px-4 py-8 text-center text-sm text-muted-foreground">
                 Choose one or more categories to include products in this event.
               </div>
             )}
@@ -485,10 +609,10 @@ export default function SaleEventFormClient({
 
         </section>
 
-        <section className="rounded-[28px] border border-slate-200 bg-white p-4 shadow-sm md:p-5">
+        <section className="rounded-2xl border border-border bg-card p-4 md:p-5">
           <div className="flex items-center gap-2">
-            <BadgePercent className="h-5 w-5 text-indigo-600" />
-            <h2 className="text-lg font-semibold text-slate-900">Sale Pricing</h2>
+            <BadgePercent className="h-5 w-5 text-primary" />
+            <h2 className="text-lg font-semibold text-heading">Sale Pricing</h2>
           </div>
 
           <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -507,16 +631,16 @@ export default function SaleEventFormClient({
                   className={`rounded-[22px] border p-4 text-left transition ${
                     active
                       ? "border-indigo-300 bg-indigo-50 shadow-sm"
-                      : "border-slate-200 bg-slate-50 hover:border-indigo-200"
+                      : "border-border bg-surface-soft hover:border-indigo-200"
                   }`}
                 >
                   <div className="flex items-center justify-between gap-2">
-                    <span className="font-semibold text-slate-900">{label}</span>
-                    <span className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold ${active ? "bg-indigo-600 text-white" : "bg-white text-slate-500"}`}>
+                    <span className="font-semibold text-heading">{label}</span>
+                    <span className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold ${active ? "bg-indigo-600 text-white" : "bg-white text-muted-foreground"}`}>
                       {icon}
                     </span>
                   </div>
-                  <p className="mt-2 text-xs text-slate-500">{help}</p>
+                  <p className="mt-2 text-xs text-muted-foreground">{help}</p>
                 </button>
               );
             })}
@@ -526,7 +650,7 @@ export default function SaleEventFormClient({
 
           {pricingType === "percentage" || pricingType === "fixed_amount" ? (
             <div className="mt-4 max-w-sm">
-              <label className="text-sm font-semibold text-slate-800">
+              <label className="text-sm font-semibold text-foreground">
                 {pricingType === "percentage" ? "Discount Percentage" : "Discount Amount"}
               </label>
               <div className="relative mt-2">
@@ -543,7 +667,7 @@ export default function SaleEventFormClient({
                   value={discountValue}
                   onChange={(e) => setDiscountValue(e.target.value)}
                   placeholder={pricingType === "percentage" ? "20" : "200"}
-                  className={`h-11 w-full rounded-2xl border border-slate-200 bg-slate-50 pr-3 text-sm text-slate-900 outline-none focus:border-indigo-400 focus:bg-white ${pricingType === "fixed_amount" ? "pl-10" : "px-3"}`}
+                  className={`h-11 w-full rounded-2xl border border-border bg-surface-soft pr-3 text-sm text-heading outline-none focus:border-ring focus:bg-white ${pricingType === "fixed_amount" ? "pl-10" : "px-3"}`}
                 />
               </div>
             </div>
@@ -557,7 +681,7 @@ export default function SaleEventFormClient({
                 <Truck className="h-5 w-5" />
               </div>
               <div>
-                <p className="text-sm font-semibold text-slate-900">
+                <p className="text-sm font-semibold text-heading">
                   Free Shipping Offer
                 </p>
                 <p className="mt-1 text-xs leading-5 text-slate-600">
@@ -568,8 +692,8 @@ export default function SaleEventFormClient({
           ) : null}
 
           {effectiveProducts.length > 0 && pricingType !== "free_shipping" ? (
-            <div className="mt-5 overflow-hidden rounded-2xl border border-slate-200">
-              <div className="grid grid-cols-[1fr_auto_auto] gap-3 bg-slate-50 px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+            <div className="mt-5 overflow-hidden rounded-2xl border border-border">
+              <div className="grid grid-cols-[1fr_auto_auto] gap-3 bg-surface-soft px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                 <span>Product</span>
                 <span>Regular</span>
                 <span>Sale</span>
@@ -580,8 +704,8 @@ export default function SaleEventFormClient({
                   const regular = productBasePrice(product);
                   return (
                     <div key={product.id} className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-3 border-t border-slate-100 px-3 py-3 text-xs first:border-t-0">
-                      <span className="min-w-0 truncate font-semibold text-slate-800">{product.name}</span>
-                      <span className="text-slate-500">{regular ? formatMoney(regular) : "—"}</span>
+                      <span className="min-w-0 truncate font-semibold text-foreground">{product.name}</span>
+                      <span className="text-muted-foreground">{regular ? formatMoney(regular) : "—"}</span>
 
                       {pricingType === "manual" ? (
                         <input
@@ -599,7 +723,7 @@ export default function SaleEventFormClient({
                             });
                           }}
                           placeholder="Sale price"
-                          className="h-9 w-28 rounded-xl border border-slate-200 bg-white px-2 text-right text-xs font-semibold text-slate-900 outline-none focus:border-indigo-400"
+                          className="h-9 w-28 rounded-xl border border-border bg-white px-2 text-right text-xs font-semibold text-heading outline-none focus:border-ring"
                         />
                       ) : (
                         <span className="font-semibold text-emerald-700">{previewSale(product)}</span>
@@ -613,42 +737,42 @@ export default function SaleEventFormClient({
         </section>
 
         <section>
-          <label className="block cursor-pointer rounded-[26px] border border-slate-200 bg-white p-4 shadow-sm transition hover:border-violet-200">
+          <div className="flex items-center justify-between gap-4 rounded-2xl border border-border bg-card p-4">
             <div className="flex items-start gap-3">
               <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-violet-50 text-violet-700">
                 <Tag className="h-5 w-5" />
               </div>
               <div className="min-w-0 flex-1">
                 <div className="flex items-center justify-between gap-3">
-                  <span className="font-semibold text-slate-900">Homepage Visibility</span>
+                  <span className="font-semibold text-heading">Homepage Visibility</span>
                   <input
                     type="checkbox"
                     name="homepage_visible"
                     defaultChecked={homepageVisible}
-                    className="h-5 w-5 rounded border-slate-300 text-indigo-600"
+                    className="h-5 w-5 rounded border-slate-300 text-primary"
                   />
                 </div>
-                <p className="mt-1 text-xs leading-5 text-slate-500">
+                <p className="mt-1 text-xs leading-5 text-muted-foreground">
                   Visible by default when the event becomes Live.
                 </p>
               </div>
             </div>
-          </label>
+          </div>
         </section>
 
-        <section className="rounded-[28px] border border-slate-200 bg-white p-4 shadow-sm md:p-5">
+        <section className="rounded-2xl border border-border bg-card p-4 md:p-5">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <div className="flex items-center gap-2">
-                <Sparkles className="h-5 w-5 text-indigo-600" />
-                <h2 className="text-lg font-semibold text-slate-900">
+                <Sparkles className="h-5 w-5 text-primary" />
+                <h2 className="text-lg font-semibold text-heading">
                   Promotional Copy
                 </h2>
                 <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-emerald-700">
                   Editable
                 </span>
               </div>
-              <p className="mt-1 text-sm text-slate-500">
+              <p className="mt-1 text-sm text-muted-foreground">
                 Auto-generated from the event name, selected categories, offer, and dates.
               </p>
             </div>
@@ -674,23 +798,20 @@ export default function SaleEventFormClient({
               setPromoEdited(true);
             }}
             rows={4}
-            className="mt-4 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm leading-6 text-slate-800 outline-none focus:border-indigo-400 focus:bg-white"
+            className="mt-4 w-full rounded-2xl border border-border bg-surface-soft px-4 py-3 text-sm leading-6 text-foreground outline-none focus:border-ring focus:bg-white"
           />
         </section>
 
         <div className="sticky bottom-3 z-20 flex items-center justify-between gap-3 rounded-[24px] border border-white/80 bg-white/95 p-3 shadow-[0_18px_50px_rgba(15,23,42,0.16)] backdrop-blur md:static md:justify-end md:bg-transparent md:p-0 md:shadow-none">
           <Link
             href="/offers-discounts/sale-events"
-            className="inline-flex h-11 items-center justify-center rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+            className="ls-focus-ring inline-flex min-h-11 items-center justify-center rounded-xl border border-border bg-card px-4 text-sm font-semibold text-foreground hover:bg-muted"
           >
             Cancel
           </Link>
-          <button
-            type="submit"
-            className="inline-flex h-11 items-center justify-center rounded-2xl bg-gradient-to-r from-[#8b5cff] to-[#ff7ac3] px-5 text-sm font-semibold text-white shadow-sm transition hover:brightness-105"
-          >
-            {mode === "create" ? "Create Sale Event" : "Save Changes"}
-          </button>
+          <SaleEventSubmitButton
+            mode={mode}
+          />
         </div>
       </form>
     </main>
