@@ -1,21 +1,32 @@
-// src/app/media/page.tsx
-import MediaClient from "@/components/MediaClient";
+import {
+  Images,
+} from "lucide-react";
 
-export const dynamic = "force-dynamic";
+import MediaClient from "@/components/MediaClient";
+import {
+  PageHeader,
+} from "@/components/ui/page-header";
+
+export const dynamic =
+  "force-dynamic";
 
 export default function MediaPage() {
   return (
-    <main className="mx-auto max-w-6xl px-4 py-6 md:px-6">
-      {/* Header */}
-      <div className="mb-5 rounded-2xl bg-gradient-to-r from-violet-50 via-sky-50 to-rose-50 px-5 py-4">
-        <h1 className="text-xl font-semibold text-slate-900">Media</h1>
-        <p className="mt-1 text-sm text-slate-600">
-          Upload, preview and reuse images across your store. Use bulk actions
-          to copy URLs or delete unused files.
-        </p>
+    <main className="ls-page mx-auto max-w-[1440px] pb-28 md:pb-8">
+      <div className="hidden md:block">
+        <PageHeader
+          eyebrow="Catalog"
+          icon={Images}
+          title="Media"
+          description="Upload and manage reusable store media."
+        />
       </div>
 
-      <MediaClient defaultView="grid" />
+      <div className="md:mt-5">
+        <MediaClient
+          defaultView="grid"
+        />
+      </div>
     </main>
   );
 }
