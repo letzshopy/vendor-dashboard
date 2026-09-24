@@ -19,7 +19,7 @@ import {
   Smartphone,
 } from "lucide-react";
 
-import EasebuzzPanel from "@/app/(dashboard)/settings/ui/payments/EasebuzzPanel";
+import PayGlocalPanel from "@/app/(dashboard)/settings/ui/payments/PayGlocalPanel";
 import UPIPanel from "@/app/(dashboard)/settings/ui/payments/UPIPanel";
 import BankTransferPanel from "@/app/(dashboard)/settings/ui/payments/BankTransferPanel";
 import CODPanel from "@/app/(dashboard)/settings/ui/payments/CODPanel";
@@ -29,14 +29,9 @@ const DEFAULT_VALUES: PaymentsFormValues = {
     enabled: true,
     default_status: "processing",
   },
-  easebuzz: {
+  payglocal: {
     enabled: false,
-    mode: "test",
-    merchant_key: "",
-    salt: "",
-    merchant_id: "",
-    webhook_secret: "",
-    hint: "easebuzz",
+    gateway_id: "payglocal_payment_gateway",
   },
   upi: {
     enabled: false,
@@ -321,7 +316,7 @@ export default function PaymentsTab() {
   const [showGlobalAdvanced, setShowGlobalAdvanced] = useState(false);
 
   const paymentsEnabled = watch("general.enabled");
-  const easebuzzEnabled = watch("easebuzz.enabled");
+  const payglocalEnabled = watch("payglocal.enabled");
   const upiEnabled = watch("upi.enabled");
   const bankEnabled = watch("bank.enabled");
   const codEnabled = watch("cod.enabled");
@@ -356,14 +351,11 @@ export default function PaymentsTab() {
                 : true,
             default_status: data.general?.default_status || "processing",
           },
-          easebuzz: {
-            enabled: !!data.easebuzz?.enabled,
-            mode: data.easebuzz?.mode || "test",
-            merchant_key: data.easebuzz?.merchant_key || "",
-            salt: data.easebuzz?.salt || "",
-            merchant_id: data.easebuzz?.merchant_id || "",
-            webhook_secret: data.easebuzz?.webhook_secret || "",
-            hint: data.easebuzz?.hint || "easebuzz",
+          payglocal: {
+            enabled: !!data.payglocal?.enabled,
+            gateway_id:
+              data.payglocal?.gateway_id ||
+              "payglocal_payment_gateway",
           },
           upi: {
             enabled: !!data.upi?.enabled,
@@ -423,12 +415,12 @@ export default function PaymentsTab() {
 
   const enabledCount = useMemo(() => {
     let count = 0;
-    if (easebuzzEnabled) count += 1;
+    if (payglocalEnabled) count += 1;
     if (upiEnabled) count += 1;
     if (bankEnabled) count += 1;
     if (codEnabled) count += 1;
     return count;
-  }, [easebuzzEnabled, upiEnabled, bankEnabled, codEnabled]);
+  }, [payglocalEnabled, upiEnabled, bankEnabled, codEnabled]);
 
   function toggleField(path: keyof PaymentsFormValues | string, value: boolean) {
     setValue(path as any, value, {
@@ -555,11 +547,11 @@ export default function PaymentsTab() {
                   <div className="space-y-3 p-4 md:p-5">
                     <MethodCard
                       icon={<CreditCard className="h-5 w-5" />}
-                      title="Easebuzz gateway"
-                      description="Accept UPI, cards and netbanking with automatic payment confirmation."
-                      enabled={!!easebuzzEnabled}
+                      title="PayGlocal gateway"
+                      description="Accept supported online payments through PayGlocal with automatic payment confirmation."
+                      enabled={!!payglocalEnabled}
                       onToggle={() =>
-                        toggleField("easebuzz.enabled", !easebuzzEnabled)
+                        toggleField("payglocal.enabled", !payglocalEnabled)
                       }
                       badge={
                         <span className="rounded-full bg-indigo-50 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-indigo-700">
@@ -567,7 +559,7 @@ export default function PaymentsTab() {
                         </span>
                       }
                     >
-                      <EasebuzzPanel />
+                      <PayGlocalPanel />
                     </MethodCard>
 
                     <MethodCard
