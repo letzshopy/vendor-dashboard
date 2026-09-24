@@ -6,12 +6,15 @@ import type {
   ReactNode,
 } from "react";
 
+import { cn } from "@/lib/utils";
+
 type BottomSheetProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   title: string;
   description?: string;
   children: ReactNode;
+  popupClassName?: string;
 };
 
 export function BottomSheet({
@@ -20,6 +23,7 @@ export function BottomSheet({
   title,
   description,
   children,
+  popupClassName,
 }: BottomSheetProps) {
   return (
     <Drawer.Root
@@ -32,7 +36,12 @@ export function BottomSheet({
           <Drawer.Backdrop className="ls-overlay" />
 
           <Drawer.Viewport className="ls-drawer-viewport">
-            <Drawer.Popup className="ls-drawer-popup">
+            <Drawer.Popup
+              className={cn(
+                "ls-drawer-popup",
+                popupClassName
+              )}
+            >
               <div className="mx-auto mt-2 h-1.5 w-12 rounded-full bg-border" />
 
               <Drawer.Content className="max-h-[calc(86dvh-var(--ls-safe-area-bottom))] overflow-y-auto overscroll-contain px-4 pb-5 pt-3 sm:px-5">
