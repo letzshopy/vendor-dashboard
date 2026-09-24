@@ -1165,6 +1165,11 @@ export default function CategoriesClient({
       value: string
     ) => void
   ) {
+    const emptyLabel =
+      editorMode === "edit"
+        ? "Keep current menu placement"
+        : "Don't add to menu";
+
     const selected =
       value
         ? menuHeadings.find(
@@ -1195,7 +1200,7 @@ export default function CategoriesClient({
             >
               {selected
                 ? selected.title
-                : "Not added to menu"}
+                : emptyLabel}
             </span>
 
             <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-180" />
@@ -1217,7 +1222,7 @@ export default function CategoriesClient({
               className="ls-focus-ring flex min-h-11 w-full items-center justify-between gap-3 rounded-lg px-3 text-left text-sm hover:bg-muted"
             >
               <span className="text-muted-foreground">
-                Not added to menu
+                {emptyLabel}
               </span>
 
               {!value ? (
