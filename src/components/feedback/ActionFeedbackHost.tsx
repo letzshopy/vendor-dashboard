@@ -39,15 +39,15 @@ const toneClass: Record<
   string
 > = {
   loading:
-    "bg-[#2E3F7D] text-white ring-[#2E3F7D]/20",
+    "bg-primary text-primary-foreground ring-primary/20",
   success:
-    "bg-[#177245] text-white ring-emerald-950/10",
+    "bg-success text-success-foreground ring-emerald-950/10",
   error:
-    "bg-[#B42318] text-white ring-red-950/10",
+    "bg-destructive text-destructive-foreground ring-red-950/10",
   warning:
-    "bg-[#A15C00] text-white ring-amber-950/10",
+    "bg-warning text-warning-foreground ring-amber-950/10",
   info:
-    "bg-[#2E3F7D] text-white ring-[#2E3F7D]/20",
+    "bg-primary text-primary-foreground ring-primary/20",
 };
 
 function FeedbackIcon({
