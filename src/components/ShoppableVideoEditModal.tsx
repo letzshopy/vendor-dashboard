@@ -402,6 +402,12 @@ export default function ShoppableVideoEditModal({
     );
 
   const [
+    replacementPreviewUrl,
+    setReplacementPreviewUrl,
+  ] =
+    useState("");
+
+  const [
     thumbnailFile,
     setThumbnailFile,
   ] =
@@ -474,6 +480,30 @@ export default function ShoppableVideoEditModal({
         selectedCategories,
       ]
     );
+
+  useEffect(() => {
+    if (!replacementFile) {
+      setReplacementPreviewUrl(
+        ""
+      );
+      return;
+    }
+
+    const url =
+      URL.createObjectURL(
+        replacementFile
+      );
+
+    setReplacementPreviewUrl(
+      url
+    );
+
+    return () => {
+      URL.revokeObjectURL(
+        url
+      );
+    };
+  }, [replacementFile]);
 
   const hasTags =
     selectedProducts.length >
@@ -844,24 +874,42 @@ export default function ShoppableVideoEditModal({
         popupClassName="md:mx-auto md:max-w-3xl"
       >
         <div className="space-y-5">
-          <section className="grid gap-3 sm:grid-cols-[5rem_minmax(0,1fr)]">
-            <div className="flex justify-start">
-              {story.thumbnail &&
-              !removeThumbnail ? (
-                // Remote WordPress media URL.
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={
-                    story.thumbnail
+          <section className="grid gap-4 md:grid-cols-[12rem_minmax(0,1fr)]">
+            <div>
+              <div className="mb-1.5 text-xs font-bold text-heading">
+                Video preview
+              </div>
+
+              <div className="overflow-hidden rounded-2xl border border-border bg-slate-950">
+                <video
+                  key={
+                    replacementPreviewUrl ||
+                    story.video_url
                   }
-                  alt=""
-                  className="h-28 w-20 rounded-xl border border-border object-cover"
+                  src={
+                    replacementPreviewUrl ||
+                    story.video_url
+                  }
+                  poster={
+                    replacementPreviewUrl
+                      ? undefined
+                      : !removeThumbnail
+                        ? story.thumbnail ||
+                          undefined
+                        : undefined
+                  }
+                  controls
+                  playsInline
+                  preload="metadata"
+                  className="aspect-[9/16] max-h-[22rem] w-full bg-slate-950 object-contain"
                 />
-              ) : (
-                <span className="grid h-28 w-20 place-items-center rounded-xl bg-muted text-muted-foreground">
-                  <ImagePlus className="h-5 w-5" />
-                </span>
-              )}
+              </div>
+
+              <div className="mt-2 text-[11px] font-semibold text-muted-foreground">
+                {replacementFile
+                  ? "Previewing the replacement video."
+                  : "Current uploaded video."}
+              </div>
             </div>
 
             <div className="space-y-3">
