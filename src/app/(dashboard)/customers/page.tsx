@@ -190,24 +190,35 @@ export default async function CustomersPage({
 
   return (
     <main className="ls-page mx-auto max-w-[1440px] pb-28 md:pb-8">
-      <PageHeader
-        eyebrow="Sales"
-        icon={Users}
-        title="Customers"
-        description="Customer contacts and purchase activity."
-        actions={
-          <div className="text-right">
-            <div className="text-2xl font-extrabold tracking-tight text-heading">
-              {data.total}
+      <div className="hidden md:block">
+        <PageHeader
+          eyebrow="Sales"
+          icon={Users}
+          title="Customers"
+          description="Customer contacts and purchase activity."
+          actions={
+            <div className="text-right">
+              <div className="text-2xl font-extrabold tracking-tight text-heading">
+                {data.total}
+              </div>
+              <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+                Total customers
+              </div>
             </div>
-            <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
-              Total customers
-            </div>
-          </div>
-        }
-      />
+          }
+        />
+      </div>
 
-      <div className="mt-5">
+      <div className="flex items-baseline gap-1.5 px-0.5 py-0.5 md:hidden">
+        <span className="text-[21px] font-extrabold tracking-tight text-heading">
+          {data.total}
+        </span>
+        <span className="text-sm font-semibold text-muted-foreground">
+          customer{data.total === 1 ? "" : "s"}
+        </span>
+      </div>
+
+      <div className="mt-3 md:mt-5">
         <CustomersSearch
           initialSearch={search}
         />
