@@ -102,7 +102,7 @@ const SECTIONS: KBSection[] = [
       {
         title: "9. Order statuses and manual UPI verification",
         points: [
-          "For online gateway (Easebuzz) payments, successful payments normally move the order to Processing or Completed.",
+          "For online gateway (PayGlocal) payments, successful payments normally move the order to Processing or Completed.",
           "For Letz UPI (Manual), orders are created as On-hold with a transaction number.",
           "Use Orders → order details to verify payment and move status to Processing or Completed after confirmation.",
         ],
@@ -118,7 +118,7 @@ const SECTIONS: KBSection[] = [
         title: "10. Payment methods overview",
         points: [
           "Configure methods in Settings → Payments.",
-          "We support Easebuzz (online gateway), UPI (manual), Bank Transfer and Cash on Delivery.",
+          "We support PayGlocal (online gateway), UPI (manual), Bank Transfer and Cash on Delivery.",
           "You can enable multiple methods; customers will choose one at checkout based on your configuration.",
         ],
       },
