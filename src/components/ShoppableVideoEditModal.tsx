@@ -1348,7 +1348,9 @@ export default function ShoppableVideoEditModal({
         cancelLabel="Cancel"
         loading={busy}
         loadingLabel="Saving…"
-        onConfirm={save}
+        onConfirm={async () => {
+          await save();
+        }}
       />
     </>
   );
