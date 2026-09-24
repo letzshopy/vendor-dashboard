@@ -23,7 +23,6 @@ import {
   Sparkles,
   Truck,
   Tag,
-  X,
 } from "lucide-react";
 import {
   useUnsavedChanges,
@@ -494,7 +493,7 @@ export default function SaleEventFormClient({
         </h1>
 
         <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-          Choose products, set the offer and schedule the event.
+          Choose products, set the offer and schedule the offer.
         </p>
       </div>
 
@@ -532,12 +531,12 @@ export default function SaleEventFormClient({
         <section className="rounded-2xl border border-border bg-card p-4 md:p-5">
           <div className="flex items-center gap-2">
             <CalendarRange className="h-5 w-5 text-primary" />
-            <h2 className="text-lg font-semibold text-heading">Event Details</h2>
+            <h2 className="text-lg font-semibold text-heading">Offer Details</h2>
           </div>
 
           <div className="mt-4 grid gap-4 md:grid-cols-3">
             <div className="md:col-span-1">
-              <label className="text-sm font-semibold text-foreground">Event Title</label>
+              <label className="text-sm font-semibold text-foreground">Offer Title</label>
               <input
                 name="title"
                 required
@@ -574,7 +573,7 @@ export default function SaleEventFormClient({
           </div>
 
           <p className="mt-3 text-xs text-muted-foreground">
-            Event status is automatic: Scheduled, Live, or Closed based on these dates.
+            Offer status is automatic: Scheduled, Live, or Ended based on these dates.
           </p>
         </section>
 
@@ -667,7 +666,7 @@ export default function SaleEventFormClient({
         <section className="rounded-2xl border border-border bg-card p-4 md:p-5">
           <div className="flex items-center gap-2">
             <BadgePercent className="h-5 w-5 text-primary" />
-            <h2 className="text-lg font-semibold text-heading">Sale Pricing</h2>
+            <h2 className="text-lg font-semibold text-heading">Offer Pricing</h2>
           </div>
 
           <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -740,7 +739,7 @@ export default function SaleEventFormClient({
                   Free Shipping Offer
                 </p>
                 <p className="mt-1 text-xs leading-5 text-slate-600">
-                  Selected event products keep their regular prices and receive free shipping while this event is Live.
+                  Selected event products keep their regular prices and receive free shipping while this offer is Live.
                 </p>
               </div>
             </div>
@@ -799,7 +798,7 @@ export default function SaleEventFormClient({
               </div>
 
               <div className="mt-0.5 text-xs leading-5 text-muted-foreground">
-                Show this event in Current Offers while it is live.
+                Show this offer in Current Offers while it is live.
               </div>
             </div>
 
@@ -837,7 +836,7 @@ export default function SaleEventFormClient({
                 </span>
               </div>
               <p className="mt-1 text-sm text-muted-foreground">
-                Auto-generated from the event name, selected categories, offer, and dates.
+                Auto-generated from the offer name, selected categories, offer, and dates.
               </p>
             </div>
 
