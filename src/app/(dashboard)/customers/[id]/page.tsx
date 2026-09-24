@@ -2,7 +2,6 @@ import {
   ArrowLeft,
   CalendarDays,
   Mail,
-  MapPin,
   ShoppingBag,
 } from "lucide-react";
 import Link from "next/link";
