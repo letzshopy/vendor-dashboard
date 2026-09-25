@@ -9,11 +9,13 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@base-ui/react": "^1.8.0",
     "@google-analytics/data": "^6.1.0",
     "axios": "^1.12.2",
     "jspdf": "^3.0.4",
     "jspdf-autotable": "^5.0.2",
     "lucide-react": "^0.546.0",
+    "motion": "^13.4.2",
     "next": "^16.1.6",
     "react": "19.1.2",
     "react-dom": "19.1.2",
