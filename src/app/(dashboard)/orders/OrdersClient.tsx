@@ -203,6 +203,59 @@ function formatMoney(
   ).format(amount)}`;
 }
 
+function paymentMethodLabel(
+  order: WCOrder
+) {
+  const method =
+    String(
+      (
+        order as any
+      ).payment_method ||
+        ""
+    )
+      .trim()
+      .toLowerCase();
+
+  const title =
+    String(
+      order.payment_method_title ||
+        ""
+    ).trim();
+
+  const titleKey =
+    title.toLowerCase();
+
+  const isPayGlocal =
+    method.includes(
+      "payglocal"
+    ) ||
+    (
+      titleKey.includes(
+        "upi"
+      ) &&
+      (
+        titleKey.includes(
+          "debit"
+        ) ||
+        titleKey.includes(
+          "credit"
+        ) ||
+        titleKey.includes(
+          "netbanking"
+        )
+      )
+    );
+
+  if (isPayGlocal) {
+    return "PayGlocal Payment Gateway";
+  }
+
+  return (
+    title ||
+    "Not specified"
+  );
+}
+
 function normalizeWhatsAppPhone(
   value?: string
 ) {
@@ -477,7 +530,7 @@ function buildWhatsAppStatusMessage(
   lines.push(
     "",
     `Total: Rs. ${order.total || "0"}`,
-    `Payment method: ${order.payment_method_title || "Not specified"}`,
+    `Payment method: ${paymentMethodLabel(order)}`,
     "",
     followUpMessage,
     "",
@@ -662,8 +715,10 @@ function OrderActionSheet({
 
 function OrderStatus({
   status,
+  compact = false,
 }: {
   status?: string;
+  compact?: boolean;
 }) {
   const normalized =
     String(
@@ -686,7 +741,11 @@ function OrderStatus({
           normalized
         )
       }
-      className="whitespace-nowrap"
+      className={
+        compact
+          ? "min-h-5 whitespace-nowrap px-2 py-0.5 text-[9px]"
+          : "whitespace-nowrap"
+      }
     />
   );
 }
@@ -1485,16 +1544,25 @@ export default function OrdersClient({
                           />
 
                           <div className="min-w-0 flex-1">
-                            <Link
-                              href={`/orders/${order.id}`}
-                              className="text-xs font-extrabold text-primary hover:underline"
-                            >
-                              #
-                              {order.number ||
-                                order.id}
-                            </Link>
+                            <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+                              <Link
+                                href={`/orders/${order.id}`}
+                                className="text-xs font-extrabold text-primary hover:underline"
+                              >
+                                #
+                                {order.number ||
+                                  order.id}
+                              </Link>
 
-                            <div className="mt-0.5 truncate text-sm font-extrabold text-heading">
+                              <OrderStatus
+                                status={
+                                  order.status
+                                }
+                                compact
+                              />
+                            </div>
+
+                            <div className="mt-1 truncate text-sm font-extrabold text-heading">
                               {
                                 customerName
                               }
@@ -1589,22 +1657,15 @@ export default function OrdersClient({
                           </div>
                         </div>
 
-                        <div className="mt-3 flex flex-wrap items-center gap-2">
-                          <OrderStatus
-                            status={
-                              order.status
-                            }
-                          />
-                        </div>
-
                         <div className="mt-3 grid grid-cols-2 overflow-hidden rounded-xl border border-border bg-surface-soft text-xs">
                           <div className="min-w-0 p-2.5">
                             <div className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
                               Payment
                             </div>
                             <div className="mt-1 truncate font-bold text-foreground">
-                              {order.payment_method_title ||
-                                "Not specified"}
+                              {paymentMethodLabel(
+                                order
+                              )}
                             </div>
                           </div>
 
@@ -1832,8 +1893,9 @@ export default function OrdersClient({
 
                       <td className="max-w-48 px-4 py-4">
                         <div className="text-sm font-semibold text-foreground">
-                          {order.payment_method_title ||
-                            "—"}
+                          {paymentMethodLabel(
+                            order
+                          )}
                         </div>
                         <UPIVerificationInline
                           order={
