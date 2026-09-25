@@ -115,10 +115,10 @@ function MethodCard({
           : "border-border",
       ].join(" ")}
     >
-      <div className="flex items-start gap-3 px-4 py-3.5 md:px-5">
+      <div className="flex items-start gap-3 px-3 py-3 md:px-5 md:py-3.5">
         <span
           className={[
-            "grid h-10 w-10 shrink-0 place-items-center rounded-xl",
+            "grid h-9 w-9 shrink-0 place-items-center rounded-lg md:h-10 md:w-10 md:rounded-xl",
             enabled
               ? "bg-primary text-primary-foreground"
               : "bg-secondary text-secondary-foreground",
@@ -142,7 +142,7 @@ function MethodCard({
             {badge}
           </div>
 
-          <p className="mt-0.5 text-xs leading-5 text-muted-foreground">
+          <p className="mt-0.5 hidden text-xs leading-5 text-muted-foreground md:block">
             {description}
           </p>
         </button>
@@ -156,7 +156,7 @@ function MethodCard({
       </div>
 
       {enabled ? (
-        <div className="border-t border-border bg-surface-soft p-4 md:p-5">
+        <div className="border-t border-border bg-surface-soft p-3 md:p-5">
           <div className="rounded-2xl border border-border bg-card p-4">
             {children}
           </div>
@@ -664,8 +664,8 @@ export default function PaymentsTab() {
           ) : null}
 
           <section className="rounded-2xl border border-border bg-card">
-            <div className="flex items-start gap-3 px-4 py-3.5 md:px-5">
-              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-secondary text-secondary-foreground">
+            <div className="flex items-start gap-3 px-3 py-3 md:px-5 md:py-3.5">
+              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg md:h-10 md:w-10 md:rounded-xl bg-secondary text-secondary-foreground">
                 <Settings2 className="h-4.5 w-4.5" />
               </span>
 
@@ -674,7 +674,7 @@ export default function PaymentsTab() {
                   Accept payments
                 </div>
 
-                <p className="mt-0.5 text-xs leading-5 text-muted-foreground">
+                <p className="mt-0.5 hidden text-xs leading-5 text-muted-foreground md:block">
                   Show or hide all checkout payment methods.
                 </p>
               </div>
@@ -913,8 +913,8 @@ export default function PaymentsTab() {
           ) : null}
 
           <div className="sticky bottom-[calc(5.1rem+var(--ls-safe-area-bottom))] z-20 md:bottom-4">
-            <div className="flex items-center justify-between gap-3 rounded-2xl border border-border bg-card/95 p-2.5 shadow-[0_14px_36px_rgba(38,51,95,0.14)] backdrop-blur">
-              <div className="min-w-0 px-1">
+            <div className="flex items-center justify-between gap-2 rounded-xl border border-border bg-card/95 p-2 shadow-[0_12px_28px_rgba(38,51,95,0.12)] backdrop-blur md:gap-3 md:rounded-2xl md:p-2.5">
+              <div className="hidden min-w-0 px-1 sm:block">
                 <div className="text-xs font-bold text-heading">
                   {isDirty
                     ? "Unsaved payment changes"
