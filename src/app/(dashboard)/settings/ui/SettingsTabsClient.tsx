@@ -207,44 +207,6 @@ export default function SettingsTabsClient({
         );
       case "shippingDelivery":
         return (
-          <ShippingDeliveryTab
-            storeType={
-              storeType
-            }
-          />
-        );
-      case "payments":
-        return <PaymentsTab />;
-      case "setupSite":
-        return <SetupSiteTab />;
-      case "kyc":
-        return <KycTab />;
-      default:
-        return (
-          <ProfileAccountTab />
-        );
-    }
-  }
-
-  return (
-          <ShippingDeliveryTab
-            storeType={
-              storeType
-            }
-          />
-        );
-      case "tax":
-        return <TaxTab />;
-      case "payments":
-        return <PaymentsTab />;
-      case "account":
-        return <AccountTab />;
-      default:
-        return <ProfileTab />;
-    }
-  }
-
-  return (
     <>
       <div className="md:hidden">
         <button
