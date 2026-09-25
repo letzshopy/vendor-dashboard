@@ -79,8 +79,8 @@ function Section({
 }) {
   return (
     <section className="rounded-2xl border border-border bg-card">
-      <div className="flex items-start gap-3 border-b border-border px-4 py-3.5 md:px-5">
-        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-secondary text-secondary-foreground">
+      <div className="flex items-start gap-3 border-b border-border px-3 py-3 md:px-5 md:py-3.5">
+        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg md:h-10 md:w-10 md:rounded-xl bg-secondary text-secondary-foreground">
           {icon}
         </span>
 
@@ -90,14 +90,14 @@ function Section({
           </h2>
 
           {description ? (
-            <p className="mt-0.5 text-xs leading-5 text-muted-foreground">
+            <p className="mt-0.5 hidden text-xs leading-5 text-muted-foreground md:block">
               {description}
             </p>
           ) : null}
         </div>
       </div>
 
-      <div className="p-4 md:p-5">
+      <div className="p-3 md:p-5">
         {children}
       </div>
     </section>
@@ -351,7 +351,7 @@ function DocRow({
     <div className="flex min-h-[76px] items-center gap-3 border-b border-border px-4 py-3 last:border-b-0 md:px-5">
       <span
         className={[
-          "grid h-10 w-10 shrink-0 place-items-center rounded-xl",
+          "grid h-9 w-9 shrink-0 place-items-center rounded-lg md:h-10 md:w-10 md:rounded-xl",
           current
             ? "bg-emerald-50 text-emerald-700"
             : "bg-secondary text-secondary-foreground",
@@ -1300,10 +1300,10 @@ export default function KycTab() {
 
   return (
     <div className="space-y-4">
-      <section className="rounded-2xl border border-border bg-card px-4 py-3.5 md:px-5">
+      <section className="rounded-2xl border border-border bg-card px-3 py-3 md:px-5 md:py-3.5">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex min-w-0 items-center gap-3">
-            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-secondary text-secondary-foreground">
+            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg md:h-10 md:w-10 md:rounded-xl bg-secondary text-secondary-foreground">
               <BadgeCheck className="h-4.5 w-4.5" />
             </span>
 
@@ -1631,8 +1631,8 @@ export default function KycTab() {
       </div>
 
       <section className="overflow-hidden rounded-2xl border border-border bg-card">
-        <div className="flex items-start gap-3 border-b border-border px-4 py-3.5 md:px-5">
-          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-secondary text-secondary-foreground">
+        <div className="flex items-start gap-3 border-b border-border px-3 py-3 md:px-5 md:py-3.5">
+          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg md:h-10 md:w-10 md:rounded-xl bg-secondary text-secondary-foreground">
             <FileBadge2 className="h-4.5 w-4.5" />
           </span>
 
@@ -1641,7 +1641,7 @@ export default function KycTab() {
               Documents
             </h2>
 
-            <p className="mt-0.5 text-xs leading-5 text-muted-foreground">
+            <p className="mt-0.5 hidden text-xs leading-5 text-muted-foreground md:block">
               Upload clear JPG, PNG or PDF copies.
             </p>
           </div>
@@ -1736,7 +1736,7 @@ export default function KycTab() {
       {!readOnly ? (
         <div className="sticky bottom-[calc(5.1rem+var(--ls-safe-area-bottom))] z-20 md:bottom-4">
           <div className="flex flex-col gap-3 rounded-2xl border border-border bg-card/95 p-2.5 shadow-[0_14px_36px_rgba(38,51,95,0.14)] backdrop-blur sm:flex-row sm:items-center sm:justify-between">
-            <div className="min-w-0 px-1">
+            <div className="hidden min-w-0 px-1 sm:block">
               <div className="text-xs font-bold text-heading">
                 {isDirty
                   ? "Unsaved KYC changes"
