@@ -1,49 +1,123 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
 import {
+  ArrowDown,
+  ArrowUp,
+  Check,
+  ChevronDown,
+  FileText,
+  FolderTree,
   Link2,
-  Loader2,
   MenuSquare,
+  MoreVertical,
+  MoveRight,
   Plus,
-  RefreshCcw,
-  Save,
+  RefreshCw,
+  Search,
   Trash2,
+  X,
 } from "lucide-react";
+import {
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 
-/** TYPES */
+import {
+  AsyncButton,
+} from "@/components/ui/async-button";
+import {
+  BottomSheet,
+} from "@/components/ui/bottom-sheet";
+import {
+  Button,
+} from "@/components/ui/button";
+import {
+  ConfirmDialog,
+} from "@/components/ui/confirm-dialog";
+import {
+  EmptyState,
+} from "@/components/ui/empty-state";
+import {
+  Input,
+} from "@/components/ui/input";
+import {
+  PageHeader,
+} from "@/components/ui/page-header";
+import {
+  Skeleton,
+} from "@/components/ui/skeleton";
+import {
+  actionFeedback,
+} from "@/lib/actionFeedback";
+
 type MenuItem = {
   id: string;
-  type: "page" | "category" | "custom";
+  type:
+    | "page"
+    | "category"
+    | "custom";
   title: string;
   url?: string;
   refId?: number;
   children?: MenuItem[];
 };
 
-type MenuKey = "primary" | "footer_discover" | "footer_info";
+type MenuKey =
+  | "primary"
+  | "footer_discover"
+  | "footer_info";
 
 type MenuDef = {
   key: MenuKey;
   label: string;
   wpName: string;
   also: string[];
-  loadMode: "menu_id" | "location";
-  saveMode: "menu_id" | "location";
+  loadMode:
+    | "menu_id"
+    | "location";
+  saveMode:
+    | "menu_id"
+    | "location";
 };
+
+type MoveTarget = {
+  id:
+    | string
+    | null;
+  label: string;
+  depth: number;
+};
+
+type ItemActionContext = {
+  item: MenuItem;
+  parentId:
+    | string
+    | null;
+  index: number;
+  siblingCount: number;
+  level: number;
+};
+
+type AddTab =
+  | "category"
+  | "page"
+  | "custom";
 
 const MENUS: MenuDef[] = [
   {
     key: "primary",
-    label: "Primary Menu",
+    label: "Website Menu",
     wpName: "Main Menu",
-    also: ["Off-Canvas Menu"],
+    also: [
+      "Off-Canvas Menu",
+    ],
     loadMode: "menu_id",
     saveMode: "location",
   },
   {
     key: "footer_discover",
-    label: "Footer - Discover",
+    label: "Footer – Shop Links",
     wpName: "Footer Menu",
     also: [],
     loadMode: "menu_id",
@@ -51,7 +125,8 @@ const MENUS: MenuDef[] = [
   },
   {
     key: "footer_info",
-    label: "Footer - Information",
+    label:
+      "Footer – Information",
     wpName: "Top Menu",
     also: [],
     loadMode: "menu_id",
@@ -59,70 +134,128 @@ const MENUS: MenuDef[] = [
   },
 ];
 
-const STORAGE_KEY = (k: MenuKey) => `ls_menu_${k}_v7`;
-const uid = () => Math.random().toString(36).slice(2, 9);
+const STORAGE_KEY = (
+  key: MenuKey
+) =>
+  "ls_menu_" +
+  key +
+  "_v7";
 
-/** ---------- helpers ---------- */
-
-function deepClone<T>(x: T): T {
-  return JSON.parse(JSON.stringify(x));
+function uid() {
+  return Math.random()
+    .toString(36)
+    .slice(2, 9);
 }
 
-function findNodeById(items: MenuItem[], id: string): MenuItem | null {
-  for (const item of items) {
-    if (item.id === id) return item;
-    const found = findNodeById(item.children || [], id);
-    if (found) return found;
-  }
-  return null;
+function deepClone<T>(
+  value: T
+): T {
+  return JSON.parse(
+    JSON.stringify(value)
+  );
 }
 
 function removeNodeById(
   items: MenuItem[],
   id: string
-): { next: MenuItem[]; removed: MenuItem | null } {
-  const next = deepClone(items);
+): {
+  next: MenuItem[];
+  removed:
+    | MenuItem
+    | null;
+} {
+  const next =
+    deepClone(items);
 
-  function walk(list: MenuItem[]): MenuItem | null {
-    const idx = list.findIndex((x) => x.id === id);
-    if (idx >= 0) {
-      const [removed] = list.splice(idx, 1);
+  function walk(
+    list: MenuItem[]
+  ): MenuItem | null {
+    const index =
+      list.findIndex(
+        (item) =>
+          item.id === id
+      );
+
+    if (index >= 0) {
+      const [removed] =
+        list.splice(
+          index,
+          1
+        );
+
       return removed;
     }
 
-    for (const item of list) {
-      const removed = walk(item.children || []);
-      if (removed) return removed;
+    for (
+      const item of list
+    ) {
+      const removed =
+        walk(
+          item.children ||
+            []
+        );
+
+      if (removed) {
+        return removed;
+      }
     }
 
     return null;
   }
 
-  const removed = walk(next);
-  return { next, removed };
+  return {
+    next,
+    removed:
+      walk(next),
+  };
 }
 
 function insertNodeUnderParent(
   items: MenuItem[],
-  parentId: string | null,
+  parentId:
+    | string
+    | null,
   node: MenuItem
 ) {
-  const next = deepClone(items);
+  const next =
+    deepClone(items);
 
   if (!parentId) {
     next.push(node);
     return next;
   }
 
-  function walk(list: MenuItem[]): boolean {
-    for (const item of list) {
-      if (item.id === parentId) {
-        item.children = item.children || [];
-        item.children.push(node);
+  function walk(
+    list: MenuItem[]
+  ): boolean {
+    for (
+      const item of list
+    ) {
+      if (
+        item.id ===
+        parentId
+      ) {
+        item.children =
+          item.children ||
+          [];
+
+        item.children.push(
+          node
+        );
+
         return true;
       }
-      if (walk(item.children || [])) return true;
+
+      if (
+        walk(
+          item.children ||
+            []
+        )
+      ) {
+        return true;
+      }
     }
+
     return false;
   }
 
@@ -130,414 +263,1471 @@ function insertNodeUnderParent(
   return next;
 }
 
-function moveNode(items: MenuItem[], nodeId: string, newParentId: string | null) {
-  const { next, removed } = removeNodeById(items, nodeId);
-  if (!removed) return items;
-  return insertNodeUnderParent(next, newParentId, removed);
+function moveNode(
+  items: MenuItem[],
+  nodeId: string,
+  newParentId:
+    | string
+    | null
+) {
+  const {
+    next,
+    removed,
+  } =
+    removeNodeById(
+      items,
+      nodeId
+    );
+
+  if (!removed) {
+    return items;
+  }
+
+  return insertNodeUnderParent(
+    next,
+    newParentId,
+    removed
+  );
 }
 
 function reorderWithinParent(
   items: MenuItem[],
-  parentId: string | null,
+  parentId:
+    | string
+    | null,
   nodeId: string,
-  direction: "up" | "down"
+  direction:
+    | "up"
+    | "down"
 ) {
-  const next = deepClone(items);
+  const next =
+    deepClone(items);
 
-  function getList(list: MenuItem[]): MenuItem[] | null {
-    if (parentId === null) return list;
+  function getList(
+    list: MenuItem[]
+  ): MenuItem[] | null {
+    if (
+      parentId === null
+    ) {
+      return list;
+    }
 
-    for (const item of list) {
-      if (item.id === parentId) return item.children || [];
-      const found = getList(item.children || []);
-      if (found) return found;
+    for (
+      const item of list
+    ) {
+      if (
+        item.id ===
+        parentId
+      ) {
+        return (
+          item.children ||
+          []
+        );
+      }
+
+      const found =
+        getList(
+          item.children ||
+            []
+        );
+
+      if (found) {
+        return found;
+      }
     }
 
     return null;
   }
 
-  const siblings = getList(next);
-  if (!siblings) return items;
+  const siblings =
+    getList(next);
 
-  const idx = siblings.findIndex((x) => x.id === nodeId);
-  if (idx === -1) return items;
-
-  if (direction === "up" && idx > 0) {
-    [siblings[idx - 1], siblings[idx]] = [siblings[idx], siblings[idx - 1]];
+  if (!siblings) {
+    return items;
   }
 
-  if (direction === "down" && idx < siblings.length - 1) {
-    [siblings[idx + 1], siblings[idx]] = [siblings[idx], siblings[idx + 1]];
+  const index =
+    siblings.findIndex(
+      (item) =>
+        item.id ===
+        nodeId
+    );
+
+  if (index < 0) {
+    return items;
+  }
+
+  if (
+    direction === "up" &&
+    index > 0
+  ) {
+    [
+      siblings[index - 1],
+      siblings[index],
+    ] = [
+      siblings[index],
+      siblings[index - 1],
+    ];
+  }
+
+  if (
+    direction ===
+      "down" &&
+    index <
+      siblings.length -
+        1
+  ) {
+    [
+      siblings[index + 1],
+      siblings[index],
+    ] = [
+      siblings[index],
+      siblings[index + 1],
+    ];
   }
 
   return next;
 }
 
-type MoveTarget = {
-  id: string | null;
-  label: string;
-  depth: number;
-};
-
 function flattenMoveTargets(
   items: MenuItem[],
   excludeId?: string,
   depth = 0,
-  out: MoveTarget[] = [{ id: null, label: "Main Menu", depth: 0 }]
+  out: MoveTarget[] = [
+    {
+      id: null,
+      label: "Top level",
+      depth: 0,
+    },
+  ]
 ): MoveTarget[] {
-  for (const item of items) {
-    if (item.id === excludeId) continue;
-    out.push({ id: item.id, label: item.title, depth });
-    flattenMoveTargets(item.children || [], excludeId, depth + 1, out);
+  for (
+    const item of items
+  ) {
+    if (
+      item.id ===
+      excludeId
+    ) {
+      continue;
+    }
+
+    out.push({
+      id: item.id,
+      label: item.title,
+      depth,
+    });
+
+    flattenMoveTargets(
+      item.children ||
+        [],
+      excludeId,
+      depth + 1,
+      out
+    );
   }
+
   return out;
 }
 
-/** ---------- page ---------- */
+function normalizeUrl(
+  url: string
+) {
+  const raw =
+    (url || "").trim();
 
-export default function MenuLayoutPage() {
-  const [menuKey, setMenuKey] = useState<MenuKey>("primary");
-  const [items, setItems] = useState<MenuItem[]>([]);
-  const [cats, setCats] = useState<{ id: number; name: string }[]>([]);
-  const [pages, setPages] = useState<{ id: number; name: string; url: string }[]>(
-    []
-  );
-  const [custom, setCustom] = useState({ title: "", url: "" });
-
-  const [syncing, setSyncing] = useState(false);
-  const [loadingMenu, setLoadingMenu] = useState(false);
-  const [bootLoading, setBootLoading] = useState(true);
-
-  const [msg, setMsg] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
-  const [menuMap, setMenuMap] = useState<Record<string, number>>({});
-
-  const [selectedPageId, setSelectedPageId] = useState("");
-  const [selectedCatId, setSelectedCatId] = useState("");
-
-  const currentDef = useMemo(
-    () => MENUS.find((m) => m.key === menuKey)!,
-    [menuKey]
-  );
-
-  const pageUrlSet = useMemo(
-    () => new Set(pages.map((p) => normalizeUrl(p.url))),
-    [pages]
-  );
-
-  function notify(t: string) {
-    setSuccess(null);
-    setMsg(t);
-    setTimeout(() => {
-      setMsg((cur) => (cur === t ? null : cur));
-    }, 3500);
-  }
-
-  function ok(t: string) {
-    setMsg(null);
-    setSuccess(t);
-    setTimeout(() => {
-      setSuccess((cur) => (cur === t ? null : cur));
-    }, 3500);
-  }
-
-  function normalizeUrl(url: string) {
-  const raw = (url || "").trim();
-
-  // keep empty/hash/javascript links from turning into "/"
-  if (!raw || raw === "#" || raw.startsWith("#") || raw.startsWith("javascript:")) {
+  if (
+    !raw ||
+    raw === "#" ||
+    raw.startsWith("#") ||
+    raw.startsWith(
+      "javascript:"
+    )
+  ) {
     return raw;
   }
 
   try {
-    const u = new URL(raw, "http://fake");
-    let p = u.pathname || "/";
-    if (p.length > 1) p = p.replace(/\/+$/, "");
-    return p === "" ? "/" : p;
-  } catch {
-    let p = raw;
-    if (!p.startsWith("/")) {
-      try {
-        const u = new URL(p);
-        p = u.pathname || "/";
-      } catch {
-        return raw;
-      }
+    const parsed =
+      new URL(
+        raw,
+        "http://fake"
+      );
+
+    let pathname =
+      parsed.pathname ||
+      "/";
+
+    if (
+      pathname.length > 1
+    ) {
+      pathname =
+        pathname.replace(
+          /\/+$/,
+          ""
+        );
     }
-    if (p.length > 1) p = p.replace(/\/+$/, "");
-    return p === "" ? "/" : p;
+
+    return (
+      pathname || "/"
+    );
+  } catch {
+    return raw;
   }
 }
 
-function classifyType(
-  url?: string,
-  title?: string,
-  refId?: number,
-  sourceType?: string
-): MenuItem["type"] {
-  const raw = (url || "").trim();
-  const u = normalizeUrl(raw);
-  const s = (sourceType || "").toLowerCase();
+function slugify(
+  value: string
+) {
+  return value
+    .toLowerCase()
+    .replace(
+      /[^a-z0-9]+/g,
+      "-"
+    )
+    .replace(
+      /(^-|-$)/g,
+      ""
+    );
+}
 
-  // 1) explicit WP/source type wins
-  if (s.includes("category") || s.includes("product_cat")) return "category";
-  if (s.includes("page")) return "page";
-  if (s.includes("custom")) return "custom";
+function typeLabel(
+  type: MenuItem["type"]
+) {
+  if (
+    type === "page"
+  ) {
+    return "Page";
+  }
 
-  // 2) hash / anchor / js / blank links are custom links
-  if (!raw || raw === "#" || raw.startsWith("#") || raw.startsWith("javascript:")) {
+  if (
+    type === "category"
+  ) {
+    return "Category";
+  }
+
+  return "Link";
+}
+
+function MenuSkeleton() {
+  return (
+    <div className="overflow-hidden rounded-2xl border border-border bg-card">
+      {Array.from({
+        length: 6,
+      }).map(
+        (
+          _,
+          index
+        ) => (
+          <div
+            key={index}
+            className="flex min-h-[68px] items-center gap-3 border-b border-border px-4 py-3 last:border-b-0"
+          >
+            <Skeleton className="h-9 w-9 rounded-xl" />
+
+            <div className="min-w-0 flex-1 space-y-2">
+              <Skeleton className="h-4 w-2/5" />
+              <Skeleton className="h-3 w-1/4" />
+            </div>
+
+            <Skeleton className="h-9 w-9 rounded-xl" />
+          </div>
+        )
+      )}
+    </div>
+  );
+}
+
+export default function MenuLayoutPage() {
+  const [
+    menuKey,
+    setMenuKey,
+  ] =
+    useState<MenuKey>(
+      "primary"
+    );
+
+  const [
+    items,
+    setItems,
+  ] =
+    useState<MenuItem[]>(
+      []
+    );
+
+  const [
+    cats,
+    setCats,
+  ] =
+    useState<
+      {
+        id: number;
+        name: string;
+      }[]
+    >([]);
+
+  const [
+    pages,
+    setPages,
+  ] =
+    useState<
+      {
+        id: number;
+        name: string;
+        url: string;
+      }[]
+    >([]);
+
+  const [
+    custom,
+    setCustom,
+  ] =
+    useState({
+      title: "",
+      url: "",
+    });
+
+  const [
+    syncing,
+    setSyncing,
+  ] =
+    useState(false);
+
+  const [
+    loadingMenu,
+    setLoadingMenu,
+  ] =
+    useState(false);
+
+  const [
+    bootLoading,
+    setBootLoading,
+  ] =
+    useState(true);
+
+  const [
+    menuMap,
+    setMenuMap,
+  ] =
+    useState<
+      Record<
+        string,
+        number
+      >
+    >({});
+
+  const [
+    dirty,
+    setDirty,
+  ] =
+    useState(false);
+
+  const [
+    menuPickerOpen,
+    setMenuPickerOpen,
+  ] =
+    useState(false);
+
+  const [
+    addOpen,
+    setAddOpen,
+  ] =
+    useState(false);
+
+  const [
+    addTab,
+    setAddTab,
+  ] =
+    useState<AddTab>(
+      "category"
+    );
+
+  const [
+    addSearch,
+    setAddSearch,
+  ] =
+    useState("");
+
+  const [
+    actionContext,
+    setActionContext,
+  ] =
+    useState<
+      ItemActionContext | null
+    >(null);
+
+  const [
+    moveOpen,
+    setMoveOpen,
+  ] =
+    useState(false);
+
+  const [
+    removeTarget,
+    setRemoveTarget,
+  ] =
+    useState<
+      ItemActionContext | null
+    >(null);
+
+  const [
+    pendingMenuKey,
+    setPendingMenuKey,
+  ] =
+    useState<
+      MenuKey | null
+    >(null);
+
+  const [
+    discardOpen,
+    setDiscardOpen,
+  ] =
+    useState(false);
+
+  const currentDef =
+    useMemo(
+      () =>
+        MENUS.find(
+          (menu) =>
+            menu.key ===
+            menuKey
+        )!,
+      [menuKey]
+    );
+
+  const pageUrlSet =
+    useMemo(
+      () =>
+        new Set(
+          pages.map(
+            (page) =>
+              normalizeUrl(
+                page.url
+              )
+          )
+        ),
+      [pages]
+    );
+
+  const filteredPages =
+    useMemo(() => {
+      const query =
+        addSearch
+          .trim()
+          .toLowerCase();
+
+      const source =
+        !query
+          ? pages
+          : pages.filter(
+              (page) =>
+                page.name
+                  .toLowerCase()
+                  .includes(
+                    query
+                  )
+            );
+
+      return source.slice(
+        0,
+        80
+      );
+    }, [
+      pages,
+      addSearch,
+    ]);
+
+  const filteredCats =
+    useMemo(() => {
+      const query =
+        addSearch
+          .trim()
+          .toLowerCase();
+
+      const source =
+        !query
+          ? cats
+          : cats.filter(
+              (category) =>
+                category.name
+                  .toLowerCase()
+                  .includes(
+                    query
+                  )
+            );
+
+      return source.slice(
+        0,
+        80
+      );
+    }, [
+      cats,
+      addSearch,
+    ]);
+
+  const moveTargets =
+    useMemo(
+      () =>
+        actionContext
+          ? flattenMoveTargets(
+              items,
+              actionContext
+                .item.id
+            )
+          : [],
+      [
+        items,
+        actionContext,
+      ]
+    );
+
+  function classifyType(
+    url?: string,
+    sourceType?: string
+  ): MenuItem["type"] {
+    const raw =
+      (url || "").trim();
+
+    const normalized =
+      normalizeUrl(raw);
+
+    const source =
+      (
+        sourceType ||
+        ""
+      ).toLowerCase();
+
+    if (
+      source.includes(
+        "category"
+      ) ||
+      source.includes(
+        "product_cat"
+      )
+    ) {
+      return "category";
+    }
+
+    if (
+      source.includes(
+        "page"
+      )
+    ) {
+      return "page";
+    }
+
+    if (
+      source.includes(
+        "custom"
+      )
+    ) {
+      return "custom";
+    }
+
+    if (
+      !raw ||
+      raw === "#" ||
+      raw.startsWith(
+        "#"
+      ) ||
+      raw.startsWith(
+        "javascript:"
+      )
+    ) {
+      return "custom";
+    }
+
+    if (
+      /\/product-category\/|product_cat|\/category\//i.test(
+        normalized
+      )
+    ) {
+      return "category";
+    }
+
+    if (
+      pageUrlSet.has(
+        normalized
+      )
+    ) {
+      return "page";
+    }
+
     return "custom";
   }
 
-  // 3) category URL patterns
-  if (/\/product-category\/|product_cat|\/category\//i.test(u)) {
-    return "category";
+  function toLocalTree(
+    nodes: unknown[]
+  ): MenuItem[] {
+    return (
+      nodes || []
+    ).map(
+      (
+        rawNode: unknown
+      ) => {
+        const node =
+          rawNode as {
+            title?: string;
+            url?: string;
+            refId?: number;
+            type?: string;
+            children?: unknown[];
+          };
+
+        return {
+          id: uid(),
+          type:
+            classifyType(
+              node.url,
+              node.type
+            ),
+          title:
+            node.title ||
+            "Untitled",
+          url: node.url,
+          refId:
+            node.refId,
+          children:
+            node.children
+              ? toLocalTree(
+                  node.children
+                )
+              : [],
+        };
+      }
+    );
   }
 
-  // 4) exact known page URL match only
-  if (pageUrlSet.has(u)) return "page";
-
-  // 5) fallback
-  return "custom";
-}
-  function toLocalTree(nodes: any[]): MenuItem[] {
-  return (nodes || []).map((n: any) => ({
-    id: uid(),
-    type: classifyType(n.url, n.title, n.refId, n.type),
-    title: n.title,
-    url: n.url,
-    refId: n.refId,
-    children: n.children ? toLocalTree(n.children) : [],
-  }));
-}
-  function reclassifyTree(n: MenuItem): MenuItem {
-  return {
-    ...n,
-    type: classifyType(n.url, n.title, n.refId, n.type),
-    children: n.children?.map(reclassifyTree) || [],
-  };
-}
-
-  const slugify = (s: string) =>
-    s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+  function reclassifyTree(
+    item: MenuItem
+  ): MenuItem {
+    return {
+      ...item,
+      type:
+        classifyType(
+          item.url,
+          item.type
+        ),
+      children:
+        item.children?.map(
+          reclassifyTree
+        ) || [],
+    };
+  }
 
   useEffect(() => {
     async function boot() {
       try {
-        const [catsRes, pagesRes, menusRes] = await Promise.all([
-          fetch("/api/taxonomies/categories"),
-          fetch("/api/wp/pages"),
-          fetch("/api/menu/menus"),
-        ]);
+        const [
+          catsResponse,
+          pagesResponse,
+          menusResponse,
+        ] =
+          await Promise.all([
+            fetch(
+              "/api/taxonomies/categories"
+            ),
+            fetch(
+              "/api/wp/pages"
+            ),
+            fetch(
+              "/api/menu/menus"
+            ),
+          ]);
 
-        const catsJson = await catsRes.json().catch(() => ({ items: [] }));
-        const pagesJson = await pagesRes.json().catch(() => ({ items: [] }));
-        const menusJson = await menusRes.json().catch(() => ({ menus: [] }));
+        const catsJson =
+          await catsResponse
+            .json()
+            .catch(
+              () => ({
+                items: [],
+              })
+            );
+
+        const pagesJson =
+          await pagesResponse
+            .json()
+            .catch(
+              () => ({
+                items: [],
+              })
+            );
+
+        const menusJson =
+          await menusResponse
+            .json()
+            .catch(
+              () => ({
+                menus: [],
+              })
+            );
 
         setCats(
-          (catsJson.items || []).map((x: any) => ({ id: x.id, name: x.name }))
+          (
+            catsJson.items ||
+            []
+          ).map(
+            (
+              item: {
+                id: number;
+                name: string;
+              }
+            ) => ({
+              id:
+                item.id,
+              name:
+                item.name,
+            })
+          )
         );
-        setPages(pagesJson.items || []);
 
-        const map: Record<string, number> = {};
-        for (const m of menusJson.menus || []) map[m.name] = m.id;
+        setPages(
+          pagesJson.items ||
+            []
+        );
+
+        const map:
+          Record<
+            string,
+            number
+          > = {};
+
+        for (
+          const menu of
+          menusJson.menus ||
+          []
+        ) {
+          map[menu.name] =
+            menu.id;
+        }
+
         setMenuMap(map);
+      } catch (
+        caught: unknown
+      ) {
+        actionFeedback.error({
+          id:
+            "menu-builder-boot",
+          title:
+            "Could not load menu tools",
+          message:
+            caught instanceof
+              Error
+              ? caught.message
+              : "Please try again.",
+          durationMs: 4200,
+        });
       } finally {
-        setBootLoading(false);
+        setBootLoading(
+          false
+        );
       }
     }
 
-    boot();
+    void boot();
   }, []);
 
   useEffect(() => {
-    if (items.length === 0) return;
-    setItems((prev) => deepClone(prev).map(reclassifyTree));
+    if (
+      items.length ===
+      0
+    ) {
+      return;
+    }
+
+    setItems(
+      (
+        current
+      ) =>
+        deepClone(
+          current
+        ).map(
+          reclassifyTree
+        )
+    );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pageUrlSet.size]);
 
-  async function loadMenu(def: MenuDef) {
-    setLoadingMenu(true);
-    setMsg(null);
-    setSuccess(null);
+  async function loadMenu(
+    def: MenuDef,
+    announce = false
+  ) {
+    setLoadingMenu(
+      true
+    );
+
+    const feedbackId =
+      "menu-load";
+
+    if (announce) {
+      actionFeedback.loading({
+        id: feedbackId,
+        title:
+          "Reloading menu…",
+      });
+    }
 
     try {
-      let res: Response | null = null;
-      let data: any = null;
+      let response:
+        | Response
+        | null = null;
 
-      const tryFetch = async (url: string) => {
-        const r = await fetch(url, { cache: "no-store" });
-        const j = await r.json();
-        return { r, j };
-      };
+      let data:
+        | {
+            items?: unknown[];
+            note?: unknown;
+            error?: string;
+          }
+        | null = null;
 
-      if (def.loadMode === "menu_id") {
-        const id = menuMap[def.wpName];
+      async function tryFetch(
+        url: string
+      ) {
+        const nextResponse =
+          await fetch(
+            url,
+            {
+              cache:
+                "no-store",
+            }
+          );
+
+        const nextData =
+          await nextResponse
+            .json()
+            .catch(
+              () => ({})
+            );
+
+        return {
+          response:
+            nextResponse,
+          data:
+            nextData,
+        };
+      }
+
+      if (
+        def.loadMode ===
+        "menu_id"
+      ) {
+        const id =
+          menuMap[
+            def.wpName
+          ];
 
         if (id) {
-          const first = await tryFetch(`/api/menu/sync?menu_id=${id}`);
-          res = first.r;
-          data = first.j;
+          const first =
+            await tryFetch(
+              "/api/menu/sync?menu_id=" +
+                id
+            );
+
+          response =
+            first.response;
+          data =
+            first.data;
         }
 
-        const shouldFallbackToLocation =
-          def.key === "primary" &&
-          (!res || !res.ok || ((data?.items?.length ?? 0) === 0 && data?.note));
-
-        if (shouldFallbackToLocation) {
-          const second = await tryFetch(
-            `/api/menu/sync?location=${encodeURIComponent(def.key)}`
+        const shouldFallback =
+          def.key ===
+            "primary" &&
+          (
+            !response ||
+            !response.ok ||
+            (
+              (
+                data?.items
+                  ?.length ??
+                0
+              ) === 0 &&
+              Boolean(
+                data?.note
+              )
+            )
           );
-          res = second.r;
-          data = second.j;
+
+        if (
+          shouldFallback
+        ) {
+          const second =
+            await tryFetch(
+              "/api/menu/sync?location=" +
+                encodeURIComponent(
+                  def.key
+                )
+            );
+
+          response =
+            second.response;
+          data =
+            second.data;
         }
 
-        if (!res && def.key !== "primary") {
+        if (
+          !response &&
+          def.key !==
+            "primary"
+        ) {
           setItems([]);
-          notify(`Couldn't load “${def.label}” (menu ID not found).`);
+          setDirty(false);
+
+          if (announce) {
+            actionFeedback.warning({
+              id: feedbackId,
+              title:
+                "Menu is not available yet",
+              message:
+                def.label,
+              durationMs: 3200,
+            });
+          }
+
           return;
         }
       } else {
-        const direct = await tryFetch(
-          `/api/menu/sync?location=${encodeURIComponent(def.key)}`
-        );
-        res = direct.r;
-        data = direct.j;
+        const direct =
+          await tryFetch(
+            "/api/menu/sync?location=" +
+              encodeURIComponent(
+                def.key
+              )
+          );
+
+        response =
+          direct.response;
+        data =
+          direct.data;
       }
 
-      if (res?.ok) {
-        const local = toLocalTree(data?.items || []);
+      if (
+        response?.ok
+      ) {
+        const local =
+          toLocalTree(
+            data?.items ||
+              []
+          );
+
         setItems(local);
-        localStorage.setItem(STORAGE_KEY(def.key), JSON.stringify(local));
+        setDirty(false);
 
-        if ((data?.items || []).length === 0) {
-          notify(`Loaded “${def.label}”, but it currently has no items.`);
-        } else {
-          ok(`Loaded “${def.label}”.`);
-        }
-      } else {
-        const raw = localStorage.getItem(STORAGE_KEY(def.key));
-        setItems(raw ? JSON.parse(raw) : []);
-        notify(
-          data?.error ||
-            `Couldn't load “${def.label}”. Showing last saved copy from this dashboard.`
+        localStorage.setItem(
+          STORAGE_KEY(
+            def.key
+          ),
+          JSON.stringify(
+            local
+          )
         );
+
+        if (announce) {
+          actionFeedback.success({
+            id: feedbackId,
+            title:
+              "Menu reloaded",
+            durationMs: 1800,
+          });
+        }
+
+        return;
       }
-    } catch (e: any) {
-      const raw = localStorage.getItem(STORAGE_KEY(def.key));
-      setItems(raw ? JSON.parse(raw) : []);
-      notify(
-        e?.message ||
-          `Couldn't reach the saved data. Showing last saved copy from this dashboard.`
+
+      const raw =
+        localStorage.getItem(
+          STORAGE_KEY(
+            def.key
+          )
+        );
+
+      setItems(
+        raw
+          ? JSON.parse(raw)
+          : []
       );
+      setDirty(false);
+
+      actionFeedback.warning({
+        id: feedbackId,
+        title:
+          "Showing last dashboard copy",
+        message:
+          data?.error ||
+          "Could not reach the saved WordPress menu.",
+        durationMs: 4200,
+      });
+    } catch (
+      caught: unknown
+    ) {
+      const raw =
+        localStorage.getItem(
+          STORAGE_KEY(
+            def.key
+          )
+        );
+
+      setItems(
+        raw
+          ? JSON.parse(raw)
+          : []
+      );
+      setDirty(false);
+
+      actionFeedback.warning({
+        id: feedbackId,
+        title:
+          "Showing last dashboard copy",
+        message:
+          caught instanceof
+            Error
+            ? caught.message
+            : "Could not load the WordPress menu.",
+        durationMs: 4200,
+      });
     } finally {
-      setLoadingMenu(false);
+      setLoadingMenu(
+        false
+      );
     }
   }
 
   useEffect(() => {
-    if (bootLoading) return;
-    const def = MENUS.find((m) => m.key === menuKey)!;
-    loadMenu(def);
+    if (bootLoading) {
+      return;
+    }
+
+    const def =
+      MENUS.find(
+        (menu) =>
+          menu.key ===
+          menuKey
+      )!;
+
+    void loadMenu(def);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [menuKey, menuMap, bootLoading]);
+  }, [
+    menuKey,
+    menuMap,
+    bootLoading,
+  ]);
 
   async function saveAndSync() {
-    const def = MENUS.find((m) => m.key === menuKey)!;
+    if (
+      syncing ||
+      loadingMenu
+    ) {
+      return;
+    }
 
-    localStorage.setItem(STORAGE_KEY(menuKey), JSON.stringify(items));
+    const def =
+      MENUS.find(
+        (menu) =>
+          menu.key ===
+          menuKey
+      )!;
 
-    const toWire = (arr: MenuItem[]): any[] =>
-      arr.map((n) => ({
-        title: n.title,
-        url: n.url || "",
-        children: n.children?.length ? toWire(n.children) : [],
-      }));
+    localStorage.setItem(
+      STORAGE_KEY(
+        menuKey
+      ),
+      JSON.stringify(
+        items
+      )
+    );
+
+    function toWire(
+      list: MenuItem[]
+    ): unknown[] {
+      return list.map(
+        (item) => ({
+          title:
+            item.title,
+          url:
+            item.url ||
+            "",
+          children:
+            item.children
+              ?.length
+              ? toWire(
+                  item.children
+                )
+              : [],
+        })
+      );
+    }
+
+    const feedbackId =
+      "menu-save";
 
     setSyncing(true);
-    setMsg(null);
-    setSuccess(null);
+
+    actionFeedback.loading({
+      id: feedbackId,
+      title:
+        "Saving menu…",
+    });
 
     try {
-      const body: any = {
-        items: toWire(items),
-        location_label: def.wpName,
-        also_location_labels: def.also,
+      const body:
+        Record<
+          string,
+          unknown
+        > = {
+        items:
+          toWire(items),
+        location_label:
+          def.wpName,
+        also_location_labels:
+          def.also,
       };
 
-      if (def.saveMode === "location") {
-        body.location = def.key;
+      if (
+        def.saveMode ===
+        "location"
+      ) {
+        body.location =
+          def.key;
       } else {
-        const id = menuMap[def.wpName];
+        const id =
+          menuMap[
+            def.wpName
+          ];
+
         if (!id) {
-          notify(`Cannot save — missing menu ID for “${def.wpName}”.`);
-          return;
+          throw new Error(
+            "This menu is not available yet."
+          );
         }
-        body.menu_id = id;
+
+        body.menu_id =
+          id;
       }
 
-      const res = await fetch("/api/menu/sync", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
+      const response =
+        await fetch(
+          "/api/menu/sync",
+          {
+            method:
+              "POST",
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
+            body:
+              JSON.stringify(
+                body
+              ),
+          }
+        );
+
+      const data =
+        await response
+          .json()
+          .catch(
+            () => ({})
+          );
+
+      if (
+        !response.ok
+      ) {
+        throw new Error(
+          data?.error ||
+            "Menu save failed."
+        );
+      }
+
+      setDirty(false);
+
+      actionFeedback.success({
+        id: feedbackId,
+        title:
+          "Menu saved",
+        durationMs: 2200,
       });
-
-      const data = await res.json();
-      if (!res.ok) throw new Error(data?.error || "Sync failed");
-
-      ok("Menu saved.");
-    } catch (e: any) {
-      notify(e?.message || "Failed to save menu");
+    } catch (
+      caught: unknown
+    ) {
+      actionFeedback.error({
+        id: feedbackId,
+        title:
+          "Could not save menu",
+        message:
+          caught instanceof
+            Error
+            ? caught.message
+            : "Menu save failed.",
+        durationMs: 4200,
+      });
     } finally {
       setSyncing(false);
     }
   }
 
-  function addPageById(id: number) {
-    const p = pages.find((x) => x.id === id);
-    if (!p) return;
+  function requestMenuChange(
+    nextKey: MenuKey
+  ) {
+    if (
+      nextKey ===
+      menuKey
+    ) {
+      setMenuPickerOpen(
+        false
+      );
+      return;
+    }
 
-    setItems((prev) => [
-      ...prev,
-      { id: uid(), type: "page", title: p.name, url: p.url, children: [] },
-    ]);
-    setSelectedPageId("");
+    if (dirty) {
+      setPendingMenuKey(
+        nextKey
+      );
+      setDiscardOpen(
+        true
+      );
+      setMenuPickerOpen(
+        false
+      );
+      return;
+    }
+
+    setMenuKey(nextKey);
+    setMenuPickerOpen(
+      false
+    );
   }
 
-  function addCategory(id: number) {
-    const c = cats.find((x) => x.id === id);
-    if (!c) return;
+  function confirmDiscard() {
+    if (!pendingMenuKey) {
+      setDiscardOpen(
+        false
+      );
+      return;
+    }
 
-    const slug = slugify(c.name);
+    setDirty(false);
+    setMenuKey(
+      pendingMenuKey
+    );
+    setPendingMenuKey(
+      null
+    );
+    setDiscardOpen(false);
+  }
 
-    setItems((prev) => [
-      ...prev,
-      {
-        id: uid(),
-        type: "category",
-        title: c.name,
-        refId: c.id,
-        url: `/product-category/${slug}`,
-        children: [],
-      },
-    ]);
-    setSelectedCatId("");
+  function openAdd(
+    tab: AddTab =
+      "category"
+  ) {
+    setAddTab(tab);
+    setAddSearch("");
+    setCustom({
+      title: "",
+      url: "",
+    });
+    setAddOpen(true);
+  }
+
+  function addPageById(
+    id: number
+  ) {
+    const page =
+      pages.find(
+        (item) =>
+          item.id === id
+      );
+
+    if (!page) {
+      return;
+    }
+
+    setItems(
+      (current) => [
+        ...current,
+        {
+          id: uid(),
+          type: "page",
+          title:
+            page.name,
+          url:
+            page.url,
+          children: [],
+        },
+      ]
+    );
+
+    setDirty(true);
+    setAddOpen(false);
+    setAddSearch("");
+  }
+
+  function addCategory(
+    id: number
+  ) {
+    const category =
+      cats.find(
+        (item) =>
+          item.id === id
+      );
+
+    if (!category) {
+      return;
+    }
+
+    setItems(
+      (current) => [
+        ...current,
+        {
+          id: uid(),
+          type:
+            "category",
+          title:
+            category.name,
+          refId:
+            category.id,
+          url:
+            "/product-category/" +
+            slugify(
+              category.name
+            ),
+          children: [],
+        },
+      ]
+    );
+
+    setDirty(true);
+    setAddOpen(false);
+    setAddSearch("");
   }
 
   function addCustom() {
-    if (!custom.title || !custom.url) return;
+    const title =
+      custom.title.trim();
 
-    setItems((prev) => [
-      ...prev,
-      {
-        id: uid(),
-        type: "custom",
-        title: custom.title,
-        url: custom.url,
-        children: [],
-      },
-    ]);
-    setCustom({ title: "", url: "" });
+    const url =
+      custom.url.trim();
+
+    if (
+      !title ||
+      !url
+    ) {
+      return;
+    }
+
+    setItems(
+      (current) => [
+        ...current,
+        {
+          id: uid(),
+          type:
+            "custom",
+          title,
+          url,
+          children: [],
+        },
+      ]
+    );
+
+    setDirty(true);
+    setCustom({
+      title: "",
+      url: "",
+    });
+    setAddOpen(false);
+  }
+
+  function toggleActions(
+    context:
+      ItemActionContext
+  ) {
+    setActionContext(
+      (
+        current
+      ) =>
+        current?.item.id ===
+        context.item.id
+          ? null
+          : context
+    );
+  }
+
+  function moveItem(
+    direction:
+      | "up"
+      | "down"
+  ) {
+    if (!actionContext) {
+      return;
+    }
+
+    setItems(
+      (current) =>
+        reorderWithinParent(
+          current,
+          actionContext
+            .parentId,
+          actionContext
+            .item.id,
+          direction
+        )
+    );
+
+    setDirty(true);
+    setActionContext(null);
+  }
+
+  function moveItemTo(
+    parentId:
+      | string
+      | null
+  ) {
+    if (!actionContext) {
+      return;
+    }
+
+    setItems(
+      (current) =>
+        moveNode(
+          current,
+          actionContext
+            .item.id,
+          parentId
+        )
+    );
+
+    setDirty(true);
+    setMoveOpen(false);
+    setActionContext(
+      null
+    );
+  }
+
+  function confirmRemove() {
+    if (!removeTarget) {
+      return;
+    }
+
+    setItems(
+      (current) =>
+        removeNodeById(
+          current,
+          removeTarget
+            .item.id
+        ).next
+    );
+
+    setDirty(true);
+    setRemoveTarget(
+      null
+    );
+    setActionContext(
+      null
+    );
+
+    actionFeedback.success({
+      id:
+        "menu-item-remove",
+      title:
+        "Removed from menu",
+      durationMs: 1600,
+    });
   }
 
   function Row({
@@ -551,353 +1741,984 @@ function classifyType(
     level: number;
     index: number;
     siblingCount: number;
-    parentId: string | null;
+    parentId:
+      | string
+      | null;
   }) {
-    const moveTargets: MoveTarget[] = flattenMoveTargets(items, item.id);
+    const childCount =
+      item.children?.length ||
+      0;
+
+    const context:
+      ItemActionContext = {
+      item,
+      parentId,
+      index,
+      siblingCount,
+      level,
+    };
+
+    const actionsVisible =
+      actionContext?.item.id ===
+      item.id;
 
     return (
-      <div className="space-y-3">
+      <>
         <div
-          className={[
-            "rounded-[22px] border border-slate-200 bg-white p-3 shadow-sm",
-            level === 0 ? "" : "relative",
-          ].join(" ")}
-          style={{ marginLeft: level * 42 }}
+          className="relative flex min-h-[66px] items-center gap-3 overflow-hidden border-b border-border px-3 py-2.5 last:border-b-0 md:px-4"
+          style={{
+            paddingLeft:
+              12 +
+              Math.min(
+                level * 18,
+                54
+              ),
+          }}
         >
-          {level > 0 && (
-            <>
-              <div className="absolute -left-5 top-0 bottom-0 w-px bg-slate-300" />
-              <div className="absolute -left-5 top-7 h-px w-5 bg-slate-300" />
-            </>
-          )}
+          {level > 0 ? (
+            <span
+              aria-hidden="true"
+              className="absolute top-1/2 h-px w-3 -translate-y-1/2 bg-border"
+              style={{
+                left:
+                  Math.max(
+                    8,
+                    12 +
+                      Math.min(
+                        (
+                          level -
+                          1
+                        ) *
+                          18,
+                        36
+                      )
+                  ),
+              }}
+            />
+          ) : null}
 
-          <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
-            <div className="min-w-0 flex-1">
-              <div className="flex min-w-0 flex-wrap items-center gap-2">
-                <div className="truncate text-sm font-semibold text-slate-900">
-                  {item.title}
-                </div>
+          <span
+            className={
+              "grid h-9 w-9 shrink-0 place-items-center rounded-xl " +
+              (
+                item.type ===
+                "category"
+                  ? "bg-secondary text-secondary-foreground"
+                  : item.type ===
+                      "page"
+                    ? "bg-blue-50 text-blue-700"
+                    : "bg-slate-100 text-slate-600"
+              )
+            }
+          >
+            {item.type ===
+            "category" ? (
+              <FolderTree className="h-4 w-4" />
+            ) : item.type ===
+              "page" ? (
+              <FileText className="h-4 w-4" />
+            ) : (
+              <Link2 className="h-4 w-4" />
+            )}
+          </span>
 
-                <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-600">
-                  {item.type === "page"
-                    ? "Page"
-                    : item.type === "category"
-                    ? "Category"
-                    : "Custom"}
-                </span>
-
-                {(item.children?.length ?? 0) > 0 && (
-  <span className="rounded-full bg-violet-50 px-2 py-0.5 text-[11px] font-semibold text-violet-700">
-    {item.children?.length ?? 0} sub-items
-  </span>
-)}
-              </div>
+          <div className="min-w-0 flex-1">
+            <div className="truncate text-sm font-bold text-heading">
+              {item.title}
             </div>
 
-            <div className="grid gap-2 sm:grid-cols-[minmax(0,220px)_auto] xl:w-[420px]">
-              <select
-                value={parentId || ""}
-                onChange={(e) =>
-                  setItems((prev) =>
-                    moveNode(prev, item.id, e.target.value || null)
-                  )
-                }
-                className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-700 shadow-sm focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-100"
-              >
-                {moveTargets.map((t) => (
-                  <option key={t.id ?? "root"} value={t.id ?? ""}>
-                    {`${"— ".repeat(t.depth)}${t.label}`}
-                  </option>
-                ))}
-              </select>
+            <div className="mt-0.5 flex min-w-0 items-center gap-2 text-[11px] text-muted-foreground">
+              <span>
+                {typeLabel(
+                  item.type
+                )}
+              </span>
 
-              <div className="flex flex-wrap items-center gap-2">
-                <button
-                  type="button"
-                  disabled={index === 0}
-                  onClick={() =>
-                    setItems((prev) =>
-                      reorderWithinParent(prev, parentId, item.id, "up")
-                    )
-                  }
-                  className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 disabled:opacity-40"
-                >
-                  Up
-                </button>
-
-                <button
-                  type="button"
-                  disabled={index === siblingCount - 1}
-                  onClick={() =>
-                    setItems((prev) =>
-                      reorderWithinParent(prev, parentId, item.id, "down")
-                    )
-                  }
-                  className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 disabled:opacity-40"
-                >
-                  Down
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() =>
-                    setItems((prev) => removeNodeById(prev, item.id).next)
-                  }
-                  className="inline-flex items-center gap-1 rounded-full border border-rose-200 bg-rose-50 px-3 py-1.5 text-xs font-medium text-rose-600"
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                  Delete
-                </button>
-              </div>
+              {childCount >
+              0 ? (
+                <>
+                  <span>
+                    •
+                  </span>
+                  <span>
+                    {childCount}{" "}
+                    sub-item
+                    {childCount ===
+                    1
+                      ? ""
+                      : "s"}
+                  </span>
+                </>
+              ) : null}
             </div>
           </div>
-        </div>
 
-        {(item.children?.length ?? 0) > 0 && (
-  <div className="space-y-3">
-    {(item.children ?? []).map((child, childIndex) => (
-      <Row
-  key={child.id}
-  item={child}
-  parentId={item.id}
-  index={childIndex}
-  level={level + 1}
-  siblingCount={(item.children ?? []).length}
-/>
-    ))}
-  </div>
-)}
-      </div>
-    );
-  }
+          <button
+            type="button"
+            onClick={() =>
+              toggleActions(
+                context
+              )
+            }
+            aria-label={
+              actionsVisible
+                ? "Close actions for " +
+                  item.title
+                : "Manage " +
+                  item.title
+            }
+            aria-expanded={
+              actionsVisible
+            }
+            className="ls-focus-ring grid h-11 w-11 shrink-0 place-items-center rounded-xl text-muted-foreground hover:bg-muted hover:text-foreground"
+          >
+            {actionsVisible ? (
+              <X className="h-5 w-5" />
+            ) : (
+              <MoreVertical className="h-5 w-5" />
+            )}
+          </button>
 
-  return (
-    <main className="mx-auto max-w-7xl px-3 py-3 md:px-4 md:py-5">
-      <div className="rounded-[30px] border border-white/80 bg-gradient-to-br from-white via-[#faf6ff] to-[#eef7ff] p-4 shadow-[0_14px_40px_rgba(15,23,42,0.06)] md:p-5">
-        <div className="inline-flex items-center gap-2 rounded-full bg-violet-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-violet-700">
-          <MenuSquare className="h-3.5 w-3.5" />
-          Menu Builder
-        </div>
-
-        <div className="mt-3 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-          <div>
-            <h1 className="text-[28px] font-semibold tracking-tight text-slate-900 md:text-[34px]">
-              Menu Layout
-            </h1>
-            <p className="mt-1 text-sm leading-6 text-slate-500">
-              Single-page nested menu builder with clear submenu hierarchy.
-            </p>
-          </div>
-
-          <div className="flex flex-col gap-2 sm:flex-row">
-            <select
-              className="h-12 rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-800 shadow-sm focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-100"
-              value={menuKey}
-              onChange={(e) => setMenuKey(e.target.value as MenuKey)}
+          <div
+            className={
+              "absolute inset-y-0 right-0 z-10 flex items-center gap-1 border-l border-border bg-card/98 px-2 shadow-[-10px_0_24px_rgba(38,51,95,0.08)] backdrop-blur transition-transform duration-200 ease-out " +
+              (
+                actionsVisible
+                  ? "translate-x-0"
+                  : "pointer-events-none translate-x-full"
+              )
+            }
+            aria-hidden={
+              !actionsVisible
+            }
+          >
+            <button
+              type="button"
+              disabled={
+                index === 0
+              }
+              onClick={() =>
+                moveItem(
+                  "up"
+                )
+              }
+              className="ls-focus-ring grid h-10 w-10 place-items-center rounded-xl text-primary hover:bg-secondary disabled:opacity-30"
+              aria-label={
+                "Move " +
+                item.title +
+                " up"
+              }
+              title="Move up"
             >
-              {MENUS.map((m) => (
-                <option key={m.key} value={m.key}>
-                  {m.label}
-                </option>
-              ))}
-            </select>
+              <ArrowUp className="h-4 w-4" />
+            </button>
 
             <button
               type="button"
-              className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 text-sm font-medium text-slate-700 shadow-sm hover:border-violet-300 hover:bg-violet-50"
-              onClick={() => loadMenu(currentDef)}
-              disabled={loadingMenu}
+              disabled={
+                index ===
+                siblingCount - 1
+              }
+              onClick={() =>
+                moveItem(
+                  "down"
+                )
+              }
+              className="ls-focus-ring grid h-10 w-10 place-items-center rounded-xl text-primary hover:bg-secondary disabled:opacity-30"
+              aria-label={
+                "Move " +
+                item.title +
+                " down"
+              }
+              title="Move down"
             >
-              <RefreshCcw className="h-4 w-4" />
-              {loadingMenu ? "Loading..." : "Reload"}
+              <ArrowDown className="h-4 w-4" />
             </button>
 
             <button
-              onClick={saveAndSync}
-              disabled={syncing || loadingMenu}
-              className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-violet-600 px-5 text-sm font-semibold text-white shadow-sm hover:bg-violet-700 disabled:opacity-50"
+              type="button"
+              onClick={() => {
+                setActionContext(
+                  context
+                );
+                setMoveOpen(
+                  true
+                );
+              }}
+              className="ls-focus-ring grid h-10 w-10 place-items-center rounded-xl text-primary hover:bg-secondary"
+              aria-label={
+                "Move " +
+                item.title +
+                " to another menu position"
+              }
+              title="Move to"
             >
-              {syncing ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Saving...
-                </>
-              ) : (
-                <>
-                  <Save className="h-4 w-4" />
-                  Save Menu
-                </>
-              )}
+              <MoveRight className="h-4 w-4" />
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setRemoveTarget(
+                  context
+                );
+                setActionContext(
+                  null
+                );
+              }}
+              className="ls-focus-ring grid h-10 w-10 place-items-center rounded-xl text-destructive hover:bg-rose-50"
+              aria-label={
+                "Remove " +
+                item.title +
+                " from menu"
+              }
+              title="Remove from menu"
+            >
+              <Trash2 className="h-4 w-4" />
+            </button>
+
+            <button
+              type="button"
+              onClick={() =>
+                setActionContext(
+                  null
+                )
+              }
+              className="ls-focus-ring grid h-10 w-10 place-items-center rounded-xl text-muted-foreground hover:bg-muted hover:text-foreground"
+              aria-label="Close menu item actions"
+              title="Close"
+            >
+              <X className="h-4 w-4" />
             </button>
           </div>
         </div>
+
+        {(item.children ||
+          []).map(
+          (
+            child,
+            childIndex
+          ) => (
+            <Row
+              key={
+                child.id
+              }
+              item={
+                child
+              }
+              level={
+                level + 1
+              }
+              index={
+                childIndex
+              }
+              siblingCount={
+                (
+                  item.children ||
+                  []
+                ).length
+              }
+              parentId={
+                item.id
+              }
+            />
+          )
+        )}
+      </>
+    );
+  }
+
+  const busy =
+    bootLoading ||
+    loadingMenu;
+
+  return (
+    <main className="ls-page mx-auto max-w-[1200px] pb-40 md:pb-8">
+      <div className="hidden md:block">
+        <PageHeader
+          eyebrow="Catalog"
+          icon={MenuSquare}
+          title="Menu Layout"
+          description="Arrange what shoppers see in your website menus."
+          actions={
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() =>
+                  void loadMenu(
+                    currentDef,
+                    true
+                  )
+                }
+                disabled={
+                  loadingMenu ||
+                  syncing
+                }
+              >
+                <RefreshCw
+                  className={
+                    "h-4 w-4 " +
+                    (
+                      loadingMenu
+                        ? "animate-spin"
+                        : ""
+                    )
+                  }
+                />
+                Reload
+              </Button>
+
+              <AsyncButton
+                type="button"
+                loading={
+                  syncing
+                }
+                loadingLabel="Saving…"
+                disabled={
+                  !dirty ||
+                  loadingMenu
+                }
+                onClick={() =>
+                  void saveAndSync()
+                }
+              >
+                Save Menu
+              </AsyncButton>
+            </div>
+          }
+        />
       </div>
 
-      {(success || msg) && (
-        <div
-          className={`mt-4 flex items-center gap-3 rounded-2xl border px-4 py-3 text-sm shadow-sm ${
-            success
-              ? "border-emerald-200 bg-emerald-50 text-emerald-800"
-              : "border-amber-200 bg-amber-50 text-amber-800"
-          }`}
-        >
-          <span className="text-lg">{success ? "✅" : "⚠️"}</span>
-          <span>{success || msg}</span>
+      <section className="md:mt-5">
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() =>
+              setMenuPickerOpen(
+                true
+              )
+            }
+            className="ls-focus-ring flex min-h-12 min-w-0 flex-1 items-center justify-between gap-3 rounded-2xl border border-border bg-card px-4 text-left shadow-[0_4px_14px_rgba(38,51,95,0.04)]"
+          >
+            <span className="min-w-0">
+              <span className="block text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground">
+                Editing
+              </span>
+
+              <span className="mt-0.5 block truncate text-sm font-bold text-heading">
+                {
+                  currentDef.label
+                }
+              </span>
+            </span>
+
+            <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
+          </button>
+
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            onClick={() =>
+              void loadMenu(
+                currentDef,
+                true
+              )
+            }
+            disabled={
+              loadingMenu ||
+              syncing
+            }
+            aria-label="Reload menu"
+            title="Reload menu"
+            className="md:hidden"
+          >
+            <RefreshCw
+              className={
+                "h-4 w-4 " +
+                (
+                  loadingMenu
+                    ? "animate-spin"
+                    : ""
+                )
+              }
+            />
+          </Button>
         </div>
-      )}
 
-      <div className="mt-4 grid grid-cols-1 gap-4 xl:grid-cols-[360px_minmax(0,1fr)]">
-        <section className="overflow-hidden rounded-[26px] border border-slate-200/80 bg-white shadow-[0_10px_30px_rgba(15,23,42,0.05)]">
-          <div className="border-b border-slate-100 bg-gradient-to-r from-[#faf7ff] via-white to-[#f4fbff] px-4 py-4 md:px-5">
-            <h2 className="text-[17px] font-semibold tracking-tight text-slate-900">
-              Add menu items
+        <div className="mt-3 flex items-center justify-between gap-3 px-1">
+          <div className="text-xs font-semibold text-muted-foreground">
+            {dirty
+              ? "Unsaved changes"
+              : "All changes saved"}
+          </div>
+
+          <div className="text-xs font-semibold text-muted-foreground">
+            {items.length}{" "}
+            top-level item
+            {items.length ===
+            1
+              ? ""
+              : "s"}
+          </div>
+        </div>
+      </section>
+
+      <section className="mt-3 overflow-hidden rounded-2xl border border-border bg-card md:mt-4">
+        <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-3">
+          <div>
+            <h2 className="text-sm font-bold text-heading">
+              Your menu
             </h2>
-            <p className="mt-1 text-xs leading-5 text-slate-500">
-              Add root items first.
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              Tap ⋮ to move or remove an item.
             </p>
           </div>
 
-          <div className="space-y-4 p-4 md:p-5">
-            <div>
-              <label className="mb-2 block text-[13px] font-semibold text-slate-700">
-                Pages
-              </label>
-              <div className="flex gap-2">
-                <select
-                  className="h-12 flex-1 rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-800 shadow-sm focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-100"
-                  value={selectedPageId}
-                  onChange={(e) => setSelectedPageId(e.target.value)}
-                >
-                  <option value="">Select a page…</option>
-                  {pages.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.name}
-                    </option>
-                  ))}
-                </select>
-                <button
-                  type="button"
-                  onClick={() => selectedPageId && addPageById(Number(selectedPageId))}
-                  className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-violet-600 text-white shadow-sm hover:bg-violet-700"
-                >
-                  <Plus className="h-5 w-5" />
-                </button>
-              </div>
-            </div>
+          <Button
+            type="button"
+            size="sm"
+            onClick={() =>
+              openAdd()
+            }
+            className="hidden md:inline-flex"
+          >
+            <Plus className="h-4 w-4" />
+            Add item
+          </Button>
+        </div>
 
-            <div>
-              <label className="mb-2 block text-[13px] font-semibold text-slate-700">
-                Product categories
-              </label>
-              <div className="flex gap-2">
-                <select
-                  className="h-12 flex-1 rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-800 shadow-sm focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-100"
-                  value={selectedCatId}
-                  onChange={(e) => setSelectedCatId(e.target.value)}
-                >
-                  <option value="">Select a category…</option>
-                  {cats.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name}
-                    </option>
-                  ))}
-                </select>
-                <button
-                  type="button"
-                  onClick={() => selectedCatId && addCategory(Number(selectedCatId))}
-                  className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-violet-600 text-white shadow-sm hover:bg-violet-700"
-                >
-                  <Plus className="h-5 w-5" />
-                </button>
-              </div>
-            </div>
-
-            <div>
-              <label className="mb-2 block text-[13px] font-semibold text-slate-700">
-                Custom link
-              </label>
-              <div className="space-y-2">
-                <div className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-2.5 shadow-sm">
-                  <Link2 className="h-4 w-4 text-slate-400" />
-                  <input
-                    className="w-full bg-transparent text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none"
-                    placeholder="URL (https://...)"
-                    value={custom.url}
-                    onChange={(e) => setCustom({ ...custom, url: e.target.value })}
-                  />
-                </div>
-
-                <input
-                  className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-800 shadow-sm focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-100"
-                  placeholder="Link text"
-                  value={custom.title}
-                  onChange={(e) => setCustom({ ...custom, title: e.target.value })}
+        {busy ? (
+          <MenuSkeleton />
+        ) : items.length ===
+          0 ? (
+          <EmptyState
+            icon={MenuSquare}
+            title="This menu is empty"
+            description="Add a page, category or custom link."
+            action={
+              <Button
+                type="button"
+                onClick={() =>
+                  openAdd()
+                }
+              >
+                <Plus className="h-4 w-4" />
+                Add menu item
+              </Button>
+            }
+          />
+        ) : (
+          <div>
+            {items.map(
+              (
+                item,
+                index
+              ) => (
+                <Row
+                  key={
+                    item.id
+                  }
+                  item={
+                    item
+                  }
+                  level={0}
+                  index={
+                    index
+                  }
+                  siblingCount={
+                    items.length
+                  }
+                  parentId={
+                    null
+                  }
                 />
-
-                <button
-                  type="button"
-                  onClick={addCustom}
-                  className="inline-flex h-11 items-center justify-center rounded-2xl bg-slate-900 px-5 text-sm font-semibold text-white shadow-sm hover:bg-slate-800"
-                >
-                  Add to Menu
-                </button>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <section className="overflow-hidden rounded-[26px] border border-slate-200/80 bg-white shadow-[0_10px_30px_rgba(15,23,42,0.05)]">
-          <div className="border-b border-slate-100 bg-gradient-to-r from-[#faf7ff] via-white to-[#f4fbff] px-4 py-4 md:px-5">
-            <h2 className="text-[17px] font-semibold tracking-tight text-slate-900">
-              Menu structure
-            </h2>
-            <p className="mt-1 text-xs leading-5 text-slate-500">
-              Parent dropdown makes nesting simple. Indentation shows submenu depth clearly.
-            </p>
-          </div>
-
-          <div className="p-4 md:p-5">
-            {loadingMenu ? (
-              <div className="flex min-h-[220px] items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50">
-                <div className="flex flex-col items-center gap-3">
-                  <Loader2 className="h-8 w-8 animate-spin text-violet-600" />
-                  <div className="text-sm font-medium text-slate-600">
-                    Loading menu structure...
-                  </div>
-                </div>
-              </div>
-            ) : items.length === 0 ? (
-              <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-10 text-center text-sm text-slate-500">
-                No items in this menu yet.
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {items.map((item, index) => (
-                  <Row
-                    key={item.id}
-                    item={item}
-                    level={0}
-                    index={index}
-                    siblingCount={items.length}
-                    parentId={null}
-                  />
-                ))}
-              </div>
+              )
             )}
           </div>
-        </section>
-      </div>
+        )}
 
-      {(bootLoading || syncing) && (
-        <div className="fixed inset-0 z-[220] flex items-center justify-center bg-white/45 backdrop-blur-[2px]">
-          <div className="flex flex-col items-center gap-3 rounded-3xl border border-slate-200 bg-white px-6 py-5 shadow-xl">
-            <Loader2 className="h-8 w-8 animate-spin text-violet-600" />
-            <div className="text-sm font-medium text-slate-600">
-              {bootLoading ? "Loading menu builder..." : "Saving menu..."}
+        {!busy &&
+        items.length >
+          0 ? (
+          <div className="border-t border-border p-3 md:hidden">
+            <Button
+              type="button"
+              variant="secondary"
+              className="w-full"
+              onClick={() =>
+                openAdd()
+              }
+            >
+              <Plus className="h-4 w-4" />
+              Add Menu Item
+            </Button>
+          </div>
+        ) : null}
+      </section>
+
+      {dirty ? (
+        <div className="fixed inset-x-3 bottom-[calc(5.1rem+var(--ls-safe-area-bottom))] z-[55] md:hidden">
+          <div className="mx-auto flex max-w-xl items-center gap-3 rounded-2xl border border-border bg-card/95 p-2.5 shadow-[0_16px_40px_rgba(38,51,95,0.18)] backdrop-blur-xl">
+            <div className="min-w-0 flex-1 px-1">
+              <div className="text-xs font-bold text-heading">
+                Unsaved changes
+              </div>
+              <div className="mt-0.5 truncate text-[11px] text-muted-foreground">
+                Save to update your website.
+              </div>
             </div>
+
+            <AsyncButton
+              type="button"
+              loading={
+                syncing
+              }
+              loadingLabel="Saving…"
+              disabled={
+                loadingMenu
+              }
+              onClick={() =>
+                void saveAndSync()
+              }
+            >
+              Save Menu
+            </AsyncButton>
           </div>
         </div>
-      )}
+      ) : null}
+
+      <BottomSheet
+        open={
+          menuPickerOpen
+        }
+        popupClassName="md:mx-auto md:max-w-xl"
+        onOpenChange={
+          setMenuPickerOpen
+        }
+        title="Choose menu"
+        description="Select the part of your website you want to arrange."
+      >
+        <div className="space-y-2">
+          {MENUS.map(
+            (menu) => {
+              const active =
+                menu.key ===
+                menuKey;
+
+              return (
+                <button
+                  key={
+                    menu.key
+                  }
+                  type="button"
+                  onClick={() =>
+                    requestMenuChange(
+                      menu.key
+                    )
+                  }
+                  className={
+                    "ls-focus-ring flex min-h-12 w-full items-center justify-between gap-3 rounded-xl border px-3 text-left " +
+                    (
+                      active
+                        ? "border-primary bg-secondary"
+                        : "border-border bg-card hover:bg-muted"
+                    )
+                  }
+                >
+                  <span className="text-sm font-bold text-heading">
+                    {
+                      menu.label
+                    }
+                  </span>
+
+                  {active ? (
+                    <Check className="h-4 w-4 text-primary" />
+                  ) : null}
+                </button>
+              );
+            }
+          )}
+        </div>
+      </BottomSheet>
+
+      <BottomSheet
+        open={addOpen}
+        onOpenChange={
+          setAddOpen
+        }
+        popupClassName="md:mx-auto md:max-w-3xl"
+        title="Add Menu Item"
+        description="Choose what you want to add."
+      >
+        <div className="grid grid-cols-3 gap-2">
+          {(
+            [
+              {
+                value:
+                  "category",
+                label:
+                  "Category",
+                icon:
+                  FolderTree,
+              },
+              {
+                value:
+                  "page",
+                label:
+                  "Page",
+                icon:
+                  FileText,
+              },
+              {
+                value:
+                  "custom",
+                label:
+                  "Link",
+                icon:
+                  Link2,
+              },
+            ] as const
+          ).map(
+            (tab) => {
+              const Icon =
+                tab.icon;
+
+              const active =
+                addTab ===
+                tab.value;
+
+              return (
+                <button
+                  key={
+                    tab.value
+                  }
+                  type="button"
+                  onClick={() => {
+                    setAddTab(
+                      tab.value
+                    );
+                    setAddSearch(
+                      ""
+                    );
+                  }}
+                  className={
+                    "ls-focus-ring flex min-h-16 flex-col items-center justify-center gap-1.5 rounded-xl border text-xs font-bold " +
+                    (
+                      active
+                        ? "border-primary bg-secondary text-secondary-foreground"
+                        : "border-border bg-card text-muted-foreground"
+                    )
+                  }
+                >
+                  <Icon className="h-4 w-4" />
+                  {
+                    tab.label
+                  }
+                </button>
+              );
+            }
+          )}
+        </div>
+
+        {addTab !==
+        "custom" ? (
+          <>
+            <div className="relative mt-4">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+
+              <Input
+                value={
+                  addSearch
+                }
+                onChange={(
+                  event
+                ) =>
+                  setAddSearch(
+                    event.target.value
+                  )
+                }
+                placeholder={
+                  addTab ===
+                  "category"
+                    ? "Search categories"
+                    : "Search pages"
+                }
+                className="pl-10"
+              />
+            </div>
+
+            <div className="mt-3 max-h-[44dvh] overflow-y-auto overscroll-contain rounded-xl border border-border">
+              {(addTab ===
+              "category"
+                ? filteredCats
+                : filteredPages
+              ).length ===
+              0 ? (
+                <div className="px-4 py-8 text-center text-sm text-muted-foreground">
+                  No matches found.
+                </div>
+              ) : addTab ===
+                "category" ? (
+                filteredCats.map(
+                  (
+                    category
+                  ) => (
+                    <button
+                      key={
+                        category.id
+                      }
+                      type="button"
+                      onClick={() =>
+                        addCategory(
+                          category.id
+                        )
+                      }
+                      className="ls-focus-ring flex min-h-12 w-full items-center justify-between gap-3 border-b border-border px-3 text-left last:border-b-0 hover:bg-muted"
+                    >
+                      <span className="truncate text-sm font-semibold text-foreground">
+                        {
+                          category.name
+                        }
+                      </span>
+
+                      <Plus className="h-4 w-4 shrink-0 text-primary" />
+                    </button>
+                  )
+                )
+              ) : (
+                filteredPages.map(
+                  (page) => (
+                    <button
+                      key={
+                        page.id
+                      }
+                      type="button"
+                      onClick={() =>
+                        addPageById(
+                          page.id
+                        )
+                      }
+                      className="ls-focus-ring flex min-h-12 w-full items-center justify-between gap-3 border-b border-border px-3 text-left last:border-b-0 hover:bg-muted"
+                    >
+                      <span className="truncate text-sm font-semibold text-foreground">
+                        {
+                          page.name
+                        }
+                      </span>
+
+                      <Plus className="h-4 w-4 shrink-0 text-primary" />
+                    </button>
+                  )
+                )
+              )}
+            </div>
+          </>
+        ) : (
+          <div className="mt-4 space-y-3">
+            <div>
+              <label className="mb-1.5 block text-xs font-bold text-heading">
+                Name
+              </label>
+
+              <Input
+                value={
+                  custom.title
+                }
+                onChange={(
+                  event
+                ) =>
+                  setCustom(
+                    (
+                      current
+                    ) => ({
+                      ...current,
+                      title:
+                        event.target.value,
+                    })
+                  )
+                }
+                placeholder="Example: Size Guide"
+              />
+            </div>
+
+            <div>
+              <label className="mb-1.5 block text-xs font-bold text-heading">
+                Link
+              </label>
+
+              <Input
+                value={
+                  custom.url
+                }
+                onChange={(
+                  event
+                ) =>
+                  setCustom(
+                    (
+                      current
+                    ) => ({
+                      ...current,
+                      url:
+                        event.target.value,
+                    })
+                  )
+                }
+                placeholder="https://..."
+              />
+            </div>
+
+            <Button
+              type="button"
+              className="w-full"
+              disabled={
+                !custom.title.trim() ||
+                !custom.url.trim()
+              }
+              onClick={
+                addCustom
+              }
+            >
+              Add to Menu
+            </Button>
+          </div>
+        )}
+      </BottomSheet>
+
+      <BottomSheet
+        open={moveOpen}
+        popupClassName="md:mx-auto md:max-w-xl"
+        onOpenChange={(
+          open
+        ) => {
+          setMoveOpen(
+            open
+          );
+
+          if (!open) {
+            setActionContext(
+              null
+            );
+          }
+        }}
+        title={
+          actionContext
+            ? "Move " +
+              actionContext
+                .item.title
+            : "Move item"
+        }
+        description="Choose where this item should appear."
+      >
+        <div className="max-h-[55dvh] overflow-y-auto overscroll-contain rounded-xl border border-border">
+          {moveTargets.map(
+            (target) => {
+              const active =
+                target.id ===
+                actionContext
+                  ?.parentId;
+
+              return (
+                <button
+                  key={
+                    target.id ||
+                    "root"
+                  }
+                  type="button"
+                  onClick={() =>
+                    moveItemTo(
+                      target.id
+                    )
+                  }
+                  className={
+                    "ls-focus-ring flex min-h-12 w-full items-center justify-between gap-3 border-b border-border px-3 text-left last:border-b-0 " +
+                    (
+                      active
+                        ? "bg-secondary"
+                        : "bg-card hover:bg-muted"
+                    )
+                  }
+                >
+                  <span
+                    className="min-w-0 truncate text-sm font-semibold text-foreground"
+                    style={{
+                      paddingLeft:
+                        Math.min(
+                          target.depth *
+                            14,
+                          42
+                        ),
+                    }}
+                  >
+                    {
+                      target.label
+                    }
+                  </span>
+
+                  {active ? (
+                    <Check className="h-4 w-4 shrink-0 text-primary" />
+                  ) : null}
+                </button>
+              );
+            }
+          )}
+        </div>
+      </BottomSheet>
+
+      <ConfirmDialog
+        open={
+          removeTarget !==
+          null
+        }
+        onOpenChange={(
+          open
+        ) => {
+          if (!open) {
+            setRemoveTarget(
+              null
+            );
+          }
+        }}
+        title="Remove menu item?"
+        description={
+          removeTarget
+            ? "Remove “" +
+              removeTarget
+                .item.title +
+              "” from this menu? This does not delete the page or category."
+            : undefined
+        }
+        confirmLabel="Remove"
+        destructive
+        onConfirm={
+          confirmRemove
+        }
+      />
+
+      <ConfirmDialog
+        open={discardOpen}
+        onOpenChange={(
+          open
+        ) => {
+          setDiscardOpen(
+            open
+          );
+
+          if (!open) {
+            setPendingMenuKey(
+              null
+            );
+          }
+        }}
+        title="Discard unsaved changes?"
+        description="Your current menu changes have not been saved."
+        confirmLabel="Discard changes"
+        destructive
+        onConfirm={
+          confirmDiscard
+        }
+      />
     </main>
   );
 }
