@@ -1,10 +1,50 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import type { WCOrder } from "@/lib/order-utils";
-import { extractShipmentFromMeta } from "@/lib/shipment-meta";
+import {
+  useMemo,
+  useState,
+} from "react";
 import Link from "next/link";
-import { ChevronLeft, ChevronRight, MoreVertical, Package2, RefreshCcw, Truck } from "lucide-react";
+import {
+  ExternalLink,
+  Package2,
+  Pencil,
+  Truck,
+} from "lucide-react";
+
+import {
+  useUnsavedChanges,
+} from "@/components/navigation/UnsavedChangesGuard";
+import {
+  AsyncButton,
+} from "@/components/ui/async-button";
+import {
+  BottomSheet,
+} from "@/components/ui/bottom-sheet";
+import {
+  Button,
+} from "@/components/ui/button";
+import {
+  ConfirmDialog,
+} from "@/components/ui/confirm-dialog";
+import {
+  EmptyState,
+} from "@/components/ui/empty-state";
+import {
+  Input,
+} from "@/components/ui/input";
+import {
+  StatusBadge,
+} from "@/components/ui/status-badge";
+import {
+  actionFeedback,
+} from "@/lib/actionFeedback";
+import type {
+  WCOrder,
+} from "@/lib/order-utils";
+import {
+  extractShipmentFromMeta,
+} from "@/lib/shipment-meta";
 
 type Row = {
   id: number;
@@ -16,486 +56,793 @@ type Row = {
   trackingUrl: string;
 };
 
-const FINAL_STATUSES = new Set([
-  "completed",
-  "cancelled",
-  "refunded",
-  "failed",
-  "trash",
-]);
+type ShipmentDraft = {
+  courier: string;
+  awb: string;
+  trackingUrl: string;
+};
 
-function buildRows(orders: WCOrder[]): Row[] {
-  return (orders || [])
-    .filter((o) => {
-      const st = String(o.status || "").toLowerCase();
-      return !FINAL_STATUSES.has(st);
-    })
-    .map((o) => {
-      const billingName = [o.billing?.first_name, o.billing?.last_name]
-        .filter(Boolean)
-        .join(" ");
+function buildRows(
+  orders: WCOrder[]
+): Row[] {
+  return (
+    orders || []
+  )
+    .filter(
+      (order) =>
+        String(
+          order.status ||
+            ""
+        ).toLowerCase() ===
+        "processing"
+    )
+    .map((order) => {
+      const billingName =
+        [
+          order.billing
+            ?.first_name,
+          order.billing
+            ?.last_name,
+        ]
+          .filter(Boolean)
+          .join(" ");
 
-      const shippingName = [o.shipping?.first_name, o.shipping?.last_name]
-        .filter(Boolean)
-        .join(" ");
+      const shippingName =
+        [
+          order.shipping
+            ?.first_name,
+          order.shipping
+            ?.last_name,
+        ]
+          .filter(Boolean)
+          .join(" ");
 
-      const customerName = billingName || shippingName || "—";
-      const shipment = extractShipmentFromMeta(
-        (o as any).meta_data || []
-      );
+      const shipment =
+        extractShipmentFromMeta(
+          (order as any)
+            .meta_data ||
+            []
+        );
 
       return {
-        id: o.id,
-        number: o.number?.toString() ?? String(o.id),
-        customerName,
-        status: String(o.status || ""),
-        courier: shipment.courier || "",
-        awb: shipment.awb || "",
-        trackingUrl: shipment.trackingUrl || "",
+        id: order.id,
+        number:
+          order.number?.toString() ??
+          String(
+            order.id
+          ),
+        customerName:
+          billingName ||
+          shippingName ||
+          "Customer",
+        status:
+          String(
+            order.status ||
+              ""
+          ),
+        courier:
+          shipment.courier ||
+          "",
+        awb:
+          shipment.awb ||
+          "",
+        trackingUrl:
+          shipment.trackingUrl ||
+          "",
       };
     });
 }
 
-function statusPill(status: string) {
-  const st = status.toLowerCase();
-  const base =
-    "inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-medium whitespace-nowrap";
-
-  if (st === "processing") {
-    return (
-      <span className={`${base} bg-amber-50 text-amber-700`}>
-        <span className="mr-1.5 h-1.5 w-1.5 rounded-full bg-amber-500" />
-        Processing
-      </span>
-    );
-  }
-
-  if (st === "pending") {
-    return (
-      <span className={`${base} bg-slate-100 text-slate-700`}>
-        <span className="mr-1.5 h-1.5 w-1.5 rounded-full bg-slate-500" />
-        Pending
-      </span>
-    );
-  }
-
-  if (st === "on-hold") {
-    return (
-      <span className={`${base} bg-orange-50 text-orange-700`}>
-        <span className="mr-1.5 h-1.5 w-1.5 rounded-full bg-orange-500" />
-        On hold
-      </span>
-    );
-  }
-
-  return (
-    <span className={`${base} bg-slate-100 text-slate-700 capitalize`}>
-      {status || "—"}
-    </span>
-  );
-}
-
-function RowMenu({ orderId }: { orderId: number }) {
-  const [open, setOpen] = useState(false);
-
-  return (
-    <div className="relative">
-      <button
-        type="button"
-        onClick={() => setOpen((s) => !s)}
-        className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-sm hover:border-violet-300 hover:text-violet-700"
-      >
-        <MoreVertical className="h-4 w-4" />
-      </button>
-
-      {open && (
-        <div className="absolute right-0 top-11 z-30 min-w-[150px] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl">
-          <Link
-            href={`/orders/${orderId}`}
-            className="block px-4 py-3 text-sm text-slate-700 hover:bg-slate-50"
-            onClick={() => setOpen(false)}
-          >
-            View order
-          </Link>
-        </div>
-      )}
-    </div>
-  );
+function draftFor(
+  row: Row
+): ShipmentDraft {
+  return {
+    courier:
+      row.courier,
+    awb: row.awb,
+    trackingUrl:
+      row.trackingUrl,
+  };
 }
 
 export default function ShipmentDetailsBulkTable({
   initialOrders,
 }: {
-  initialOrders: WCOrder[];
+  initialOrders:
+    WCOrder[];
 }) {
-  const initialRows = useMemo(() => buildRows(initialOrders), [initialOrders]);
-
-  const [rows, setRows] = useState<Row[]>(initialRows);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [savedMsg, setSavedMsg] = useState<string | null>(null);
-
-  const [page, setPage] = useState(1);
-  const [rowsPerPage, setRowsPerPage] = useState(25);
-
-  const pageCount = Math.max(1, Math.ceil(rows.length / rowsPerPage));
-  const currentPage = Math.min(page, pageCount);
-
-  const pageRows = useMemo(() => {
-    const start = (currentPage - 1) * rowsPerPage;
-    return rows.slice(start, start + rowsPerPage);
-  }, [rows, currentPage, rowsPerPage]);
-
-  const startIndex = rows.length === 0 ? 0 : (currentPage - 1) * rowsPerPage + 1;
-  const endIndex = rows.length === 0 ? 0 : Math.min(currentPage * rowsPerPage, rows.length);
-
-  const handleChange = (
-    id: number,
-    field: "courier" | "awb" | "trackingUrl",
-    value: string
-  ) => {
-    setRows((prev) =>
-      prev.map((row) => (row.id === id ? { ...row, [field]: value } : row))
+  const initialRows =
+    useMemo(
+      () =>
+        buildRows(
+          initialOrders
+        ),
+      [initialOrders]
     );
-  };
 
-  async function handleSave() {
+  const [
+    rows,
+    setRows,
+  ] =
+    useState<Row[]>(
+      initialRows
+    );
+
+  const [
+    activeId,
+    setActiveId,
+  ] =
+    useState<
+      number | null
+    >(null);
+
+  const [
+    draft,
+    setDraft,
+  ] =
+    useState<ShipmentDraft>({
+      courier: "",
+      awb: "",
+      trackingUrl: "",
+    });
+
+  const [
+    baseline,
+    setBaseline,
+  ] =
+    useState("");
+
+  const [
+    saving,
+    setSaving,
+  ] =
+    useState(false);
+
+  const [
+    closeConfirmOpen,
+    setCloseConfirmOpen,
+  ] =
+    useState(false);
+
+  const activeRow =
+    useMemo(
+      () =>
+        rows.find(
+          (row) =>
+            row.id ===
+            activeId
+        ) || null,
+      [
+        rows,
+        activeId,
+      ]
+    );
+
+  const currentSnapshot =
+    JSON.stringify(
+      draft
+    );
+
+  const dirty =
+    Boolean(
+      activeRow &&
+        baseline
+    ) &&
+    currentSnapshot !==
+      baseline;
+
+  function openEditor(
+    row: Row
+  ) {
+    const next =
+      draftFor(row);
+
+    setActiveId(
+      row.id
+    );
+    setDraft(next);
+    setBaseline(
+      JSON.stringify(
+        next
+      )
+    );
+  }
+
+  function closeEditor() {
+    setActiveId(
+      null
+    );
+    setBaseline("");
+    setDraft({
+      courier: "",
+      awb: "",
+      trackingUrl: "",
+    });
+  }
+
+  function requestClose() {
+    if (dirty) {
+      setCloseConfirmOpen(
+        true
+      );
+      return;
+    }
+
+    closeEditor();
+  }
+
+  async function saveActive():
+    Promise<boolean> {
+    if (
+      !activeRow ||
+      saving
+    ) {
+      return false;
+    }
+
+    const courier =
+      draft.courier.trim();
+
+    const awb =
+      draft.awb.trim();
+
+    const trackingUrl =
+      draft.trackingUrl.trim();
+
+    if (!courier) {
+      actionFeedback.warning({
+        id:
+          "shipment-validation",
+        title:
+          "Enter courier name",
+        durationMs: 2800,
+      });
+      return false;
+    }
+
+    if (!awb) {
+      actionFeedback.warning({
+        id:
+          "shipment-validation",
+        title:
+          "Enter tracking number",
+        durationMs: 2800,
+      });
+      return false;
+    }
+
+    if (trackingUrl) {
+      try {
+        const url =
+          new URL(
+            trackingUrl
+          );
+
+        if (
+          url.protocol !==
+            "http:" &&
+          url.protocol !==
+            "https:"
+        ) {
+          throw new Error();
+        }
+      } catch {
+        actionFeedback.warning({
+          id:
+            "shipment-validation",
+          title:
+            "Enter a valid tracking link",
+          durationMs: 3000,
+        });
+        return false;
+      }
+    }
+
+    const feedbackId =
+      `shipment-save-${activeRow.id}`;
+
     setSaving(true);
-    setError(null);
-    setSavedMsg(null);
+
+    actionFeedback.loading({
+      id: feedbackId,
+      title:
+        `Saving shipment #${activeRow.number}…`,
+    });
 
     try {
-      const updates = rows
-        .filter(
-          (r) =>
-            r.awb.trim() ||
-            r.courier.trim() ||
-            r.trackingUrl.trim()
-        )
-        .map((r) => ({
-          orderId: r.id,
-          courier: r.courier.trim(),
-          awb: r.awb.trim(),
-          trackingUrl: r.trackingUrl.trim(),
-        }));
+      const response =
+        await fetch(
+          "/api/orders/shipments",
+          {
+            method:
+              "POST",
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
+            body:
+              JSON.stringify({
+                updates: [
+                  {
+                    orderId:
+                      activeRow.id,
+                    courier,
+                    awb,
+                    trackingUrl,
+                  },
+                ],
+              }),
+          }
+        );
 
-      if (!updates.length) {
-        setSavedMsg("Nothing to save.");
-        setSaving(false);
-        return;
+      const payload =
+        await response
+          .json()
+          .catch(
+            () => ({})
+          );
+
+      if (!response.ok) {
+        throw new Error(
+          payload?.error ||
+            "Failed to save shipment"
+        );
       }
 
-      const res = await fetch("/api/orders/shipments", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ updates }),
+      setRows(
+        (current) =>
+          current.filter(
+            (row) =>
+              row.id !==
+              activeRow.id
+          )
+      );
+
+      actionFeedback.success({
+        id: feedbackId,
+        title:
+          "Shipment saved",
+        message:
+          `Order #${activeRow.number} marked completed.`,
+        durationMs: 2600,
       });
 
-      if (!res.ok) throw new Error("Failed to save shipments");
+      closeEditor();
+      setCloseConfirmOpen(
+        false
+      );
 
-      const json = await res.json().catch(() => ({}));
-      setSavedMsg(`Updated ${json.updated ?? updates.length} shipments.`);
+      return true;
+    } catch (
+      error: unknown
+    ) {
+      actionFeedback.error({
+        id: feedbackId,
+        title:
+          "Could not save shipment",
+        message:
+          error instanceof
+            Error
+            ? error.message
+            : "Please try again.",
+        durationMs: 4200,
+      });
 
-      window.location.reload();
-    } catch (e: any) {
-      console.error(e);
-      setError("Could not update shipments.");
+      return false;
     } finally {
       setSaving(false);
     }
   }
 
-  const disabled = saving;
+  useUnsavedChanges({
+    id:
+      "sales-shipment-editor",
+    dirty,
+    label:
+      "shipment details",
+    save:
+      saveActive,
+  });
+
+  if (
+    rows.length === 0
+  ) {
+    return (
+      <section className="rounded-xl border border-border bg-card md:rounded-2xl">
+        <EmptyState
+          icon={Package2}
+          title="No orders ready to ship"
+          description="Processing orders will appear here when courier details can be added."
+        />
+      </section>
+    );
+  }
 
   return (
-    <section className="overflow-hidden rounded-[26px] border border-slate-200/80 bg-white shadow-[0_10px_30px_rgba(15,23,42,0.05)]">
-      <div className="border-b border-slate-100 bg-gradient-to-r from-white via-[#faf7ff] to-[#f4fbff] px-4 py-4 md:px-5">
-        <div className="flex items-center justify-between gap-3">
-          <h2 className="text-[16px] font-semibold text-slate-900">
-            Open Orders
-          </h2>
-
-          <div className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">
-            {rows.length} orders
+    <>
+      <section className="overflow-hidden rounded-xl border border-border bg-card md:rounded-2xl">
+        <div className="flex items-center justify-between gap-3 border-b border-border px-3 py-3 md:px-4">
+          <div>
+            <h2 className="text-sm font-extrabold text-heading md:text-base">
+              Ready to ship
+            </h2>
+            <p className="mt-0.5 hidden text-xs text-muted-foreground md:block">
+              Add courier and tracking details. Saving marks the order completed.
+            </p>
           </div>
+
+          <span className="rounded-full bg-secondary px-3 py-1.5 text-xs font-bold text-secondary-foreground">
+            {rows.length} orders
+          </span>
         </div>
 
-        <div className="mt-3 flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            onClick={() => window.location.reload()}
-            className="inline-flex h-11 items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50"
-          >
-            <RefreshCcw className="h-4 w-4" />
-            Refresh
-          </button>
-
-          <button
-            type="button"
-            onClick={handleSave}
-            disabled={disabled || !rows.length}
-            className={`inline-flex h-11 items-center gap-2 rounded-2xl px-5 text-sm font-semibold text-white shadow-sm ${
-              disabled || !rows.length
-                ? "cursor-not-allowed bg-slate-300"
-                : "bg-blue-600 hover:bg-blue-700"
-            }`}
-          >
-            <Truck className="h-4 w-4" />
-            {saving ? "Saving..." : "Save & Mark Completed"}
-          </button>
-
-          {savedMsg && (
-            <span className="text-xs text-slate-500">{savedMsg}</span>
-          )}
-
-          {error && (
-            <span className="text-xs text-rose-600">{error}</span>
-          )}
-        </div>
-      </div>
-
-      {/* Mobile cards */}
-      <div className="block md:hidden">
-        {pageRows.length > 0 ? (
-          <div className="space-y-2 p-3">
-            {pageRows.map((row) => (
-              <div
-                key={row.id}
-                className="rounded-[20px] border border-slate-200 bg-white px-3 py-3 shadow-sm"
+        <div className="divide-y divide-border md:hidden">
+          {rows.map(
+            (row) => (
+              <article
+                key={
+                  row.id
+                }
+                className="p-3"
               >
-                <div className="flex items-start justify-between gap-2">
+                <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <Link
                       href={`/orders/${row.id}`}
-                      className="block text-[15px] font-semibold text-indigo-700 hover:underline"
+                      className="text-sm font-extrabold text-primary"
                     >
-                      #{row.number}
+                      #
+                      {
+                        row.number
+                      }
                     </Link>
-                    <div className="mt-0.5 text-[14px] font-medium text-slate-800">
-                      {row.customerName || "—"}
+
+                    <div className="mt-0.5 truncate text-sm font-semibold text-heading">
+                      {
+                        row.customerName
+                      }
+                    </div>
+
+                    <div className="mt-1">
+                      <StatusBadge
+                        status="processing"
+                        label="Processing"
+                      />
                     </div>
                   </div>
 
-                  <RowMenu orderId={row.id} />
+                  <Button
+                    size="sm"
+                    variant={
+                      row.awb ||
+                      row.courier
+                        ? "secondary"
+                        : "primary"
+                    }
+                    onClick={() =>
+                      openEditor(
+                        row
+                      )
+                    }
+                  >
+                    <Pencil className="h-3.5 w-3.5" />
+                    {row.awb ||
+                    row.courier
+                      ? "Edit"
+                      : "Add details"}
+                  </Button>
                 </div>
 
-                <div className="mt-2">{statusPill(row.status)}</div>
+                {row.awb ||
+                row.courier ? (
+                  <div className="mt-2.5 flex flex-wrap gap-x-4 gap-y-1 rounded-lg bg-surface-soft px-3 py-2 text-xs text-muted-foreground">
+                    {row.courier ? (
+                      <span>
+                        {
+                          row.courier
+                        }
+                      </span>
+                    ) : null}
 
-                <div className="mt-3 space-y-3">
-                  <div>
-                    <label className="mb-1 block text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">
-                      Tracking number
-                    </label>
-                    <input
-                      type="text"
-                      value={row.awb}
-                      disabled={disabled}
-                      placeholder="Tracking number"
-                      className="h-11 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 text-sm text-slate-800 outline-none focus:border-blue-400 focus:bg-white focus:ring-2 focus:ring-blue-100"
-                      onChange={(e) =>
-                        handleChange(row.id, "awb", e.target.value)
-                      }
-                    />
+                    {row.awb ? (
+                      <span className="font-mono">
+                        {
+                          row.awb
+                        }
+                      </span>
+                    ) : null}
                   </div>
+                ) : null}
+              </article>
+            )
+          )}
+        </div>
 
-                  <div>
-                    <label className="mb-1 block text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">
-                      Courier name
-                    </label>
-                    <input
-                      type="text"
-                      value={row.courier}
-                      disabled={disabled}
-                      placeholder="Delhivery / Ekart / DTDC"
-                      className="h-11 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 text-sm text-slate-800 outline-none focus:border-blue-400 focus:bg-white focus:ring-2 focus:ring-blue-100"
-                      onChange={(e) =>
-                        handleChange(row.id, "courier", e.target.value)
-                      }
-                    />
-                  </div>
-
-                  <div>
-                    <label className="mb-1 block text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">
-                      Tracking link (optional)
-                    </label>
-                    <input
-                      type="url"
-                      value={row.trackingUrl}
-                      disabled={disabled}
-                      placeholder="https://courier.example/track/..."
-                      className="h-11 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 text-sm text-slate-800 outline-none focus:border-blue-400 focus:bg-white focus:ring-2 focus:ring-blue-100"
-                      onChange={(e) =>
-                        handleChange(
-                          row.id,
-                          "trackingUrl",
-                          e.target.value
-                        )
-                      }
-                    />
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="px-6 py-12 text-center">
-            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100 text-slate-400">
-              <Package2 className="h-6 w-6" />
-            </div>
-            <div className="mt-4 text-sm font-semibold text-slate-700">
-              No open orders need shipment details.
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Desktop table */}
-      <div className="hidden overflow-x-auto md:block">
-        {rows.length > 0 ? (
-          <table className="min-w-full text-sm">
+        <div className="hidden overflow-x-auto md:block">
+          <table className="w-full min-w-[760px] text-sm">
             <thead>
-              <tr className="bg-violet-50/60 text-left text-xs font-medium uppercase tracking-wide text-slate-600">
-                <th className="px-4 py-3">Order</th>
-                <th className="px-4 py-3">Customer</th>
-                <th className="px-4 py-3">Status</th>
-                <th className="px-4 py-3">Tracking number</th>
-                <th className="px-4 py-3">Courier name</th>
-                <th className="px-4 py-3">Tracking link</th>
-                <th className="px-4 py-3 text-right">Action</th>
+              <tr className="border-b border-border bg-surface-soft text-left text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+                <th className="px-4 py-3">
+                  Order
+                </th>
+                <th className="px-4 py-3">
+                  Customer
+                </th>
+                <th className="px-4 py-3">
+                  Status
+                </th>
+                <th className="px-4 py-3">
+                  Courier
+                </th>
+                <th className="px-4 py-3">
+                  Tracking
+                </th>
+                <th className="px-4 py-3 text-right">
+                  Action
+                </th>
               </tr>
             </thead>
+
             <tbody>
-              {pageRows.map((row) => (
-                <tr
-                  key={row.id}
-                  className="border-t border-slate-100 bg-white/70 align-top hover:bg-violet-50/40"
-                >
-                  <td className="px-4 py-4">
-                    <div className="flex flex-col">
+              {rows.map(
+                (row) => (
+                  <tr
+                    key={
+                      row.id
+                    }
+                    className="border-b border-border last:border-b-0 hover:bg-muted/40"
+                  >
+                    <td className="px-4 py-3.5">
                       <Link
                         href={`/orders/${row.id}`}
-                        className="text-[15px] font-semibold text-indigo-700 hover:underline"
+                        className="font-bold text-primary hover:underline"
                       >
-                        #{row.number}
+                        #
+                        {
+                          row.number
+                        }
                       </Link>
-                      <span className="text-[11px] text-slate-400">
-                        ID {row.id}
-                      </span>
-                    </div>
-                  </td>
+                    </td>
 
-                  <td className="px-4 py-4 text-sm text-slate-800">
-                    {row.customerName || "—"}
-                  </td>
-
-                  <td className="px-4 py-4">{statusPill(row.status)}</td>
-
-                  <td className="px-4 py-4 min-w-[220px]">
-                    <input
-                      type="text"
-                      value={row.awb}
-                      disabled={disabled}
-                      placeholder="Tracking number"
-                      className="h-11 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 text-sm text-slate-800 outline-none focus:border-blue-400 focus:bg-white focus:ring-2 focus:ring-blue-100"
-                      onChange={(e) =>
-                        handleChange(row.id, "awb", e.target.value)
+                    <td className="px-4 py-3.5 font-semibold text-heading">
+                      {
+                        row.customerName
                       }
-                    />
-                  </td>
+                    </td>
 
-                  <td className="px-4 py-4 min-w-[220px]">
-                    <input
-                      type="text"
-                      value={row.courier}
-                      disabled={disabled}
-                      placeholder="Delhivery / Ekart / DTDC"
-                      className="h-11 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 text-sm text-slate-800 outline-none focus:border-blue-400 focus:bg-white focus:ring-2 focus:ring-blue-100"
-                      onChange={(e) =>
-                        handleChange(row.id, "courier", e.target.value)
-                      }
-                    />
-                  </td>
+                    <td className="px-4 py-3.5">
+                      <StatusBadge
+                        status="processing"
+                        label="Processing"
+                      />
+                    </td>
 
-                  <td className="px-4 py-4 min-w-[260px]">
-                    <input
-                      type="url"
-                      value={row.trackingUrl}
-                      disabled={disabled}
-                      placeholder="https://courier.example/track/..."
-                      className="h-11 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 text-sm text-slate-800 outline-none focus:border-blue-400 focus:bg-white focus:ring-2 focus:ring-blue-100"
-                      onChange={(e) =>
-                        handleChange(
-                          row.id,
-                          "trackingUrl",
-                          e.target.value
-                        )
-                      }
-                    />
-                  </td>
+                    <td className="px-4 py-3.5 text-foreground">
+                      {row.courier ||
+                        "—"}
+                    </td>
 
-                  <td className="px-4 py-4 text-right">
-                    <RowMenu orderId={row.id} />
-                  </td>
-                </tr>
-              ))}
+                    <td className="px-4 py-3.5">
+                      <div className="max-w-[220px] truncate font-mono text-xs text-muted-foreground">
+                        {row.awb ||
+                          "—"}
+                      </div>
+                    </td>
+
+                    <td className="px-4 py-3.5 text-right">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() =>
+                          openEditor(
+                            row
+                          )
+                        }
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                        {row.awb ||
+                        row.courier
+                          ? "Edit"
+                          : "Add details"}
+                      </Button>
+                    </td>
+                  </tr>
+                )
+              )}
             </tbody>
           </table>
-        ) : (
-          <div className="px-6 py-12 text-center text-sm text-slate-500">
-            No open orders need shipment details.
-          </div>
-        )}
-      </div>
+        </div>
+      </section>
 
-      {rows.length > 0 && (
-        <div className="flex flex-col gap-3 border-t border-slate-100 bg-white px-4 py-4 text-xs text-slate-600 md:flex-row md:items-center md:justify-between md:px-5">
+      <BottomSheet
+        open={
+          Boolean(
+            activeRow
+          )
+        }
+        onOpenChange={(
+          open
+        ) => {
+          if (!open) {
+            requestClose();
+          }
+        }}
+        title={
+          activeRow
+            ? `Shipment #${activeRow.number}`
+            : "Shipment details"
+        }
+        description={
+          activeRow
+            ? activeRow.customerName
+            : undefined
+        }
+        popupClassName="md:mx-auto md:max-w-xl"
+      >
+        <div className="space-y-4">
           <div>
-            Showing <span className="font-semibold">{startIndex}</span> –{" "}
-            <span className="font-semibold">{endIndex}</span> of{" "}
-            <span className="font-semibold">{rows.length}</span> orders
+            <label className="mb-1.5 block text-xs font-bold text-heading">
+              Courier name
+              <span className="ml-1 text-destructive">
+                *
+              </span>
+            </label>
+            <Input
+              value={
+                draft.courier
+              }
+              onChange={(
+                event
+              ) =>
+                setDraft(
+                  (
+                    current
+                  ) => ({
+                    ...current,
+                    courier:
+                      event.target
+                        .value,
+                  })
+                )
+              }
+              placeholder="Delhivery / DTDC / India Post"
+              disabled={
+                saving
+              }
+            />
           </div>
 
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2">
-              <span>Rows</span>
-              <select
-                className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700"
-                value={rowsPerPage}
-                onChange={(e) => setRowsPerPage(Number(e.target.value) || 25)}
-              >
-                <option value={10}>10</option>
-                <option value={25}>25</option>
-                <option value={50}>50</option>
-                <option value={100}>100</option>
-              </select>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <button
-                className="inline-flex items-center gap-1 rounded-full border border-slate-200 px-3 py-2 text-xs font-medium hover:bg-slate-50 disabled:opacity-40"
-                disabled={currentPage <= 1}
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-              >
-                <ChevronLeft className="h-3.5 w-3.5" />
-                Previous
-              </button>
-
-              <span className="rounded-full bg-slate-100 px-3 py-2 text-xs font-medium text-slate-600">
-                Page {currentPage} of {pageCount}
+          <div>
+            <label className="mb-1.5 block text-xs font-bold text-heading">
+              Tracking number
+              <span className="ml-1 text-destructive">
+                *
               </span>
+            </label>
+            <Input
+              value={
+                draft.awb
+              }
+              onChange={(
+                event
+              ) =>
+                setDraft(
+                  (
+                    current
+                  ) => ({
+                    ...current,
+                    awb:
+                      event.target
+                        .value,
+                  })
+                )
+              }
+              placeholder="AWB / tracking number"
+              disabled={
+                saving
+              }
+            />
+          </div>
 
-              <button
-                className="inline-flex items-center gap-1 rounded-full border border-slate-200 px-3 py-2 text-xs font-medium hover:bg-slate-50 disabled:opacity-40"
-                disabled={currentPage >= pageCount}
-                onClick={() => setPage((p) => Math.min(pageCount, p + 1))}
-              >
-                Next
-                <ChevronRight className="h-3.5 w-3.5" />
-              </button>
-            </div>
+          <div>
+            <label className="mb-1.5 block text-xs font-bold text-heading">
+              Tracking link
+            </label>
+            <Input
+              type="url"
+              value={
+                draft.trackingUrl
+              }
+              onChange={(
+                event
+              ) =>
+                setDraft(
+                  (
+                    current
+                  ) => ({
+                    ...current,
+                    trackingUrl:
+                      event.target
+                        .value,
+                  })
+                )
+              }
+              placeholder="https://courier.example/track/..."
+              disabled={
+                saving
+              }
+            />
+            <p className="mt-1.5 text-xs text-muted-foreground">
+              Optional. Add the courier tracking page when available.
+            </p>
+          </div>
+
+          {draft.trackingUrl ? (
+            <a
+              href={
+                draft.trackingUrl
+              }
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex min-h-10 items-center gap-1.5 rounded-xl bg-secondary px-3 text-xs font-bold text-secondary-foreground"
+            >
+              Check tracking link
+              <ExternalLink className="h-3.5 w-3.5" />
+            </a>
+          ) : null}
+
+          <div className="rounded-xl bg-surface-soft px-3 py-2.5 text-xs leading-5 text-muted-foreground">
+            Saving these details records the shipment, marks this order completed, and triggers the normal WooCommerce completed-order flow.
+          </div>
+
+          <div className="grid grid-cols-[auto_1fr] gap-2 pt-1">
+            <Button
+              variant="outline"
+              onClick={
+                requestClose
+              }
+              disabled={
+                saving
+              }
+            >
+              Cancel
+            </Button>
+
+            <AsyncButton
+              loading={
+                saving
+              }
+              loadingLabel="Saving…"
+              onClick={() =>
+                void saveActive()
+              }
+            >
+              <Truck className="h-4 w-4" />
+              Save & Mark Completed
+            </AsyncButton>
           </div>
         </div>
-      )}
-    </section>
+      </BottomSheet>
+
+      <ConfirmDialog
+        open={
+          closeConfirmOpen
+        }
+        onOpenChange={
+          setCloseConfirmOpen
+        }
+        title="Unsaved shipment details"
+        description="Save the shipment details before closing?"
+        confirmLabel="Save changes"
+        cancelLabel="Cancel"
+        loading={
+          saving
+        }
+        loadingLabel="Saving…"
+        onConfirm={
+          saveActive
+        }
+      />
+    </>
   );
 }
