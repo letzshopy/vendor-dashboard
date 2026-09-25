@@ -344,7 +344,7 @@ function ToggleField({
   onChange: (value: boolean) => void;
 }) {
   return (
-    <div className="flex min-h-[72px] items-center justify-between gap-4 rounded-2xl bg-surface-soft px-4 py-3">
+    <div className="flex min-h-12 items-center justify-between gap-3 rounded-xl bg-surface-soft px-3 py-2.5 md:min-h-[72px] md:rounded-2xl md:px-4 md:py-3">
       <div className="min-w-0">
         <div className="text-sm font-bold text-heading">
           {title}
@@ -664,12 +664,12 @@ export default function SetupSiteTab() {
   hint="Control the topbar message and visible homepage sections."
 >
   <div className="space-y-4">
-    <div className="rounded-2xl bg-surface-soft p-4">
+    <div className="rounded-xl bg-surface-soft p-3 md:rounded-2xl md:p-4">
       <Field label="Topbar message">
         <div className="relative">
-          <Bell className="pointer-events-none absolute left-4 top-3.5 h-4 w-4 text-muted-foreground" />
+          <Bell className="pointer-events-none absolute left-3 top-3.5 h-4 w-4 text-muted-foreground" />
           <input
-            className="h-11 w-full rounded-2xl border border-slate-200 bg-white pl-11 pr-4 text-sm text-slate-900 placeholder:text-muted-foreground shadow-sm transition focus:border-indigo-400 focus:outline-none focus:ring-4 focus:ring-indigo-100"
+            className="ls-focus-ring h-11 w-full rounded-xl border border-input bg-card pl-10 pr-3 text-sm text-foreground placeholder:text-muted-foreground"
             placeholder="Example: Free shipping on orders above ₹999"
             value={form.branding.topbarMessage}
             onChange={(e) => patch("branding.topbarMessage", e.target.value)}
@@ -678,12 +678,12 @@ export default function SetupSiteTab() {
       </Field>
     </div>
 
-    <div className="rounded-2xl border border-border bg-card p-4">
+    <div className="rounded-xl border border-border bg-card p-3 md:rounded-2xl md:p-4">
       <div className="mb-3">
         <div className="text-sm font-bold text-heading">
           Homepage sections
         </div>
-        <p className="mt-1 text-xs text-muted-foreground">
+        <p className="mt-1 hidden text-xs text-muted-foreground sm:block">
           Choose which sections should appear on the storefront homepage.
         </p>
       </div>
@@ -717,12 +717,12 @@ export default function SetupSiteTab() {
       </div>
     </div>
 
-    <div className="rounded-2xl border border-border bg-card p-4">
+    <div className="rounded-xl border border-border bg-card p-3 md:rounded-2xl md:p-4">
       <div className="mb-3">
         <div className="text-sm font-bold text-heading">
           Recent order notifications
         </div>
-        <p className="mt-1 text-xs leading-5 text-muted-foreground">
+        <p className="mt-1 hidden text-xs leading-5 text-muted-foreground sm:block">
           Display small, privacy-safe notifications generated from genuine
           WooCommerce orders.
         </p>
@@ -759,7 +759,7 @@ export default function SetupSiteTab() {
               <div className="text-sm font-bold text-heading">
                 Founder Photo / Store Owner Photo
               </div>
-              <p className="mt-1 text-xs leading-5 text-muted-foreground">
+              <p className="mt-1 hidden text-xs leading-5 text-muted-foreground sm:block">
                 Upload founder photo, store owner photo, or a featured brand/product image.
               </p>
 
