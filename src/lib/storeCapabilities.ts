@@ -42,9 +42,10 @@ const STANDALONE_V1_BLOCKED_FEATURES =
 
 const STANDALONE_V1_ALLOWED_SETTINGS_TABS =
   new Set([
+    "storeSettings",
+    "shippingDelivery",
     "tax",
     "shipmentFulfillment",
-    "shippingDelivery",
   ]);
 
 const STANDALONE_V1_BLOCKED_PATH_PREFIXES = [
