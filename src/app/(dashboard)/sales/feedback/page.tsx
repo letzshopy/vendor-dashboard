@@ -75,27 +75,6 @@ export default async function CustomerFeedbackPage() {
         }
       />
 
-      <div className="mb-3 flex items-end justify-between gap-3 md:hidden">
-        <div>
-          <div className="text-[11px] font-bold uppercase tracking-[0.08em] text-accent">
-            Sales
-          </div>
-          <h1 className="mt-0.5 text-[22px] font-extrabold tracking-tight text-heading">
-            Customer Feedback
-          </h1>
-        </div>
-
-        <Link
-          href="/sales/feedback/new"
-          className={buttonClassName({
-            size: "sm",
-          })}
-        >
-          <Plus className="h-3.5 w-3.5" />
-          Add
-        </Link>
-      </div>
-
       <div className="grid grid-cols-3 gap-2 md:mt-5 md:max-w-xl md:gap-3">
         {[
           [
