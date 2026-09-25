@@ -34,6 +34,9 @@ import {
   BottomSheet,
 } from "@/components/ui/bottom-sheet";
 import {
+  ButtonLink,
+} from "@/components/ui/button-link";
+import {
   Button,
 } from "@/components/ui/button";
 import {
@@ -866,12 +869,12 @@ export default function SaleEventFormClient({
         </section>
 
         <div className="sticky bottom-[calc(5.1rem+var(--ls-safe-area-bottom))] z-20 flex items-center justify-end gap-2 rounded-2xl border border-border bg-card/95 p-2.5 shadow-[0_14px_36px_rgba(38,51,95,0.16)] backdrop-blur md:static md:border-0 md:bg-transparent md:p-0 md:shadow-none">
-          <Link
+          <ButtonLink
             href="/offers-discounts/sale-events"
-            className="ls-focus-ring inline-flex min-h-11 items-center justify-center rounded-xl border border-border bg-card px-4 text-sm font-semibold text-foreground hover:bg-muted"
+            variant="outline"
           >
             Cancel
-          </Link>
+          </ButtonLink>
           <SaleEventSubmitButton
             mode={mode}
           />
