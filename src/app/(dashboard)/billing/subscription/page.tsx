@@ -178,20 +178,59 @@ function SummaryStat({
   );
 }
 
-function StatusBadge({ status }: { status?: string }) {
-  const v = (status || "").toLowerCase().trim();
+function StatusBadge({
+  status,
+}: {
+  status?: string;
+}) {
+  const value =
+    (
+      status ||
+      ""
+    )
+      .toLowerCase()
+      .trim();
 
-  let cls =
-    "border-slate-200 bg-slate-100 text-slate-700";
-  if (v === "active") cls = "border-emerald-200 bg-emerald-50 text-emerald-700";
-  if (v === "payment_submitted")
-    cls = "border-amber-200 bg-amber-50 text-amber-700";
-  if (v === "pending_payment")
-    cls = "border-rose-200 bg-rose-50 text-rose-700";
+  let classes =
+    "bg-secondary text-secondary-foreground";
+
+  if (
+    value ===
+    "active"
+  ) {
+    classes =
+      "bg-emerald-50 text-emerald-700";
+  }
+
+  if (
+    value ===
+      "payment_submitted" ||
+    value ===
+      "trial"
+  ) {
+    classes =
+      "bg-amber-50 text-amber-700";
+  }
+
+  if (
+    value ===
+      "pending_payment" ||
+    value ===
+      "expired" ||
+    value ===
+      "suspended"
+  ) {
+    classes =
+      "bg-rose-50 text-rose-700";
+  }
 
   return (
-    <span className={`inline-flex rounded-full border px-3 py-1 text-xs font-semibold ${cls}`}>
-      {prettyStatus(status)}
+    <span
+      className={`inline-flex min-h-7 items-center rounded-full px-2.5 py-1 text-[11px] font-bold ${classes}`}
+    >
+      {prettyStatus(
+        status
+      )}
     </span>
   );
 }
