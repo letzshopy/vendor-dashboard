@@ -9,6 +9,7 @@ import {
 import {
   MapPin,
   PackageCheck,
+  Printer,
   Truck,
 } from "lucide-react";
 
@@ -45,6 +46,12 @@ type ShipmentFulfillmentSettings = {
   };
 };
 
+type GeneralProducts =
+  Record<string, unknown> & {
+    packslipReturnAddress?: string;
+    packslipShowReturn?: boolean;
+  };
+
 const emptySettings:
   ShipmentFulfillmentSettings = {
   mode: "self",
@@ -58,6 +65,9 @@ const emptySettings:
     postcode: "",
   },
 };
+
+const textareaClass =
+  "ls-focus-ring w-full resize-y rounded-xl border border-input bg-card px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground";
 
 function Field({
   label,
@@ -77,7 +87,11 @@ function Field({
   );
 }
 
-export default function ShipmentFulfillmentTab() {
+export default function ShipmentFulfillmentTab({
+  enablePackingSlipSettings = true,
+}: {
+  enablePackingSlipSettings?: boolean;
+}) {
   const [
     data,
     setData,
@@ -85,6 +99,18 @@ export default function ShipmentFulfillmentTab() {
     useState<ShipmentFulfillmentSettings>(
       emptySettings
     );
+
+  const [
+    packingSlipShowReturn,
+    setPackingSlipShowReturn,
+  ] =
+    useState(false);
+
+  const [
+    packingSlipReturnAddress,
+    setPackingSlipReturnAddress,
+  ] =
+    useState("");
 
   const [
     loading,
@@ -109,6 +135,31 @@ export default function ShipmentFulfillmentTab() {
   const snapshotRef =
     useRef("");
 
+  const generalProductsRef =
+    useRef<GeneralProducts | null>(
+      null
+    );
+
+  function buildSnapshot(
+    fulfillment:
+      ShipmentFulfillmentSettings,
+    showReturn =
+      packingSlipShowReturn,
+    returnAddress =
+      packingSlipReturnAddress
+  ) {
+    return JSON.stringify({
+      fulfillment,
+      packingSlip:
+        enablePackingSlipSettings
+          ? {
+              showReturn,
+              returnAddress,
+            }
+          : null,
+    });
+  }
+
   useEffect(() => {
     let cancelled =
       false;
@@ -118,7 +169,7 @@ export default function ShipmentFulfillmentTab() {
       setError(null);
 
       try {
-        const response =
+        const fulfillmentResponse =
           await fetch(
             "/api/settings/shipment-fulfillment",
             {
@@ -127,35 +178,98 @@ export default function ShipmentFulfillmentTab() {
             }
           );
 
-        if (!response.ok) {
+        if (
+          !fulfillmentResponse.ok
+        ) {
           throw new Error(
             "Failed to load delivery setup"
           );
         }
 
-        const json =
+        const fulfillmentJson =
           (
-            await response.json()
+            await fulfillmentResponse.json()
           ) as ShipmentFulfillmentSettings;
 
         const merged:
           ShipmentFulfillmentSettings = {
           ...emptySettings,
-          ...json,
+          ...fulfillmentJson,
           pickup: {
             ...emptySettings.pickup,
             ...(
-              json?.pickup ||
+              fulfillmentJson?.pickup ||
               {}
             ),
           },
         };
 
+        let nextShowReturn =
+          false;
+
+        let nextReturnAddress =
+          "";
+
+        if (
+          enablePackingSlipSettings
+        ) {
+          const generalResponse =
+            await fetch(
+              "/api/settings/general",
+              {
+                cache:
+                  "no-store",
+              }
+            );
+
+          if (
+            !generalResponse.ok
+          ) {
+            throw new Error(
+              "Failed to load packing slip sender settings"
+            );
+          }
+
+          const generalJson =
+            await generalResponse.json();
+
+          const products =
+            (
+              generalJson?.products ||
+              {}
+            ) as GeneralProducts;
+
+          generalProductsRef.current =
+            products;
+
+          nextShowReturn =
+            Boolean(
+              products.packslipShowReturn
+            );
+
+          nextReturnAddress =
+            String(
+              products.packslipReturnAddress ||
+                ""
+            );
+        }
+
         if (!cancelled) {
           setData(merged);
+
+          setPackingSlipShowReturn(
+            nextShowReturn
+          );
+
+          setPackingSlipReturnAddress(
+            nextReturnAddress
+          );
+
           snapshotRef.current =
-            JSON.stringify(
-              merged
+            buildSnapshot(
+              merged,
+              nextShowReturn,
+              nextReturnAddress
             );
         }
       } catch (
@@ -195,20 +309,30 @@ export default function ShipmentFulfillmentTab() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [
+    enablePackingSlipSettings,
+  ]);
 
-  const isDirty =
+  const currentSnapshot =
     useMemo(
       () =>
-        Boolean(
-          snapshotRef.current
-        ) &&
-        JSON.stringify(
+        buildSnapshot(
           data
-        ) !==
-          snapshotRef.current,
-      [data]
+        ),
+      [
+        data,
+        packingSlipShowReturn,
+        packingSlipReturnAddress,
+        enablePackingSlipSettings,
+      ]
     );
+
+  const isDirty =
+    Boolean(
+      snapshotRef.current
+    ) &&
+    currentSnapshot !==
+      snapshotRef.current;
 
   function onChangePickup(
     field:
@@ -288,9 +412,84 @@ export default function ShipmentFulfillmentTab() {
         },
       };
 
+      if (
+        enablePackingSlipSettings
+      ) {
+        const currentProducts =
+          generalProductsRef.current;
+
+        if (!currentProducts) {
+          throw new Error(
+            "Packing slip settings are not available. Refresh and try again."
+          );
+        }
+
+        const products:
+          GeneralProducts = {
+          ...currentProducts,
+          packslipShowReturn:
+            packingSlipShowReturn,
+          packslipReturnAddress:
+            packingSlipReturnAddress,
+        };
+
+        const generalResponse =
+          await fetch(
+            "/api/settings/general",
+            {
+              method:
+                "PATCH",
+              headers: {
+                "Content-Type":
+                  "application/json",
+              },
+              body:
+                JSON.stringify({
+                  products,
+                  sync: true,
+                }),
+            }
+          );
+
+        const generalText =
+          await generalResponse
+            .text()
+            .catch(
+              () => ""
+            );
+
+        const generalJson =
+          generalText
+            ? JSON.parse(
+                generalText
+              )
+            : {};
+
+        if (
+          !generalResponse.ok
+        ) {
+          throw new Error(
+            typeof generalJson?.message ===
+              "string"
+              ? generalJson.message
+              : "Failed to save packing slip sender settings"
+          );
+        }
+
+        generalProductsRef.current =
+          {
+            ...products,
+            ...(
+              generalJson?.products ||
+              {}
+            ),
+          };
+      }
+
       setData(merged);
+
       snapshotRef.current =
-        JSON.stringify(
+        buildSnapshot(
           merged
         );
 
@@ -633,23 +832,127 @@ export default function ShipmentFulfillmentTab() {
           </div>
         </section>
       ) : (
-        <section className="rounded-2xl border border-border bg-card p-4 md:p-5">
-          <div className="flex items-start gap-3">
-            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-secondary text-secondary-foreground">
-              <PackageCheck className="h-4.5 w-4.5" />
-            </span>
+        <div className="space-y-4">
+          <section className="rounded-2xl border border-border bg-card p-4 md:p-5">
+            <div className="flex items-start gap-3">
+              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-secondary text-secondary-foreground">
+                <PackageCheck className="h-4.5 w-4.5" />
+              </span>
 
-            <div className="min-w-0">
-              <h2 className="text-sm font-extrabold text-heading">
-                Self-shipping workflow
-              </h2>
+              <div className="min-w-0">
+                <h2 className="text-sm font-extrabold text-heading">
+                  Self-shipping workflow
+                </h2>
 
-              <p className="mt-1 text-sm leading-6 text-muted-foreground">
-                Pack and dispatch with your preferred courier. After dispatch, open Sales → Shipment Details and enter the courier name and tracking number.
-              </p>
+                <p className="mt-1 text-sm leading-6 text-muted-foreground">
+                  Pack and dispatch with your preferred courier. After dispatch, open Sales → Shipment Details and enter the courier name and tracking number.
+                </p>
+              </div>
             </div>
-          </div>
-        </section>
+          </section>
+
+          {enablePackingSlipSettings ? (
+            <section className="rounded-2xl border border-border bg-card">
+              <div className="flex items-start gap-3 border-b border-border px-4 py-3.5 md:px-5">
+                <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-secondary text-secondary-foreground">
+                  <Printer className="h-4.5 w-4.5" />
+                </span>
+
+                <div className="min-w-0">
+                  <h2 className="text-sm font-extrabold text-heading">
+                    Packing slip sender address
+                  </h2>
+
+                  <p className="mt-0.5 text-xs leading-5 text-muted-foreground">
+                    Choose the From / Return address printed on packing slips for self-shipped orders.
+                  </p>
+                </div>
+              </div>
+
+              <div className="space-y-4 p-4 md:p-5">
+                <div className="grid gap-3 lg:grid-cols-2">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setPackingSlipShowReturn(
+                        false
+                      )
+                    }
+                    className={[
+                      "ls-focus-ring min-h-[92px] rounded-2xl border p-4 text-left transition",
+                      !packingSlipShowReturn
+                        ? "border-primary bg-secondary"
+                        : "border-border bg-card hover:bg-muted",
+                    ].join(
+                      " "
+                    )}
+                  >
+                    <div className="text-sm font-extrabold text-heading">
+                      Use Store Profile address
+                    </div>
+
+                    <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                      Use the business address saved under Profile & Account.
+                    </p>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setPackingSlipShowReturn(
+                        true
+                      )
+                    }
+                    className={[
+                      "ls-focus-ring min-h-[92px] rounded-2xl border p-4 text-left transition",
+                      packingSlipShowReturn
+                        ? "border-primary bg-secondary"
+                        : "border-border bg-card hover:bg-muted",
+                    ].join(
+                      " "
+                    )}
+                  >
+                    <div className="text-sm font-extrabold text-heading">
+                      Use another return address
+                    </div>
+
+                    <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                      Use a separate sender or return address for self shipping.
+                    </p>
+                  </button>
+                </div>
+
+                {packingSlipShowReturn ? (
+                  <Field label="Custom sender / return address">
+                    <textarea
+                      rows={4}
+                      className={
+                        textareaClass
+                      }
+                      placeholder={
+                        "Business / contact name\nAddress line 1\nCity, State, PIN\nMobile"
+                      }
+                      value={
+                        packingSlipReturnAddress
+                      }
+                      onChange={(
+                        event
+                      ) =>
+                        setPackingSlipReturnAddress(
+                          event.target.value
+                        )
+                      }
+                    />
+                  </Field>
+                ) : (
+                  <div className="rounded-2xl bg-surface-soft px-4 py-3 text-xs leading-5 text-muted-foreground">
+                    Store Profile address will be printed as the sender / return address.
+                  </div>
+                )}
+              </div>
+            </section>
+          ) : null}
+        </div>
       )}
 
       <div className="sticky bottom-[calc(5.1rem+var(--ls-safe-area-bottom))] z-20 md:bottom-4">
