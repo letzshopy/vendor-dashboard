@@ -1859,12 +1859,20 @@ export default function OrdersClient({
                   const customerName =
                     `${order.billing?.first_name || ""} ${order.billing?.last_name || ""}`.trim() ||
                     "Customer";
-                  const isCancelled =
+                  const rowStatus =
                     String(
                       order.status ||
                         ""
-                    ).toLowerCase() ===
+                    ).toLowerCase();
+                  const isCancelled =
+                    rowStatus ===
                     "cancelled";
+                  const isProcessing =
+                    rowStatus ===
+                    "processing";
+                  const isCompleted =
+                    rowStatus ===
+                    "completed";
 
                   return (
                     <tr
@@ -1874,8 +1882,12 @@ export default function OrdersClient({
                       className={[
                         "border-b align-top transition last:border-b-0",
                         isCancelled
-                          ? "border-rose-200 bg-rose-50/45 hover:bg-rose-50/70"
-                          : "border-border/70 hover:bg-muted/45",
+                          ? "border-slate-300 bg-slate-100/75 hover:bg-slate-100"
+                          : isProcessing
+                            ? "border-blue-200 bg-blue-50/45 hover:bg-blue-50/75"
+                            : isCompleted
+                              ? "border-emerald-200 bg-emerald-50/45 hover:bg-emerald-50/75"
+                              : "border-border/70 hover:bg-muted/45",
                       ].join(" ")}
                     >
                       <td className="px-4 py-4">
@@ -1972,8 +1984,16 @@ export default function OrdersClient({
                         />
 
                         {isCancelled ? (
-                          <div className="mt-1.5 text-[11px] font-bold text-rose-700">
+                          <div className="mt-1.5 text-[11px] font-bold text-slate-700">
                             Do not process
+                          </div>
+                        ) : isProcessing ? (
+                          <div className="mt-1.5 text-[11px] font-bold text-blue-700">
+                            Ready to fulfil
+                          </div>
+                        ) : isCompleted ? (
+                          <div className="mt-1.5 text-[11px] font-bold text-emerald-700">
+                            Fulfilment completed
                           </div>
                         ) : null}
                       </td>
