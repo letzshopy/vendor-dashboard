@@ -125,8 +125,8 @@ export default function ReportsTabsClient() {
   }
 
   return (
-    <div className="min-w-0 space-y-4">
-      <div className="grid grid-cols-4 gap-1 rounded-xl bg-surface-soft p-1 md:inline-flex md:w-auto md:gap-1.5 md:rounded-2xl">
+    <div className="min-w-0 space-y-3 md:space-y-4">
+      <div className="grid grid-cols-4 gap-0.5 rounded-xl border border-border bg-card p-1 md:inline-flex md:w-auto md:gap-1.5 md:rounded-2xl">
         {tabs.map(
           (item) => {
             const Icon =
@@ -148,7 +148,7 @@ export default function ReportsTabsClient() {
                   )
                 }
                 className={[
-                  "ls-focus-ring inline-flex min-h-11 min-w-0 items-center justify-center gap-1 rounded-lg px-2 text-[11px] font-bold transition md:rounded-xl md:px-4 md:text-sm",
+                  "ls-focus-ring inline-flex min-h-10 min-w-0 items-center justify-center gap-1 rounded-lg px-1.5 text-[11px] font-bold transition md:min-h-11 md:rounded-xl md:px-4 md:text-sm",
                   active
                     ? "bg-card text-heading shadow-sm"
                     : "text-muted-foreground hover:text-heading",
