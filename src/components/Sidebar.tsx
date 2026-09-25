@@ -17,6 +17,7 @@ import {
   type ComponentType,
 } from "react";
 import {
+  ArrowLeft,
   ChevronDown,
   LayoutDashboard,
   LifeBuoy,
@@ -75,37 +76,76 @@ function itemMatches(
   const itemBase =
     basePath(href);
 
-  if (itemBase === "/settings") {
-    const url = new URL(
-      href,
-      "http://local"
-    );
+  if (
+    itemBase ===
+    "/settings"
+  ) {
+    const url =
+      new URL(
+        href,
+        "http://local"
+      );
 
     const tab =
-      url.searchParams.get("tab");
+      url.searchParams.get(
+        "tab"
+      );
 
     if (!tab) {
-      return pathname === "/settings";
-    }
-
-    if (tab === "profile") {
       return (
-        pathname === "/settings" &&
-        (
-          currentTab === null ||
-          currentTab === "profile"
-        )
+        pathname ===
+        "/settings"
       );
     }
 
+    const aliases:
+      Record<
+        string,
+        string[]
+      > = {
+      profileAccount: [
+        "profileAccount",
+        "profile",
+        "account",
+      ],
+      storeSettings: [
+        "storeSettings",
+        "general",
+        "tax",
+      ],
+      shippingDelivery: [
+        "shippingDelivery",
+        "shipping",
+        "shipmentFulfillment",
+      ],
+    };
+
+    const accepted =
+      aliases[tab] || [
+        tab,
+      ];
+
     return (
-      pathname === "/settings" &&
-      currentTab === tab
+      pathname ===
+        "/settings" &&
+      (
+        accepted.includes(
+          currentTab ||
+            ""
+        ) ||
+        (
+          tab ===
+            "profileAccount" &&
+          currentTab ===
+            null
+        )
+      )
     );
   }
 
   return (
-    pathname === itemBase ||
+    pathname ===
+      itemBase ||
     (
       itemBase !== "/" &&
       pathname.startsWith(
@@ -320,33 +360,18 @@ const ALL_GROUPS: Group[] = [
     icon: Settings2,
     items: [
       {
-        href: "/settings?tab=profile",
-        label: "Profile",
+        href: "/settings?tab=profileAccount",
+        label: "Profile & Account",
         ready: true,
       },
       {
-        href: "/settings?tab=kyc",
-        label: "KYC",
+        href: "/settings?tab=storeSettings",
+        label: "Store Settings",
         ready: true,
       },
       {
-        href: "/settings?tab=setupSite",
-        label: "Setup Site",
-        ready: true,
-      },
-      {
-        href: "/settings?tab=general",
-        label: "General",
-        ready: true,
-      },
-      {
-        href: "/settings?tab=shipping",
-        label: "Shipping Charge",
-        ready: true,
-      },
-      {
-        href: "/settings?tab=tax",
-        label: "Tax",
+        href: "/settings?tab=shippingDelivery",
+        label: "Shipping Delivery",
         ready: true,
       },
       {
@@ -355,13 +380,13 @@ const ALL_GROUPS: Group[] = [
         ready: true,
       },
       {
-        href: "/settings?tab=account",
-        label: "Account",
+        href: "/settings?tab=setupSite",
+        label: "Website Setup",
         ready: true,
       },
       {
-        href: "/settings?tab=shipmentFulfillment",
-        label: "Shipment Fulfillment",
+        href: "/settings?tab=kyc",
+        label: "KYC",
         ready: true,
       },
     ],
@@ -514,6 +539,95 @@ export default function Sidebar({
     currentTab,
     activeGroupKey,
   ]);
+
+  const settingsGroup =
+    groups.find(
+      (group) =>
+        group.key === "settings"
+    );
+
+  function renderDesktopSettingsNavigation() {
+    if (!settingsGroup) {
+      return renderNavigation();
+    }
+
+    const selectedHref =
+      activeItemHref(
+        settingsGroup,
+        pathname,
+        currentTab
+      );
+
+    return (
+      <div className="flex h-full min-h-0 flex-col">
+        <div className="border-b border-white/10 px-3 py-3">
+          <Link
+            href="/dashboard"
+            className="flex min-h-10 items-center gap-2 rounded-xl px-3 text-[12px] font-semibold text-indigo-100/80 transition hover:bg-white/[0.07] hover:text-white"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Dashboard
+          </Link>
+
+          <div className="mt-2 px-3 pb-1">
+            <div className="text-[11px] font-bold uppercase tracking-[0.12em] text-indigo-200/60">
+              Store settings
+            </div>
+            <div className="mt-1 text-[17px] font-bold text-white">
+              Settings
+            </div>
+          </div>
+        </div>
+
+        <nav
+          ref={navigationRef}
+          aria-label="Settings navigation"
+          className="min-h-0 flex-1 overflow-y-auto px-3 py-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        >
+          <div className="space-y-1">
+            {settingsGroup.items.map(
+              (item) => {
+                const active =
+                  selectedHref ===
+                  item.href;
+
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    aria-current={
+                      active
+                        ? "page"
+                        : undefined
+                    }
+                    className={[
+                      "flex min-h-10 items-center gap-2.5 rounded-xl px-3 py-2 text-[13px] font-semibold transition",
+                      active
+                        ? "bg-white text-[#26335F] shadow-sm ring-1 ring-[#D9DEEC]"
+                        : "text-indigo-100/85 hover:bg-white/[0.07] hover:text-white",
+                    ].join(" ")}
+                  >
+                    <span
+                      className={[
+                        "h-1.5 w-1.5 shrink-0 rounded-full",
+                        active
+                          ? "bg-[#E85D4A]"
+                          : "bg-white/30",
+                      ].join(" ")}
+                    />
+
+                    <span className="min-w-0 flex-1 truncate">
+                      {item.label}
+                    </span>
+                  </Link>
+                );
+              }
+            )}
+          </div>
+        </nav>
+      </div>
+    );
+  }
 
   function renderNavigation() {
     return (
@@ -747,7 +861,9 @@ export default function Sidebar({
   return (
     <>
       <aside className="sticky top-[72px] hidden h-[calc(100dvh-72px)] w-[270px] shrink-0 overflow-hidden border-r border-white/10 bg-[linear-gradient(180deg,#2E3F7D_0%,#26366E_100%)] text-indigo-50 md:block">
-        {renderNavigation()}
+        {pathname === "/settings"
+          ? renderDesktopSettingsNavigation()
+          : renderNavigation()}
       </aside>
 
       <div

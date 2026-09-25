@@ -1,26 +1,60 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import {
   Building2,
+  Check,
+  Facebook,
   ImagePlus,
+  Instagram,
   Mail,
   MapPin,
+  MessageCircle,
   Phone,
-  Save,
+  Search,
+  Store,
+  Tags,
   UploadCloud,
   User,
-  MessageCircle,
-  Instagram,
-  Facebook,
   Youtube,
-  CheckCircle2,
-  Tags,
-  Store,
 } from "lucide-react";
 
+import {
+  useUnsavedChanges,
+} from "@/components/navigation/UnsavedChangesGuard";
+import {
+  AsyncButton,
+} from "@/components/ui/async-button";
+import {
+  BottomSheet,
+} from "@/components/ui/bottom-sheet";
+import {
+  Button,
+} from "@/components/ui/button";
+import {
+  Input,
+} from "@/components/ui/input";
+import {
+  Skeleton,
+} from "@/components/ui/skeleton";
+import {
+  Switch,
+} from "@/components/ui/switch";
+import {
+  actionFeedback,
+} from "@/lib/actionFeedback";
+
 type ProfileData = {
-  personal: { name: string; mobile: string; email: string; address: string };
+  personal: {
+    name: string;
+    mobile: string;
+    email: string;
+    address: string;
+  };
   business: {
     name: string;
     phone: string;
@@ -41,25 +75,47 @@ type ProfileData = {
   };
 };
 
-type JsonRecord = Record<string, unknown>;
-
-function isRecord(value: unknown): value is JsonRecord {
-  return Boolean(
-    value &&
-      typeof value === "object" &&
-      !Array.isArray(value)
-  );
-}
+type JsonRecord =
+  Record<string, unknown>;
 
 const BUSINESS_TYPES = [
-  { value: "", label: "Select business type" },
-  { value: "INDIVIDUAL", label: "Individual / Home-based business" },
-  { value: "PROPRIETORSHIP", label: "Proprietorship" },
-  { value: "PARTNERSHIP", label: "Partnership" },
-  { value: "LLP", label: "LLP" },
-  { value: "PVT_LTD", label: "Private Limited" },
-  { value: "OPC", label: "OPC" },
-  { value: "OTHER", label: "Other" },
+  {
+    value: "",
+    label:
+      "Select business type",
+  },
+  {
+    value: "INDIVIDUAL",
+    label:
+      "Individual / Home-based business",
+  },
+  {
+    value:
+      "PROPRIETORSHIP",
+    label:
+      "Proprietorship",
+  },
+  {
+    value: "PARTNERSHIP",
+    label: "Partnership",
+  },
+  {
+    value: "LLP",
+    label: "LLP",
+  },
+  {
+    value: "PVT_LTD",
+    label:
+      "Private Limited",
+  },
+  {
+    value: "OPC",
+    label: "OPC",
+  },
+  {
+    value: "OTHER",
+    label: "Other",
+  },
 ];
 
 const PRODUCT_CATEGORIES = [
@@ -84,8 +140,14 @@ const PRODUCT_CATEGORIES = [
   "Other",
 ];
 
-const EMPTY_PROFILE: ProfileData = {
-  personal: { name: "", mobile: "", email: "", address: "" },
+const EMPTY_PROFILE:
+  ProfileData = {
+  personal: {
+    name: "",
+    mobile: "",
+    email: "",
+    address: "",
+  },
   business: {
     name: "",
     phone: "",
@@ -102,626 +164,56 @@ const EMPTY_PROFILE: ProfileData = {
     facebook: "",
     youtube: "",
     whatsappNumber: "",
-    showWhatsAppIcon: false,
+    showWhatsAppIcon:
+      false,
   },
 };
 
-const LS_KEY = "letz_profile_settings";
-
-export default function ProfileTab() {
-  const [data, setData] = useState<ProfileData | null>(null);
-  const [saving, setSaving] = useState(false);
-  const [logoUploading, setLogoUploading] = useState(false);
-  const [logoPreviewUrl, setLogoPreviewUrl] = useState<string | null>(null);
-  const [dirty, setDirty] = useState(false);
-  const [saveBanner, setSaveBanner] = useState<string | null>(null);
-  const fileRef = useRef<HTMLInputElement>(null);
-  const logoPreviewRef = useRef<string | null>(null);
-
-  const clearLogoPreview = () => {
-    if (logoPreviewRef.current) {
-      URL.revokeObjectURL(logoPreviewRef.current);
-      logoPreviewRef.current = null;
-    }
-
-    setLogoPreviewUrl(null);
-  };
-
-  const inputClass =
-    "h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-900 " +
-    "placeholder:text-slate-400 shadow-sm transition " +
-    "focus:border-indigo-400 focus:outline-none focus:ring-4 focus:ring-indigo-100";
-
-  const selectClass =
-    "h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-900 " +
-    "shadow-sm transition focus:border-indigo-400 focus:outline-none focus:ring-4 focus:ring-indigo-100";
-
-  const textareaClass =
-    "w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 " +
-    "placeholder:text-slate-400 shadow-sm transition resize-none " +
-    "focus:border-indigo-400 focus:outline-none focus:ring-4 focus:ring-indigo-100";
-
-  const apiHasUsefulData = (value: unknown): boolean => {
-    const profile = normalizeProfile(value);
-    const p = profile.personal;
-    const b = profile.business;
-    const so = profile.social;
-
-    return Boolean(
-      p.name ||
-        p.mobile ||
-        p.email ||
-        b.name ||
-        b.phone ||
-        b.email ||
-        b.address ||
-        b.logoUrl ||
-        b.businessType ||
-        b.brandTagline ||
-        b.productCategoryOther ||
-        (Array.isArray(b.productCategories) && b.productCategories.length) ||
-        so.instagram ||
-        so.facebook ||
-        so.youtube ||
-        so.whatsappNumber
-    );
-  };
-
-  useEffect(() => {
-    let cancelled = false;
-
-    async function init() {
-      let current: ProfileData | null = null;
-
-      if (typeof window !== "undefined") {
-        const raw = window.localStorage.getItem(LS_KEY);
-        if (raw) {
-          try {
-            const parsed = JSON.parse(raw);
-            current = normalizeProfile(parsed);
-          } catch {
-            // ignore
-          }
-        }
-      }
-
-      if (!cancelled) {
-        setData(current || EMPTY_PROFILE);
-        setDirty(false);
-      }
-
-      try {
-        const res = await fetch("/api/settings/profile", { cache: "no-store" });
-        if (!res.ok) return;
-
-        const s = await res.json();
-        if (!apiHasUsefulData(s)) return;
-
-        const merged = normalizeProfile(s);
-
-        if (!cancelled) {
-          setData(merged);
-          setDirty(false);
-
-          if (typeof window !== "undefined") {
-            window.localStorage.setItem(LS_KEY, JSON.stringify(merged));
-          }
-        }
-      } catch {
-        // ignore
-      }
-    }
-
-    init();
-
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  useEffect(() => {
-    if (!dirty) return;
-
-    const handler = (e: BeforeUnloadEvent) => {
-      e.preventDefault();
-      e.returnValue = "";
-    };
-
-    window.addEventListener("beforeunload", handler);
-    return () => window.removeEventListener("beforeunload", handler);
-  }, [dirty]);
-
-  useEffect(() => {
-    return () => {
-      if (logoPreviewRef.current) {
-        URL.revokeObjectURL(logoPreviewRef.current);
-      }
-    };
-  }, []);
-
-  if (!data) {
-    return (
-      <div className="p-4 md:p-5">
-        <div className="rounded-[24px] border border-slate-200 bg-white p-5 text-sm text-slate-500 shadow-sm">
-          Loading...
-        </div>
-      </div>
-    );
-  }
-
-  const markDirtyChange = (path: string, value: unknown) => {
-    setDirty(true);
-    setData((prev) => {
-      if (!prev) return prev;
-      const clone = structuredClone(prev);
-      const segs = path.split(".");
-      let ptr = clone as unknown as JsonRecord;
-
-      for (let i = 0; i < segs.length - 1; i++) {
-        const next = ptr[segs[i]];
-
-        if (!isRecord(next)) return prev;
-
-        ptr = next;
-      }
-
-      const last = segs.at(-1);
-
-      if (!last) return prev;
-
-      ptr[last] = value;
-      return clone;
-    });
-  };
-
-  const toggleCategory = (category: string) => {
-    const current = data.business.productCategories || [];
-    const next = current.includes(category)
-      ? current.filter((c) => c !== category)
-      : [...current, category];
-
-    markDirtyChange("business.productCategories", next);
-  };
-
-  const uploadLogo = async (file: File) => {
-    clearLogoPreview();
-    const localPreview = URL.createObjectURL(file);
-    logoPreviewRef.current = localPreview;
-    setLogoPreviewUrl(localPreview);
-    setLogoUploading(true);
-    try {
-      const fd = new FormData();
-      fd.append("file", file);
-      fd.append("purpose", "profile_logo");
-      const r = await fetch("/api/media/upload", {
-        method: "POST",
-        body: fd,
-      });
-      const j = await r.json();
-      if (!r.ok) throw new Error(j.error || "Upload failed");
-      markDirtyChange("business.logoUrl", j.url);
-    } finally {
-      clearLogoPreview();
-      setLogoUploading(false);
-    }
-  };
-
-  const save = async () => {
-    if (!data) return;
-    setSaving(true);
-
-    if (typeof window !== "undefined") {
-      window.localStorage.setItem(LS_KEY, JSON.stringify(data));
-    }
-
-    try {
-      const res = await fetch("/api/settings/profile", {
-        method: "PATCH",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify(data),
-      });
-
-      if (!res.ok) {
-        throw new Error("Failed to save");
-      }
-
-      setDirty(false);
-      window.scrollTo({ top: 0, behavior: "smooth" });
-      setSaveBanner("Profile settings saved successfully.");
-      setTimeout(() => setSaveBanner(null), 5000);
-    } catch {
-      setSaveBanner("Saved locally, but server could not be updated. Please try again.");
-      setTimeout(() => setSaveBanner(null), 6000);
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  return (
-    <div className="space-y-4 p-3 md:space-y-5 md:p-5">
-      {saveBanner && (
-        <div className="flex items-start gap-3 rounded-[22px] border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800 shadow-sm">
-          <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
-          <span>{saveBanner}</span>
-        </div>
-      )}
-
-      <section className="overflow-hidden rounded-[26px] border border-slate-200 bg-white shadow-sm">
-        <div className="border-b border-slate-100 bg-gradient-to-r from-white via-slate-50 to-indigo-50/50 px-4 py-4 md:px-5">
-          <div className="flex items-start gap-3">
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600">
-              <User className="h-5 w-5" />
-            </div>
-            <div>
-              <h3 className="text-base font-semibold text-slate-900">Personal</h3>
-            </div>
-          </div>
-        </div>
-
-        <div className="space-y-4 p-4 md:p-5">
-          <Field label="Owner / contact person" icon={<User className="h-4 w-4" />}>
-            <input
-              className={inputClass}
-              placeholder="Enter owner / contact name"
-              value={data.personal.name ?? ""}
-              onChange={(e) => markDirtyChange("personal.name", e.target.value)}
-            />
-          </Field>
-
-          <div className="grid gap-4 md:grid-cols-2">
-            <Field label="Mobile number" icon={<Phone className="h-4 w-4" />}>
-              <input
-                className={inputClass}
-                placeholder="+91..."
-                value={data.personal.mobile ?? ""}
-                onChange={(e) => markDirtyChange("personal.mobile", e.target.value)}
-              />
-            </Field>
-
-            <Field label="Personal email" icon={<Mail className="h-4 w-4" />}>
-              <input
-                className={inputClass}
-                placeholder="name@example.com"
-                value={data.personal.email ?? ""}
-                onChange={(e) => markDirtyChange("personal.email", e.target.value)}
-              />
-            </Field>
-          </div>
-
-          <Field label="Personal address" icon={<MapPin className="h-4 w-4" />}>
-            <textarea
-              className={textareaClass}
-              rows={4}
-              placeholder="Personal address (optional, for KYC or internal contact)"
-              value={data.personal.address ?? ""}
-              onChange={(e) => markDirtyChange("personal.address", e.target.value)}
-            />
-          </Field>
-        </div>
-      </section>
-
-      <section className="overflow-hidden rounded-[26px] border border-slate-200 bg-white shadow-sm">
-        <div className="border-b border-slate-100 bg-gradient-to-r from-white via-slate-50 to-sky-50/50 px-4 py-4 md:px-5">
-          <div className="flex items-start gap-3">
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-sky-50 text-sky-600">
-              <Building2 className="h-5 w-5" />
-            </div>
-            <div>
-              <h3 className="text-base font-semibold text-slate-900">
-                Brand &amp; business identity
-              </h3>
-            </div>
-          </div>
-        </div>
-
-        <div className="grid gap-4 p-4 md:grid-cols-[minmax(0,1.35fr)_minmax(260px,0.8fr)] md:p-5">
-          <div className="space-y-4">
-            <Field label="Business / store name" icon={<Building2 className="h-4 w-4" />}>
-              <input
-                className={inputClass}
-                placeholder="Enter business / store name"
-                value={data.business.name ?? ""}
-                onChange={(e) => markDirtyChange("business.name", e.target.value)}
-              />
-            </Field>
-
-            <div className="grid gap-4 md:grid-cols-2">
-              <Field label="Business phone" icon={<Phone className="h-4 w-4" />}>
-                <input
-                  className={inputClass}
-                  placeholder="Business phone / WhatsApp"
-                  value={data.business.phone ?? ""}
-                  onChange={(e) => markDirtyChange("business.phone", e.target.value)}
-                />
-              </Field>
-
-              <Field label="Business email" icon={<Mail className="h-4 w-4" />}>
-                <input
-                  className={inputClass}
-                  placeholder="business@example.com"
-                  value={data.business.email ?? ""}
-                  onChange={(e) => markDirtyChange("business.email", e.target.value)}
-                />
-              </Field>
-            </div>
-
-            <Field label="Business address" icon={<MapPin className="h-4 w-4" />}>
-              <textarea
-                className={textareaClass}
-                rows={4}
-                placeholder="Business address"
-                value={data.business.address ?? ""}
-                onChange={(e) => markDirtyChange("business.address", e.target.value)}
-              />
-            </Field>
-
-            <div className="grid gap-4 md:grid-cols-2">
-              <Field label="Business type" icon={<Store className="h-4 w-4" />}>
-                <select
-                  className={selectClass}
-                  value={data.business.businessType || ""}
-                  onChange={(e) => markDirtyChange("business.businessType", e.target.value)}
-                >
-                  {BUSINESS_TYPES.map((type) => (
-                    <option key={type.value} value={type.value}>
-                      {type.label}
-                    </option>
-                  ))}
-                </select>
-              </Field>
-
-              <Field label="Brand tagline" icon={<Tags className="h-4 w-4" />}>
-                <input
-                  className={inputClass}
-                  placeholder="Example: Handpicked collections for every occasion"
-                  value={data.business.brandTagline ?? ""}
-                  onChange={(e) => markDirtyChange("business.brandTagline", e.target.value)}
-                />
-              </Field>
-            </div>
-
-            <div className="rounded-[24px] border border-slate-200 bg-slate-50/70 p-4">
-              <div className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                <Tags className="h-4 w-4 text-slate-400" />
-                <span>Business / product category</span>
-              </div>
-
-              <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
-                {PRODUCT_CATEGORIES.map((category) => (
-                  <label
-                    key={category}
-                    className="flex items-start gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 shadow-sm"
-                  >
-                    <input
-                      type="checkbox"
-                      className="mt-0.5 h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
-                      checked={(data.business.productCategories || []).includes(category)}
-                      onChange={() => toggleCategory(category)}
-                    />
-                    <span>{category}</span>
-                  </label>
-                ))}
-              </div>
-
-              {(data.business.productCategories || []).includes("Other") && (
-                <div className="mt-3">
-                  <input
-                    className={inputClass}
-                    placeholder="If Other, mention category"
-                    value={data.business.productCategoryOther ?? ""}
-                    onChange={(e) =>
-                      markDirtyChange("business.productCategoryOther", e.target.value)
-                    }
-                  />
-                </div>
-              )}
-            </div>
-          </div>
-
-          <div className="rounded-[24px] border border-dashed border-slate-300 bg-slate-50/70 p-4 md:p-5">
-            <div className="flex items-start gap-3">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-white text-slate-600 shadow-sm">
-                <ImagePlus className="h-5 w-5" />
-              </div>
-              <div>
-                <div className="text-sm font-semibold text-slate-900">Logo</div>
-                <p className="mt-1 text-xs leading-5 text-slate-500">
-                  Used in invoices, emails and store branding areas.
-                </p>
-              </div>
-            </div>
-
-            <div className="mt-4">
-              {logoPreviewUrl || data.business.logoUrl ? (
-                <div className="space-y-4">
-                  <div className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white p-3">
-                    <img
-                      src={logoPreviewUrl || data.business.logoUrl}
-                      alt="Logo"
-                      className="h-16 w-16 rounded-xl border border-slate-200 bg-white object-contain"
-                    />
-                    <div className="min-w-0">
-                      <div className="text-sm font-medium text-slate-900">Current logo</div>
-                      <div className="mt-1 text-xs text-slate-500">
-                        Recommended: square PNG or JPG under 1 MB
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="flex flex-wrap gap-2">
-                    <button
-                      type="button"
-                      className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-indigo-600 px-4 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700 disabled:opacity-60"
-                      onClick={() => fileRef.current?.click()}
-                      disabled={logoUploading}
-                    >
-                      <UploadCloud className="h-4 w-4" />
-                      {logoUploading ? "Uploading..." : "Replace logo"}
-                    </button>
-
-                    <button
-                      type="button"
-                      className="inline-flex h-11 items-center justify-center rounded-2xl border border-rose-200 bg-rose-50 px-4 text-sm font-semibold text-rose-700 hover:bg-rose-100"
-                      onClick={() => {
-                        clearLogoPreview();
-                        markDirtyChange("business.logoUrl", "");
-                      }}
-                    >
-                      Remove
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  <div className="rounded-2xl border border-dashed border-slate-300 bg-white px-4 py-6 text-center">
-                    <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-100 text-slate-500">
-                      <ImagePlus className="h-5 w-5" />
-                    </div>
-                    <div className="mt-3 text-sm font-medium text-slate-900">No logo uploaded</div>
-                    <div className="mt-1 text-xs text-slate-500">
-                      Upload your store logo for a more branded experience.
-                    </div>
-                  </div>
-
-                  <button
-                    type="button"
-                    className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-2xl bg-indigo-600 px-4 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700 disabled:opacity-60"
-                    onClick={() => fileRef.current?.click()}
-                    disabled={logoUploading}
-                  >
-                    <UploadCloud className="h-4 w-4" />
-                    {logoUploading ? "Uploading..." : "Upload logo"}
-                  </button>
-                </div>
-              )}
-
-              <input
-                ref={fileRef}
-                type="file"
-                accept="image/*"
-                onChange={(event) => {
-                  const file = event.target.files?.[0];
-                  event.target.value = "";
-
-                  if (file) {
-                    void uploadLogo(file);
-                  }
-                }}
-                className="hidden"
-              />
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section className="overflow-hidden rounded-[26px] border border-slate-200 bg-white shadow-sm">
-        <div className="border-b border-slate-100 bg-gradient-to-r from-white via-slate-50 to-violet-50/50 px-4 py-4 md:px-5">
-          <div className="flex items-start gap-3">
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-violet-50 text-violet-600">
-              <MessageCircle className="h-5 w-5" />
-            </div>
-            <div>
-              <h3 className="text-base font-semibold text-slate-900">
-                Social &amp; WhatsApp
-              </h3>
-            </div>
-          </div>
-        </div>
-
-        <div className="space-y-4 p-4 md:p-5">
-          <div className="grid gap-4 md:grid-cols-2">
-            <Field label="Instagram URL" icon={<Instagram className="h-4 w-4" />}>
-              <input
-                className={inputClass}
-                placeholder="https://instagram.com/yourstore"
-                value={data.social.instagram ?? ""}
-                onChange={(e) => markDirtyChange("social.instagram", e.target.value)}
-              />
-            </Field>
-
-            <Field label="Facebook URL" icon={<Facebook className="h-4 w-4" />}>
-              <input
-                className={inputClass}
-                placeholder="https://facebook.com/yourstore"
-                value={data.social.facebook ?? ""}
-                onChange={(e) => markDirtyChange("social.facebook", e.target.value)}
-              />
-            </Field>
-
-            <Field label="YouTube URL" icon={<Youtube className="h-4 w-4" />}>
-              <input
-                className={inputClass}
-                placeholder="https://youtube.com/yourchannel"
-                value={data.social.youtube ?? ""}
-                onChange={(e) => markDirtyChange("social.youtube", e.target.value)}
-              />
-            </Field>
-
-            <Field label="Customer WhatsApp number" icon={<MessageCircle className="h-4 w-4" />}>
-              <input
-                className={inputClass}
-                placeholder="WhatsApp support number"
-                value={data.social.whatsappNumber ?? ""}
-                onChange={(e) =>
-                  markDirtyChange("social.whatsappNumber", e.target.value)
-                }
-              />
-            </Field>
-          </div>
-
-          <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4">
-            <label className="flex items-start gap-3">
-              <input
-                type="checkbox"
-                className="mt-0.5 h-5 w-5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
-                checked={!!data.social.showWhatsAppIcon}
-                onChange={(e) =>
-                  markDirtyChange("social.showWhatsAppIcon", e.target.checked)
-                }
-              />
-              <span>
-                <span className="block text-sm font-semibold text-slate-900">
-                  Show floating WhatsApp button
-                </span>
-                <span className="mt-1 block text-xs leading-5 text-slate-500">
-                  Enable a floating WhatsApp support button on the storefront.
-                </span>
-              </span>
-            </label>
-          </div>
-        </div>
-      </section>
-
-      <div className="sticky bottom-3 z-10 md:bottom-4">
-        <div className="rounded-[24px] border border-slate-200 bg-white/95 p-3 shadow-lg backdrop-blur">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="min-w-0">
-              <div className="text-sm font-semibold text-slate-900">
-                {dirty ? "Unsaved changes" : "All changes saved"}
-              </div>
-            </div>
-
-            <button
-              type="button"
-              className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-indigo-600 px-5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700 disabled:opacity-60"
-              onClick={save}
-              disabled={saving}
-            >
-              <Save className="h-4 w-4" />
-              {saving ? "Saving..." : "Save changes"}
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
+const LS_KEY =
+  "letz_profile_settings";
+
+const textareaClass =
+  "ls-focus-ring w-full resize-y rounded-xl border border-input bg-card px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground";
+
+function isRecord(
+  value: unknown
+): value is JsonRecord {
+  return Boolean(
+    value &&
+      typeof value ===
+        "object" &&
+      !Array.isArray(value)
   );
 }
 
-function normalizeProfile(raw: unknown): ProfileData {
-  const root = isRecord(raw) ? raw : {};
-  const personal = isRecord(root.personal) ? root.personal : {};
-  const business = isRecord(root.business) ? root.business : {};
-  const social = isRecord(root.social) ? root.social : {};
+function normalizeProfile(
+  raw: unknown
+): ProfileData {
+  const root =
+    isRecord(raw)
+      ? raw
+      : {};
+
+  const personal =
+    isRecord(
+      root.personal
+    )
+      ? root.personal
+      : {};
+
+  const business =
+    isRecord(
+      root.business
+    )
+      ? root.business
+      : {};
+
+  const social =
+    isRecord(
+      root.social
+    )
+      ? root.social
+      : {};
 
   return {
     personal: {
@@ -731,12 +223,18 @@ function normalizeProfile(raw: unknown): ProfileData {
     business: {
       ...EMPTY_PROFILE.business,
       ...business,
-      productCategories: Array.isArray(business.productCategories)
-        ? business.productCategories.filter(
-            (category): category is string =>
-              typeof category === "string"
-          )
-        : [],
+      productCategories:
+        Array.isArray(
+          business.productCategories
+        )
+          ? business.productCategories.filter(
+              (
+                category
+              ): category is string =>
+                typeof category ===
+                "string"
+            )
+          : [],
     } as ProfileData["business"],
     social: {
       ...EMPTY_PROFILE.social,
@@ -745,22 +243,1372 @@ function normalizeProfile(raw: unknown): ProfileData {
   };
 }
 
+function profileHasUsefulData(
+  value: unknown
+) {
+  const profile =
+    normalizeProfile(value);
+
+  return Boolean(
+    profile.personal.name ||
+      profile.personal.mobile ||
+      profile.personal.email ||
+      profile.business.name ||
+      profile.business.phone ||
+      profile.business.email ||
+      profile.business.address ||
+      profile.business.logoUrl ||
+      profile.business.businessType ||
+      profile.business.brandTagline ||
+      profile.business.productCategoryOther ||
+      (
+        profile.business
+          .productCategories ||
+        []
+      ).length ||
+      profile.social.instagram ||
+      profile.social.facebook ||
+      profile.social.youtube ||
+      profile.social.whatsappNumber
+  );
+}
+
+function Section({
+  icon,
+  title,
+  description,
+  children,
+}: {
+  icon:
+    React.ReactNode;
+  title: string;
+  description?: string;
+  children:
+    React.ReactNode;
+}) {
+  return (
+    <section className="rounded-2xl border border-border bg-card">
+      <div className="flex items-start gap-3 border-b border-border px-3 py-3 md:px-5 md:py-3.5">
+        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg md:h-10 md:w-10 md:rounded-xl bg-secondary text-secondary-foreground">
+          {icon}
+        </span>
+
+        <div className="min-w-0">
+          <h2 className="text-sm font-extrabold text-heading">
+            {title}
+          </h2>
+
+          {description ? (
+            <p className="mt-0.5 hidden text-xs leading-5 text-muted-foreground md:block">
+              {description}
+            </p>
+          ) : null}
+        </div>
+      </div>
+
+      <div className="p-3 md:p-5">
+        {children}
+      </div>
+    </section>
+  );
+}
+
 function Field({
   label,
   icon,
   children,
 }: {
   label: string;
-  icon: React.ReactNode;
-  children: React.ReactNode;
+  icon?:
+    React.ReactNode;
+  children:
+    React.ReactNode;
 }) {
   return (
     <div>
-      <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
-        <span className="text-slate-400">{icon}</span>
+      <div className="mb-1.5 flex items-center gap-1.5 text-xs font-bold text-heading">
+        {icon ? (
+          <span className="text-muted-foreground">
+            {icon}
+          </span>
+        ) : null}
         <span>{label}</span>
       </div>
+
       {children}
     </div>
+  );
+}
+
+export default function ProfileTab() {
+  const [
+    data,
+    setData,
+  ] =
+    useState<ProfileData | null>(
+      null
+    );
+
+  const [
+    saving,
+    setSaving,
+  ] =
+    useState(false);
+
+  const [
+    dirty,
+    setDirty,
+  ] =
+    useState(false);
+
+  const [
+    logoUploading,
+    setLogoUploading,
+  ] =
+    useState(false);
+
+  const [
+    logoPreviewUrl,
+    setLogoPreviewUrl,
+  ] =
+    useState<string | null>(
+      null
+    );
+
+  const [
+    categoryPickerOpen,
+    setCategoryPickerOpen,
+  ] =
+    useState(false);
+
+  const [
+    categoryQuery,
+    setCategoryQuery,
+  ] =
+    useState("");
+
+  const fileRef =
+    useRef<HTMLInputElement>(
+      null
+    );
+
+  const logoPreviewRef =
+    useRef<string | null>(
+      null
+    );
+
+  function clearLogoPreview() {
+    if (
+      logoPreviewRef.current
+    ) {
+      URL.revokeObjectURL(
+        logoPreviewRef.current
+      );
+
+      logoPreviewRef.current =
+        null;
+    }
+
+    setLogoPreviewUrl(
+      null
+    );
+  }
+
+  useEffect(() => {
+    let cancelled =
+      false;
+
+    async function init() {
+      let current:
+        ProfileData | null =
+        null;
+
+      if (
+        typeof window !==
+        "undefined"
+      ) {
+        const raw =
+          window.localStorage.getItem(
+            LS_KEY
+          );
+
+        if (raw) {
+          try {
+            current =
+              normalizeProfile(
+                JSON.parse(raw)
+              );
+          } catch {
+            current =
+              null;
+          }
+        }
+      }
+
+      if (!cancelled) {
+        setData(
+          current ||
+            EMPTY_PROFILE
+        );
+        setDirty(false);
+      }
+
+      try {
+        const response =
+          await fetch(
+            "/api/settings/profile",
+            {
+              cache:
+                "no-store",
+            }
+          );
+
+        if (
+          !response.ok
+        ) {
+          return;
+        }
+
+        const payload =
+          await response.json();
+
+        if (
+          !profileHasUsefulData(
+            payload
+          )
+        ) {
+          return;
+        }
+
+        const normalized =
+          normalizeProfile(
+            payload
+          );
+
+        if (!cancelled) {
+          setData(
+            normalized
+          );
+          setDirty(false);
+
+          if (
+            typeof window !==
+            "undefined"
+          ) {
+            window.localStorage.setItem(
+              LS_KEY,
+              JSON.stringify(
+                normalized
+              )
+            );
+          }
+        }
+      } catch {
+        // Keep local profile data when the API is temporarily unavailable.
+      }
+    }
+
+    void init();
+
+    return () => {
+      cancelled =
+        true;
+    };
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (
+        logoPreviewRef.current
+      ) {
+        URL.revokeObjectURL(
+          logoPreviewRef.current
+        );
+      }
+    };
+  }, []);
+
+  function markDirtyChange(
+    path: string,
+    value: unknown
+  ) {
+    setDirty(true);
+
+    setData(
+      (current) => {
+        if (!current) {
+          return current;
+        }
+
+        const next =
+          structuredClone(
+            current
+          );
+
+        const segments =
+          path.split(".");
+
+        let pointer =
+          next as unknown as
+            JsonRecord;
+
+        for (
+          let index = 0;
+          index <
+          segments.length - 1;
+          index += 1
+        ) {
+          const segment =
+            pointer[
+              segments[index]
+            ];
+
+          if (
+            !isRecord(
+              segment
+            )
+          ) {
+            return current;
+          }
+
+          pointer =
+            segment;
+        }
+
+        const last =
+          segments.at(-1);
+
+        if (!last) {
+          return current;
+        }
+
+        pointer[last] =
+          value;
+
+        return next;
+      }
+    );
+  }
+
+  function toggleCategory(
+    category: string
+  ) {
+    if (!data) {
+      return;
+    }
+
+    const current =
+      data.business
+        .productCategories ||
+      [];
+
+    const next =
+      current.includes(
+        category
+      )
+        ? current.filter(
+            (item) =>
+              item !==
+              category
+          )
+        : [
+            ...current,
+            category,
+          ];
+
+    markDirtyChange(
+      "business.productCategories",
+      next
+    );
+  }
+
+  async function uploadLogo(
+    file: File
+  ) {
+    clearLogoPreview();
+
+    const localPreview =
+      URL.createObjectURL(
+        file
+      );
+
+    logoPreviewRef.current =
+      localPreview;
+
+    setLogoPreviewUrl(
+      localPreview
+    );
+
+    setLogoUploading(
+      true
+    );
+
+    try {
+      const formData =
+        new FormData();
+
+      formData.append(
+        "file",
+        file
+      );
+
+      formData.append(
+        "purpose",
+        "profile_logo"
+      );
+
+      const response =
+        await fetch(
+          "/api/media/upload",
+          {
+            method:
+              "POST",
+            body: formData,
+          }
+        );
+
+      const payload =
+        await response
+          .json()
+          .catch(
+            () => ({})
+          );
+
+      if (
+        !response.ok
+      ) {
+        throw new Error(
+          payload?.error ||
+            "Logo upload failed"
+        );
+      }
+
+      markDirtyChange(
+        "business.logoUrl",
+        payload.url
+      );
+
+      actionFeedback.success({
+        id:
+          "profile-logo-upload",
+        title:
+          "Logo ready",
+        message:
+          "Save Profile to apply it.",
+        durationMs: 2200,
+      });
+    } catch (
+      error: unknown
+    ) {
+      actionFeedback.error({
+        id:
+          "profile-logo-upload",
+        title:
+          "Could not upload logo",
+        message:
+          error instanceof
+            Error
+            ? error.message
+            : "Please try again.",
+        durationMs: 4200,
+      });
+    } finally {
+      clearLogoPreview();
+      setLogoUploading(
+        false
+      );
+    }
+  }
+
+  async function save():
+    Promise<boolean> {
+    if (
+      !data ||
+      saving
+    ) {
+      return false;
+    }
+
+    const feedbackId =
+      "profile-save";
+
+    setSaving(true);
+
+    actionFeedback.loading({
+      id: feedbackId,
+      title:
+        "Saving profile…",
+    });
+
+    try {
+      const response =
+        await fetch(
+          "/api/settings/profile",
+          {
+            method:
+              "PATCH",
+            headers: {
+              "content-type":
+                "application/json",
+            },
+            body:
+              JSON.stringify(
+                data
+              ),
+          }
+        );
+
+      if (
+        !response.ok
+      ) {
+        throw new Error(
+          "Failed to save profile"
+        );
+      }
+
+      if (
+        typeof window !==
+        "undefined"
+      ) {
+        window.localStorage.setItem(
+          LS_KEY,
+          JSON.stringify(
+            data
+          )
+        );
+      }
+
+      setDirty(false);
+
+      actionFeedback.success({
+        id: feedbackId,
+        title:
+          "Profile saved",
+        durationMs: 2200,
+      });
+
+      return true;
+    } catch (
+      error: unknown
+    ) {
+      actionFeedback.error({
+        id: feedbackId,
+        title:
+          "Could not save profile",
+        message:
+          error instanceof
+            Error
+            ? error.message
+            : "Please try again.",
+        durationMs: 4200,
+      });
+
+      return false;
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  useUnsavedChanges({
+    id:
+      "settings-profile",
+    dirty,
+    label:
+      "profile changes",
+    save,
+  });
+
+  if (!data) {
+    return (
+      <div className="space-y-3">
+        <Skeleton className="h-36 w-full rounded-2xl" />
+        <Skeleton className="h-80 w-full rounded-2xl" />
+        <Skeleton className="h-52 w-full rounded-2xl" />
+      </div>
+    );
+  }
+
+  const selectedCategories =
+    data.business
+      .productCategories ||
+    [];
+
+  const filteredCategories =
+    PRODUCT_CATEGORIES.filter(
+      (category) =>
+        category
+          .toLowerCase()
+          .includes(
+            categoryQuery
+              .trim()
+              .toLowerCase()
+          )
+    );
+
+  const logoSrc =
+    logoPreviewUrl ||
+    data.business.logoUrl ||
+    "";
+
+  return (
+    <>
+      <div className="space-y-4">
+        <Section
+          icon={
+            <User className="h-4.5 w-4.5" />
+          }
+          title="Personal contact"
+        >
+          <div className="grid gap-3 md:gap-4 lg:grid-cols-2">
+            <Field
+              label="Owner / contact person"
+              icon={
+                <User className="h-3.5 w-3.5" />
+              }
+            >
+              <Input
+                value={
+                  data.personal
+                    .name
+                }
+                onChange={(
+                  event
+                ) =>
+                  markDirtyChange(
+                    "personal.name",
+                    event.target
+                      .value
+                  )
+                }
+                placeholder="Contact name"
+              />
+            </Field>
+
+            <Field
+              label="Mobile number"
+              icon={
+                <Phone className="h-3.5 w-3.5" />
+              }
+            >
+              <Input
+                value={
+                  data.personal
+                    .mobile
+                }
+                onChange={(
+                  event
+                ) =>
+                  markDirtyChange(
+                    "personal.mobile",
+                    event.target
+                      .value
+                  )
+                }
+                placeholder="+91"
+                inputMode="tel"
+              />
+            </Field>
+
+            <Field
+              label="Personal email"
+              icon={
+                <Mail className="h-3.5 w-3.5" />
+              }
+            >
+              <Input
+                type="email"
+                value={
+                  data.personal
+                    .email
+                }
+                onChange={(
+                  event
+                ) =>
+                  markDirtyChange(
+                    "personal.email",
+                    event.target
+                      .value
+                  )
+                }
+                placeholder="name@example.com"
+              />
+            </Field>
+
+            <Field
+              label="Personal address"
+              icon={
+                <MapPin className="h-3.5 w-3.5" />
+              }
+            >
+              <textarea
+                rows={3}
+                className={
+                  textareaClass
+                }
+                value={
+                  data.personal
+                    .address
+                }
+                onChange={(
+                  event
+                ) =>
+                  markDirtyChange(
+                    "personal.address",
+                    event.target
+                      .value
+                  )
+                }
+                placeholder="Address"
+              />
+            </Field>
+          </div>
+        </Section>
+
+        <Section
+          icon={
+            <Building2 className="h-4.5 w-4.5" />
+          }
+          title="Business profile"
+          description="Store identity and customer-facing business information."
+        >
+          <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_240px]">
+            <div className="grid gap-3 md:gap-4 lg:grid-cols-2">
+              <div className="lg:col-span-2">
+                <Field
+                  label="Business / store name"
+                  icon={
+                    <Store className="h-3.5 w-3.5" />
+                  }
+                >
+                  <Input
+                    value={
+                      data.business
+                        .name
+                    }
+                    onChange={(
+                      event
+                    ) =>
+                      markDirtyChange(
+                        "business.name",
+                        event.target
+                          .value
+                      )
+                    }
+                    placeholder="Store name"
+                  />
+                </Field>
+              </div>
+
+              <Field
+                label="Business phone"
+                icon={
+                  <Phone className="h-3.5 w-3.5" />
+                }
+              >
+                <Input
+                  value={
+                    data.business
+                      .phone
+                  }
+                  onChange={(
+                    event
+                  ) =>
+                    markDirtyChange(
+                      "business.phone",
+                      event.target
+                        .value
+                    )
+                  }
+                  inputMode="tel"
+                  placeholder="Business phone"
+                />
+              </Field>
+
+              <Field
+                label="Business email"
+                icon={
+                  <Mail className="h-3.5 w-3.5" />
+                }
+              >
+                <Input
+                  type="email"
+                  value={
+                    data.business
+                      .email
+                  }
+                  onChange={(
+                    event
+                  ) =>
+                    markDirtyChange(
+                      "business.email",
+                      event.target
+                        .value
+                    )
+                  }
+                  placeholder="business@example.com"
+                />
+              </Field>
+
+              <div className="lg:col-span-2">
+                <Field
+                  label="Business address"
+                  icon={
+                    <MapPin className="h-3.5 w-3.5" />
+                  }
+                >
+                  <textarea
+                    rows={3}
+                    className={
+                      textareaClass
+                    }
+                    value={
+                      data.business
+                        .address
+                    }
+                    onChange={(
+                      event
+                    ) =>
+                      markDirtyChange(
+                        "business.address",
+                        event.target
+                          .value
+                      )
+                    }
+                    placeholder="Business address"
+                  />
+                </Field>
+              </div>
+
+              <Field
+                label="Business type"
+                icon={
+                  <Building2 className="h-3.5 w-3.5" />
+                }
+              >
+                <select
+                  value={
+                    data.business
+                      .businessType ||
+                    ""
+                  }
+                  onChange={(
+                    event
+                  ) =>
+                    markDirtyChange(
+                      "business.businessType",
+                      event.target
+                        .value
+                    )
+                  }
+                  className="ls-focus-ring h-11 w-full rounded-xl border border-input bg-card px-3 text-sm text-foreground"
+                >
+                  {BUSINESS_TYPES.map(
+                    (
+                      type
+                    ) => (
+                      <option
+                        key={
+                          type.value
+                        }
+                        value={
+                          type.value
+                        }
+                      >
+                        {
+                          type.label
+                        }
+                      </option>
+                    )
+                  )}
+                </select>
+              </Field>
+
+              <Field
+                label="Brand tagline"
+                icon={
+                  <Tags className="h-3.5 w-3.5" />
+                }
+              >
+                <Input
+                  value={
+                    data.business
+                      .brandTagline ||
+                    ""
+                  }
+                  onChange={(
+                    event
+                  ) =>
+                    markDirtyChange(
+                      "business.brandTagline",
+                      event.target
+                        .value
+                    )
+                  }
+                  placeholder="Short brand line"
+                />
+              </Field>
+
+              <div className="lg:col-span-2">
+                <div className="mb-1.5 text-xs font-bold text-heading">
+                  Product categories
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCategoryQuery(
+                      ""
+                    );
+                    setCategoryPickerOpen(
+                      true
+                    );
+                  }}
+                  className="ls-focus-ring flex min-h-12 w-full items-center justify-between gap-3 rounded-xl border border-input bg-card px-3 text-left"
+                >
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-sm font-semibold text-foreground">
+                      {selectedCategories.length
+                        ? `${selectedCategories.length} selected`
+                        : "Choose categories"}
+                    </span>
+
+                    <span className="mt-0.5 block truncate text-xs text-muted-foreground">
+                      {selectedCategories.length
+                        ? selectedCategories.join(
+                            ", "
+                          )
+                        : "Add the main categories your business sells."}
+                    </span>
+                  </span>
+
+                  <Tags className="h-4 w-4 shrink-0 text-primary" />
+                </button>
+
+                {selectedCategories.length ? (
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    {selectedCategories
+                      .slice(
+                        0,
+                        5
+                      )
+                      .map(
+                        (
+                          category
+                        ) => (
+                          <span
+                            key={
+                              category
+                            }
+                            className="rounded-full bg-secondary px-2.5 py-1 text-[11px] font-bold text-secondary-foreground"
+                          >
+                            {
+                              category
+                            }
+                          </span>
+                        )
+                      )}
+
+                    {selectedCategories.length >
+                    5 ? (
+                      <span className="rounded-full bg-muted px-2.5 py-1 text-[11px] font-bold text-muted-foreground">
+                        +
+                        {selectedCategories.length -
+                          5}{" "}
+                        more
+                      </span>
+                    ) : null}
+                  </div>
+                ) : null}
+
+                {selectedCategories.includes(
+                  "Other"
+                ) ? (
+                  <div className="mt-3">
+                    <Input
+                      value={
+                        data.business
+                          .productCategoryOther ||
+                        ""
+                      }
+                      onChange={(
+                        event
+                      ) =>
+                        markDirtyChange(
+                          "business.productCategoryOther",
+                          event.target
+                            .value
+                        )
+                      }
+                      placeholder="Other category"
+                    />
+                  </div>
+                ) : null}
+              </div>
+            </div>
+
+            <div className="rounded-xl bg-surface-soft p-3 md:rounded-2xl md:p-4">
+              <div className="text-xs font-bold text-heading">
+                Store logo
+              </div>
+
+              <div className="mt-3 grid place-items-center rounded-2xl border border-dashed border-border bg-card p-4">
+                {logoSrc ? (
+                  // Remote WordPress media URL.
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={
+                      logoSrc
+                    }
+                    alt="Store logo"
+                    className="h-24 w-24 rounded-2xl border border-border bg-card object-contain"
+                  />
+                ) : (
+                  <span className="grid h-24 w-24 place-items-center rounded-2xl bg-muted text-muted-foreground">
+                    <ImagePlus className="h-7 w-7" />
+                  </span>
+                )}
+
+                <div className="mt-3 text-center text-[11px] leading-5 text-muted-foreground">
+                  Square PNG or JPG recommended.
+                </div>
+              </div>
+
+              <div className="mt-3 grid gap-2">
+                <AsyncButton
+                  type="button"
+                  loading={
+                    logoUploading
+                  }
+                  loadingLabel="Uploading…"
+                  onClick={() =>
+                    fileRef.current?.click()
+                  }
+                >
+                  <UploadCloud className="h-4 w-4" />
+                  {logoSrc
+                    ? "Replace logo"
+                    : "Upload logo"}
+                </AsyncButton>
+
+                {logoSrc ? (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    className="text-destructive"
+                    onClick={() => {
+                      clearLogoPreview();
+                      markDirtyChange(
+                        "business.logoUrl",
+                        ""
+                      );
+                    }}
+                  >
+                    Remove logo
+                  </Button>
+                ) : null}
+              </div>
+
+              <input
+                ref={fileRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(
+                  event
+                ) => {
+                  const file =
+                    event.target
+                      .files?.[0];
+
+                  event.target.value =
+                    "";
+
+                  if (file) {
+                    void uploadLogo(
+                      file
+                    );
+                  }
+                }}
+              />
+            </div>
+          </div>
+        </Section>
+
+        <Section
+          icon={
+            <MessageCircle className="h-4.5 w-4.5" />
+          }
+          title="Customer contact & social"
+        >
+          <div className="grid gap-3 md:gap-4 lg:grid-cols-2">
+            <Field
+              label="Instagram"
+              icon={
+                <Instagram className="h-3.5 w-3.5" />
+              }
+            >
+              <Input
+                value={
+                  data.social
+                    .instagram ||
+                  ""
+                }
+                onChange={(
+                  event
+                ) =>
+                  markDirtyChange(
+                    "social.instagram",
+                    event.target
+                      .value
+                  )
+                }
+                placeholder="Instagram profile URL"
+              />
+            </Field>
+
+            <Field
+              label="Facebook"
+              icon={
+                <Facebook className="h-3.5 w-3.5" />
+              }
+            >
+              <Input
+                value={
+                  data.social
+                    .facebook ||
+                  ""
+                }
+                onChange={(
+                  event
+                ) =>
+                  markDirtyChange(
+                    "social.facebook",
+                    event.target
+                      .value
+                  )
+                }
+                placeholder="Facebook page URL"
+              />
+            </Field>
+
+            <Field
+              label="YouTube"
+              icon={
+                <Youtube className="h-3.5 w-3.5" />
+              }
+            >
+              <Input
+                value={
+                  data.social
+                    .youtube ||
+                  ""
+                }
+                onChange={(
+                  event
+                ) =>
+                  markDirtyChange(
+                    "social.youtube",
+                    event.target
+                      .value
+                  )
+                }
+                placeholder="YouTube channel URL"
+              />
+            </Field>
+
+            <Field
+              label="Customer WhatsApp"
+              icon={
+                <MessageCircle className="h-3.5 w-3.5" />
+              }
+            >
+              <Input
+                value={
+                  data.social
+                    .whatsappNumber ||
+                  ""
+                }
+                onChange={(
+                  event
+                ) =>
+                  markDirtyChange(
+                    "social.whatsappNumber",
+                    event.target
+                      .value
+                  )
+                }
+                inputMode="tel"
+                placeholder="WhatsApp number"
+              />
+            </Field>
+          </div>
+
+          <div className="mt-3 flex items-center justify-between gap-3 rounded-xl bg-surface-soft px-3 py-2.5 md:mt-4 md:rounded-2xl md:px-4 md:py-3">
+            <div className="min-w-0">
+              <div className="text-sm font-bold text-heading">
+                Show WhatsApp button
+              </div>
+
+              <div className="mt-0.5 text-xs text-muted-foreground">
+                Display the floating WhatsApp shortcut on your storefront.
+              </div>
+            </div>
+
+            <Switch
+              checked={
+                Boolean(
+                  data.social
+                    .showWhatsAppIcon
+                )
+              }
+              onCheckedChange={(
+                checked
+              ) =>
+                markDirtyChange(
+                  "social.showWhatsAppIcon",
+                  Boolean(
+                    checked
+                  )
+                )
+              }
+            />
+          </div>
+        </Section>
+
+        <div className="sticky bottom-[calc(5.1rem+var(--ls-safe-area-bottom))] z-20 md:bottom-4">
+          <div className="flex items-center justify-between gap-2 rounded-xl border border-border bg-card/95 p-2 shadow-[0_12px_28px_rgba(38,51,95,0.12)] backdrop-blur md:gap-3 md:rounded-2xl md:p-2.5">
+            <div className="hidden min-w-0 px-1 sm:block">
+              <div className="text-xs font-bold text-heading">
+                {dirty
+                  ? "Unsaved changes"
+                  : "All changes saved"}
+              </div>
+            </div>
+
+            <AsyncButton
+              type="button"
+              loading={
+                saving
+              }
+              loadingLabel="Saving…"
+              className="w-full sm:w-auto"
+              disabled={
+                !dirty
+              }
+              onClick={() =>
+                void save()
+              }
+            >
+              Save Profile
+            </AsyncButton>
+          </div>
+        </div>
+      </div>
+
+      <BottomSheet
+        open={
+          categoryPickerOpen
+        }
+        onOpenChange={
+          setCategoryPickerOpen
+        }
+        title="Product categories"
+        description="Choose the categories that best describe this business."
+        popupClassName="md:mx-auto md:max-w-2xl"
+      >
+        <div className="relative">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+
+          <Input
+            value={
+              categoryQuery
+            }
+            onChange={(
+              event
+            ) =>
+              setCategoryQuery(
+                event.target.value
+              )
+            }
+            placeholder="Search categories"
+            className="pl-10"
+          />
+        </div>
+
+        <div className="mt-3 grid max-h-[52dvh] gap-2 overflow-y-auto sm:grid-cols-2">
+          {filteredCategories.map(
+            (
+              category
+            ) => {
+              const active =
+                selectedCategories.includes(
+                  category
+                );
+
+              return (
+                <button
+                  key={
+                    category
+                  }
+                  type="button"
+                  onClick={() =>
+                    toggleCategory(
+                      category
+                    )
+                  }
+                  className={[
+                    "ls-focus-ring flex min-h-12 items-center justify-between gap-3 rounded-xl border px-3 text-left",
+                    active
+                      ? "border-primary bg-secondary"
+                      : "border-border bg-card hover:bg-muted",
+                  ].join(
+                    " "
+                  )}
+                >
+                  <span className="text-sm font-semibold text-foreground">
+                    {
+                      category
+                    }
+                  </span>
+
+                  <span
+                    className={[
+                      "grid h-6 w-6 shrink-0 place-items-center rounded-full border",
+                      active
+                        ? "border-primary bg-primary text-primary-foreground"
+                        : "border-border bg-card text-transparent",
+                    ].join(
+                      " "
+                    )}
+                  >
+                    <Check className="h-3.5 w-3.5" />
+                  </span>
+                </button>
+              );
+            }
+          )}
+        </div>
+
+        <div className="mt-4 flex items-center justify-between gap-3">
+          <span className="text-xs font-semibold text-muted-foreground">
+            {
+              selectedCategories.length
+            }{" "}
+            selected
+          </span>
+
+          <Button
+            type="button"
+            onClick={() =>
+              setCategoryPickerOpen(
+                false
+              )
+            }
+          >
+            Done
+          </Button>
+        </div>
+      </BottomSheet>
+    </>
   );
 }
