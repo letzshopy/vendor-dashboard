@@ -1,6 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import {
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import dynamic from "next/dynamic";
 import {
   AlertTriangle,
@@ -10,42 +14,124 @@ import {
   Warehouse,
 } from "lucide-react";
 
-const ResponsiveContainer = dynamic(
-  () => import("recharts").then((m) => m.ResponsiveContainer),
-  { ssr: false }
-);
-const BarChart = dynamic(
-  () => import("recharts").then((m) => m.BarChart),
-  { ssr: false }
-);
-const Bar = dynamic(() => import("recharts").then((m) => m.Bar), {
-  ssr: false,
-});
-const XAxis = dynamic(() => import("recharts").then((m) => m.XAxis), {
-  ssr: false,
-});
-const YAxis = dynamic(() => import("recharts").then((m) => m.YAxis), {
-  ssr: false,
-});
-const Tooltip = dynamic(() => import("recharts").then((m) => m.Tooltip), {
-  ssr: false,
-});
-const CartesianGrid = dynamic(
-  () => import("recharts").then((m) => m.CartesianGrid),
-  { ssr: false }
-);
+import {
+  Skeleton,
+} from "@/components/ui/skeleton";
+
+const ResponsiveContainer =
+  dynamic(
+    () =>
+      import(
+        "recharts"
+      ).then(
+        (module) =>
+          module.ResponsiveContainer
+      ),
+    {
+      ssr: false,
+    }
+  );
+
+const BarChart =
+  dynamic(
+    () =>
+      import(
+        "recharts"
+      ).then(
+        (module) =>
+          module.BarChart
+      ),
+    {
+      ssr: false,
+    }
+  );
+
+const Bar =
+  dynamic(
+    () =>
+      import(
+        "recharts"
+      ).then(
+        (module) =>
+          module.Bar
+      ),
+    {
+      ssr: false,
+    }
+  );
+
+const XAxis =
+  dynamic(
+    () =>
+      import(
+        "recharts"
+      ).then(
+        (module) =>
+          module.XAxis
+      ),
+    {
+      ssr: false,
+    }
+  );
+
+const YAxis =
+  dynamic(
+    () =>
+      import(
+        "recharts"
+      ).then(
+        (module) =>
+          module.YAxis
+      ),
+    {
+      ssr: false,
+    }
+  );
+
+const Tooltip =
+  dynamic(
+    () =>
+      import(
+        "recharts"
+      ).then(
+        (module) =>
+          module.Tooltip
+      ),
+    {
+      ssr: false,
+    }
+  );
+
+const CartesianGrid =
+  dynamic(
+    () =>
+      import(
+        "recharts"
+      ).then(
+        (module) =>
+          module.CartesianGrid
+      ),
+    {
+      ssr: false,
+    }
+  );
 
 const COLORS = {
-  bar: "#60A5FA",
+  bar: "#5366B7",
   grid: "#E5E7EB",
 };
 
 type StockApiRow = {
   id: number;
   name: string;
-  parent: number | null;
-  stock_status: string;
-  stock_quantity: number | null;
+  parent:
+    | number
+    | null;
+  stock_status:
+    string;
+  stock_quantity:
+    | number
+    | null;
 };
 
 type StockSummary = {
@@ -54,139 +140,425 @@ type StockSummary = {
   most: StockApiRow[];
 };
 
-function shortLabel(text: string, max = 12) {
-  if (!text) return "—";
-  return text.length > max ? `${text.slice(0, max)}...` : text;
+function shortLabel(
+  text: string,
+  max = 12
+) {
+  if (!text) {
+    return "—";
+  }
+
+  return text.length >
+    max
+    ? `${text.slice(
+        0,
+        max
+      )}...`
+    : text;
+}
+
+function stockLabel(
+  value: string
+) {
+  const status =
+    String(
+      value || ""
+    ).toLowerCase();
+
+  if (
+    status ===
+    "instock"
+  ) {
+    return "In stock";
+  }
+
+  if (
+    status ===
+    "outofstock"
+  ) {
+    return "Out of stock";
+  }
+
+  if (
+    status ===
+    "onbackorder"
+  ) {
+    return "Backorder";
+  }
+
+  return (
+    value || "—"
+  );
 }
 
 export default function StockReportClient() {
-  const [loading, setLoading] = useState(true);
-  const [data, setData] = useState<StockSummary>({
-    low: [],
-    out: [],
-    most: [],
-  });
+  const [
+    loading,
+    setLoading,
+  ] =
+    useState(true);
+
+  const [
+    data,
+    setData,
+  ] =
+    useState<StockSummary>({
+      low: [],
+      out: [],
+      most: [],
+    });
 
   useEffect(() => {
-    (async () => {
+    let cancelled =
+      false;
+
+    async function load() {
       try {
-        const [lowRes, outRes, mostRes] = await Promise.all([
-          fetch("/api/reports/stock/low", { cache: "no-store" }),
-          fetch("/api/reports/stock/out", { cache: "no-store" }),
-          fetch("/api/reports/stock/most", { cache: "no-store" }),
-        ]);
+        const [
+          lowResponse,
+          outResponse,
+          mostResponse,
+        ] =
+          await Promise.all([
+            fetch(
+              "/api/reports/stock/low",
+              {
+                cache:
+                  "no-store",
+              }
+            ),
+            fetch(
+              "/api/reports/stock/out",
+              {
+                cache:
+                  "no-store",
+              }
+            ),
+            fetch(
+              "/api/reports/stock/most",
+              {
+                cache:
+                  "no-store",
+              }
+            ),
+          ]);
 
-        const lowJson = await lowRes.json().catch(() => ({}));
-        const outJson = await outRes.json().catch(() => ({}));
-        const mostJson = await mostRes.json().catch(() => ({}));
+        const lowJson =
+          await lowResponse
+            .json()
+            .catch(
+              () => ({})
+            );
 
-        setData({
-          low: Array.isArray(lowJson?.items) ? lowJson.items : [],
-          out: Array.isArray(outJson?.items) ? outJson.items : [],
-          most: Array.isArray(mostJson?.items) ? mostJson.items : [],
-        });
+        const outJson =
+          await outResponse
+            .json()
+            .catch(
+              () => ({})
+            );
+
+        const mostJson =
+          await mostResponse
+            .json()
+            .catch(
+              () => ({})
+            );
+
+        if (
+          !cancelled
+        ) {
+          setData({
+            low: Array.isArray(
+              lowJson?.items
+            )
+              ? lowJson.items
+              : [],
+            out: Array.isArray(
+              outJson?.items
+            )
+              ? outJson.items
+              : [],
+            most:
+              Array.isArray(
+                mostJson?.items
+              )
+                ? mostJson.items
+                : [],
+          });
+        }
       } finally {
-        setLoading(false);
+        if (
+          !cancelled
+        ) {
+          setLoading(
+            false
+          );
+        }
       }
-    })();
+    }
+
+    void load();
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
-  const metrics = useMemo(() => {
-    const total = data.most.length;
-    const inStock = data.most.filter(
-      (r) => String(r.stock_status || "").toLowerCase() === "instock"
-    ).length;
-    const outOfStock = data.out.length;
-    const lowStock = data.low.length;
+  const metrics =
+    useMemo(() => {
+      const total =
+        data.most
+          .length;
 
-    return { total, inStock, outOfStock, lowStock };
-  }, [data]);
+      const inStock =
+        data.most.filter(
+          (row) =>
+            String(
+              row.stock_status ||
+                ""
+            ).toLowerCase() ===
+            "instock"
+        ).length;
 
-  const chartData = useMemo(
-    () =>
-      data.low.slice(0, 8).map((r) => ({
-        label: shortLabel(r.name),
-        fullLabel: r.name,
-        qty: Number(r.stock_quantity || 0),
-      })),
-    [data.low]
-  );
+      return {
+        total,
+        inStock,
+        outOfStock:
+          data.out
+            .length,
+        lowStock:
+          data.low
+            .length,
+      };
+    }, [data]);
 
-  const topMostStock = useMemo(() => {
-    return [...data.most].slice(0, 5).map((r) => ({
-      title: r.name,
-      value: `${r.stock_quantity ?? 0} qty`,
-      sub: `Product ID: ${r.id}`,
-    }));
-  }, [data.most]);
+  const chartData =
+    useMemo(
+      () =>
+        data.low
+          .slice(0, 8)
+          .map(
+            (row) => ({
+              label:
+                shortLabel(
+                  row.name
+                ),
+              fullLabel:
+                row.name,
+              qty: Number(
+                row.stock_quantity ||
+                  0
+              ),
+            })
+          ),
+      [data.low]
+    );
+
+  if (loading) {
+    return (
+      <div className="space-y-3">
+        <div className="grid grid-cols-2 gap-2 md:grid-cols-4 md:gap-3">
+          {Array.from({
+            length: 4,
+          }).map(
+            (
+              _,
+              index
+            ) => (
+              <Skeleton
+                key={
+                  index
+                }
+                className="h-24 rounded-xl md:h-28 md:rounded-2xl"
+              />
+            )
+          )}
+        </div>
+
+        <Skeleton className="h-72 rounded-xl md:rounded-2xl" />
+      </div>
+    );
+  }
 
   return (
     <section className="space-y-4">
-      <div>
-        <h2 className="text-xl font-semibold text-slate-900">Stock</h2>
+      <div className="grid grid-cols-2 gap-2 md:grid-cols-4 md:gap-3">
+        <Metric
+          icon={
+            <Boxes className="h-4 w-4" />
+          }
+          label="Products"
+          value={String(
+            metrics.total
+          )}
+        />
+
+        <Metric
+          icon={
+            <PackageCheck className="h-4 w-4" />
+          }
+          label="In stock"
+          value={String(
+            metrics.inStock
+          )}
+        />
+
+        <Metric
+          icon={
+            <PackageX className="h-4 w-4" />
+          }
+          label="Out"
+          value={String(
+            metrics.outOfStock
+          )}
+        />
+
+        <Metric
+          icon={
+            <AlertTriangle className="h-4 w-4" />
+          }
+          label="Low stock"
+          value={String(
+            metrics.lowStock
+          )}
+        />
       </div>
 
-      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-        <Metric icon={<Boxes className="h-4 w-4" />} label="Total products" value={String(metrics.total)} />
-        <Metric icon={<PackageCheck className="h-4 w-4" />} label="In stock" value={String(metrics.inStock)} />
-        <Metric icon={<PackageX className="h-4 w-4" />} label="Out of stock" value={String(metrics.outOfStock)} />
-        <Metric icon={<AlertTriangle className="h-4 w-4" />} label="Low stock" value={String(metrics.lowStock)} accent />
-      </div>
-
-      {chartData.length > 0 && (
-        <div className="hidden rounded-[22px] border border-slate-200 bg-white p-3 shadow-sm sm:p-4 md:block">
-          <div className="mb-3 text-sm font-semibold text-slate-900">
+      {chartData.length >
+      0 ? (
+        <section className="hidden rounded-2xl border border-border bg-card p-4 md:block">
+          <div className="mb-3 text-sm font-extrabold text-heading">
             Low stock products
           </div>
+
           <div className="h-72">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={chartData} margin={{ top: 5, right: 10, left: 0, bottom: 18 }}>
-                <CartesianGrid stroke={COLORS.grid} strokeDasharray="3 3" />
-                <XAxis dataKey="label" tick={{ fontSize: 11 }} interval={0} />
-                <YAxis tick={{ fontSize: 11 }} />
+            <ResponsiveContainer
+              width="100%"
+              height="100%"
+            >
+              <BarChart
+                data={
+                  chartData
+                }
+                margin={{
+                  top: 5,
+                  right: 10,
+                  left: 0,
+                  bottom: 18,
+                }}
+              >
+                <CartesianGrid
+                  stroke={
+                    COLORS.grid
+                  }
+                  strokeDasharray="3 3"
+                />
+                <XAxis
+                  dataKey="label"
+                  tick={{
+                    fontSize: 11,
+                  }}
+                  interval={0}
+                />
+                <YAxis
+                  tick={{
+                    fontSize: 11,
+                  }}
+                />
                 <Tooltip
-                  formatter={(v: any, _n: any, item: any) => [
-                    v,
-                    item?.payload?.fullLabel || "Qty",
+                  formatter={(
+                    value: any,
+                    _name: any,
+                    item: any
+                  ) => [
+                    value,
+                    item?.payload
+                      ?.fullLabel ||
+                      "Qty",
                   ]}
                 />
-                <Bar dataKey="qty" fill={COLORS.bar} radius={[6, 6, 0, 0]} />
+                <Bar
+                  dataKey="qty"
+                  fill={
+                    COLORS.bar
+                  }
+                  radius={[
+                    6,
+                    6,
+                    0,
+                    0,
+                  ]}
+                />
               </BarChart>
             </ResponsiveContainer>
           </div>
-        </div>
-      )}
+        </section>
+      ) : null}
 
-      <div className="overflow-hidden rounded-[22px] border border-slate-200 bg-white shadow-sm">
-        <div className="border-b border-slate-100 px-4 py-3">
-          <div className="text-sm font-semibold text-slate-900">Low stock list</div>
+      <section className="overflow-hidden rounded-xl border border-border bg-card md:rounded-2xl">
+        <div className="flex items-center justify-between gap-3 border-b border-border px-3 py-3 md:px-4">
+          <div className="text-sm font-extrabold text-heading">
+            Low stock list
+          </div>
+
+          <span className="rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-bold text-amber-700">
+            {
+              data.low
+                .length
+            }{" "}
+            items
+          </span>
         </div>
 
-        <div className="block md:hidden">
-          {data.low.length > 0 ? (
-            <div className="space-y-2 p-3">
-              {data.low.slice(0, 20).map((r) => (
-                <div key={r.id} className="rounded-2xl border border-slate-200 bg-slate-50/60 p-3">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <div className="text-sm font-semibold text-slate-900">{r.name}</div>
-                      <div className="mt-1 text-xs text-slate-500">Product ID: {r.id}</div>
+        <div className="divide-y divide-border md:hidden">
+          {data.low.length >
+          0 ? (
+            data.low
+              .slice(0, 20)
+              .map(
+                (row) => (
+                  <article
+                    key={
+                      row.id
+                    }
+                    className="p-3"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="text-sm font-bold text-heading">
+                          {
+                            row.name
+                          }
+                        </div>
+
+                        <div className="mt-0.5 text-[11px] text-muted-foreground">
+                          Product #
+                          {
+                            row.id
+                          }
+                        </div>
+                      </div>
+
+                      <span className="shrink-0 rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-bold text-amber-700">
+                        {row.stock_quantity ??
+                          0}{" "}
+                        qty
+                      </span>
                     </div>
 
-                    <span className="rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-medium text-amber-700">
-                      {r.stock_quantity ?? 0} qty
-                    </span>
-                  </div>
-
-                  <div className="mt-3 flex items-center gap-2">
-                    <Warehouse className="h-4 w-4 text-slate-500" />
-                    <span className="text-xs text-slate-600 capitalize">{r.stock_status || "—"}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
+                    <div className="mt-2 flex items-center gap-1.5 text-xs text-muted-foreground">
+                      <Warehouse className="h-3.5 w-3.5" />
+                      {stockLabel(
+                        row.stock_status
+                      )}
+                    </div>
+                  </article>
+                )
+              )
           ) : (
-            !loading && <div className="p-5 text-center text-sm text-slate-500">No low stock products found.</div>
+            <div className="p-6 text-center text-sm text-muted-foreground">
+              No low stock products.
+            </div>
           )}
         </div>
 
@@ -197,56 +569,115 @@ export default function StockReportClient() {
               <col className="w-2/12" />
               <col className="w-3/12" />
             </colgroup>
-            <thead className="bg-slate-50 text-slate-600">
+
+            <thead className="bg-surface-soft text-xs font-bold text-muted-foreground">
               <tr>
-                <th className="p-3 text-left">Product</th>
-                <th className="p-3 text-right">Qty</th>
-                <th className="p-3 text-left">Status</th>
+                <th className="p-3 text-left">
+                  Product
+                </th>
+                <th className="p-3 text-right">
+                  Qty
+                </th>
+                <th className="p-3 text-left">
+                  Status
+                </th>
               </tr>
             </thead>
-            <tbody>
-              {data.low.slice(0, 20).map((r) => (
-                <tr key={r.id} className="border-t border-slate-100">
-                  <td className="p-3 text-slate-900">{r.name}</td>
-                  <td className="p-3 text-right font-medium text-slate-900">
-                    {typeof r.stock_quantity === "number" ? r.stock_quantity : "—"}
-                  </td>
-                  <td className="p-3">
-                    <span
-                      className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-medium capitalize ${
-                        String(r.stock_status || "").toLowerCase() === "instock"
-                          ? "bg-emerald-50 text-emerald-700"
-                          : String(r.stock_status || "").toLowerCase() === "outofstock"
-                          ? "bg-rose-50 text-rose-700"
-                          : "bg-slate-100 text-slate-700"
-                      }`}
-                    >
-                      {r.stock_status || "—"}
-                    </span>
-                  </td>
-                </tr>
-              ))}
 
-              {!loading && data.low.length === 0 && (
+            <tbody>
+              {data.low
+                .slice(
+                  0,
+                  20
+                )
+                .map(
+                  (row) => (
+                    <tr
+                      key={
+                        row.id
+                      }
+                      className="border-t border-border"
+                    >
+                      <td className="p-3 font-semibold text-heading">
+                        {
+                          row.name
+                        }
+                      </td>
+
+                      <td className="p-3 text-right font-bold text-heading">
+                        {typeof row.stock_quantity ===
+                        "number"
+                          ? row.stock_quantity
+                          : "—"}
+                      </td>
+
+                      <td className="p-3 text-foreground">
+                        {stockLabel(
+                          row.stock_status
+                        )}
+                      </td>
+                    </tr>
+                  )
+                )}
+
+              {data.low.length ===
+              0 ? (
                 <tr>
-                  <td colSpan={3} className="p-4 text-center text-slate-500">
-                    No low stock products found.
+                  <td
+                    colSpan={3}
+                    className="p-5 text-center text-muted-foreground"
+                  >
+                    No low stock products.
                   </td>
                 </tr>
-              )}
+              ) : null}
             </tbody>
           </table>
         </div>
-      </div>
+      </section>
 
-      <MobileSummaryList title="Highest stock items" items={topMostStock} />
+      {data.out.length >
+      0 ? (
+        <section className="overflow-hidden rounded-xl border border-border bg-card md:rounded-2xl">
+          <div className="flex items-center justify-between gap-3 border-b border-border px-3 py-3 md:px-4">
+            <div className="text-sm font-extrabold text-heading">
+              Out of stock
+            </div>
 
-      {loading && (
-        <div className="flex items-center gap-2 text-xs text-slate-500">
-          <span className="inline-block h-2 w-2 rounded-full bg-blue-400 animate-pulse" />
-          Loading...
-        </div>
-      )}
+            <span className="rounded-full bg-rose-50 px-2.5 py-1 text-[11px] font-bold text-rose-700">
+              {
+                data.out
+                  .length
+              }
+            </span>
+          </div>
+
+          <div className="grid gap-0 divide-y divide-border md:grid-cols-2 md:divide-x md:divide-y-0">
+            {data.out
+              .slice(0, 8)
+              .map(
+                (row) => (
+                  <div
+                    key={
+                      row.id
+                    }
+                    className="flex items-center justify-between gap-3 px-3 py-3 md:px-4"
+                  >
+                    <div className="min-w-0 truncate text-sm font-semibold text-foreground">
+                      {
+                        row.name
+                      }
+                    </div>
+
+                    <span className="shrink-0 text-[11px] font-bold text-rose-700">
+                      Out
+                    </span>
+                  </div>
+                )
+              )}
+          </div>
+        </section>
+      ) : null}
     </section>
   );
 }
@@ -255,60 +686,26 @@ function Metric({
   icon,
   label,
   value,
-  accent,
 }: {
-  icon: React.ReactNode;
+  icon:
+    React.ReactNode;
   label: string;
   value: string;
-  accent?: boolean;
 }) {
   return (
-    <div
-      className={`relative overflow-hidden rounded-[22px] border border-slate-200 bg-white px-4 py-4 shadow-sm ${
-        accent ? "ring-1 ring-blue-100" : ""
-      }`}
-    >
-      {accent && (
-        <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-blue-500 via-indigo-500 to-sky-400" />
-      )}
+    <div className="min-w-0 rounded-xl border border-border bg-card p-3 md:rounded-2xl md:p-4">
+      <div className="flex items-center gap-1.5 text-muted-foreground">
+        <span className="hidden sm:inline-flex">
+          {icon}
+        </span>
 
-      <div className="flex items-center gap-2 text-slate-500">
-        {icon}
-        <div className="text-[11px] font-medium uppercase tracking-wide">{label}</div>
+        <div className="truncate text-[10px] font-bold uppercase tracking-wide md:text-[11px]">
+          {label}
+        </div>
       </div>
 
-      <div className="mt-3 text-2xl font-semibold text-slate-900">{value}</div>
-    </div>
-  );
-}
-
-function MobileSummaryList({
-  title,
-  items,
-}: {
-  title: string;
-  items: { title: string; value: string; sub?: string }[];
-}) {
-  if (!items.length) return null;
-
-  return (
-    <div className="rounded-[22px] border border-slate-200 bg-white shadow-sm md:hidden">
-      <div className="border-b border-slate-100 px-4 py-3">
-        <div className="text-sm font-semibold text-slate-900">{title}</div>
-      </div>
-
-      <div className="space-y-2 p-3">
-        {items.map((item, idx) => (
-          <div key={`${item.title}-${idx}`} className="rounded-2xl border border-slate-200 bg-slate-50/60 p-3">
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <div className="text-sm font-semibold text-slate-900">{item.title}</div>
-                {item.sub ? <div className="mt-1 text-xs text-slate-500">{item.sub}</div> : null}
-              </div>
-              <div className="shrink-0 text-sm font-semibold text-slate-900">{item.value}</div>
-            </div>
-          </div>
-        ))}
+      <div className="mt-2 text-lg font-extrabold text-heading md:text-2xl">
+        {value}
       </div>
     </div>
   );
