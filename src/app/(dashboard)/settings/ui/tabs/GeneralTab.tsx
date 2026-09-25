@@ -194,6 +194,15 @@ export default function GeneralTab() {
     return savedSnap !== currentSnap;
   }, [currentSnap, savedSnap]);
 
+  useUnsavedChanges({
+    id:
+      "settings-general",
+    dirty: isDirty,
+    label:
+      "store settings",
+    save,
+  });
+
   if (loading) {
     return (
       <div className="space-y-3">
@@ -394,15 +403,6 @@ export default function GeneralTab() {
       setSyncing(false);
     }
   }
-
-  useUnsavedChanges({
-    id:
-      "settings-general",
-    dirty: isDirty,
-    label:
-      "store settings",
-    save,
-  });
 
   return (
     <div className="space-y-4">
