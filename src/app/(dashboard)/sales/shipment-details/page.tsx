@@ -76,16 +76,6 @@ export default async function ShipmentDetailsPage() {
   const orders =
     await loadAllOrders();
 
-  const readyCount =
-    orders.filter(
-      (order) =>
-        String(
-          order.status ||
-            ""
-        ).toLowerCase() ===
-        "processing"
-    ).length;
-
   return (
     <main className="mx-auto w-full min-w-0 max-w-7xl pb-28 md:pb-8">
       <PageHeader
@@ -95,21 +85,6 @@ export default async function ShipmentDetailsPage() {
         title="Shipment Details"
         description="Add courier and tracking details for paid orders that are ready to ship."
       />
-
-      <div className="mb-3 flex items-end justify-between gap-3 md:hidden">
-        <div>
-          <div className="text-[11px] font-bold uppercase tracking-[0.08em] text-accent">
-            Sales
-          </div>
-          <h1 className="mt-0.5 text-[22px] font-extrabold tracking-tight text-heading">
-            Shipment Details
-          </h1>
-        </div>
-
-        <span className="rounded-full bg-secondary px-3 py-1.5 text-xs font-bold text-secondary-foreground">
-          {readyCount} ready
-        </span>
-      </div>
 
       <div className="md:mt-5">
         <ShipmentDetailsBulkTable
