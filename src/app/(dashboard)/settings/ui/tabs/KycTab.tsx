@@ -348,7 +348,7 @@ function DocRow({
   }
 
   return (
-    <div className="flex min-h-[76px] items-center gap-3 border-b border-border px-4 py-3 last:border-b-0 md:px-5">
+    <div className="flex min-h-[68px] items-center gap-2.5 border-b border-border px-3 py-2.5 last:border-b-0 md:min-h-[76px] md:gap-3 md:px-5 md:py-3">
       <span
         className={[
           "grid h-9 w-9 shrink-0 place-items-center rounded-lg md:h-10 md:w-10 md:rounded-xl",
@@ -383,7 +383,7 @@ function DocRow({
         </div>
       </div>
 
-      <div className="flex shrink-0 items-center gap-1.5">
+      <div className="flex shrink-0 items-center gap-0.5 sm:gap-1.5">
         {current ? (
           <>
             <a
@@ -1700,7 +1700,7 @@ export default function KycTab() {
       </section>
 
       {!readOnly ? (
-        <section className="rounded-2xl border border-border bg-card px-4 py-4 md:px-5">
+        <section className="rounded-xl border border-border bg-card px-3 py-3 md:rounded-2xl md:px-5 md:py-4">
           <label className="flex cursor-pointer items-start gap-3">
             <input
               type="checkbox"
@@ -1735,7 +1735,7 @@ export default function KycTab() {
 
       {!readOnly ? (
         <div className="sticky bottom-[calc(5.1rem+var(--ls-safe-area-bottom))] z-20 md:bottom-4">
-          <div className="flex flex-col gap-3 rounded-2xl border border-border bg-card/95 p-2.5 shadow-[0_14px_36px_rgba(38,51,95,0.14)] backdrop-blur sm:flex-row sm:items-center sm:justify-between">
+          <div className="rounded-xl border border-border bg-card/95 p-2 shadow-[0_12px_28px_rgba(38,51,95,0.12)] backdrop-blur md:rounded-2xl md:p-2.5">
             <div className="hidden min-w-0 px-1 sm:block">
               <div className="text-xs font-bold text-heading">
                 {isDirty
@@ -1748,12 +1748,13 @@ export default function KycTab() {
               </div>
             </div>
 
-            <div className="flex gap-2">
+            <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto">
               <AsyncButton
                 type="button"
                 variant="outline"
                 loading={saving}
                 loadingLabel="Saving…"
+                className="w-full sm:w-auto"
                 disabled={
                   !isDirty
                 }
@@ -1770,6 +1771,7 @@ export default function KycTab() {
                   submitting
                 }
                 loadingLabel="Submitting…"
+                className="w-full sm:w-auto"
                 onClick={() =>
                   void submit()
                 }
