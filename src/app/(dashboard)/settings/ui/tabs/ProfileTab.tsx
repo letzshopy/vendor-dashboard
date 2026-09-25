@@ -859,7 +859,7 @@ export default function ProfileTab() {
           }
           title="Personal contact"
         >
-          <div className="grid gap-4 lg:grid-cols-2">
+          <div className="grid gap-3 md:gap-4 lg:grid-cols-2">
             <Field
               label="Owner / contact person"
               icon={
@@ -971,8 +971,8 @@ export default function ProfileTab() {
           title="Business profile"
           description="Store identity and customer-facing business information."
         >
-          <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_240px]">
-            <div className="grid gap-4 lg:grid-cols-2">
+          <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_240px]">
+            <div className="grid gap-3 md:gap-4 lg:grid-cols-2">
               <div className="lg:col-span-2">
                 <Field
                   label="Business / store name"
@@ -1246,7 +1246,7 @@ export default function ProfileTab() {
               </div>
             </div>
 
-            <div className="rounded-2xl bg-surface-soft p-4">
+            <div className="rounded-xl bg-surface-soft p-3 md:rounded-2xl md:p-4">
               <div className="text-xs font-bold text-heading">
                 Store logo
               </div>
@@ -1340,7 +1340,7 @@ export default function ProfileTab() {
           }
           title="Customer contact & social"
         >
-          <div className="grid gap-4 lg:grid-cols-2">
+          <div className="grid gap-3 md:gap-4 lg:grid-cols-2">
             <Field
               label="Instagram"
               icon={
@@ -1443,7 +1443,7 @@ export default function ProfileTab() {
             </Field>
           </div>
 
-          <div className="mt-4 flex items-center justify-between gap-4 rounded-2xl bg-surface-soft px-4 py-3">
+          <div className="mt-3 flex items-center justify-between gap-3 rounded-xl bg-surface-soft px-3 py-2.5 md:mt-4 md:rounded-2xl md:px-4 md:py-3">
             <div className="min-w-0">
               <div className="text-sm font-bold text-heading">
                 Show WhatsApp button
