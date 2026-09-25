@@ -1003,8 +1003,6 @@ export default function OrdersReportClient() {
   );
 }
 
-}
-
 function Metric({
   icon,
   label,
