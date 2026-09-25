@@ -155,7 +155,7 @@ function ZoneEditor({
   const stops = useMemo(() => buildStops(z.step, z.max), [z.step, z.max]);
 
   return (
-    <div className="space-y-5 rounded-2xl border border-border bg-surface-soft p-3 md:p-5">
+    <div className="space-y-4 rounded-xl border border-border bg-surface-soft p-3 md:space-y-5 md:rounded-2xl md:p-5">
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
         <div>
           <label className="mb-2 block text-xs font-bold text-heading">
@@ -177,18 +177,18 @@ function ZoneEditor({
             value={z.regions}
             onChange={(codes) => onChange({ ...z, regions: codes })}
           />
-          <p className="mt-2 text-xs text-muted-foreground">
+          <p className="mt-2 hidden text-xs text-muted-foreground sm:block">
             Leave empty to apply across all Indian states.
           </p>
         </div>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">
-        <div className="rounded-2xl border border-border bg-card p-4">
+        <div className="rounded-xl border border-border bg-card p-3 md:rounded-2xl md:p-4">
           <div className="text-sm font-bold text-heading">
             Weight step per slab
           </div>
-          <p className="mt-1 text-xs text-muted-foreground">
+          <p className="mt-1 hidden text-xs text-muted-foreground sm:block">
             Choose whether slabs should increase every 0.5 kg or every 1 kg.
           </p>
 
@@ -219,7 +219,7 @@ function ZoneEditor({
           </div>
         </div>
 
-        <div className="rounded-2xl border border-border bg-card p-4">
+        <div className="rounded-xl border border-border bg-card p-3 md:rounded-2xl md:p-4">
           <label className="mb-2 block text-xs font-bold text-heading">
             Max weight (kg)
           </label>
@@ -235,19 +235,19 @@ function ZoneEditor({
               })
             }
           />
-          <p className="mt-2 text-xs text-muted-foreground">
+          <p className="mt-2 hidden text-xs text-muted-foreground sm:block">
             Slabs will be auto-generated up to this maximum weight.
           </p>
         </div>
       </div>
 
       <div className={`grid gap-5 ${showOverrides ? "xl:grid-cols-2" : ""}`}>
-        <div className="rounded-2xl border border-border bg-card p-4">
+        <div className="rounded-xl border border-border bg-card p-3 md:rounded-2xl md:p-4">
           <div className="mb-3">
             <div className="text-sm font-bold text-heading">
               Rates for all products
             </div>
-            <p className="mt-1 text-xs text-muted-foreground">
+            <p className="mt-1 hidden text-xs text-muted-foreground sm:block">
               These apply when no category-specific override exists.
             </p>
           </div>
@@ -293,12 +293,12 @@ function ZoneEditor({
         </div>
 
         {showOverrides && (
-          <div className="rounded-2xl border border-border bg-card p-4">
+          <div className="rounded-xl border border-border bg-card p-3 md:rounded-2xl md:p-4">
             <div className="mb-3">
               <div className="text-sm font-bold text-heading">
                 Per-category overrides
               </div>
-              <p className="mt-1 text-xs text-muted-foreground">
+              <p className="mt-1 hidden text-xs text-muted-foreground sm:block">
                 Use different slabs for selected product categories.
               </p>
             </div>
@@ -447,7 +447,7 @@ function ShippingMethodCard({
   return (
     <section
       className={[
-        "overflow-hidden rounded-2xl border bg-card transition",
+        "overflow-hidden rounded-xl border bg-card transition md:rounded-2xl",
         enabled
           ? "border-primary/35"
           : "border-border",
@@ -483,7 +483,7 @@ function ShippingMethodCard({
                 <StatusPill active={enabled} />
                 {badge}
               </div>
-              <p className="mt-1 text-xs leading-5 text-muted-foreground">
+              <p className="mt-1 hidden text-xs leading-5 text-muted-foreground md:block">
                 {description}
               </p>
             </div>
@@ -968,7 +968,7 @@ export default function ShippingTab() {
               onToggle={setFreeToggle}
               disabled={hydrating}
               badge={
-                <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-emerald-700">
+                <span className="hidden rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-emerald-700 sm:inline-flex">
                   Customer friendly
                 </span>
               }
@@ -1055,7 +1055,7 @@ export default function ShippingTab() {
               onToggle={setAllToggle}
               disabled={hydrating}
               badge={
-                <span className="rounded-full bg-indigo-50 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-indigo-700">
+                <span className="hidden rounded-full bg-indigo-50 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-indigo-700 sm:inline-flex">
                   Advanced
                 </span>
               }
