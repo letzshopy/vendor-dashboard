@@ -1,16 +1,49 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import {
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import Link from "next/link";
-import InvoicePdfClient from "../orders/ui/InvoicePdfClient";
 import {
   ChevronLeft,
   ChevronRight,
+  Download,
   FileText,
-  MoreVertical,
-  ReceiptText,
+  Filter,
   Search,
 } from "lucide-react";
+
+import {
+  AsyncButton,
+} from "@/components/ui/async-button";
+import {
+  BottomSheet,
+} from "@/components/ui/bottom-sheet";
+import {
+  Button,
+} from "@/components/ui/button";
+import {
+  EmptyState,
+} from "@/components/ui/empty-state";
+import {
+  Input,
+} from "@/components/ui/input";
+import {
+  PageHeader,
+} from "@/components/ui/page-header";
+import {
+  Skeleton,
+} from "@/components/ui/skeleton";
+import {
+  StatusBadge,
+} from "@/components/ui/status-badge";
+import {
+  actionFeedback,
+} from "@/lib/actionFeedback";
+
+import InvoicePdfClient from "../orders/ui/InvoicePdfClient";
 
 type OrderRow = {
   id: number;
@@ -19,7 +52,11 @@ type OrderRow = {
   status: string;
   payment_method_title?: string;
   total: string;
-  billing?: { first_name?: string; last_name?: string; email?: string };
+  billing?: {
+    first_name?: string;
+    last_name?: string;
+    email?: string;
+  };
   line_items?: Array<{
     id: number;
     name: string;
@@ -30,128 +67,213 @@ type OrderRow = {
   }>;
 };
 
-function statusClass(status: string) {
-  const s = (status || "").toLowerCase();
+function formatDateTime(
+  value: string
+) {
+  const date =
+    new Date(value);
 
-  if (s === "completed") {
-    return "bg-emerald-50 text-emerald-700";
-  }
-  if (s === "processing") {
-    return "bg-blue-50 text-blue-700";
-  }
-  if (s === "cancelled" || s === "refunded" || s === "failed") {
-    return "bg-rose-50 text-rose-700";
-  }
-  if (s === "on-hold") {
-    return "bg-amber-50 text-amber-700";
-  }
-
-  return "bg-slate-100 text-slate-700";
-}
-
-function formatDateTime(value: string) {
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) {
-    return { date: "-", time: "-" };
+  if (
+    Number.isNaN(
+      date.getTime()
+    )
+  ) {
+    return {
+      date: "-",
+      time: "-",
+    };
   }
 
   return {
-    date: d.toLocaleDateString(),
-    time: d.toLocaleTimeString(),
+    date:
+      date.toLocaleDateString(
+        "en-IN",
+        {
+          day:
+            "2-digit",
+          month:
+            "short",
+          year:
+            "numeric",
+        }
+      ),
+    time:
+      date.toLocaleTimeString(
+        "en-IN",
+        {
+          hour:
+            "2-digit",
+          minute:
+            "2-digit",
+        }
+      ),
   };
 }
 
-function buildCustomerName(order: OrderRow) {
+function buildCustomerName(
+  order: OrderRow
+) {
   const name =
-    (order.billing?.first_name || order.billing?.last_name
-      ? `${order.billing?.first_name || ""} ${
-          order.billing?.last_name || ""
-        }`.trim()
-      : "") || "";
+    (
+      order.billing
+        ?.first_name ||
+      order.billing
+        ?.last_name
+        ? `${order.billing?.first_name || ""} ${order.billing?.last_name || ""}`.trim()
+        : ""
+    ) || "";
 
-  return name || order.billing?.email || "-";
+  return (
+    name ||
+    order.billing
+      ?.email ||
+    "-"
+  );
 }
 
-function buildItemsText(order: OrderRow) {
-  return (order.line_items || [])
-    .map((li) => `${li.name}${li.quantity ? ` × ${li.quantity}` : ""}`)
+function buildItemsText(
+  order: OrderRow
+) {
+  return (
+    order.line_items ||
+    []
+  )
+    .map(
+      (item) =>
+        `${item.name}${item.quantity ? ` × ${item.quantity}` : ""}`
+    )
     .join(", ");
 }
 
-function RowMenu({
-  orderId,
-  onCreate,
-}: {
-  orderId: number;
-  onCreate: (id: number) => void;
-}) {
-  const [open, setOpen] = useState(false);
-
-  return (
-    <div className="relative">
-      <button
-        type="button"
-        onClick={() => setOpen((s) => !s)}
-        className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-sm hover:border-violet-300 hover:text-violet-700"
-      >
-        <MoreVertical className="h-4 w-4" />
-      </button>
-
-      {open && (
-        <div className="absolute right-0 top-11 z-30 min-w-[170px] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl">
-          <Link
-            href={`/orders/${orderId}`}
-            className="block px-4 py-3 text-sm text-slate-700 hover:bg-slate-50"
-            onClick={() => setOpen(false)}
-          >
-            View order
-          </Link>
-
-          <button
-            type="button"
-            onClick={() => {
-              setOpen(false);
-              onCreate(orderId);
-            }}
-            className="block w-full px-4 py-3 text-left text-sm text-slate-700 hover:bg-slate-50"
-          >
-            Create PDF Invoice
-          </button>
-        </div>
-      )}
-    </div>
-  );
-}
-
 export default function OrderInvoicesPage() {
-  const [allOrders, setAllOrders] = useState<OrderRow[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [
+    allOrders,
+    setAllOrders,
+  ] =
+    useState<
+      OrderRow[]
+    >([]);
 
-  const [status, setStatus] = useState("all");
-  const [search, setSearch] = useState("");
-  const [from, setFrom] = useState("");
-  const [to, setTo] = useState("");
+  const [
+    loading,
+    setLoading,
+  ] =
+    useState(true);
 
-  const [selected, setSelected] = useState<Record<number, boolean>>({});
+  const [
+    generating,
+    setGenerating,
+  ] =
+    useState(false);
 
-  const [page, setPage] = useState(1);
-  const [perPage, setPerPage] = useState(25);
+  const [
+    filterOpen,
+    setFilterOpen,
+  ] =
+    useState(false);
 
-  const selectedIds = useMemo(
-    () =>
-      Object.entries(selected)
-        .filter(([, v]) => v)
-        .map(([k]) => Number(k)),
-    [selected]
-  );
+  const [
+    status,
+    setStatus,
+  ] =
+    useState("all");
+
+  const [
+    search,
+    setSearch,
+  ] =
+    useState("");
+
+  const [
+    from,
+    setFrom,
+  ] =
+    useState("");
+
+  const [
+    to,
+    setTo,
+  ] =
+    useState("");
+
+  const [
+    selected,
+    setSelected,
+  ] =
+    useState<
+      Record<
+        number,
+        boolean
+      >
+    >({});
+
+  const [
+    page,
+    setPage,
+  ] =
+    useState(1);
+
+  const [
+    perPage,
+    setPerPage,
+  ] =
+    useState(25);
+
+  const selectedIds =
+    useMemo(
+      () =>
+        Object.entries(
+          selected
+        )
+          .filter(
+            (
+              [
+                ,
+                value,
+              ]
+            ) =>
+              value
+          )
+          .map(
+            (
+              [
+                key,
+              ]
+            ) =>
+              Number(
+                key
+              )
+          ),
+      [selected]
+    );
 
   async function fetchOrders() {
     setLoading(true);
+
     try {
-      const res = await fetch("/api/orders/all", { cache: "no-store" });
-      const json = await res.json();
-      const list = Array.isArray(json?.data) ? json.data : json;
-      setAllOrders(list || []);
+      const response =
+        await fetch(
+          "/api/orders/all",
+          {
+            cache:
+              "no-store",
+          }
+        );
+
+      const json =
+        await response.json();
+
+      const list =
+        Array.isArray(
+          json?.data
+        )
+          ? json.data
+          : json;
+
+      setAllOrders(
+        list || []
+      );
+
       setPage(1);
     } finally {
       setLoading(false);
@@ -159,528 +281,1077 @@ export default function OrderInvoicesPage() {
   }
 
   useEffect(() => {
-    fetchOrders();
+    void fetchOrders();
   }, []);
 
-  const filteredOrders = useMemo(() => {
-    const term = search.trim().toLowerCase();
-    const fromDate = from ? new Date(from + "T00:00:00") : null;
-    const toDate = to ? new Date(to + "T23:59:59") : null;
-
-    return allOrders.filter((o) => {
-      if (status !== "all" && o.status !== status) return false;
-
-      if (fromDate || toDate) {
-        const od = new Date(o.date_created);
-        if (fromDate && od < fromDate) return false;
-        if (toDate && od > toDate) return false;
-      }
-
-      if (term) {
-        const name = buildCustomerName(o);
-        const email = o.billing?.email || "";
-        const payment = o.payment_method_title || "";
-        const itemText = buildItemsText(o);
-
-        const haystack = [
-          String(o.number || ""),
-          String(o.id),
-          name,
-          email,
-          payment,
-          itemText,
-        ]
-          .join(" ")
+  const filteredOrders =
+    useMemo(() => {
+      const term =
+        search
+          .trim()
           .toLowerCase();
 
-        if (!haystack.includes(term)) return false;
-      }
+      const fromDate =
+        from
+          ? new Date(
+              `${from}T00:00:00`
+            )
+          : null;
 
-      return true;
-    });
-  }, [allOrders, status, search, from, to]);
+      const toDate =
+        to
+          ? new Date(
+              `${to}T23:59:59`
+            )
+          : null;
 
-  const totalPages = Math.max(
-    1,
-    Math.ceil(filteredOrders.length / (perPage || 1))
-  );
+      return allOrders.filter(
+        (
+          order
+        ) => {
+          if (
+            status !==
+              "all" &&
+            order.status !==
+              status
+          ) {
+            return false;
+          }
+
+          if (
+            fromDate ||
+            toDate
+          ) {
+            const orderDate =
+              new Date(
+                order.date_created
+              );
+
+            if (
+              fromDate &&
+              orderDate <
+                fromDate
+            ) {
+              return false;
+            }
+
+            if (
+              toDate &&
+              orderDate >
+                toDate
+            ) {
+              return false;
+            }
+          }
+
+          if (term) {
+            const haystack =
+              [
+                String(
+                  order.number ||
+                    ""
+                ),
+                String(
+                  order.id
+                ),
+                buildCustomerName(
+                  order
+                ),
+                order.billing
+                  ?.email ||
+                  "",
+                order.payment_method_title ||
+                  "",
+                buildItemsText(
+                  order
+                ),
+              ]
+                .join(" ")
+                .toLowerCase();
+
+            if (
+              !haystack.includes(
+                term
+              )
+            ) {
+              return false;
+            }
+          }
+
+          return true;
+        }
+      );
+    }, [
+      allOrders,
+      status,
+      search,
+      from,
+      to,
+    ]);
+
+  const totalPages =
+    Math.max(
+      1,
+      Math.ceil(
+        filteredOrders.length /
+          (
+            perPage ||
+            1
+          )
+      )
+    );
 
   useEffect(() => {
-    setPage((p) => {
-      if (p < 1) return 1;
-      if (p > totalPages) return totalPages;
-      return p;
-    });
-  }, [totalPages]);
+    setPage(
+      (
+        current
+      ) => {
+        if (
+          current <
+          1
+        ) {
+          return 1;
+        }
 
-  const paginatedOrders = useMemo(() => {
-    const start = (page - 1) * perPage;
-    const end = start + perPage;
-    return filteredOrders.slice(start, end);
-  }, [filteredOrders, page, perPage]);
+        if (
+          current >
+          totalPages
+        ) {
+          return totalPages;
+        }
+
+        return current;
+      }
+    );
+  }, [
+    totalPages,
+  ]);
+
+  const paginatedOrders =
+    useMemo(() => {
+      const start =
+        (
+          page -
+          1
+        ) *
+        perPage;
+
+      return filteredOrders.slice(
+        start,
+        start +
+          perPage
+      );
+    }, [
+      filteredOrders,
+      page,
+      perPage,
+    ]);
 
   const firstRow =
-    filteredOrders.length === 0 ? 0 : (page - 1) * perPage + 1;
-  const lastRow =
-    filteredOrders.length === 0
+    filteredOrders.length ===
+    0
       ? 0
-      : Math.min(page * perPage, filteredOrders.length);
+      : (
+          page -
+          1
+        ) *
+          perPage +
+        1;
 
-  function toggleAll(e: React.ChangeEvent<HTMLInputElement>) {
-    const checked = e.target.checked;
-    const next: Record<number, boolean> = { ...selected };
-
-    paginatedOrders.forEach((o) => {
-      next[o.id] = checked;
-    });
-
-    setSelected(next);
-  }
-
-  function toggleOne(id: number, value: boolean) {
-    setSelected((s) => ({ ...s, [id]: value }));
-  }
+  const lastRow =
+    filteredOrders.length ===
+    0
+      ? 0
+      : Math.min(
+          page *
+            perPage,
+          filteredOrders.length
+        );
 
   const allPageSelected =
-    paginatedOrders.length > 0 &&
-    paginatedOrders.every((o) => selected[o.id]);
+    paginatedOrders.length >
+      0 &&
+    paginatedOrders.every(
+      (
+        order
+      ) =>
+        selected[
+          order.id
+        ]
+    );
 
-  async function createInvoices() {
-    if (selectedIds.length === 0) return;
-    await InvoicePdfClient.generateForOrders(selectedIds);
+  const activeFilterCount =
+    [
+      status !==
+      "all"
+        ? status
+        : "",
+      search,
+      from,
+      to,
+    ].filter(Boolean)
+      .length;
+
+  function toggleAll(
+    event:
+      React.ChangeEvent<HTMLInputElement>
+  ) {
+    const checked =
+      event.target
+        .checked;
+
+    const next = {
+      ...selected,
+    };
+
+    paginatedOrders.forEach(
+      (
+        order
+      ) => {
+        next[
+          order.id
+        ] =
+          checked;
+      }
+    );
+
+    setSelected(
+      next
+    );
   }
 
-  async function createSingleInvoice(id: number) {
-    await InvoicePdfClient.generateForOrders([id]);
+  function toggleOne(
+    id: number,
+    value: boolean
+  ) {
+    setSelected(
+      (
+        current
+      ) => ({
+        ...current,
+        [id]: value,
+      })
+    );
   }
 
-  function goPrev() {
-    setPage((p) => (p > 1 ? p - 1 : p));
-  }
+  async function createInvoices(
+    ids =
+      selectedIds
+  ) {
+    if (
+      ids.length ===
+      0 ||
+      generating
+    ) {
+      return;
+    }
 
-  function goNext() {
-    setPage((p) => (p < totalPages ? p + 1 : p));
-  }
+    setGenerating(
+      true
+    );
 
-  function onPerPageChange(e: React.ChangeEvent<HTMLSelectElement>) {
-    const value = Number(e.target.value) || 25;
-    setPerPage(value);
-    setPage(1);
+    actionFeedback.loading({
+      id:
+        "order-invoice-generate",
+      title:
+        ids.length ===
+        1
+          ? "Creating invoice…"
+          : `Creating ${ids.length} invoices…`,
+    });
+
+    try {
+      await InvoicePdfClient.generateForOrders(
+        ids
+      );
+
+      actionFeedback.success({
+        id:
+          "order-invoice-generate",
+        title:
+          ids.length ===
+          1
+            ? "Invoice created"
+            : "Invoices created",
+        durationMs:
+          2200,
+      });
+    } catch (
+      error: unknown
+    ) {
+      actionFeedback.error({
+        id:
+          "order-invoice-generate",
+        title:
+          "Could not create invoice PDF",
+        message:
+          error instanceof
+            Error
+            ? error.message
+            : "Please try again.",
+        durationMs:
+          4200,
+      });
+    } finally {
+      setGenerating(
+        false
+      );
+    }
   }
 
   function clearFilters() {
-    setStatus("all");
+    setStatus(
+      "all"
+    );
     setSearch("");
     setFrom("");
     setTo("");
     setPage(1);
+    setFilterOpen(
+      false
+    );
+  }
+
+  function FilterFields() {
+    return (
+      <>
+        <select
+          value={
+            status
+          }
+          onChange={(
+            event
+          ) => {
+            setStatus(
+              event.target
+                .value
+            );
+            setPage(1);
+          }}
+          className="ls-focus-ring h-11 w-full rounded-xl border border-input bg-card px-3 text-sm font-semibold text-foreground"
+        >
+          <option value="all">
+            All statuses
+          </option>
+          <option value="processing">
+            Processing
+          </option>
+          <option value="completed">
+            Completed
+          </option>
+          <option value="cancelled">
+            Cancelled
+          </option>
+          <option value="refunded">
+            Refunded
+          </option>
+          <option value="on-hold">
+            On hold
+          </option>
+          <option value="pending">
+            Pending payment
+          </option>
+        </select>
+
+        <div className="relative">
+          <Search className="pointer-events-none absolute left-3 top-3.5 h-4 w-4 text-muted-foreground" />
+
+          <Input
+            className="pl-9"
+            placeholder="Order, customer, email, SKU or product"
+            value={search}
+            onChange={(
+              event
+            ) => {
+              setSearch(
+                event.target
+                  .value
+              );
+              setPage(
+                1
+              );
+            }}
+          />
+        </div>
+
+        <Input
+          type="date"
+          value={from}
+          onChange={(
+            event
+          ) => {
+            setFrom(
+              event.target
+                .value
+            );
+            setPage(1);
+          }}
+        />
+
+        <Input
+          type="date"
+          value={to}
+          onChange={(
+            event
+          ) => {
+            setTo(
+              event.target
+                .value
+            );
+            setPage(1);
+          }}
+        />
+      </>
+    );
   }
 
   return (
-    <main className="mx-auto max-w-7xl px-3 pb-28 pt-3 md:px-4 md:pb-8 md:pt-5">
-      <div className="rounded-[30px] border border-white/80 bg-gradient-to-br from-white via-[#f7f8ff] to-[#eef7ff] p-4 shadow-[0_14px_40px_rgba(15,23,42,0.06)] md:p-5">
-        <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-          <div className="min-w-0">
-            <div className="inline-flex items-center gap-2 rounded-full bg-indigo-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-indigo-700">
-              <ReceiptText className="h-3.5 w-3.5" />
-              Order Invoices
-            </div>
+    <main className="mx-auto w-full min-w-0 max-w-7xl pb-28 md:pb-8">
+      <PageHeader
+        className="hidden md:flex"
+        eyebrow="Reports & Billing"
+        icon={FileText}
+        title="Order Invoices"
+        description="Find customer orders and generate single or bulk PDF invoices."
+        actions={
+          <Link
+            href="/orders"
+            className="ls-focus-ring inline-flex min-h-11 items-center justify-center rounded-xl border border-border bg-card px-4 text-sm font-semibold text-foreground hover:bg-muted"
+          >
+            View Orders
+          </Link>
+        }
+      />
 
-            <h1 className="mt-3 text-[24px] font-semibold tracking-tight text-slate-900 md:text-[30px]">
-              Order Invoices
-            </h1>
-          </div>
+      <div className="space-y-4 md:mt-5">
+        <div className="flex items-center gap-2 md:hidden">
+          <Button
+            variant="outline"
+            className="flex-1"
+            onClick={() =>
+              setFilterOpen(
+                true
+              )
+            }
+          >
+            <Filter className="h-4 w-4" />
+            Filters
+            {activeFilterCount ? (
+              <span className="rounded-full bg-primary px-1.5 py-0.5 text-[10px] font-bold text-primary-foreground">
+                {
+                  activeFilterCount
+                }
+              </span>
+            ) : null}
+          </Button>
 
-          <div className="flex items-center gap-2">
-            <Link
-              href="/orders"
-              className="inline-flex items-center rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50"
-            >
-              Back to Orders
-            </Link>
-          </div>
+          <AsyncButton
+            type="button"
+            size="sm"
+            loading={
+              generating
+            }
+            loadingLabel="Creating…"
+            disabled={
+              selectedIds.length ===
+              0
+            }
+            onClick={() =>
+              void createInvoices()
+            }
+          >
+            <Download className="h-3.5 w-3.5" />
+            {selectedIds.length >
+            0
+              ? `PDF (${selectedIds.length})`
+              : "PDF"}
+          </AsyncButton>
         </div>
-      </div>
 
-      <section className="mt-4 overflow-hidden rounded-[26px] border border-slate-200/80 bg-white shadow-[0_10px_30px_rgba(15,23,42,0.05)]">
-        <div className="border-b border-slate-100 bg-gradient-to-r from-white via-[#faf7ff] to-[#f4fbff] px-4 py-4 md:px-5">
-          <div className="flex items-center justify-between gap-3">
-            <h2 className="text-[16px] font-semibold text-slate-900">
-              Filters
-            </h2>
+        <section className="hidden rounded-2xl border border-border bg-card p-3 md:block">
+          <div className="grid gap-3 xl:grid-cols-[0.8fr_1.5fr_0.8fr_0.8fr_auto]">
+            <FilterFields />
 
-            <button
+            <Button
               type="button"
-              onClick={clearFilters}
-              className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+              variant="outline"
+              onClick={
+                clearFilters
+              }
             >
               Clear
-            </button>
+            </Button>
           </div>
-        </div>
+        </section>
 
-        <div className="grid gap-3 p-4 md:grid-cols-5">
-          <select
-            value={status}
-            onChange={(e) => {
-              setStatus(e.target.value);
-              setPage(1);
-            }}
-            className="h-11 rounded-2xl border border-slate-200 bg-slate-50 px-4 text-sm text-slate-800 outline-none focus:border-blue-400 focus:bg-white focus:ring-2 focus:ring-blue-100"
-          >
-            <option value="all">All statuses</option>
-            <option value="processing">Processing</option>
-            <option value="completed">Completed</option>
-            <option value="cancelled">Cancelled</option>
-            <option value="refunded">Refunded</option>
-            <option value="on-hold">On hold</option>
-            <option value="pending">Pending payment</option>
-          </select>
-
-          <div className="relative md:col-span-2">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-            <input
-              className="h-11 w-full rounded-2xl border border-slate-200 bg-slate-50 pl-10 pr-3 text-sm text-slate-800 outline-none focus:border-blue-400 focus:bg-white focus:ring-2 focus:ring-blue-100"
-              placeholder="Order # / customer / email / SKU / product"
-              value={search}
-              onChange={(e) => {
-                setSearch(e.target.value);
-                setPage(1);
-              }}
-            />
-          </div>
-
-          <input
-            type="date"
-            value={from}
-            onChange={(e) => {
-              setFrom(e.target.value);
-              setPage(1);
-            }}
-            className="h-11 rounded-2xl border border-slate-200 bg-slate-50 px-4 text-sm text-slate-800 outline-none focus:border-blue-400 focus:bg-white focus:ring-2 focus:ring-blue-100"
-          />
-
-          <input
-            type="date"
-            value={to}
-            onChange={(e) => {
-              setTo(e.target.value);
-              setPage(1);
-            }}
-            className="h-11 rounded-2xl border border-slate-200 bg-slate-50 px-4 text-sm text-slate-800 outline-none focus:border-blue-400 focus:bg-white focus:ring-2 focus:ring-blue-100"
-          />
-        </div>
-
-        {loading && (
-          <div className="px-4 pb-4 text-xs text-slate-500 md:px-5">
-            Loading orders...
-          </div>
-        )}
-      </section>
-
-      <section className="mt-4 overflow-hidden rounded-[26px] border border-slate-200/80 bg-white shadow-[0_10px_30px_rgba(15,23,42,0.05)]">
-        <div className="border-b border-slate-100 bg-gradient-to-r from-white via-[#faf7ff] to-[#f4fbff] px-4 py-4 md:px-5">
-          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-            <div className="flex items-center gap-3">
-              <h2 className="text-[16px] font-semibold text-slate-900">
+        <section className="overflow-hidden rounded-xl border border-border bg-card md:rounded-2xl">
+          <div className="flex items-center justify-between gap-3 border-b border-border px-3 py-3 md:px-4">
+            <div className="flex min-w-0 items-center gap-2">
+              <h2 className="truncate text-sm font-extrabold text-heading md:text-base">
                 Invoice Orders
               </h2>
 
-              <div className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">
-                {filteredOrders.length} orders
-              </div>
+              <span className="rounded-full bg-secondary px-2.5 py-1 text-[11px] font-bold text-secondary-foreground">
+                {
+                  filteredOrders.length
+                }
+              </span>
             </div>
 
-            <button
-              onClick={createInvoices}
-              className={`inline-flex h-11 items-center justify-center rounded-2xl px-4 text-sm font-semibold shadow-sm ${
-                selectedIds.length
-                  ? "bg-blue-600 text-white hover:bg-blue-700"
-                  : "cursor-not-allowed bg-slate-200 text-slate-500"
-              }`}
-              disabled={!selectedIds.length}
+            <AsyncButton
+              type="button"
+              size="sm"
+              className="hidden md:inline-flex"
+              loading={
+                generating
+              }
+              loadingLabel="Creating…"
+              disabled={
+                selectedIds.length ===
+                0
+              }
+              onClick={() =>
+                void createInvoices()
+              }
             >
-              Create PDF Invoice ({selectedIds.length})
-            </button>
+              <Download className="h-3.5 w-3.5" />
+              Create PDF
+              {selectedIds.length >
+              0
+                ? ` (${selectedIds.length})`
+                : ""}
+            </AsyncButton>
           </div>
-        </div>
 
-        {/* Mobile cards */}
-        <div className="block md:hidden">
-          {paginatedOrders.length > 0 ? (
+          {loading ? (
             <div className="space-y-2 p-3">
-              {paginatedOrders.map((o) => {
-                const dt = formatDateTime(o.date_created);
-                const customerName = buildCustomerName(o);
-                const itemsText = buildItemsText(o);
-                const isChecked = !!selected[o.id];
+              {Array.from({
+                length: 6,
+              }).map(
+                (
+                  _,
+                  index
+                ) => (
+                  <Skeleton
+                    key={
+                      index
+                    }
+                    className="h-20 rounded-xl"
+                  />
+                )
+              )}
+            </div>
+          ) : paginatedOrders.length ===
+            0 ? (
+            <EmptyState
+              icon={FileText}
+              title="No orders found"
+              description="Change the filters or check again after new orders arrive."
+            />
+          ) : (
+            <>
+              <div className="divide-y divide-border md:hidden">
+                {paginatedOrders.map(
+                  (
+                    order
+                  ) => {
+                    const date =
+                      formatDateTime(
+                        order.date_created
+                      );
 
-                return (
-                  <div
-                    key={o.id}
-                    className="rounded-[20px] border border-slate-200 bg-white px-3 py-3 shadow-sm"
-                  >
-                    <div className="flex items-start gap-3">
-                      <div className="pt-1">
+                    const customerName =
+                      buildCustomerName(
+                        order
+                      );
+
+                    const items =
+                      buildItemsText(
+                        order
+                      );
+
+                    const checked =
+                      Boolean(
+                        selected[
+                          order.id
+                        ]
+                      );
+
+                    return (
+                      <article
+                        key={
+                          order.id
+                        }
+                        className="p-3"
+                      >
+                        <div className="flex items-start gap-3">
+                          <input
+                            type="checkbox"
+                            checked={
+                              checked
+                            }
+                            onChange={(
+                              event
+                            ) =>
+                              toggleOne(
+                                order.id,
+                                event.target
+                                  .checked
+                              )
+                            }
+                            aria-label={`Select order ${order.number || order.id}`}
+                            className="mt-1 h-4 w-4 rounded border-input"
+                          />
+
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="min-w-0">
+                                <Link
+                                  href={`/orders/${order.id}`}
+                                  className="text-sm font-extrabold text-primary"
+                                >
+                                  #
+                                  {order.number ||
+                                    order.id}
+                                </Link>
+
+                                <div className="mt-0.5 truncate text-sm font-semibold text-heading">
+                                  {
+                                    customerName
+                                  }
+                                </div>
+
+                                <div className="mt-0.5 text-[11px] text-muted-foreground">
+                                  {
+                                    date.date
+                                  }{" "}
+                                  ·{" "}
+                                  {
+                                    date.time
+                                  }
+                                </div>
+                              </div>
+
+                              <div className="shrink-0 text-right">
+                                <div className="text-sm font-extrabold text-heading">
+                                  ₹
+                                  {Number(
+                                    order.total ||
+                                      0
+                                  ).toLocaleString(
+                                    "en-IN",
+                                    {
+                                      minimumFractionDigits:
+                                        2,
+                                      maximumFractionDigits:
+                                        2,
+                                    }
+                                  )}
+                                </div>
+
+                                <div className="mt-1">
+                                  <StatusBadge
+                                    status={
+                                      order.status
+                                    }
+                                    label={order.status
+                                      .replace(
+                                        /[-_]+/g,
+                                        " "
+                                      )
+                                      .replace(
+                                        /\b\w/g,
+                                        (
+                                          character
+                                        ) =>
+                                          character.toUpperCase()
+                                      )}
+                                  />
+                                </div>
+                              </div>
+                            </div>
+
+                            {items ? (
+                              <p className="mt-2 line-clamp-2 text-xs leading-5 text-muted-foreground">
+                                {
+                                  items
+                                }
+                              </p>
+                            ) : null}
+
+                            <div className="mt-2.5 flex items-center justify-between gap-2">
+                              <span className="truncate text-[11px] font-semibold text-muted-foreground">
+                                {order.payment_method_title ||
+                                  "Payment method unavailable"}
+                              </span>
+
+                              <AsyncButton
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                loading={
+                                  generating
+                                }
+                                loadingLabel="Creating…"
+                                onClick={() =>
+                                  void createInvoices(
+                                    [
+                                      order.id,
+                                    ]
+                                  )
+                                }
+                              >
+                                PDF
+                              </AsyncButton>
+                            </div>
+                          </div>
+                        </div>
+                      </article>
+                    );
+                  }
+                )}
+              </div>
+
+              <div className="hidden overflow-x-auto md:block">
+                <table className="w-full min-w-[920px] text-sm">
+                  <thead className="bg-surface-soft text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+                    <tr>
+                      <th className="w-12 px-4 py-3 text-left">
                         <input
                           type="checkbox"
-                          checked={isChecked}
-                          onChange={(e) => toggleOne(o.id, e.target.checked)}
-                          aria-label={`Select order ${o.number || o.id}`}
+                          checked={
+                            allPageSelected
+                          }
+                          onChange={
+                            toggleAll
+                          }
+                          aria-label="Select all orders on page"
                         />
-                      </div>
+                      </th>
+                      <th className="px-4 py-3 text-left">
+                        Order
+                      </th>
+                      <th className="px-4 py-3 text-left">
+                        Customer
+                      </th>
+                      <th className="px-4 py-3 text-left">
+                        Status
+                      </th>
+                      <th className="px-4 py-3 text-left">
+                        Payment
+                      </th>
+                      <th className="px-4 py-3 text-right">
+                        Total
+                      </th>
+                      <th className="px-4 py-3 text-left">
+                        Date
+                      </th>
+                      <th className="px-4 py-3 text-right">
+                        Action
+                      </th>
+                    </tr>
+                  </thead>
 
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="min-w-0">
-                            <Link
-                              href={`/orders/${o.id}`}
-                              className="block text-[15px] font-semibold text-indigo-700 hover:underline"
-                            >
-                              #{o.number || o.id}
-                            </Link>
+                  <tbody>
+                    {paginatedOrders.map(
+                      (
+                        order
+                      ) => {
+                        const date =
+                          formatDateTime(
+                            order.date_created
+                          );
 
-                            <div className="mt-1 text-sm font-medium text-slate-900">
-                              {customerName}
-                            </div>
-
-                            <div className="mt-1 text-xs text-slate-500">
-                              {dt.date} • {dt.time}
-                            </div>
-                          </div>
-
-                          <RowMenu
-                            orderId={o.id}
-                            onCreate={createSingleInvoice}
-                          />
-                        </div>
-
-                        <div className="mt-3 flex flex-wrap items-center gap-2">
-                          <span
-                            className={`inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-medium capitalize ${statusClass(
-                              o.status
-                            )}`}
+                        return (
+                          <tr
+                            key={
+                              order.id
+                            }
+                            className="border-t border-border hover:bg-muted/40"
                           >
-                            {o.status.replace("_", " ")}
-                          </span>
+                            <td className="px-4 py-3.5">
+                              <input
+                                type="checkbox"
+                                checked={Boolean(
+                                  selected[
+                                    order.id
+                                  ]
+                                )}
+                                onChange={(
+                                  event
+                                ) =>
+                                  toggleOne(
+                                    order.id,
+                                    event.target
+                                      .checked
+                                  )
+                                }
+                                aria-label={`Select order ${order.number || order.id}`}
+                              />
+                            </td>
 
-                          <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-medium text-slate-700">
-                            {o.payment_method_title || "-"}
-                          </span>
-                        </div>
+                            <td className="px-4 py-3.5">
+                              <Link
+                                href={`/orders/${order.id}`}
+                                className="font-bold text-primary hover:underline"
+                              >
+                                #
+                                {order.number ||
+                                  order.id}
+                              </Link>
+                            </td>
 
-                        {itemsText && (
-                          <div className="mt-3 line-clamp-2 text-sm text-slate-600">
-                            {itemsText}
-                          </div>
-                        )}
+                            <td className="px-4 py-3.5 font-semibold text-heading">
+                              {buildCustomerName(
+                                order
+                              )}
+                            </td>
 
-                        <div className="mt-3 flex items-center justify-between">
-                          <div className="text-[11px] uppercase tracking-wide text-slate-500">
-                            Total
-                          </div>
-                          <div className="text-base font-semibold text-slate-900">
-                            ₹{Number(o.total || 0).toFixed(2)}
-                          </div>
-                        </div>
+                            <td className="px-4 py-3.5">
+                              <StatusBadge
+                                status={
+                                  order.status
+                                }
+                                label={order.status
+                                  .replace(
+                                    /[-_]+/g,
+                                    " "
+                                  )
+                                  .replace(
+                                    /\b\w/g,
+                                    (
+                                      character
+                                    ) =>
+                                      character.toUpperCase()
+                                  )}
+                              />
+                            </td>
 
-                        <button
-                          className="mt-3 inline-flex items-center rounded-2xl border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
-                          onClick={() => createSingleInvoice(o.id)}
-                        >
-                          Create PDF Invoice
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          ) : (
-            !loading && (
-              <div className="px-6 py-12 text-center">
-                <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100 text-slate-400">
-                  <FileText className="h-6 w-6" />
-                </div>
-                <div className="mt-4 text-sm font-semibold text-slate-700">
-                  No orders found for the selected filters.
-                </div>
+                            <td className="px-4 py-3.5 text-foreground">
+                              {order.payment_method_title ||
+                                "—"}
+                            </td>
+
+                            <td className="px-4 py-3.5 text-right font-extrabold text-heading">
+                              ₹
+                              {Number(
+                                order.total ||
+                                  0
+                              ).toLocaleString(
+                                "en-IN",
+                                {
+                                  minimumFractionDigits:
+                                    2,
+                                  maximumFractionDigits:
+                                    2,
+                                }
+                              )}
+                            </td>
+
+                            <td className="whitespace-nowrap px-4 py-3.5 text-xs text-muted-foreground">
+                              {
+                                date.date
+                              }
+                              <div className="mt-0.5 text-[11px]">
+                                {
+                                  date.time
+                                }
+                              </div>
+                            </td>
+
+                            <td className="px-4 py-3.5 text-right">
+                              <AsyncButton
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                loading={
+                                  generating
+                                }
+                                loadingLabel="Creating…"
+                                onClick={() =>
+                                  void createInvoices(
+                                    [
+                                      order.id,
+                                    ]
+                                  )
+                                }
+                              >
+                                Create PDF
+                              </AsyncButton>
+                            </td>
+                          </tr>
+                        );
+                      }
+                    )}
+                  </tbody>
+                </table>
               </div>
-            )
+            </>
           )}
-        </div>
 
-        {/* Desktop table */}
-        <div className="hidden overflow-x-auto md:block">
-          <table className="w-full text-sm border-collapse">
-            <colgroup>
-              <col className="w-10" />
-              <col className="w-20" />
-              <col className="w-40" />
-              <col className="w-[26%]" />
-              <col className="w-[16%]" />
-              <col className="w-28" />
-              <col className="w-32" />
-              <col className="w-40" />
-            </colgroup>
-            <thead className="bg-slate-50 text-slate-600 border-b border-slate-100">
-              <tr>
-                <th className="p-3 text-left">
-                  <input
-                    type="checkbox"
-                    checked={allPageSelected}
-                    onChange={toggleAll}
-                    aria-label="Select all orders on this page"
-                  />
-                </th>
-                <th className="p-3 text-left font-medium">#</th>
-                <th className="p-3 text-left font-medium">Date</th>
-                <th className="p-3 text-left font-medium">Customer</th>
-                <th className="p-3 text-left font-medium">Status</th>
-                <th className="p-3 text-right font-medium">Total</th>
-                <th className="p-3 text-left font-medium">Payment</th>
-                <th className="p-3 text-right font-medium">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {paginatedOrders.map((o, idx) => {
-                const dt = formatDateTime(o.date_created);
-                const customerName = buildCustomerName(o);
-                const isChecked = !!selected[o.id];
-
-                return (
-                  <tr
-                    key={o.id}
-                    className={`border-b border-slate-100 ${
-                      idx % 2 === 0 ? "bg-white" : "bg-slate-50/40"
-                    }`}
-                  >
-                    <td className="p-3 align-top">
-                      <input
-                        type="checkbox"
-                        checked={isChecked}
-                        onChange={(e) => toggleOne(o.id, e.target.checked)}
-                        aria-label={`Select order ${o.number || o.id}`}
-                      />
-                    </td>
-
-                    <td className="p-3 align-top">
-                      <Link
-                        className="text-blue-600 hover:underline text-sm font-medium"
-                        href={`/orders/${o.id}`}
-                      >
-                        #{o.number || o.id}
-                      </Link>
-                    </td>
-
-                    <td
-                      className="p-3 align-top whitespace-nowrap text-slate-800"
-                      suppressHydrationWarning
-                    >
-                      <div className="text-xs font-medium">{dt.date}</div>
-                      <div className="text-[11px] text-slate-500">{dt.time}</div>
-                    </td>
-
-                    <td className="p-3 align-top">
-                      <div className="text-sm text-slate-900">{customerName}</div>
-                    </td>
-
-                    <td className="p-3 align-top">
-                      <span
-                        className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-medium capitalize ${statusClass(
-                          o.status
-                        )}`}
-                      >
-                        {o.status.replace("_", " ")}
-                      </span>
-                    </td>
-
-                    <td className="p-3 align-top text-right font-semibold text-slate-900">
-                      ₹{Number(o.total || 0).toFixed(2)}
-                    </td>
-
-                    <td className="p-3 align-top whitespace-nowrap text-sm text-slate-800">
-                      {o.payment_method_title || "-"}
-                    </td>
-
-                    <td className="p-3 align-top text-right">
-                      <button
-                        className="inline-flex items-center rounded-full border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
-                        onClick={() => createSingleInvoice(o.id)}
-                      >
-                        Create PDF Invoice
-                      </button>
-                    </td>
-                  </tr>
-                );
-              })}
-
-              {filteredOrders.length === 0 && !loading && (
-                <tr>
-                  <td
-                    colSpan={8}
-                    className="p-6 text-center text-sm text-slate-500"
-                  >
-                    No orders found for the selected filters.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-
-        {filteredOrders.length > 0 && (
-          <div className="flex flex-col gap-3 border-t border-slate-100 px-4 py-4 text-xs text-slate-600 sm:flex-row sm:items-center sm:justify-between md:px-5">
-            <div className="flex flex-wrap items-center gap-3">
-              <div className="flex items-center gap-2">
-                <span>Rows</span>
-                <select
-                  value={perPage}
-                  onChange={onPerPageChange}
-                  className="h-8 rounded-full border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 focus:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-100"
-                >
-                  <option value={10}>10</option>
-                  <option value={25}>25</option>
-                  <option value={50}>50</option>
-                  <option value={100}>100</option>
-                </select>
+          {!loading &&
+          filteredOrders.length >
+            0 ? (
+            <div className="flex flex-col gap-3 border-t border-border px-3 py-3 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between md:px-4">
+              <div>
+                Showing{" "}
+                <span className="font-bold text-foreground">
+                  {
+                    firstRow
+                  }
+                </span>
+                –
+                <span className="font-bold text-foreground">
+                  {
+                    lastRow
+                  }
+                </span>{" "}
+                of{" "}
+                <span className="font-bold text-foreground">
+                  {
+                    filteredOrders.length
+                  }
+                </span>
               </div>
 
-              <span>
-                Showing <span className="font-semibold">{firstRow}</span>-
-                <span className="font-semibold">{lastRow}</span> of{" "}
-                <span className="font-semibold">{filteredOrders.length}</span>
-              </span>
+              <div className="flex items-center justify-between gap-2 sm:justify-end">
+                <label className="flex items-center gap-2">
+                  Rows
+                  <select
+                    value={
+                      perPage
+                    }
+                    onChange={(
+                      event
+                    ) => {
+                      setPerPage(
+                        Number(
+                          event.target
+                            .value
+                        ) ||
+                          25
+                      );
+                      setPage(
+                        1
+                      );
+                    }}
+                    className="ls-focus-ring h-9 rounded-lg border border-input bg-card px-2 text-xs font-semibold text-foreground"
+                  >
+                    <option value={10}>
+                      10
+                    </option>
+                    <option value={25}>
+                      25
+                    </option>
+                    <option value={50}>
+                      50
+                    </option>
+                    <option value={100}>
+                      100
+                    </option>
+                  </select>
+                </label>
+
+                <div className="grid grid-cols-[40px_auto_40px] items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    aria-label="Previous page"
+                    disabled={
+                      page <=
+                      1
+                    }
+                    onClick={() =>
+                      setPage(
+                        (
+                          current
+                        ) =>
+                          Math.max(
+                            1,
+                            current -
+                              1
+                          )
+                      )
+                    }
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+
+                  <span className="rounded-lg bg-surface-soft px-3 py-2 font-bold text-foreground">
+                    {page} /{" "}
+                    {
+                      totalPages
+                    }
+                  </span>
+
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    aria-label="Next page"
+                    disabled={
+                      page >=
+                      totalPages
+                    }
+                    onClick={() =>
+                      setPage(
+                        (
+                          current
+                        ) =>
+                          Math.min(
+                            totalPages,
+                            current +
+                              1
+                          )
+                      )
+                    }
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
             </div>
+          ) : null}
+        </section>
+      </div>
 
-            <div className="flex items-center justify-end gap-2">
-              <button
-                type="button"
-                onClick={goPrev}
-                disabled={page <= 1}
-                className="inline-flex items-center gap-1 rounded-full border border-slate-200 px-3 py-2 text-xs font-medium hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                <ChevronLeft className="h-3.5 w-3.5" />
-                Previous
-              </button>
+      <BottomSheet
+        open={
+          filterOpen
+        }
+        onOpenChange={
+          setFilterOpen
+        }
+        title="Invoice filters"
+        description="Find orders by status, customer, product or date."
+        popupClassName="md:mx-auto md:max-w-lg"
+      >
+        <div className="space-y-3">
+          <FilterFields />
 
-              <span className="rounded-full bg-slate-100 px-3 py-2 text-xs font-medium text-slate-600">
-                Page {page} of {totalPages}
-              </span>
+          <div className="grid grid-cols-2 gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={
+                clearFilters
+              }
+            >
+              Clear
+            </Button>
 
-              <button
-                type="button"
-                onClick={goNext}
-                disabled={page >= totalPages}
-                className="inline-flex items-center gap-1 rounded-full border border-slate-200 px-3 py-2 text-xs font-medium hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                Next
-                <ChevronRight className="h-3.5 w-3.5" />
-              </button>
-            </div>
+            <Button
+              type="button"
+              onClick={() =>
+                setFilterOpen(
+                  false
+                )
+              }
+            >
+              Apply
+            </Button>
           </div>
-        )}
-      </section>
+        </div>
+      </BottomSheet>
     </main>
   );
 }
