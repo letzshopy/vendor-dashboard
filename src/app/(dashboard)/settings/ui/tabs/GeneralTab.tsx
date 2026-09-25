@@ -60,9 +60,9 @@ function SectionCard({
 }) {
   return (
     <section className="overflow-hidden rounded-2xl border border-border bg-card">
-      <div className="border-b border-border px-4 py-3 md:px-5">
+      <div className="border-b border-border px-3 py-3 md:px-5">
         <div className="flex items-start gap-3">
-          <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-secondary text-secondary-foreground">
+          <div className="grid h-9 w-9 shrink-0 place-items-center rounded-lg md:h-10 md:w-10 md:rounded-xl bg-secondary text-secondary-foreground">
             {icon}
           </div>
 
@@ -70,14 +70,14 @@ function SectionCard({
             <h3 className="text-sm font-extrabold text-heading">
               {title}
             </h3>
-            <p className="mt-0.5 text-xs leading-5 text-muted-foreground">
+            <p className="mt-0.5 hidden text-xs leading-5 text-muted-foreground md:block">
               {description}
             </p>
           </div>
         </div>
       </div>
 
-      <div className="space-y-4 p-4 md:p-5">
+      <div className="space-y-4 p-3 md:p-5">
         {children}
       </div>
     </section>
@@ -787,8 +787,8 @@ export default function GeneralTab() {
       </SectionCard>
 
       <div className="sticky bottom-[calc(5.1rem+var(--ls-safe-area-bottom))] z-20 md:bottom-4">
-        <div className="flex items-center justify-between gap-3 rounded-2xl border border-border bg-card/95 p-2.5 shadow-[0_14px_36px_rgba(38,51,95,0.14)] backdrop-blur">
-          <div className="min-w-0 px-1">
+        <div className="flex items-center justify-between gap-2 rounded-xl border border-border bg-card/95 p-2 shadow-[0_12px_28px_rgba(38,51,95,0.12)] backdrop-blur md:gap-3 md:rounded-2xl md:p-2.5">
+          <div className="hidden min-w-0 px-1 sm:block">
             <div className="text-xs font-bold text-heading">
               {isDirty
                 ? "Unsaved store changes"
@@ -802,6 +802,7 @@ export default function GeneralTab() {
               syncing
             }
             loadingLabel="Saving…"
+            className="w-full sm:w-auto"
             disabled={
               !isDirty
             }
