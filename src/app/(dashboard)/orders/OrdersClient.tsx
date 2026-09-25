@@ -743,8 +743,8 @@ function OrderStatus({
       }
       className={
         compact
-          ? "min-h-5 whitespace-nowrap px-2 py-0.5 text-[9px]"
-          : "whitespace-nowrap"
+          ? "min-h-6 whitespace-nowrap px-2.5 py-1 text-[10px] font-extrabold shadow-sm"
+          : "min-h-7 whitespace-nowrap px-3 py-1.5 text-xs font-extrabold shadow-sm"
       }
     />
   );
@@ -1514,20 +1514,12 @@ export default function OrdersClient({
                         ""
                     ) ===
                     "letz_upi";
-                  const cardStatus =
+                  const isCancelled =
                     String(
                       order.status ||
                         ""
-                    ).toLowerCase();
-                  const isCancelled =
-                    cardStatus ===
+                    ).toLowerCase() ===
                     "cancelled";
-                  const isProcessing =
-                    cardStatus ===
-                    "processing";
-                  const isCompleted =
-                    cardStatus ===
-                    "completed";
 
                   return (
                     <article
@@ -1535,14 +1527,7 @@ export default function OrdersClient({
                         order.id
                       }
                       className={[
-                        "overflow-hidden rounded-xl border transition",
-                        isCancelled
-                          ? "border-slate-300 bg-slate-100/80"
-                          : isProcessing
-                            ? "border-blue-200 bg-blue-50/55"
-                            : isCompleted
-                              ? "border-emerald-200 bg-emerald-50/55"
-                              : "border-border bg-card",
+                        "overflow-hidden rounded-xl border border-border bg-card transition",
                         selected.includes(
                           order.id
                         )
@@ -1607,19 +1592,7 @@ export default function OrdersClient({
                               }
                             </div>
 
-                            {isCancelled ? (
-                              <div className="mt-0.5 text-[10px] font-bold uppercase tracking-wide text-slate-600">
-                                Do not process
-                              </div>
-                            ) : isProcessing ? (
-                              <div className="mt-0.5 text-[10px] font-bold uppercase tracking-wide text-blue-700">
-                                Ready to fulfil
-                              </div>
-                            ) : isCompleted ? (
-                              <div className="mt-0.5 text-[10px] font-bold uppercase tracking-wide text-emerald-700">
-                                Fulfilment completed
-                              </div>
-                            ) : null}
+
                           </div>
 
                           <div className="shrink-0 text-right">
@@ -1859,36 +1832,19 @@ export default function OrdersClient({
                   const customerName =
                     `${order.billing?.first_name || ""} ${order.billing?.last_name || ""}`.trim() ||
                     "Customer";
-                  const rowStatus =
+                  const isCancelled =
                     String(
                       order.status ||
                         ""
-                    ).toLowerCase();
-                  const isCancelled =
-                    rowStatus ===
+                    ).toLowerCase() ===
                     "cancelled";
-                  const isProcessing =
-                    rowStatus ===
-                    "processing";
-                  const isCompleted =
-                    rowStatus ===
-                    "completed";
 
                   return (
                     <tr
                       key={
                         order.id
                       }
-                      className={[
-                        "border-b align-top transition last:border-b-0",
-                        isCancelled
-                          ? "border-slate-300 bg-slate-100/75 hover:bg-slate-100"
-                          : isProcessing
-                            ? "border-blue-200 bg-blue-50/45 hover:bg-blue-50/75"
-                            : isCompleted
-                              ? "border-emerald-200 bg-emerald-50/45 hover:bg-emerald-50/75"
-                              : "border-border/70 hover:bg-muted/45",
-                      ].join(" ")}
+                      className="border-b border-border/70 bg-card align-top transition last:border-b-0 hover:bg-muted/45"
                     >
                       <td className="px-4 py-4">
                         <input
@@ -1983,19 +1939,7 @@ export default function OrdersClient({
                           }
                         />
 
-                        {isCancelled ? (
-                          <div className="mt-1.5 text-[11px] font-bold text-slate-700">
-                            Do not process
-                          </div>
-                        ) : isProcessing ? (
-                          <div className="mt-1.5 text-[11px] font-bold text-blue-700">
-                            Ready to fulfil
-                          </div>
-                        ) : isCompleted ? (
-                          <div className="mt-1.5 text-[11px] font-bold text-emerald-700">
-                            Fulfilment completed
-                          </div>
-                        ) : null}
+
                       </td>
 
                       <td className="max-w-48 px-4 py-4">
