@@ -259,8 +259,13 @@ export default function UPIPanel() {
           ): value is string =>
             typeof value ===
               "string" &&
-            /^https?:///i.test(
-              value
+            (
+              value.startsWith(
+                "http://"
+              ) ||
+              value.startsWith(
+                "https://"
+              )
             )
         ) || "";
 
