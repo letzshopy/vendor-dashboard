@@ -25,9 +25,6 @@ import {
   AsyncButton,
 } from "@/components/ui/async-button";
 import {
-  Button,
-} from "@/components/ui/button";
-import {
   Input,
 } from "@/components/ui/input";
 import {
@@ -658,55 +655,66 @@ export default function AccountTab() {
         </div>
       ) : null}
 
-      <Section
-        icon={
-          <Store className="h-4.5 w-4.5" />
-        }
-        title="Account overview"
-        description="Core store account information managed by LetzShopy."
-      >
-        <div className="grid gap-3 md:grid-cols-3">
-          <ReadOnlyValue
-            icon={
-              <ShieldCheck className="h-3.5 w-3.5" />
-            }
-            label="Account ID"
-            value={
-              s.overview
-                .account_id
-            }
-          />
+      <section className="rounded-2xl border border-border bg-card p-4 md:p-5">
+        <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+          <div className="flex items-start gap-3">
+            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-secondary text-secondary-foreground">
+              <Store className="h-4.5 w-4.5" />
+            </span>
 
-          <ReadOnlyValue
-            icon={
-              <Store className="h-3.5 w-3.5" />
-            }
-            label="Store URL"
-            value={
-              s.overview
-                .store_url
-            }
-          />
+            <div>
+              <h2 className="text-sm font-extrabold text-heading">
+                Account overview
+              </h2>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                Store account information managed by LetzShopy.
+              </p>
+            </div>
+          </div>
 
-          <ReadOnlyValue
-            icon={
-              <CalendarDays className="h-3.5 w-3.5" />
-            }
-            label="Created on"
-            value={
-              s.overview
-                .created_on
-            }
-          />
+          <div className="grid flex-1 gap-2 sm:grid-cols-3 xl:max-w-3xl">
+            <ReadOnlyValue
+              icon={
+                <ShieldCheck className="h-3.5 w-3.5" />
+              }
+              label="Account ID"
+              value={
+                s.overview
+                  .account_id
+              }
+            />
+
+            <ReadOnlyValue
+              icon={
+                <Store className="h-3.5 w-3.5" />
+              }
+              label="Store URL"
+              value={
+                s.overview
+                  .store_url
+              }
+            />
+
+            <ReadOnlyValue
+              icon={
+                <CalendarDays className="h-3.5 w-3.5" />
+              }
+              label="Created on"
+              value={
+                s.overview
+                  .created_on
+              }
+            />
+          </div>
         </div>
-      </Section>
+      </section>
 
       <Section
         icon={
           <UserRound className="h-4.5 w-4.5" />
         }
-        title="Support contact"
-        description="Used for LetzShopy communication about this store."
+        title="Account contact"
+        description="Contact details used for account communication and support."
       >
         <div className="grid gap-4 lg:grid-cols-3">
           <Field label="Contact name">
