@@ -722,7 +722,7 @@ export default function FeedbackFormClient({
     <main className="mx-auto w-full min-w-0 max-w-5xl pb-28 md:pb-8">
       <Link
         href="/sales/feedback"
-        className="mb-3 inline-flex min-h-10 items-center gap-1.5 rounded-xl px-1 text-sm font-semibold text-muted-foreground hover:text-heading md:mb-4"
+        className="mb-4 hidden min-h-10 items-center gap-1.5 rounded-xl px-1 text-sm font-semibold text-muted-foreground hover:text-heading md:inline-flex"
       >
         <ArrowLeft className="h-4 w-4" />
         Feedback
@@ -742,14 +742,6 @@ export default function FeedbackFormClient({
         description="Link an order, add the customer message and control storefront visibility."
       />
 
-      <div className="mb-3 md:hidden">
-        <h1 className="text-[21px] font-extrabold tracking-tight text-heading">
-          {mode === "create"
-            ? "Add Feedback"
-            : "Edit Feedback"}
-        </h1>
-      </div>
-
       <form
         ref={formRef}
         onSubmit={
@@ -757,7 +749,7 @@ export default function FeedbackFormClient({
         }
         encType="multipart/form-data"
         aria-busy={busy}
-        className="space-y-4 md:mt-5"
+        className="space-y-3 md:mt-5 md:space-y-4"
       >
         {feedback?.id ? (
           <input
