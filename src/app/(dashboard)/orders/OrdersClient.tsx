@@ -1514,12 +1514,20 @@ export default function OrdersClient({
                         ""
                     ) ===
                     "letz_upi";
-                  const isCancelled =
+                  const cardStatus =
                     String(
                       order.status ||
                         ""
-                    ).toLowerCase() ===
+                    ).toLowerCase();
+                  const isCancelled =
+                    cardStatus ===
                     "cancelled";
+                  const isProcessing =
+                    cardStatus ===
+                    "processing";
+                  const isCompleted =
+                    cardStatus ===
+                    "completed";
 
                   return (
                     <article
@@ -1529,15 +1537,17 @@ export default function OrdersClient({
                       className={[
                         "overflow-hidden rounded-xl border transition",
                         isCancelled
-                          ? "border-rose-300 bg-rose-50/45 shadow-[0_0_0_1px_rgba(244,63,94,0.05)]"
-                          : "bg-card",
+                          ? "border-slate-300 bg-slate-100/80"
+                          : isProcessing
+                            ? "border-blue-200 bg-blue-50/55"
+                            : isCompleted
+                              ? "border-emerald-200 bg-emerald-50/55"
+                              : "border-border bg-card",
                         selected.includes(
                           order.id
                         )
-                          ? "border-primary/45 ring-2 ring-primary/10"
-                          : isCancelled
-                            ? ""
-                            : "border-border",
+                          ? "ring-2 ring-primary/10"
+                          : "",
                       ].join(
                         " "
                       )}
@@ -1596,6 +1606,20 @@ export default function OrdersClient({
                                 customerName
                               }
                             </div>
+
+                            {isCancelled ? (
+                              <div className="mt-0.5 text-[10px] font-bold uppercase tracking-wide text-slate-600">
+                                Do not process
+                              </div>
+                            ) : isProcessing ? (
+                              <div className="mt-0.5 text-[10px] font-bold uppercase tracking-wide text-blue-700">
+                                Ready to fulfil
+                              </div>
+                            ) : isCompleted ? (
+                              <div className="mt-0.5 text-[10px] font-bold uppercase tracking-wide text-emerald-700">
+                                Fulfilment completed
+                              </div>
+                            ) : null}
                           </div>
 
                           <div className="shrink-0 text-right">
