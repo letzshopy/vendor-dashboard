@@ -22,15 +22,15 @@ import {
   useSearchParams,
 } from "next/navigation";
 
+import {
+  BottomSheet,
+} from "@/components/ui/bottom-sheet";
 import type {
   SessionStoreType,
 } from "@/lib/session";
 import {
   isStandaloneV1SettingsTabAllowed,
 } from "@/lib/storeCapabilities";
-import {
-  BottomSheet,
-} from "@/components/ui/bottom-sheet";
 
 import AccountTab from "./tabs/AccountTab";
 import GeneralTab from "./tabs/GeneralTab";
@@ -48,10 +48,10 @@ type TabId =
   | "setupSite"
   | "general"
   | "shipping"
+  | "shipmentFulfillment"
   | "tax"
   | "payments"
-  | "account"
-  | "shipmentFulfillment";
+  | "account";
 
 type TabDef = {
   id: TabId;
@@ -73,11 +73,11 @@ const TAB_COMPONENTS:
   setupSite: <SetupSiteTab />,
   general: <GeneralTab />,
   shipping: <ShippingTab />,
+  shipmentFulfillment:
+    <ShipmentFulfillmentTab />,
   tax: <TaxTab />,
   payments: <PaymentsTab />,
   account: <AccountTab />,
-  shipmentFulfillment:
-    <ShipmentFulfillmentTab />,
 };
 
 const TABS: TabDef[] = [
@@ -171,7 +171,7 @@ function normalizeTab(
     matched?.id ||
     availableTabs[0]
       ?.id ||
-    "tax"
+    "profile"
   );
 }
 
@@ -229,143 +229,74 @@ export default function SettingsTabsClient({
 
   return (
     <>
-      <div className="hidden md:block">
-        <div className="text-[11px] font-bold uppercase tracking-[0.08em] text-accent">
-          Store Settings
-        </div>
+      <div className="md:hidden">
+        <button
+          type="button"
+          onClick={() =>
+            setPickerOpen(
+              true
+            )
+          }
+          className="ls-focus-ring flex min-h-14 w-full items-center gap-3 rounded-2xl border border-border bg-card px-3 text-left shadow-[0_4px_14px_rgba(38,51,95,0.04)]"
+        >
+          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-secondary text-secondary-foreground">
+            <ActiveIcon className="h-4.5 w-4.5" />
+          </span>
 
-        <h1 className="mt-1 text-[30px] font-extrabold tracking-tight text-heading">
-          Settings
-        </h1>
+          <span className="min-w-0 flex-1">
+            <span className="block truncate text-sm font-extrabold text-heading">
+              {
+                activeTab.mobileLabel ||
+                activeTab.label
+              }
+            </span>
 
-        <p className="mt-1 max-w-2xl text-sm leading-6 text-muted-foreground">
-          Manage your store, payments, shipping and account.
-        </p>
+            <span className="mt-0.5 block truncate text-xs text-muted-foreground">
+              {
+                activeTab.description
+              }
+            </span>
+          </span>
+
+          <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
+        </button>
       </div>
 
-      <div className="mt-0 md:mt-5">
-        <div className="md:hidden">
-          <button
-            type="button"
-            onClick={() =>
-              setPickerOpen(
-                true
-              )
-            }
-            className="ls-focus-ring flex min-h-14 w-full items-center gap-3 rounded-2xl border border-border bg-card px-3 text-left shadow-[0_4px_14px_rgba(38,51,95,0.04)]"
-          >
+      <section className="min-w-0">
+        <div className="hidden border-b border-border pb-4 md:block">
+          <div className="text-[11px] font-bold uppercase tracking-[0.08em] text-accent">
+            Settings
+          </div>
+
+          <div className="mt-1 flex items-start gap-3">
             <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-secondary text-secondary-foreground">
               <ActiveIcon className="h-4.5 w-4.5" />
             </span>
 
-            <span className="min-w-0 flex-1">
-              <span className="block truncate text-sm font-extrabold text-heading">
+            <div className="min-w-0">
+              <h1 className="text-[26px] font-extrabold tracking-tight text-heading">
                 {
-                  activeTab.mobileLabel ||
                   activeTab.label
                 }
-              </span>
+              </h1>
 
-              <span className="mt-0.5 block truncate text-xs text-muted-foreground">
+              <p className="mt-0.5 text-sm text-muted-foreground">
                 {
                   activeTab.description
                 }
-              </span>
-            </span>
-
-            <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
-          </button>
+              </p>
+            </div>
+          </div>
         </div>
 
-        <div className="grid min-w-0 gap-4 md:grid-cols-[230px_minmax(0,1fr)] xl:grid-cols-[250px_minmax(0,1fr)]">
-          <aside className="hidden md:block">
-            <nav className="sticky top-[92px] overflow-hidden rounded-2xl border border-border bg-card p-2">
-              {visibleTabs.map(
-                (
-                  tab
-                ) => {
-                  const active =
-                    tab.id ===
-                    activeId;
-
-                  const Icon =
-                    tab.icon;
-
-                  return (
-                    <Link
-                      key={
-                        tab.id
-                      }
-                      href={
-                        `/settings?tab=${tab.id}`
-                      }
-                      className={[
-                        "ls-focus-ring flex min-h-12 items-center gap-3 rounded-xl px-3 py-2.5 transition",
-                        active
-                          ? "bg-primary text-primary-foreground"
-                          : "text-foreground hover:bg-muted",
-                      ].join(
-                        " "
-                      )}
-                    >
-                      <span
-                        className={[
-                          "grid h-8 w-8 shrink-0 place-items-center rounded-lg",
-                          active
-                            ? "bg-white/12 text-white"
-                            : "bg-secondary text-secondary-foreground",
-                        ].join(
-                          " "
-                        )}
-                      >
-                        <Icon className="h-4 w-4" />
-                      </span>
-
-                      <span className="min-w-0">
-                        <span className="block truncate text-sm font-bold">
-                          {
-                            tab.label
-                          }
-                        </span>
-                      </span>
-                    </Link>
-                  );
-                }
-              )}
-            </nav>
-          </aside>
-
-          <section className="min-w-0">
-            <div className="hidden items-start gap-3 border-b border-border pb-3 md:flex">
-              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-secondary text-secondary-foreground">
-                <ActiveIcon className="h-4.5 w-4.5" />
-              </span>
-
-              <div className="min-w-0">
-                <h2 className="text-lg font-extrabold text-heading">
-                  {
-                    activeTab.label
-                  }
-                </h2>
-
-                <p className="mt-0.5 text-sm text-muted-foreground">
-                  {
-                    activeTab.description
-                  }
-                </p>
-              </div>
-            </div>
-
-            <div className="mt-3 min-w-0 md:mt-4">
-              {
-                TAB_COMPONENTS[
-                  activeTab.id
-                ]
-              }
-            </div>
-          </section>
+        <div className="mt-3 min-w-0 md:mt-5">
+          {
+            TAB_COMPONENTS[
+              activeTab.id
+            ]
+          }
         </div>
-      </div>
+      </section>
 
       <BottomSheet
         open={
