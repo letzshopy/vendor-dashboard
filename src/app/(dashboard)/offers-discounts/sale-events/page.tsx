@@ -8,6 +8,9 @@ import {
 } from "lucide-react";
 
 import {
+  ButtonLink,
+} from "@/components/ui/button-link";
+import {
   EmptyState,
 } from "@/components/ui/empty-state";
 import {
@@ -63,13 +66,12 @@ export default async function SaleEventsPage() {
           title="Offer Sale"
           description="Create and schedule product offers or free-shipping campaigns."
           actions={
-            <Link
+            <ButtonLink
               href="/offers-discounts/sale-events/new"
-              className="ls-focus-ring inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground shadow-sm hover:brightness-95"
             >
               <Plus className="h-4 w-4" />
               New Offer
-            </Link>
+            </ButtonLink>
           }
         />
       </div>
@@ -84,13 +86,12 @@ export default async function SaleEventsPage() {
           </span>
         </div>
 
-        <Link
+        <ButtonLink
           href="/offers-discounts/sale-events/new"
-          className="ls-focus-ring inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground"
         >
           <Plus className="h-4 w-4" />
           New Offer
-        </Link>
+        </ButtonLink>
       </div>
 
       <div className="mt-3 flex flex-wrap gap-2 md:mt-5">
@@ -114,13 +115,12 @@ export default async function SaleEventsPage() {
             title="No offers yet"
             description="Create your first scheduled sale offer."
             action={
-              <Link
+              <ButtonLink
                 href="/offers-discounts/sale-events/new"
-                className="ls-focus-ring inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground"
               >
                 <Plus className="h-4 w-4" />
                 New Offer
-              </Link>
+              </ButtonLink>
             }
           />
         </section>
@@ -223,12 +223,14 @@ export default async function SaleEventsPage() {
                   ) : null}
 
                   <div className="flex items-center justify-end gap-2 px-3 py-3">
-                    <Link
+                    <ButtonLink
                       href={`/offers-discounts/sale-events/${item.id}`}
-                      className="ls-focus-ring inline-flex min-h-10 items-center rounded-xl px-3 text-xs font-bold text-primary hover:bg-secondary"
+                      variant="ghost"
+                      size="sm"
+                      className="text-primary"
                     >
                       Edit
-                    </Link>
+                    </ButtonLink>
 
                     <SaleEventDeleteButton
                       id={String(
@@ -348,12 +350,14 @@ export default async function SaleEventsPage() {
 
                       <td className="px-5 py-3.5">
                         <div className="flex justify-end gap-2">
-                          <Link
+                          <ButtonLink
                             href={`/offers-discounts/sale-events/${item.id}`}
-                            className="ls-focus-ring inline-flex min-h-10 items-center rounded-xl px-3 text-xs font-bold text-primary hover:bg-secondary"
+                            variant="ghost"
+                            size="sm"
+                            className="text-primary"
                           >
                             Edit
-                          </Link>
+                          </ButtonLink>
 
                           <SaleEventDeleteButton
                             id={String(
