@@ -2,10 +2,31 @@
 
 import { useEffect, useMemo, useState } from "react";
 import ImageUploader from "@/components/ImageUploader";
+
+import {
+  useUnsavedChanges,
+} from "@/components/navigation/UnsavedChangesGuard";
+import {
+  AsyncButton,
+} from "@/components/ui/async-button";
+import {
+  Button,
+} from "@/components/ui/button";
+import {
+  Input,
+} from "@/components/ui/input";
+import {
+  Skeleton,
+} from "@/components/ui/skeleton";
+import {
+  Switch,
+} from "@/components/ui/switch";
+import {
+  actionFeedback,
+} from "@/lib/actionFeedback";
 import {
   Bell,
-  LayoutTemplate,
-  Save,
+  Check,
   Sparkles,
   UserRound,
   PackageCheck,
@@ -251,12 +272,10 @@ const CANCELLATION_AFTER_OPTIONS = [
 ];
 
 const selectClass =
-  "h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-900 " +
-  "shadow-sm transition focus:border-indigo-400 focus:outline-none focus:ring-4 focus:ring-indigo-100";
+  "ls-focus-ring h-11 w-full rounded-xl border border-input bg-card px-3 text-sm text-foreground";
 
 const textareaClass =
-  "w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 " +
-  "placeholder:text-slate-400 shadow-sm transition resize-none focus:border-indigo-400 focus:outline-none focus:ring-4 focus:ring-indigo-100";
+  "ls-focus-ring w-full resize-y rounded-xl border border-input bg-card px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground";
 
 function SectionCard({
   icon,
@@ -270,24 +289,28 @@ function SectionCard({
   children: React.ReactNode;
 }) {
   return (
-    <section className="overflow-hidden rounded-[26px] border border-slate-200 bg-white shadow-sm">
-      <div className="border-b border-slate-100 bg-gradient-to-r from-white via-slate-50 to-indigo-50/40 px-4 py-4 md:px-5">
-        <div className="flex items-start gap-3">
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600">
-            {icon}
-          </div>
-          <div>
-            <h3 className="text-base font-semibold text-slate-900">{title}</h3>
-            {hint ? (
-              <p className="mt-1 text-xs leading-5 text-slate-500 md:text-sm">
-                {hint}
-              </p>
-            ) : null}
-          </div>
+    <section className="overflow-hidden rounded-2xl border border-border bg-card">
+      <div className="flex items-start gap-3 border-b border-border px-4 py-3.5 md:px-5">
+        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-secondary text-secondary-foreground">
+          {icon}
+        </span>
+
+        <div className="min-w-0">
+          <h2 className="text-sm font-extrabold text-heading">
+            {title}
+          </h2>
+
+          {hint ? (
+            <p className="mt-0.5 text-xs leading-5 text-muted-foreground">
+              {hint}
+            </p>
+          ) : null}
         </div>
       </div>
 
-      <div className="space-y-4 p-4 md:p-5">{children}</div>
+      <div className="space-y-4 p-4 md:p-5">
+        {children}
+      </div>
     </section>
   );
 }
@@ -301,7 +324,7 @@ function Field({
 }) {
   return (
     <div>
-      <label className="mb-2 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+      <label className="mb-1.5 block text-xs font-bold text-heading">
         {label}
       </label>
       {children}
@@ -321,22 +344,26 @@ function ToggleField({
   onChange: (value: boolean) => void;
 }) {
   return (
-    <label className="flex items-start gap-3 rounded-2xl border border-slate-200 bg-slate-50/70 p-4">
-      <input
-        type="checkbox"
-        checked={checked}
-        onChange={(e) => onChange(e.target.checked)}
-        className="mt-0.5 h-5 w-5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
-      />
-      <span>
-        <span className="block text-sm font-semibold text-slate-900">{title}</span>
+    <div className="flex min-h-[72px] items-center justify-between gap-4 rounded-2xl bg-surface-soft px-4 py-3">
+      <div className="min-w-0">
+        <div className="text-sm font-bold text-heading">
+          {title}
+        </div>
+
         {description ? (
-          <span className="mt-1 block text-xs leading-5 text-slate-500">
+          <div className="mt-0.5 text-xs leading-5 text-muted-foreground">
             {description}
-          </span>
+          </div>
         ) : null}
-      </span>
-    </label>
+      </div>
+
+      <Switch
+        checked={checked}
+        onCheckedChange={(value) =>
+          onChange(Boolean(value))
+        }
+      />
+    </div>
   );
 }
 
@@ -349,26 +376,63 @@ function CheckboxGroup({
   value: string[];
   onChange: (value: string[]) => void;
 }) {
-  const toggle = (option: string) => {
-    onChange(value.includes(option) ? value.filter((v) => v !== option) : [...value, option]);
-  };
+  function toggle(
+    option: string
+  ) {
+    onChange(
+      value.includes(option)
+        ? value.filter(
+            (item) =>
+              item !== option
+          )
+        : [
+            ...value,
+            option,
+          ]
+    );
+  }
 
   return (
     <div className="grid gap-2 md:grid-cols-2">
-      {options.map((option) => (
-        <label
-          key={option}
-          className="flex items-start gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 shadow-sm"
-        >
-          <input
-            type="checkbox"
-            checked={value.includes(option)}
-            onChange={() => toggle(option)}
-            className="mt-0.5 h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
-          />
-          <span>{option}</span>
-        </label>
-      ))}
+      {options.map(
+        (option) => {
+          const active =
+            value.includes(
+              option
+            );
+
+          return (
+            <button
+              key={option}
+              type="button"
+              onClick={() =>
+                toggle(option)
+              }
+              className={[
+                "ls-focus-ring flex min-h-11 items-center justify-between gap-3 rounded-xl border px-3 py-2 text-left text-sm font-semibold transition",
+                active
+                  ? "border-primary bg-secondary text-secondary-foreground"
+                  : "border-border bg-card text-foreground hover:bg-muted",
+              ].join(" ")}
+            >
+              <span>
+                {option}
+              </span>
+
+              <span
+                className={[
+                  "grid h-5 w-5 shrink-0 place-items-center rounded-full border",
+                  active
+                    ? "border-primary bg-primary text-primary-foreground"
+                    : "border-border bg-card text-transparent",
+                ].join(" ")}
+              >
+                <Check className="h-3 w-3" />
+              </span>
+            </button>
+          );
+        }
+      )}
     </div>
   );
 }
@@ -426,8 +490,6 @@ export default function SetupSiteTab() {
   const [form, setForm] = useState<SetupSiteForm>(EMPTY_FORM);
   const [loaded, setLoaded] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [banner, setBanner] = useState<null | "saved" | "error">(null);
-
   const [savedSnap, setSavedSnap] = useState<string | null>(null);
 
   useEffect(() => {
@@ -458,20 +520,6 @@ export default function SetupSiteTab() {
     return savedSnap !== currentSnap;
   }, [savedSnap, currentSnap]);
 
-  useEffect(() => {
-    const onBeforeUnload = (e: BeforeUnloadEvent) => {
-      if (!isDirty) return;
-      e.preventDefault();
-      e.returnValue = "";
-    };
-
-    if (isDirty) {
-      window.addEventListener("beforeunload", onBeforeUnload);
-    }
-
-    return () => window.removeEventListener("beforeunload", onBeforeUnload);
-  }, [isDirty]);
-
   function patch(path: string, value: unknown) {
     setForm((prev) => {
       const clone = structuredClone(prev);
@@ -499,96 +547,129 @@ export default function SetupSiteTab() {
     });
   }
 
-  async function save() {
-  setSaving(true);
-
-  try {
-    const res = await fetch("/api/settings/site-setup", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(form),
-    });
-
-    const data = await res.json().catch(() => null);
-
-    if (!res.ok) {
-      throw new Error(data?.error || "Save failed");
+  async function save(): Promise<boolean> {
+    if (saving) {
+      return false;
     }
 
-    const next = normalizeForm(data || form);
-    const nextSnap = JSON.stringify(next);
+    const feedbackId =
+      "website-setup-save";
 
-    setForm(next);
-    setSavedSnap(nextSnap);
-    setBanner("saved");
+    setSaving(true);
 
-    window.scrollTo({ top: 0, behavior: "smooth" });
-    setTimeout(() => setBanner(null), 2600);
-  } catch {
-    setBanner("error");
-    setTimeout(() => setBanner(null), 3200);
-  } finally {
-    setSaving(false);
+    actionFeedback.loading({
+      id: feedbackId,
+      title:
+        "Saving website setup…",
+    });
+
+    try {
+      const response =
+        await fetch(
+          "/api/settings/site-setup",
+          {
+            method:
+              "PATCH",
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
+            body:
+              JSON.stringify(
+                form
+              ),
+          }
+        );
+
+      const payload =
+        await response
+          .json()
+          .catch(
+            () => null
+          );
+
+      if (!response.ok) {
+        throw new Error(
+          payload?.error ||
+            "Save failed"
+        );
+      }
+
+      const next =
+        normalizeForm(
+          payload || form
+        );
+
+      setForm(next);
+      setSavedSnap(
+        JSON.stringify(next)
+      );
+
+      actionFeedback.success({
+        id: feedbackId,
+        title:
+          "Website setup saved",
+        durationMs: 2200,
+      });
+
+      return true;
+    } catch (
+      error: unknown
+    ) {
+      actionFeedback.error({
+        id: feedbackId,
+        title:
+          "Could not save website setup",
+        message:
+          error instanceof
+            Error
+            ? error.message
+            : "Please try again.",
+        durationMs: 4200,
+      });
+
+      return false;
+    } finally {
+      setSaving(false);
+    }
   }
-}
+
+  useUnsavedChanges({
+    id:
+      "settings-website-setup",
+    dirty: isDirty,
+    label:
+      "website setup changes",
+    save,
+  });
 
   if (!loaded) {
     return (
-      <div className="p-4 md:p-5">
-        <div className="rounded-[24px] border border-slate-200 bg-white p-5 text-sm text-slate-500 shadow-sm">
-          Loading...
+      <div className="space-y-3">
+        <Skeleton className="h-40 w-full rounded-2xl" />
+        <div className="grid gap-3 xl:grid-cols-2">
+          <Skeleton className="h-72 w-full rounded-2xl" />
+          <Skeleton className="h-72 w-full rounded-2xl" />
         </div>
+        <Skeleton className="h-80 w-full rounded-2xl" />
       </div>
     );
   }
 
   return (
-    <>
-      {banner === "saved" && (
-        <div className="pointer-events-none fixed left-0 right-0 top-[72px] z-40 flex justify-center">
-          <div className="pointer-events-auto rounded-full bg-emerald-500 px-4 py-1.5 text-sm font-medium text-white shadow-lg">
-            Setup Site saved successfully
-          </div>
-        </div>
-      )}
-
-      {banner === "error" && (
-        <div className="pointer-events-none fixed left-0 right-0 top-[72px] z-40 flex justify-center">
-          <div className="pointer-events-auto rounded-full bg-rose-500 px-4 py-1.5 text-sm font-medium text-white shadow-lg">
-            Failed to save Setup Site
-          </div>
-        </div>
-      )}
-
-      <div className="space-y-4 p-3 md:space-y-5 md:p-5">
-        <div className="rounded-[24px] border border-slate-200 bg-white p-4 shadow-sm">
-          <div className="flex items-start gap-3">
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600">
-              <LayoutTemplate className="h-5 w-5" />
-            </div>
-            <div>
-              <div className="text-base font-semibold text-slate-900">
-                Setup Site
-              </div>
-              <div className="mt-1 text-xs text-slate-500 md:text-sm">
-                Control homepage sections, About page inputs and policy generation details.
-              </div>
-            </div>
-          </div>
-        </div>
-
-<SectionCard
+    <div className="space-y-4">
+        <SectionCard
   icon={<Sparkles className="h-5 w-5" />}
   title="Homepage setup"
   hint="Control the topbar message and visible homepage sections."
 >
   <div className="space-y-4">
-    <div className="rounded-[24px] border border-slate-200 bg-slate-50/70 p-4">
+    <div className="rounded-2xl bg-surface-soft p-4">
       <Field label="Topbar message">
         <div className="relative">
-          <Bell className="pointer-events-none absolute left-4 top-3.5 h-4 w-4 text-slate-400" />
+          <Bell className="pointer-events-none absolute left-4 top-3.5 h-4 w-4 text-muted-foreground" />
           <input
-            className="h-11 w-full rounded-2xl border border-slate-200 bg-white pl-11 pr-4 text-sm text-slate-900 placeholder:text-slate-400 shadow-sm transition focus:border-indigo-400 focus:outline-none focus:ring-4 focus:ring-indigo-100"
+            className="h-11 w-full rounded-2xl border border-slate-200 bg-white pl-11 pr-4 text-sm text-slate-900 placeholder:text-muted-foreground shadow-sm transition focus:border-indigo-400 focus:outline-none focus:ring-4 focus:ring-indigo-100"
             placeholder="Example: Free shipping on orders above ₹999"
             value={form.branding.topbarMessage}
             onChange={(e) => patch("branding.topbarMessage", e.target.value)}
@@ -597,51 +678,51 @@ export default function SetupSiteTab() {
       </Field>
     </div>
 
-    <div className="rounded-[24px] border border-slate-200 bg-white p-4">
+    <div className="rounded-2xl border border-border bg-card p-4">
       <div className="mb-3">
-        <div className="text-sm font-semibold text-slate-900">
+        <div className="text-sm font-bold text-heading">
           Homepage sections
         </div>
-        <p className="mt-1 text-xs text-slate-500">
+        <p className="mt-1 text-xs text-muted-foreground">
           Choose which sections should appear on the storefront homepage.
         </p>
       </div>
 
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
         <ToggleField
-          title='Show "New Arrivals" section on homepage?'
+          title='New Arrivals'
           checked={form.branding.showNewArrivals}
           onChange={(v) => patch("branding.showNewArrivals", v)}
         />
         <ToggleField
-          title='Show "Our Collections" section on homepage?'
+          title='Our Collections'
           checked={form.branding.showCollections}
           onChange={(v) => patch("branding.showCollections", v)}
         />
         <ToggleField
-          title='Show "Best Sellers" section on homepage?'
+          title='Best Sellers'
           checked={form.branding.showBestSellers}
           onChange={(v) => patch("branding.showBestSellers", v)}
         />
         <ToggleField
-          title='Show "Offer Sale" section on homepage?'
+          title='Offer Sale'
           checked={form.branding.showOfferSale}
           onChange={(v) => patch("branding.showOfferSale", v)}
         />
         <ToggleField
-          title="Show Customer Feedback section on homepage?"
+          title="Customer Feedback"
           checked={form.branding.showCustomerFeedback}
           onChange={(v) => patch("branding.showCustomerFeedback", v)}
         />
       </div>
     </div>
 
-    <div className="rounded-[24px] border border-slate-200 bg-white p-4">
+    <div className="rounded-2xl border border-border bg-card p-4">
       <div className="mb-3">
-        <div className="text-sm font-semibold text-slate-900">
+        <div className="text-sm font-bold text-heading">
           Recent order notifications
         </div>
-        <p className="mt-1 text-xs leading-5 text-slate-500">
+        <p className="mt-1 text-xs leading-5 text-muted-foreground">
           Display small, privacy-safe notifications generated from genuine
           WooCommerce orders.
         </p>
@@ -674,34 +755,40 @@ export default function SetupSiteTab() {
               />
             </Field>
 
-            <div className="rounded-[24px] border border-dashed border-slate-300 bg-slate-50/70 p-4">
-              <div className="text-sm font-semibold text-slate-900">
+            <div className="rounded-2xl border border-dashed border-border bg-surface-soft p-4">
+              <div className="text-sm font-bold text-heading">
                 Founder Photo / Store Owner Photo
               </div>
-              <p className="mt-1 text-xs leading-5 text-slate-500">
+              <p className="mt-1 text-xs leading-5 text-muted-foreground">
                 Upload founder photo, store owner photo, or a featured brand/product image.
               </p>
 
               <div className="mt-4">
                 {form.about.founderPhotoUrl ? (
                   <div className="space-y-3">
-                    <div className="overflow-hidden rounded-[22px] border border-slate-200 bg-white p-1">
+                    <div className="overflow-hidden rounded-2xl border border-border bg-card p-1">
                       <img
                         src={form.about.founderPhotoUrl}
                         alt="Founder / store owner"
-                        className="h-52 w-full rounded-[18px] object-cover"
+                        className="h-52 w-full rounded-xl object-cover"
                       />
                     </div>
-                    <button
+                    <Button
                       type="button"
-                      className="inline-flex h-10 items-center justify-center rounded-2xl border border-slate-200 bg-white px-4 text-xs font-semibold text-slate-700 hover:bg-slate-50"
-                      onClick={() => patch("about.founderPhotoUrl", "")}
+                      variant="outline"
+                      size="sm"
+                      onClick={() =>
+                        patch(
+                          "about.founderPhotoUrl",
+                          ""
+                        )
+                      }
                     >
                       Change photo
-                    </button>
+                    </Button>
                   </div>
                 ) : (
-                  <div className="rounded-[22px] border border-dashed border-slate-300 bg-white p-4">
+                  <div className="rounded-2xl border border-dashed border-border bg-card p-4">
                     <ImageUploader
                       purpose="founder_photo"
                       onUploaded={(url) =>
@@ -851,17 +938,32 @@ export default function SetupSiteTab() {
             </Field>
 
             <div>
-              <label className="mb-2 block text-xs font-semibold uppercase tracking-wide text-slate-500">
-                Return address setting
-              </label>
-              <label className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50/70 px-4 py-3 text-sm text-slate-700">
-                <input
-                  type="checkbox"
-                  checked={form.policies.returnAddressSame}
-                  onChange={(e) => patch("policies.returnAddressSame", e.target.checked)}
+              <div className="mb-1.5 text-xs font-bold text-heading">
+                Return address
+              </div>
+
+              <div className="flex min-h-11 items-center justify-between gap-3 rounded-xl bg-surface-soft px-3">
+                <span className="text-sm font-semibold text-foreground">
+                  Same as store address
+                </span>
+
+                <Switch
+                  checked={
+                    form.policies
+                      .returnAddressSame
+                  }
+                  onCheckedChange={(
+                    checked
+                  ) =>
+                    patch(
+                      "policies.returnAddressSame",
+                      Boolean(
+                        checked
+                      )
+                    )
+                  }
                 />
-                <span>Return address same as store address</span>
-              </label>
+              </div>
             </div>
           </div>
 
@@ -959,44 +1061,29 @@ export default function SetupSiteTab() {
           </Field>
         </SectionCard>
 
-        <div className="sticky bottom-3 z-10 md:bottom-4">
-          <div className="rounded-[24px] border border-slate-200 bg-white/95 p-3 shadow-lg backdrop-blur">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div className="min-w-0">
-                <div className="text-sm font-semibold text-slate-900">
-                  {isDirty ? "Unsaved changes" : "All changes saved"}
-                </div>
-                <div className="mt-1 text-xs text-slate-500">
-                  Save your latest setup and policy details.
-                </div>
-              </div>
-
-              <div className="flex items-center gap-3">
-                {!isDirty && (
-                  <span className="hidden text-xs text-emerald-600 sm:inline">
-                    All changes saved
-                  </span>
-                )}
-
-                {isDirty && (
-                  <span className="hidden text-xs text-amber-600 sm:inline">
-                    You have unsaved changes
-                  </span>
-                )}
-
-                <button
-                  onClick={save}
-                  disabled={saving || !isDirty}
-                  className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-indigo-600 px-5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700 disabled:opacity-60"
-                >
-                  <Save className="h-4 w-4" />
-                  {saving ? "Saving..." : "Save changes"}
-                </button>
+        <div className="sticky bottom-[calc(5.1rem+var(--ls-safe-area-bottom))] z-20 md:bottom-4">
+          <div className="flex items-center justify-between gap-3 rounded-2xl border border-border bg-card/95 p-2.5 shadow-[0_14px_36px_rgba(38,51,95,0.14)] backdrop-blur">
+            <div className="min-w-0 px-1">
+              <div className="text-xs font-bold text-heading">
+                {isDirty
+                  ? "Unsaved website changes"
+                  : "All changes saved"}
               </div>
             </div>
+
+            <AsyncButton
+              type="button"
+              loading={saving}
+              loadingLabel="Saving…"
+              disabled={!isDirty}
+              onClick={() =>
+                void save()
+              }
+            >
+              Save Website Setup
+            </AsyncButton>
           </div>
         </div>
       </div>
-    </>
   );
 }
