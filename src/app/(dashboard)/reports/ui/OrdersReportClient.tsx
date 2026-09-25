@@ -91,6 +91,7 @@ export default function OrdersReportClient() {
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState<any>(null);
   const [filterOpen, setFilterOpen] = useState(false);
+  const [isDesktop, setIsDesktop] = useState(false);
 
   async function fetchReport(opts: { rf: string; rt: string; rs: string }) {
     setLoading(true);
@@ -138,6 +139,14 @@ export default function OrdersReportClient() {
     });
     setFilterOpen(false);
   }
+
+  useEffect(() => {
+    const media = window.matchMedia("(min-width: 768px)");
+    const sync = () => setIsDesktop(media.matches);
+    sync();
+    media.addEventListener("change", sync);
+    return () => media.removeEventListener("change", sync);
+  }, []);
 
   useEffect(() => {
     const defaults = { rf: "", rt: "", rs: "all" };
@@ -217,9 +226,9 @@ export default function OrdersReportClient() {
   }
 
   return (
-    <section className="space-y-4">
-      <div className="flex items-center justify-between gap-2">
-        <div className="grid flex-1 grid-cols-3 rounded-xl bg-surface-soft p-1 md:inline-flex md:flex-none md:rounded-2xl">
+    <section className="space-y-3 md:space-y-4">
+      <div className="space-y-2 md:flex md:items-center md:justify-between md:gap-2 md:space-y-0">
+        <div className="grid w-full grid-cols-3 rounded-xl bg-surface-soft p-1 md:inline-flex md:w-auto md:flex-none md:rounded-2xl">
           {(
             [
               [
@@ -247,7 +256,7 @@ export default function OrdersReportClient() {
                   setTab(key)
                 }
                 className={[
-                  "ls-focus-ring min-h-10 rounded-lg px-2 text-xs font-bold transition md:rounded-xl md:px-4 md:text-sm",
+                  "ls-focus-ring min-h-9 whitespace-nowrap rounded-lg px-1.5 text-[11px] font-bold transition md:min-h-10 md:rounded-xl md:px-4 md:text-sm",
                   tab === key
                     ? "bg-card text-heading shadow-sm"
                     : "text-muted-foreground hover:text-heading",
@@ -265,7 +274,7 @@ export default function OrdersReportClient() {
           type="button"
           variant="outline"
           size="sm"
-          className="md:hidden"
+          className="w-full justify-center md:hidden"
           onClick={() =>
             setFilterOpen(
               true
@@ -357,8 +366,9 @@ export default function OrdersReportClient() {
         "date" &&
       data ? (
         <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-2 md:grid-cols-3 xl:grid-cols-5 md:gap-3">
+          <div className="grid grid-cols-2 gap-2 md:grid-cols-3 md:gap-3 xl:grid-cols-5">
             <Metric
+              className="col-span-2 md:col-span-1"
               icon={
                 <Wallet className="h-4 w-4" />
               }
@@ -413,7 +423,7 @@ export default function OrdersReportClient() {
           </div>
 
           {dateSeries.length >
-          0 ? (
+          0 && isDesktop ? (
             <div className="hidden rounded-2xl border border-border bg-card p-4 md:block">
               <div className="mb-3 text-sm font-extrabold text-heading">
                 Gross sales trend
@@ -654,7 +664,7 @@ export default function OrdersReportClient() {
       data ? (
         <div className="space-y-4">
           {barSeries.length >
-          0 ? (
+          0 && isDesktop ? (
             <div className="hidden rounded-2xl border border-border bg-card p-4 md:block">
               <div className="mb-3 text-sm font-extrabold text-heading">
                 {tab ===
@@ -1007,13 +1017,15 @@ function Metric({
   icon,
   label,
   value,
+  className = "",
 }: {
   icon: React.ReactNode;
   label: string;
   value: string;
+  className?: string;
 }) {
   return (
-    <div className="rounded-xl border border-border bg-card p-3 md:rounded-2xl md:p-4">
+    <div className={`rounded-xl border border-border bg-card p-3 md:rounded-2xl md:p-4 ${className}`}>
       <div className="flex items-center gap-2 text-muted-foreground">
         {icon}
         <div className="text-[10px] font-bold uppercase tracking-wide md:text-[11px]">
