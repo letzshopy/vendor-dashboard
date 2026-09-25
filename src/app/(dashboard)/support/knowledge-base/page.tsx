@@ -1,5 +1,11 @@
-// src/app/support/knowledge-base/page.tsx
-import { Suspense } from "react";
+import {
+  BookOpen,
+  ChevronDown,
+} from "lucide-react";
+
+import {
+  PageHeader,
+} from "@/components/ui/page-header";
 
 type KBCard = {
   title: string;
@@ -21,7 +27,6 @@ const SECTIONS: KBSection[] = [
         title: "1. What is the LetzShopy Vendor Dashboard?",
         points: [
           "A single place to manage your products, orders, shipping, payments and basic store settings.",
-          
           "Use the dashboard for day-to-day work. ",
         ],
       },
@@ -46,7 +51,6 @@ const SECTIONS: KBSection[] = [
       },
     ],
   },
-
   {
     id: "catalog-products",
     heading: "Catalog & products",
@@ -78,7 +82,6 @@ const SECTIONS: KBSection[] = [
       },
     ],
   },
-
   {
     id: "orders-fulfilment",
     heading: "Orders & fulfilment",
@@ -109,7 +112,6 @@ const SECTIONS: KBSection[] = [
       },
     ],
   },
-
   {
     id: "payments",
     heading: "Payments",
@@ -140,7 +142,6 @@ const SECTIONS: KBSection[] = [
       },
     ],
   },
-
   {
     id: "shipping",
     heading: "Shipping",
@@ -163,7 +164,6 @@ const SECTIONS: KBSection[] = [
       },
     ],
   },
-
   {
     id: "support-help",
     heading: "Support & help",
@@ -196,90 +196,91 @@ const SECTIONS: KBSection[] = [
   },
 ];
 
-function Section({ id, heading, cards }: KBSection) {
+function Article({
+  title,
+  points,
+}: KBCard) {
   return (
-    <section id={id} className="space-y-3">
-      <div className="flex items-center gap-2">
-        <h2 className="text-lg font-semibold text-slate-900">{heading}</h2>
-        <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] text-slate-500">
-          {cards.length} article{cards.length > 1 ? "s" : ""}
+    <details className="group rounded-xl border border-border bg-card md:rounded-2xl">
+      <summary className="ls-focus-ring flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 rounded-xl px-3 py-3 text-left md:rounded-2xl md:px-4">
+        <span className="text-sm font-bold leading-5 text-heading">
+          {title}
         </span>
-      </div>
 
-      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-        {cards.map((card) => (
-          <article
-            key={card.title}
-            className="rounded-xl border border-slate-200 bg-white/90 p-4 shadow-sm transition hover:border-slate-300 hover:shadow-md"
-          >
-            <h3 className="mb-2 text-sm font-semibold text-slate-900">
-              {card.title}
-            </h3>
-            <ul className="list-disc space-y-1.5 pl-4 text-xs leading-relaxed text-slate-600">
-              {card.points.map((p) => (
-                <li key={p}>{p}</li>
-              ))}
-            </ul>
-          </article>
-        ))}
-      </div>
-    </section>
-  );
-}
+        <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-180" />
+      </summary>
 
-function KnowledgeBaseContent() {
-  return (
-    <main className="min-h-screen bg-gradient-to-b from-[#f7f3ff] via-[#f8fbff] to-white">
-      <div className="mx-auto max-w-6xl space-y-6 px-4 py-6">
-        {/* Header */}
-        <header className="space-y-2">
-          <h1 className="text-2xl font-semibold text-slate-900">
-            Knowledge Base
-          </h1>
-          <p className="max-w-2xl text-sm text-slate-600">
-            Short, practical guides to help you use your LetzShopy store and
-            vendor dashboard. Start with{" "}
-            <span className="font-medium text-slate-800">Getting started</span>{" "}
-            if you are new.
-          </p>
-
-          {/* Quick topics pills */}
-          <div className="mt-2 flex items-center gap-2 overflow-x-auto pb-1 text-xs">
-            {SECTIONS.map((s) => (
-              <a
-                key={s.id}
-                href={`#${s.id}`}
-                className="whitespace-nowrap rounded-full border border-slate-200 bg-white/80 px-3 py-1 text-[11px] font-medium text-slate-700 transition hover:bg-slate-900 hover:text-white"
-              >
-                {s.heading}
-              </a>
-            ))}
-          </div>
-        </header>
-
-        {/* Sections */}
-        <div className="space-y-8">
-          {SECTIONS.map((section) => (
-            <Section key={section.id} {...section} />
+      <div className="border-t border-border px-3 pb-3 pt-3 md:px-4 md:pb-4">
+        <ul className="space-y-2 text-sm leading-6 text-foreground">
+          {points.map((point) => (
+            <li
+              key={point}
+              className="flex gap-2.5"
+            >
+              <span className="mt-2.5 h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />
+              <span>{point}</span>
+            </li>
           ))}
-        </div>
+        </ul>
       </div>
-    </main>
+    </details>
   );
 }
 
 export default function KnowledgeBasePage() {
   return (
-    <Suspense
-      fallback={
-        <div className="min-h-screen bg-gradient-to-b from-[#f7f3ff] via-[#f8fbff] to-white">
-          <div className="mx-auto max-w-6xl px-4 py-6 text-sm text-slate-600">
-            Loading knowledge base…
-          </div>
-        </div>
-      }
-    >
-      <KnowledgeBaseContent />
-    </Suspense>
+    <main className="mx-auto w-full min-w-0 max-w-7xl pb-28 md:pb-8">
+      <PageHeader
+        className="hidden md:flex"
+        eyebrow="Support"
+        icon={BookOpen}
+        title="Knowledge Base"
+        description="Practical guides for everyday store and dashboard tasks."
+      />
+
+      <div className="space-y-5 md:mt-5 md:space-y-7">
+        <nav
+          aria-label="Knowledge base topics"
+          className="touch-scroll -mx-3 flex gap-2 overflow-x-auto px-3 pb-1 md:mx-0 md:flex-wrap md:px-0"
+        >
+          {SECTIONS.map((section) => (
+            <a
+              key={section.id}
+              href={`#${section.id}`}
+              className="ls-focus-ring inline-flex min-h-10 shrink-0 items-center rounded-xl border border-border bg-card px-3 text-xs font-bold text-foreground hover:bg-muted"
+            >
+              {section.heading}
+            </a>
+          ))}
+        </nav>
+
+        {SECTIONS.map((section) => (
+          <section
+            key={section.id}
+            id={section.id}
+            className="scroll-mt-24 space-y-2.5 md:space-y-3"
+          >
+            <div className="flex items-center justify-between gap-3">
+              <h2 className="text-base font-extrabold text-heading md:text-lg">
+                {section.heading}
+              </h2>
+
+              <span className="rounded-full bg-secondary px-2.5 py-1 text-[11px] font-bold text-secondary-foreground">
+                {section.cards.length}
+              </span>
+            </div>
+
+            <div className="grid gap-2 md:grid-cols-2 md:gap-3">
+              {section.cards.map((card) => (
+                <Article
+                  key={card.title}
+                  {...card}
+                />
+              ))}
+            </div>
+          </section>
+        ))}
+      </div>
+    </main>
   );
 }
