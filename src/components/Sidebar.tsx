@@ -371,7 +371,7 @@ const ALL_GROUPS: Group[] = [
       },
       {
         href: "/settings?tab=shippingDelivery",
-        label: "Shipping & Delivery",
+        label: "Shipping Delivery",
         ready: true,
       },
       {
