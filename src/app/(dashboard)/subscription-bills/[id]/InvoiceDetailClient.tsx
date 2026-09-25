@@ -1,41 +1,94 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import {
+  useRouter,
+} from "next/navigation";
+import {
+  ArrowLeft,
+  Printer,
+  ReceiptText,
+} from "lucide-react";
+
+import {
+  Button,
+} from "@/components/ui/button";
+import {
+  PageHeader,
+} from "@/components/ui/page-header";
+import {
+  StatusBadge,
+} from "@/components/ui/status-badge";
+import {
+  actionFeedback,
+} from "@/lib/actionFeedback";
 import {
   formatInvoiceDate,
   formatMoney,
   type SubscriptionInvoice,
 } from "@/lib/subscription-invoices";
-import { ArrowLeft, Printer, ReceiptText } from "lucide-react";
 
 export default function InvoiceDetailClient({
   invoice,
 }: {
-  invoice: SubscriptionInvoice;
+  invoice:
+    SubscriptionInvoice;
 }) {
-  const router = useRouter();
-  const isDomainRenewal = invoice.serviceType === "domain_renewal";
+  const router =
+    useRouter();
 
-  const handlePrint = () => {
-    const invoiceElement = document.getElementById("billing-invoice-print");
+  const isDomainRenewal =
+    invoice.serviceType ===
+    "domain_renewal";
 
-    if (!invoiceElement) return;
+  function handlePrint() {
+    const invoiceElement =
+      document.getElementById(
+        "billing-invoice-print"
+      );
 
-    const printWindow = window.open("", "_blank", "width=900,height=1200");
-
-    if (!printWindow) {
-      window.alert("Please allow pop-ups to print or save this invoice as PDF.");
+    if (
+      !invoiceElement
+    ) {
       return;
     }
 
-    const styles = Array.from(
-      document.querySelectorAll('link[rel="stylesheet"], style')
-    )
-      .map((node) => node.outerHTML)
-      .join("\n");
+    const printWindow =
+      window.open(
+        "",
+        "_blank",
+        "width=900,height=1200"
+      );
+
+    if (!printWindow) {
+      actionFeedback.warning({
+        id:
+          "invoice-print-popup",
+        title:
+          "Allow pop-ups to print",
+        message:
+          "Your browser blocked the invoice print window.",
+        durationMs: 4200,
+      });
+
+      return;
+    }
+
+    const styles =
+      Array.from(
+        document.querySelectorAll(
+          'link[rel="stylesheet"], style'
+        )
+      )
+        .map(
+          (node) =>
+            node.outerHTML
+        )
+        .join("\n");
 
     printWindow.document.open();
-    printWindow.document.write(`<!doctype html>
+
+    printWindow.document.write(
+      `<!doctype html>
       <html>
         <head>
           <meta charset="utf-8" />
@@ -66,215 +119,336 @@ export default function InvoiceDetailClient({
           </style>
         </head>
         <body>${invoiceElement.outerHTML}</body>
-      </html>`);
+      </html>`
+    );
+
     printWindow.document.close();
 
-    const printInvoice = () => {
-      printWindow.focus();
-      printWindow.print();
-    };
+    const printInvoice =
+      () => {
+        printWindow.focus();
+        printWindow.print();
+      };
 
-    printWindow.addEventListener("afterprint", () => printWindow.close(), {
-      once: true,
-    });
+    printWindow.addEventListener(
+      "afterprint",
+      () =>
+        printWindow.close(),
+      {
+        once: true,
+      }
+    );
 
-    if (printWindow.document.readyState === "complete") {
-      window.setTimeout(printInvoice, 250);
+    if (
+      printWindow.document
+        .readyState ===
+      "complete"
+    ) {
+      window.setTimeout(
+        printInvoice,
+        250
+      );
     } else {
-      printWindow.addEventListener("load", printInvoice, { once: true });
+      printWindow.addEventListener(
+        "load",
+        printInvoice,
+        {
+          once: true,
+        }
+      );
     }
-  };
+  }
 
   return (
     <div className="space-y-4 print:space-y-0">
-      <div className="rounded-[30px] border border-white/80 bg-gradient-to-br from-white via-[#f7f8ff] to-[#eef7ff] p-4 shadow-[0_14px_40px_rgba(15,23,42,0.06)] print:hidden md:p-5">
-        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-          <div className="min-w-0">
-            <div className="inline-flex items-center gap-2 rounded-full bg-indigo-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-indigo-700">
-              <ReceiptText className="h-3.5 w-3.5" />
-              Invoice Detail
-            </div>
-
-            <h1 className="mt-3 text-[24px] font-semibold tracking-tight text-slate-900 md:text-[30px]">
-              {invoice.invoiceNumber}
-            </h1>
-          </div>
-
-          <div className="flex gap-2">
-            <button
+      <PageHeader
+        className="hidden print:hidden md:flex"
+        eyebrow="Reports & Billing · Subscription Invoices"
+        icon={ReceiptText}
+        title={
+          invoice.invoiceNumber
+        }
+        description="View, print or save this billing invoice as PDF."
+        actions={
+          <>
+            <Button
               type="button"
-              onClick={() => router.back()}
-              className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50"
+              variant="outline"
+              onClick={() =>
+                router.back()
+              }
             >
               <ArrowLeft className="h-4 w-4" />
               Back
-            </button>
+            </Button>
 
-            <button
+            <Button
               type="button"
-              onClick={handlePrint}
-              className="inline-flex items-center gap-2 rounded-2xl bg-slate-900 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-slate-800"
+              onClick={
+                handlePrint
+              }
             >
               <Printer className="h-4 w-4" />
               Print / PDF
-            </button>
-          </div>
-        </div>
+            </Button>
+          </>
+        }
+      />
+
+      <div className="flex justify-end print:hidden md:hidden">
+        <Button
+          type="button"
+          size="sm"
+          onClick={
+            handlePrint
+          }
+        >
+          <Printer className="h-3.5 w-3.5" />
+          Print / PDF
+        </Button>
       </div>
 
-      <div
+      <article
         id="billing-invoice-print"
-        className="rounded-[26px] border border-slate-200/80 bg-white p-5 shadow-[0_10px_30px_rgba(15,23,42,0.05)] print:border-none print:bg-white print:p-0 print:shadow-none sm:p-6"
+        className="rounded-xl border border-border bg-card p-4 print:border-none print:bg-white print:p-0 md:rounded-2xl md:p-6"
       >
-        <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="flex flex-col gap-4 border-b border-border pb-4 sm:flex-row sm:items-start sm:justify-between md:pb-5">
           <div>
-            <h1 className="text-xl font-semibold text-slate-900">
+            <div className="text-lg font-extrabold text-heading md:text-xl">
               {isDomainRenewal
                 ? "LetzShopy Domain Renewal Invoice"
                 : "LetzShopy Subscription Invoice"}
-            </h1>
-            <div className="mt-1 text-sm text-slate-600">
+            </div>
+
+            <div className="mt-1 text-xs leading-5 text-muted-foreground md:text-sm">
               LetzShopy
               <br />
               SaaS Store Builder Platform
             </div>
           </div>
 
-          <div className="space-y-1 text-left text-sm sm:text-right">
-            <div className="font-semibold text-slate-900">
-              Invoice #{invoice.invoiceNumber}
+          <div className="space-y-1 text-xs text-foreground sm:text-right md:text-sm">
+            <div className="font-extrabold text-heading">
+              Invoice #
+              {
+                invoice.invoiceNumber
+              }
             </div>
-            <div className="text-slate-700">
-              Date: {formatInvoiceDate(invoice.invoiceDate)}
-            </div>
+
             <div>
-              <span className="text-slate-600">Status: </span>
-              <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700">
-                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                Paid
-              </span>
+              {formatInvoiceDate(
+                invoice.invoiceDate
+              )}
             </div>
-            <div className="text-slate-600">
-              Payment Mode: {invoice.paymentMode || "UPI"}
+
+            <div className="flex sm:justify-end">
+              <StatusBadge
+                status="paid"
+                label="Paid"
+                tone="success"
+              />
             </div>
+
+            <div>
+              {invoice.paymentMode ||
+                "UPI"}
+            </div>
+
             {invoice.paymentReference ? (
-              <div className="break-all text-slate-600">
-                Payment Ref: {invoice.paymentReference}
+              <div className="max-w-[260px] break-all font-mono text-[10px] text-muted-foreground md:text-xs">
+                {
+                  invoice.paymentReference
+                }
               </div>
             ) : null}
           </div>
         </div>
 
-        <div className="mb-6 grid grid-cols-1 gap-4 text-sm md:grid-cols-2">
-          <div className="rounded-[22px] border border-slate-200 bg-slate-50 p-4">
-            <div className="font-semibold text-slate-900">Billed To</div>
-            <div className="mt-2 font-medium text-slate-900">
-              {invoice.billingName}
+        <div className="grid gap-3 py-4 text-sm md:grid-cols-2 md:gap-4 md:py-5">
+          <section className="rounded-xl bg-surface-soft p-3 md:rounded-2xl md:p-4">
+            <div className="text-xs font-extrabold uppercase tracking-wide text-muted-foreground">
+              Billed To
             </div>
-            <pre className="mt-2 whitespace-pre-wrap text-slate-700 font-sans">
-              {invoice.billingAddress}
+
+            <div className="mt-2 font-bold text-heading">
+              {
+                invoice.billingName
+              }
+            </div>
+
+            <pre className="mt-1.5 whitespace-pre-wrap font-sans text-sm leading-5 text-foreground">
+              {
+                invoice.billingAddress
+              }
             </pre>
-            <div className="mt-2 text-slate-600">
-              State: {invoice.billingState}
-              {invoice.billingPhone ? ` · Ph: ${invoice.billingPhone}` : null}
+
+            <div className="mt-2 text-xs text-muted-foreground">
+              State:{" "}
+              {
+                invoice.billingState
+              }
+              {invoice.billingPhone
+                ? ` · Ph: ${invoice.billingPhone}`
+                : ""}
             </div>
+
             {invoice.gstNumber ? (
-              <div className="mt-2 text-slate-600">
+              <div className="mt-1.5 text-xs text-muted-foreground">
                 GSTIN:{" "}
-                <span className="font-mono text-slate-900">
-                  {invoice.gstNumber}
+                <span className="font-mono font-semibold text-foreground">
+                  {
+                    invoice.gstNumber
+                  }
                 </span>
               </div>
             ) : null}
-          </div>
+          </section>
 
-          <div className="rounded-[22px] border border-slate-200 bg-slate-50 p-4">
-            <div className="font-semibold text-slate-900">
-              {isDomainRenewal ? "Domain Service Details" : "Subscription Details"}
+          <section className="rounded-xl bg-surface-soft p-3 md:rounded-2xl md:p-4">
+            <div className="text-xs font-extrabold uppercase tracking-wide text-muted-foreground">
+              {isDomainRenewal
+                ? "Domain Service"
+                : "Subscription"}
             </div>
-            <div className="mt-2 font-medium text-slate-900">
-              {invoice.planLabel}
+
+            <div className="mt-2 font-bold text-heading">
+              {
+                invoice.planLabel
+              }
             </div>
-            {isDomainRenewal && invoice.domainName ? (
-              <div className="mt-2 text-slate-600">
-                Domain: <span className="font-medium text-slate-900">{invoice.domainName}</span>
+
+            {isDomainRenewal &&
+            invoice.domainName ? (
+              <div className="mt-1.5 text-sm text-foreground">
+                Domain:{" "}
+                <span className="font-semibold">
+                  {
+                    invoice.domainName
+                  }
+                </span>
               </div>
             ) : null}
-            <div className="mt-2 capitalize text-slate-600">
-              Billing Cycle: {invoice.billingCycle}
+
+            <div className="mt-1.5 text-xs capitalize text-muted-foreground">
+              Billing:{" "}
+              {
+                invoice.billingCycle
+              }
             </div>
-            <div className="mt-1 text-slate-600">
-              Period: {formatInvoiceDate(invoice.periodFrom)} –{" "}
-              {formatInvoiceDate(invoice.periodTo)}
+
+            <div className="mt-1 text-xs text-muted-foreground">
+              {formatInvoiceDate(
+                invoice.periodFrom
+              )}{" "}
+              –{" "}
+              {formatInvoiceDate(
+                invoice.periodTo
+              )}
             </div>
-            <div className="mt-1 text-slate-600">Invoice Type: GST Invoice</div>
+          </section>
+        </div>
+
+        <section className="overflow-hidden rounded-xl border border-border">
+          <div className="grid grid-cols-[1fr_auto] gap-3 bg-surface-soft px-3 py-2.5 text-[10px] font-bold uppercase tracking-wide text-muted-foreground md:text-xs">
+            <div>
+              Description
+            </div>
+            <div>
+              Amount
+            </div>
+          </div>
+
+          <div className="grid grid-cols-[1fr_auto] gap-3 px-3 py-3.5 text-sm">
+            <div className="min-w-0">
+              <div className="font-bold text-heading">
+                {
+                  invoice.planLabel
+                }
+              </div>
+
+              <div className="mt-0.5 text-xs text-muted-foreground">
+                {isDomainRenewal
+                  ? "Renewal service"
+                  : "Subscription"}{" "}
+                ·{" "}
+                {formatInvoiceDate(
+                  invoice.periodFrom
+                )}{" "}
+                to{" "}
+                {formatInvoiceDate(
+                  invoice.periodTo
+                )}
+              </div>
+            </div>
+
+            <div className="font-bold text-heading">
+              {formatMoney(
+                invoice.taxableAmount,
+                invoice.currency
+              )}
+            </div>
+          </div>
+        </section>
+
+        <div className="mt-4 flex justify-end md:mt-5">
+          <div className="w-full rounded-xl bg-surface-soft p-3 text-sm sm:max-w-sm md:rounded-2xl md:p-4">
+            <div className="flex justify-between gap-3 py-1 text-foreground">
+              <span>
+                Subtotal
+              </span>
+
+              <span className="font-semibold">
+                {formatMoney(
+                  invoice.taxableAmount,
+                  invoice.currency
+                )}
+              </span>
+            </div>
+
+            <div className="flex justify-between gap-3 py-1 text-foreground">
+              <span>
+                GST @{" "}
+                {
+                  invoice.gstRate
+                }
+                %
+              </span>
+
+              <span className="font-semibold">
+                {formatMoney(
+                  invoice.gstAmount,
+                  invoice.currency
+                )}
+              </span>
+            </div>
+
+            <div className="mt-2 flex justify-between gap-3 border-t border-border pt-3 text-base font-extrabold text-heading">
+              <span>
+                Total
+              </span>
+
+              <span>
+                {formatMoney(
+                  invoice.totalAmount,
+                  invoice.currency
+                )}
+              </span>
+            </div>
           </div>
         </div>
 
-        <div className="overflow-hidden rounded-[22px] border border-slate-200">
-          <table className="w-full text-sm">
-            <thead className="bg-slate-50/80">
-              <tr>
-                <th className="border-b border-slate-200 px-3 py-3 text-left text-xs font-semibold text-slate-600">
-                  Description
-                </th>
-                <th className="border-b border-slate-200 px-3 py-3 text-right text-xs font-semibold text-slate-600">
-                  Amount (₹)
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td className="px-3 py-3 align-top">
-                  <div className="font-medium text-slate-900">
-                    {invoice.planLabel}
-                  </div>
-                  <div className="mt-0.5 text-[12px] text-slate-500">
-                    {isDomainRenewal ? "Renewal service" : "Subscription"} from{" "}
-                    {formatInvoiceDate(invoice.periodFrom)} to{" "}
-                    {formatInvoiceDate(invoice.periodTo)}
-                  </div>
-                </td>
-                <td className="px-3 py-3 text-right align-top text-slate-900">
-                  {formatMoney(invoice.taxableAmount, invoice.currency)}
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-        <div className="mt-5 flex justify-end">
-          <div className="w-full rounded-[22px] border border-slate-200 bg-slate-50 p-4 text-sm md:w-80">
-            <div className="flex justify-between py-1">
-              <span className="text-slate-600">Subtotal</span>
-              <span className="text-slate-900">
-                {formatMoney(invoice.taxableAmount, invoice.currency)}
-              </span>
-            </div>
-
-            <div className="flex justify-between py-1">
-              <span className="text-slate-600">GST @ {invoice.gstRate}%</span>
-              <span className="text-slate-900">
-                {formatMoney(invoice.gstAmount, invoice.currency)}
-              </span>
-            </div>
-
-            <div className="mt-2 flex justify-between border-t border-slate-200 pt-3 font-semibold">
-              <span className="text-slate-900">Total</span>
-              <span className="text-slate-900">
-                {formatMoney(invoice.totalAmount, invoice.currency)}
-              </span>
-            </div>
-          </div>
-        </div>
-
-        <div className="mt-6 text-[11px] text-slate-500">
+        <div className="mt-5 border-t border-border pt-3 text-[10px] leading-5 text-muted-foreground md:mt-6 md:text-[11px]">
           This is a system generated tax invoice for your LetzShopy{" "}
-          {isDomainRenewal ? "domain renewal service" : "subscription"}.
-          For any queries, please contact{" "}
-          <span className="font-medium">support@letzshopy.in</span>.
+          {isDomainRenewal
+            ? "domain renewal service"
+            : "subscription"}
+          . For any queries, contact{" "}
+          <span className="font-semibold text-foreground">
+            support@letzshopy.in
+          </span>
+          .
         </div>
-      </div>
+      </article>
     </div>
   );
 }
