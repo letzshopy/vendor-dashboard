@@ -74,7 +74,7 @@ const TABS: TabDef[] = [
   },
   {
     id: "shippingDelivery",
-    label: "Shipping & Delivery",
+    label: "Shipping Delivery",
     mobileLabel: "Shipping",
     description:
       "Shipping charges, courier mode and delivery setup.",
