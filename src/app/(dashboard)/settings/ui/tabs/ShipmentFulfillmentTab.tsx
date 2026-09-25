@@ -584,7 +584,7 @@ export default function ShipmentFulfillmentTab({
               )
             }
             className={[
-              "ls-focus-ring min-h-[112px] rounded-2xl border p-4 text-left transition",
+              "ls-focus-ring min-h-[78px] rounded-xl border p-3 text-left transition md:min-h-[112px] md:rounded-2xl md:p-4",
               data.mode ===
               "shift"
                 ? "border-primary bg-secondary"
@@ -603,7 +603,7 @@ export default function ShipmentFulfillmentTab({
                   Shift Logistics
                 </div>
 
-                <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                <p className="mt-1 hidden text-xs leading-5 text-muted-foreground sm:block">
                   Use LetzShopy shipment booking with your saved pickup address.
                 </p>
               </div>
@@ -624,7 +624,7 @@ export default function ShipmentFulfillmentTab({
               )
             }
             className={[
-              "ls-focus-ring min-h-[112px] rounded-2xl border p-4 text-left transition",
+              "ls-focus-ring min-h-[78px] rounded-xl border p-3 text-left transition md:min-h-[112px] md:rounded-2xl md:p-4",
               data.mode ===
               "self"
                 ? "border-primary bg-secondary"
@@ -643,7 +643,7 @@ export default function ShipmentFulfillmentTab({
                   Self Shipping
                 </div>
 
-                <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                <p className="mt-1 hidden text-xs leading-5 text-muted-foreground sm:block">
                   Use your own courier and enter tracking details after dispatch.
                 </p>
               </div>
@@ -671,7 +671,7 @@ export default function ShipmentFulfillmentTab({
             </div>
           </div>
 
-          <div className="grid gap-4 p-4 sm:grid-cols-2 md:p-5">
+          <div className="grid gap-3 p-3 sm:grid-cols-2 md:p-5">
             <Field label="Pickup contact">
               <Input
                 value={
@@ -891,7 +891,7 @@ export default function ShipmentFulfillmentTab({
                       Use Store Profile address
                     </div>
 
-                    <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                    <p className="mt-1 hidden text-xs leading-5 text-muted-foreground sm:block">
                       Use the business address saved under Profile & Account.
                     </p>
                   </button>
@@ -916,7 +916,7 @@ export default function ShipmentFulfillmentTab({
                       Use another return address
                     </div>
 
-                    <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                    <p className="mt-1 hidden text-xs leading-5 text-muted-foreground sm:block">
                       Use a separate sender or return address for self shipping.
                     </p>
                   </button>
