@@ -407,87 +407,90 @@ export default function GeneralTab() {
 
   return (
     <div className="space-y-4">
+      <div className="grid gap-4 xl:grid-cols-2">
         <SectionCard
-          icon={<DollarSign className="h-5 w-5" />}
-          title="Currency & Pricing"
-          description="These settings control how product prices appear in your store."
+          icon={
+            <DollarSign className="h-5 w-5" />
+          }
+          title="Store display"
+          description="Currency, price format and product review visibility."
         >
-          <div className="grid gap-4 md:grid-cols-2">
+          <div className="grid gap-4 sm:grid-cols-2">
             <Field label="Currency">
               <select
-                className={selectClass}
-                value={p.currency}
-                onChange={(e) => setField("currency", e.target.value)}
+                className={
+                  selectClass
+                }
+                value={
+                  p.currency
+                }
+                onChange={(
+                  event
+                ) =>
+                  setField(
+                    "currency",
+                    event.target
+                      .value
+                  )
+                }
               >
-                <option value="INR">INR — Indian Rupee</option>
-                <option value="USD">USD — US Dollar</option>
-                <option value="EUR">EUR — Euro</option>
+                <option value="INR">
+                  INR — Indian Rupee
+                </option>
+                <option value="USD">
+                  USD — US Dollar
+                </option>
+                <option value="EUR">
+                  EUR — Euro
+                </option>
               </select>
             </Field>
 
-            <Field label="Price decimals" error={err.priceDecimals}>
+            <Field
+              label="Price decimals"
+              error={
+                err.priceDecimals
+              }
+            >
               <input
                 type="number"
                 min={0}
                 max={4}
-                className={inputClass}
-                value={p.priceDecimals}
-                onChange={(e) =>
+                className={
+                  inputClass
+                }
+                value={
+                  p.priceDecimals
+                }
+                onChange={(
+                  event
+                ) =>
                   setField(
                     "priceDecimals",
-                    Math.max(0, Math.min(4, Number(e.target.value)))
+                    Math.max(
+                      0,
+                      Math.min(
+                        4,
+                        Number(
+                          event.target
+                            .value
+                        )
+                      )
+                    )
                   )
                 }
               />
             </Field>
           </div>
-        </SectionCard>
 
-        <SectionCard
-          icon={<Ruler className="h-5 w-5" />}
-          title="Measurements"
-          description="Used for product dimensions and shipping weight calculations."
-        >
-          <div className="grid gap-4 md:grid-cols-2">
-            <Field label="Weight unit">
-              <select
-                className={selectClass}
-                value={p.weightUnit}
-                onChange={(e) => setField("weightUnit", e.target.value as any)}
-              >
-                <option value="kg">kg</option>
-                <option value="g">g</option>
-                <option value="lb">lb</option>
-                <option value="oz">oz</option>
-              </select>
-            </Field>
-
-            <Field label="Dimensions unit">
-              <select
-                className={selectClass}
-                value={p.dimensionUnit}
-                onChange={(e) =>
-                  setField("dimensionUnit", e.target.value as any)
-                }
-              >
-                <option value="cm">cm</option>
-                <option value="mm">mm</option>
-                <option value="m">m</option>
-                <option value="in">in</option>
-                <option value="yd">yd</option>
-              </select>
-            </Field>
-          </div>
-        </SectionCard>
-
-        <SectionCard
-          icon={<Star className="h-5 w-5" />}
-          title="Reviews"
-          description="Choose whether customers can leave product reviews."
-        >
           <div className="flex items-center justify-between gap-4 rounded-2xl bg-surface-soft px-4 py-3">
-            <div className="text-sm font-bold text-heading">
-              Enable product reviews
+            <div className="min-w-0">
+              <div className="text-sm font-bold text-heading">
+                Product reviews
+              </div>
+              <div className="mt-0.5 text-xs text-muted-foreground">
+                Allow customers to leave reviews on product pages.
+              </div>
             </div>
 
             <Switch
@@ -509,14 +512,103 @@ export default function GeneralTab() {
         </SectionCard>
 
         <SectionCard
-          icon={<Warehouse className="h-5 w-5" />}
-          title="Inventory"
-          description="Automatic stock tracking, display settings and email alerts."
+          icon={
+            <Ruler className="h-5 w-5" />
+          }
+          title="Product measurements"
+          description="Default units used for product size and shipping weight."
         >
-          <div className="flex items-center justify-between gap-4 rounded-2xl bg-surface-soft px-4 py-3">
-            <div className="text-sm font-bold text-heading">
-              Enable stock management
-            </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field label="Weight unit">
+              <select
+                className={
+                  selectClass
+                }
+                value={
+                  p.weightUnit
+                }
+                onChange={(
+                  event
+                ) =>
+                  setField(
+                    "weightUnit",
+                    event.target
+                      .value as
+                      ProductsGeneral["weightUnit"]
+                  )
+                }
+              >
+                <option value="kg">
+                  kg
+                </option>
+                <option value="g">
+                  g
+                </option>
+                <option value="lb">
+                  lb
+                </option>
+                <option value="oz">
+                  oz
+                </option>
+              </select>
+            </Field>
+
+            <Field label="Dimensions unit">
+              <select
+                className={
+                  selectClass
+                }
+                value={
+                  p.dimensionUnit
+                }
+                onChange={(
+                  event
+                ) =>
+                  setField(
+                    "dimensionUnit",
+                    event.target
+                      .value as
+                      ProductsGeneral["dimensionUnit"]
+                  )
+                }
+              >
+                <option value="cm">
+                  cm
+                </option>
+                <option value="mm">
+                  mm
+                </option>
+                <option value="m">
+                  m
+                </option>
+                <option value="in">
+                  in
+                </option>
+                <option value="yd">
+                  yd
+                </option>
+              </select>
+            </Field>
+          </div>
+
+          <div className="rounded-2xl bg-surface-soft px-4 py-3 text-xs leading-5 text-muted-foreground">
+            These units become the defaults when adding or editing products.
+          </div>
+        </SectionCard>
+      </div>
+
+      <SectionCard
+        icon={
+          <Warehouse className="h-5 w-5" />
+        }
+        title="Stock settings"
+        description="Control stock tracking, alerts and storefront stock visibility."
+      >
+        <div className="grid gap-3 lg:grid-cols-3">
+          <div className="flex items-center justify-between gap-3 rounded-2xl bg-surface-soft px-4 py-3">
+            <span className="text-sm font-bold text-heading">
+              Manage stock
+            </span>
 
             <Switch
               checked={
@@ -535,233 +627,288 @@ export default function GeneralTab() {
             />
           </div>
 
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="flex items-center justify-between gap-3 rounded-2xl bg-surface-soft px-4 py-3">
-              <span className="text-sm font-semibold text-foreground">
-                Low-stock notification
-              </span>
+          <div className="flex items-center justify-between gap-3 rounded-2xl bg-surface-soft px-4 py-3">
+            <span className="text-sm font-semibold text-foreground">
+              Low-stock alert
+            </span>
 
-              <Switch
-                checked={
-                  p.notifyLowStock
-                }
-                onCheckedChange={(
-                  checked
-                ) =>
-                  setField(
-                    "notifyLowStock",
-                    Boolean(
-                      checked
-                    )
+            <Switch
+              checked={
+                p.notifyLowStock
+              }
+              onCheckedChange={(
+                checked
+              ) =>
+                setField(
+                  "notifyLowStock",
+                  Boolean(
+                    checked
                   )
-                }
-              />
-            </div>
-
-            <div className="flex items-center justify-between gap-3 rounded-2xl bg-surface-soft px-4 py-3">
-              <span className="text-sm font-semibold text-foreground">
-                Out-of-stock notification
-              </span>
-
-              <Switch
-                checked={
-                  p.notifyNoStock
-                }
-                onCheckedChange={(
-                  checked
-                ) =>
-                  setField(
-                    "notifyNoStock",
-                    Boolean(
-                      checked
-                    )
-                  )
-                }
-              />
-            </div>
-
-            <Field
-              label="Notification recipient email"
-              error={err.stockEmailRecipient}
-            >
-              <input
-                className={inputClass}
-                value={p.stockEmailRecipient}
-                onChange={(e) => setField("stockEmailRecipient", e.target.value)}
-                placeholder="alerts@yourstore.com"
-              />
-            </Field>
-
-            <Field label="Low-stock threshold" error={err.lowStockThreshold}>
-              <input
-                type="number"
-                min={0}
-                className={inputClass}
-                value={p.lowStockThreshold}
-                onChange={(e) =>
-                  setField("lowStockThreshold", Math.max(0, Number(e.target.value)))
-                }
-              />
-            </Field>
+                )
+              }
+            />
           </div>
 
-          <div className="space-y-4 rounded-2xl border border-border bg-surface-soft p-4">
-            <div className="flex items-center justify-between gap-3">
-              <span className="text-sm font-semibold text-foreground">
-                Hide out-of-stock products
-              </span>
+          <div className="flex items-center justify-between gap-3 rounded-2xl bg-surface-soft px-4 py-3">
+            <span className="text-sm font-semibold text-foreground">
+              Out-of-stock alert
+            </span>
 
-              <Switch
-                checked={
-                  p.hideOutOfStock
-                }
-                onCheckedChange={(
-                  checked
-                ) =>
-                  setField(
-                    "hideOutOfStock",
-                    Boolean(
-                      checked
-                    )
+            <Switch
+              checked={
+                p.notifyNoStock
+              }
+              onCheckedChange={(
+                checked
+              ) =>
+                setField(
+                  "notifyNoStock",
+                  Boolean(
+                    checked
                   )
-                }
-              />
-            </div>
-
-            <Field label="Stock display format">
-              <select
-                className={selectClass}
-                value={p.stockDisplayFormat}
-                onChange={(e) =>
-                  setField("stockDisplayFormat", e.target.value as any)
-                }
-              >
-                <option value="no_amount">Never show quantity remaining</option>
-                <option value="always">Always show quantity (“2 in stock”)</option>
-                <option value="low_amount">
-                  Only when low (“Only 2 left in stock”)
-                </option>
-              </select>
-            </Field>
-          </div>
-        </SectionCard>
-
-        <SectionCard
-          icon={<Printer className="h-5 w-5" />}
-          title="Packing slip sender address"
-          description="Choose which From / Return address appears at the bottom of downloaded packing slips."
-        >
-          <div className="space-y-3">
-            <label
-              className={
-                "flex cursor-pointer items-start gap-3 rounded-2xl border p-4 transition " +
-                (!p.packslipShowReturn
-                  ? "border-[#B9C3E6] bg-[#F5F7FC]"
-                  : "border-border bg-card hover:bg-muted")
+                )
               }
-            >
-              <input
-                type="radio"
-                name="packslip-address-source"
-                className="mt-0.5 h-4 w-4 border-slate-300 text-heading focus:ring-[#E85D4A]"
-                checked={!p.packslipShowReturn}
-                onChange={() => setField("packslipShowReturn", false)}
-              />
-
-              <div className="min-w-0">
-                <div className="text-sm font-bold text-heading">
-                  Use Store Profile address
-                </div>
-                <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                  Recommended. The business address saved in Settings → Profile
-                  is used automatically as the From / Return address.
-                </p>
-              </div>
-            </label>
-
-            <label
-              className={
-                "flex cursor-pointer items-start gap-3 rounded-2xl border p-4 transition " +
-                (p.packslipShowReturn
-                  ? "border-[#F2B5AA] bg-[#FFF7F5]"
-                  : "border-border bg-card hover:bg-muted")
-              }
-            >
-              <input
-                type="radio"
-                name="packslip-address-source"
-                className="mt-0.5 h-4 w-4 border-slate-300 text-[#E85D4A] focus:ring-[#E85D4A]"
-                checked={p.packslipShowReturn}
-                onChange={() => setField("packslipShowReturn", true)}
-              />
-
-              <div className="min-w-0">
-                <div className="text-sm font-bold text-heading">
-                  Use a different return address
-                </div>
-                <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                  Choose this only when parcels should be returned to a different
-                  address from the Store Profile address.
-                </p>
-              </div>
-            </label>
-          </div>
-
-          {p.packslipShowReturn ? (
-            <Field label="Custom From / Return address">
-              <textarea
-                className={textareaClass + " whitespace-pre-wrap"}
-                rows={4}
-                placeholder={"Business / contact name\nAddress line 1\nCity, State, PIN\nMobile"}
-                value={p.packslipReturnAddress}
-                onChange={(e) =>
-                  setField("packslipReturnAddress", e.target.value)
-                }
-              />
-            </Field>
-          ) : (
-            <div className="rounded-2xl border border-border bg-surface-soft px-4 py-3 text-xs leading-5 text-muted-foreground">
-              <span className="font-semibold text-heading">
-                Store Profile address selected.
-              </span>{" "}
-              No separate packing-slip address needs to be maintained here.
-            </div>
-          )}
-
-          <p className="text-xs leading-5 text-muted-foreground">
-            This sender address is printed at the bottom of each packing slip.
-            Customer Shipping Address and Mobile remain at the top.
-          </p>
-        </SectionCard>
-
-        <div className="sticky bottom-[calc(5.1rem+var(--ls-safe-area-bottom))] z-20 md:bottom-4">
-          <div className="flex items-center justify-between gap-3 rounded-2xl border border-border bg-card/95 p-2.5 shadow-[0_14px_36px_rgba(38,51,95,0.14)] backdrop-blur">
-            <div className="min-w-0 px-1">
-              <div className="text-xs font-bold text-heading">
-                {isDirty
-                  ? "Unsaved changes"
-                  : "All changes saved"}
-              </div>
-            </div>
-
-            <AsyncButton
-              type="button"
-              loading={
-                syncing
-              }
-              loadingLabel="Saving…"
-              disabled={
-                !isDirty
-              }
-              onClick={() =>
-                void save()
-              }
-            >
-              <ShieldCheck className="h-4 w-4" />
-              Save
-            </AsyncButton>
+            />
           </div>
         </div>
+
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          <Field
+            label="Alert email"
+            error={
+              err.stockEmailRecipient
+            }
+          >
+            <input
+              className={
+                inputClass
+              }
+              value={
+                p.stockEmailRecipient
+              }
+              onChange={(
+                event
+              ) =>
+                setField(
+                  "stockEmailRecipient",
+                  event.target
+                    .value
+                )
+              }
+              placeholder="alerts@yourstore.com"
+            />
+          </Field>
+
+          <Field
+            label="Low-stock threshold"
+            error={
+              err.lowStockThreshold
+            }
+          >
+            <input
+              type="number"
+              min={0}
+              className={
+                inputClass
+              }
+              value={
+                p.lowStockThreshold
+              }
+              onChange={(
+                event
+              ) =>
+                setField(
+                  "lowStockThreshold",
+                  Math.max(
+                    0,
+                    Number(
+                      event.target
+                        .value
+                    )
+                  )
+                )
+              }
+            />
+          </Field>
+
+          <Field label="Stock display">
+            <select
+              className={
+                selectClass
+              }
+              value={
+                p.stockDisplayFormat
+              }
+              onChange={(
+                event
+              ) =>
+                setField(
+                  "stockDisplayFormat",
+                  event.target
+                    .value as
+                    ProductsGeneral["stockDisplayFormat"]
+                )
+              }
+            >
+              <option value="no_amount">
+                Never show quantity
+              </option>
+              <option value="always">
+                Always show quantity
+              </option>
+              <option value="low_amount">
+                Show quantity only when low
+              </option>
+            </select>
+          </Field>
+        </div>
+
+        <div className="flex items-center justify-between gap-4 rounded-2xl border border-border bg-card px-4 py-3">
+          <div className="min-w-0">
+            <div className="text-sm font-bold text-heading">
+              Hide out-of-stock products
+            </div>
+            <div className="mt-0.5 text-xs text-muted-foreground">
+              Remove unavailable products from normal catalog browsing.
+            </div>
+          </div>
+
+          <Switch
+            checked={
+              p.hideOutOfStock
+            }
+            onCheckedChange={(
+              checked
+            ) =>
+              setField(
+                "hideOutOfStock",
+                Boolean(
+                  checked
+                )
+              )
+            }
+          />
+        </div>
+      </SectionCard>
+
+      <SectionCard
+        icon={
+          <Printer className="h-5 w-5" />
+        }
+        title="Packing slip sender address"
+        description="Choose the From / Return address printed on downloaded packing slips."
+      >
+        <div className="grid gap-3 lg:grid-cols-2">
+          <button
+            type="button"
+            onClick={() =>
+              setField(
+                "packslipShowReturn",
+                false
+              )
+            }
+            className={[
+              "ls-focus-ring min-h-[92px] rounded-2xl border p-4 text-left transition",
+              !p.packslipShowReturn
+                ? "border-primary bg-secondary"
+                : "border-border bg-card hover:bg-muted",
+            ].join(" ")}
+          >
+            <div className="text-sm font-extrabold text-heading">
+              Use Store Profile address
+            </div>
+            <p className="mt-1 text-xs leading-5 text-muted-foreground">
+              Recommended. Uses the business address from Settings → Profile.
+            </p>
+          </button>
+
+          <button
+            type="button"
+            onClick={() =>
+              setField(
+                "packslipShowReturn",
+                true
+              )
+            }
+            className={[
+              "ls-focus-ring min-h-[92px] rounded-2xl border p-4 text-left transition",
+              p.packslipShowReturn
+                ? "border-primary bg-secondary"
+                : "border-border bg-card hover:bg-muted",
+            ].join(" ")}
+          >
+            <div className="text-sm font-extrabold text-heading">
+              Use another return address
+            </div>
+            <p className="mt-1 text-xs leading-5 text-muted-foreground">
+              Choose this when parcels should return somewhere else.
+            </p>
+          </button>
+        </div>
+
+        {p.packslipShowReturn ? (
+          <Field label="Custom From / Return address">
+            <textarea
+              className={
+                textareaClass +
+                " whitespace-pre-wrap"
+              }
+              rows={4}
+              placeholder={
+                "Business / contact name\nAddress line 1\nCity, State, PIN\nMobile"
+              }
+              value={
+                p.packslipReturnAddress
+              }
+              onChange={(
+                event
+              ) =>
+                setField(
+                  "packslipReturnAddress",
+                  event.target
+                    .value
+                )
+              }
+            />
+          </Field>
+        ) : (
+          <div className="rounded-2xl bg-surface-soft px-4 py-3 text-xs leading-5 text-muted-foreground">
+            <span className="font-bold text-heading">
+              Store Profile address selected.
+            </span>{" "}
+            No second address needs to be maintained here.
+          </div>
+        )}
+      </SectionCard>
+
+      <div className="sticky bottom-[calc(5.1rem+var(--ls-safe-area-bottom))] z-20 md:bottom-4">
+        <div className="flex items-center justify-between gap-3 rounded-2xl border border-border bg-card/95 p-2.5 shadow-[0_14px_36px_rgba(38,51,95,0.14)] backdrop-blur">
+          <div className="min-w-0 px-1">
+            <div className="text-xs font-bold text-heading">
+              {isDirty
+                ? "Unsaved store changes"
+                : "All changes saved"}
+            </div>
+          </div>
+
+          <AsyncButton
+            type="button"
+            loading={
+              syncing
+            }
+            loadingLabel="Saving…"
+            disabled={
+              !isDirty
+            }
+            onClick={() =>
+              void save()
+            }
+          >
+            <ShieldCheck className="h-4 w-4" />
+            Save Store Settings
+          </AsyncButton>
+        </div>
       </div>
+    </div>
   );
 }
