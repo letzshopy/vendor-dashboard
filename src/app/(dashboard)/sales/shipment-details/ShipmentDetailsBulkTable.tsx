@@ -839,9 +839,9 @@ export default function ShipmentDetailsBulkTable({
           saving
         }
         loadingLabel="Saving…"
-        onConfirm={
-          saveActive
-        }
+        onConfirm={() => {
+          void saveActive();
+        }}
       />
     </>
   );
