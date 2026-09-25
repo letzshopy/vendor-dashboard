@@ -453,9 +453,35 @@ export default function OrdersLocalController({
     <div className="space-y-3 md:space-y-4">
       <section
         aria-label="Order status"
-        className="touch-scroll -mx-3 overflow-x-auto px-3 pb-1 md:mx-0 md:px-0"
       >
-        <div className="flex w-max min-w-full gap-2 md:w-auto md:flex-wrap">
+        <label className="block md:hidden">
+          <span className="mb-1.5 block text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+            Order status
+          </span>
+
+          <select
+            value={status}
+            onChange={(event) =>
+              setStatus(
+                event.currentTarget.value
+              )
+            }
+            className="ls-focus-ring h-11 w-full rounded-xl border border-input bg-card px-3 text-sm font-bold text-heading shadow-[0_1px_2px_rgba(25,35,75,0.03)]"
+          >
+            {STATUS_TABS.map(
+              (tab) => (
+                <option
+                  key={tab.key}
+                  value={tab.key}
+                >
+                  {tab.label} ({statusCounts[tab.key] || 0})
+                </option>
+              )
+            )}
+          </select>
+        </label>
+
+        <div className="hidden flex-wrap gap-2 md:flex">
           {STATUS_TABS.map(
             (tab) => {
               const active =
