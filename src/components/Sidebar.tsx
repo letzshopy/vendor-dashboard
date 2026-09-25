@@ -76,53 +76,76 @@ function itemMatches(
   const itemBase =
     basePath(href);
 
-  if (itemBase === "/settings") {
-    const url = new URL(
-      href,
-      "http://local"
-    );
+  if (
+    itemBase ===
+    "/settings"
+  ) {
+    const url =
+      new URL(
+        href,
+        "http://local"
+      );
 
     const tab =
-      url.searchParams.get("tab");
+      url.searchParams.get(
+        "tab"
+      );
 
     if (!tab) {
-      return pathname === "/settings";
-    }
-
-    if (
-      tab ===
-        "shippingDelivery" &&
-      (
-        currentTab ===
-          "shipping" ||
-        currentTab ===
-          "shipmentFulfillment"
-      )
-    ) {
       return (
         pathname ===
         "/settings"
       );
     }
 
-    if (tab === "profile") {
-      return (
-        pathname === "/settings" &&
-        (
-          currentTab === null ||
-          currentTab === "profile"
-        )
-      );
-    }
+    const aliases:
+      Record<
+        string,
+        string[]
+      > = {
+      profileAccount: [
+        "profileAccount",
+        "profile",
+        "account",
+      ],
+      storeSettings: [
+        "storeSettings",
+        "general",
+        "tax",
+      ],
+      shippingDelivery: [
+        "shippingDelivery",
+        "shipping",
+        "shipmentFulfillment",
+      ],
+    };
+
+    const accepted =
+      aliases[tab] || [
+        tab,
+      ];
 
     return (
-      pathname === "/settings" &&
-      currentTab === tab
+      pathname ===
+        "/settings" &&
+      (
+        accepted.includes(
+          currentTab ||
+            ""
+        ) ||
+        (
+          tab ===
+            "profileAccount" &&
+          currentTab ===
+            null
+        )
+      )
     );
   }
 
   return (
-    pathname === itemBase ||
+    pathname ===
+      itemBase ||
     (
       itemBase !== "/" &&
       pathname.startsWith(
@@ -337,22 +360,12 @@ const ALL_GROUPS: Group[] = [
     icon: Settings2,
     items: [
       {
-        href: "/settings?tab=profile",
-        label: "Profile",
+        href: "/settings?tab=profileAccount",
+        label: "Profile & Account",
         ready: true,
       },
       {
-        href: "/settings?tab=kyc",
-        label: "KYC",
-        ready: true,
-      },
-      {
-        href: "/settings?tab=setupSite",
-        label: "Website Setup",
-        ready: true,
-      },
-      {
-        href: "/settings?tab=general",
+        href: "/settings?tab=storeSettings",
         label: "Store Settings",
         ready: true,
       },
@@ -362,18 +375,18 @@ const ALL_GROUPS: Group[] = [
         ready: true,
       },
       {
-        href: "/settings?tab=tax",
-        label: "Tax",
-        ready: true,
-      },
-      {
         href: "/settings?tab=payments",
         label: "Payments",
         ready: true,
       },
       {
-        href: "/settings?tab=account",
-        label: "Account",
+        href: "/settings?tab=setupSite",
+        label: "Website Setup",
+        ready: true,
+      },
+      {
+        href: "/settings?tab=kyc",
+        label: "KYC",
         ready: true,
       },
     ],
