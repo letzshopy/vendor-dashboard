@@ -29,6 +29,12 @@ export default async function SettingsPage({
       ? params.tab[0]
       : params.tab;
 
+  if (!tab) {
+    redirect(
+      "/settings?tab=profile"
+    );
+  }
+
   const tenant =
     await getTenantFromCookies();
 
