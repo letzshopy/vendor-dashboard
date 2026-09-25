@@ -19,7 +19,6 @@ import {
 } from "@/lib/actionFeedback";
 import {
   DollarSign,
-  Package,
   Printer,
   Ruler,
   ShieldCheck,
@@ -217,7 +216,6 @@ export default function GeneralTab() {
           LetzShopy support.
         </div>
       </div>
-    </div>
   );
 }
 
