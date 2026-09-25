@@ -238,6 +238,15 @@ export default function ProfileTab() {
     };
   }, []);
 
+  useUnsavedChanges({
+    id:
+      "settings-profile",
+    dirty,
+    label:
+      "profile changes",
+    save,
+  });
+
   if (!data) {
     return (
       <div className="space-y-3">
@@ -305,7 +314,7 @@ export default function ProfileTab() {
     }
   };
 
-  const save = async (): Promise<boolean> => {
+  async function save(): Promise<boolean> {
     if (
       !data ||
       saving
@@ -389,16 +398,7 @@ export default function ProfileTab() {
     } finally {
       setSaving(false);
     }
-  };
-
-  useUnsavedChanges({
-    id:
-      "settings-profile",
-    dirty,
-    label:
-      "profile changes",
-    save,
-  });
+  }
 
   return (
     <div className="space-y-4">
