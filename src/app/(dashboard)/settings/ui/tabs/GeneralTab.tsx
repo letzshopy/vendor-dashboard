@@ -19,10 +19,8 @@ import {
 } from "@/lib/actionFeedback";
 import {
   DollarSign,
-  Printer,
   Ruler,
   ShieldCheck,
-  Star,
   Warehouse,
 } from "lucide-react";
 
@@ -48,9 +46,6 @@ const inputClass =
 
 const selectClass =
   "ls-focus-ring h-11 w-full rounded-xl border border-input bg-card px-3 text-sm text-foreground";
-
-const textareaClass =
-  "ls-focus-ring w-full resize-y rounded-xl border border-input bg-card px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground";
 
 function SectionCard({
   icon,
@@ -789,96 +784,6 @@ export default function GeneralTab() {
             }
           />
         </div>
-      </SectionCard>
-
-      <SectionCard
-        icon={
-          <Printer className="h-5 w-5" />
-        }
-        title="Packing slip sender address"
-        description="Choose the From / Return address printed on downloaded packing slips."
-      >
-        <div className="grid gap-3 lg:grid-cols-2">
-          <button
-            type="button"
-            onClick={() =>
-              setField(
-                "packslipShowReturn",
-                false
-              )
-            }
-            className={[
-              "ls-focus-ring min-h-[92px] rounded-2xl border p-4 text-left transition",
-              !p.packslipShowReturn
-                ? "border-primary bg-secondary"
-                : "border-border bg-card hover:bg-muted",
-            ].join(" ")}
-          >
-            <div className="text-sm font-extrabold text-heading">
-              Use Store Profile address
-            </div>
-            <p className="mt-1 text-xs leading-5 text-muted-foreground">
-              Recommended. Uses the business address from Settings → Profile.
-            </p>
-          </button>
-
-          <button
-            type="button"
-            onClick={() =>
-              setField(
-                "packslipShowReturn",
-                true
-              )
-            }
-            className={[
-              "ls-focus-ring min-h-[92px] rounded-2xl border p-4 text-left transition",
-              p.packslipShowReturn
-                ? "border-primary bg-secondary"
-                : "border-border bg-card hover:bg-muted",
-            ].join(" ")}
-          >
-            <div className="text-sm font-extrabold text-heading">
-              Use another return address
-            </div>
-            <p className="mt-1 text-xs leading-5 text-muted-foreground">
-              Choose this when parcels should return somewhere else.
-            </p>
-          </button>
-        </div>
-
-        {p.packslipShowReturn ? (
-          <Field label="Custom From / Return address">
-            <textarea
-              className={
-                textareaClass +
-                " whitespace-pre-wrap"
-              }
-              rows={4}
-              placeholder={
-                "Business / contact name\nAddress line 1\nCity, State, PIN\nMobile"
-              }
-              value={
-                p.packslipReturnAddress
-              }
-              onChange={(
-                event
-              ) =>
-                setField(
-                  "packslipReturnAddress",
-                  event.target
-                    .value
-                )
-              }
-            />
-          </Field>
-        ) : (
-          <div className="rounded-2xl bg-surface-soft px-4 py-3 text-xs leading-5 text-muted-foreground">
-            <span className="font-bold text-heading">
-              Store Profile address selected.
-            </span>{" "}
-            No second address needs to be maintained here.
-          </div>
-        )}
       </SectionCard>
 
       <div className="sticky bottom-[calc(5.1rem+var(--ls-safe-area-bottom))] z-20 md:bottom-4">
