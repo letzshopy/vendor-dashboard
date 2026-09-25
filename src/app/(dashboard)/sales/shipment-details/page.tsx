@@ -1,80 +1,97 @@
-import ShipmentDetailsBulkTable from "./ShipmentDetailsBulkTable";
-import { getWooClient } from "@/lib/woo";
-import type { WCOrder } from "@/lib/order-utils";
-import { Truck } from "lucide-react";
+import {
+  Truck,
+} from "lucide-react";
 
-async function loadAllOrders(): Promise<WCOrder[]> {
-  const woo = await getWooClient();
+import {
+  PageHeader,
+} from "@/components/ui/page-header";
+import type {
+  WCOrder,
+} from "@/lib/order-utils";
+import {
+  getWooClient,
+} from "@/lib/woo";
+
+import ShipmentDetailsBulkTable from "./ShipmentDetailsBulkTable";
+
+async function loadAllOrders(): Promise<
+  WCOrder[]
+> {
+  const woo =
+    await getWooClient();
+
   const perPage = 100;
-  const all: WCOrder[] = [];
+  const all:
+    WCOrder[] = [];
   let page = 1;
 
   while (page <= 5) {
-    const { data } = await woo.get<WCOrder[]>("/orders", {
-      params: {
-        status: "any",
-        per_page: perPage,
-        page,
-        orderby: "date",
-        order: "desc",
-      },
-    });
+    const {
+      data,
+    } =
+      await woo.get<
+        WCOrder[]
+      >("/orders", {
+        params: {
+          status: "any",
+          per_page:
+            perPage,
+          page,
+          orderby:
+            "date",
+          order: "desc",
+        },
+      });
 
-    const batch: WCOrder[] = Array.isArray(data) ? data : [];
-    if (batch.length === 0) break;
+    const batch:
+      WCOrder[] =
+      Array.isArray(data)
+        ? data
+        : [];
 
-    all.push(...batch);
-    if (batch.length < perPage) break;
-    page++;
+    if (
+      batch.length === 0
+    ) {
+      break;
+    }
+
+    all.push(
+      ...batch
+    );
+
+    if (
+      batch.length <
+      perPage
+    ) {
+      break;
+    }
+
+    page += 1;
   }
 
   return all;
 }
 
-const FINAL_STATUSES = new Set([
-  "completed",
-  "cancelled",
-  "refunded",
-  "failed",
-  "trash",
-]);
-
 export default async function ShipmentDetailsPage() {
-  const orders = await loadAllOrders();
-
-  const openCount = orders.filter((o) => {
-    const st = String(o.status || "").toLowerCase();
-    return !FINAL_STATUSES.has(st);
-  }).length;
+  const orders =
+    await loadAllOrders();
 
   return (
-    <main className="mx-auto max-w-7xl px-3 pb-28 pt-3 md:px-4 md:pb-8 md:pt-5">
-      <div className="rounded-[30px] border border-white/80 bg-gradient-to-br from-white via-[#f7f8ff] to-[#eef7ff] p-4 shadow-[0_14px_40px_rgba(15,23,42,0.06)] md:p-5">
-        <div className="flex items-center justify-between gap-3">
-          <div className="min-w-0">
-            <div className="inline-flex items-center gap-2 rounded-full bg-sky-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-sky-700">
-              <Truck className="h-3.5 w-3.5" />
-              Shipment Details
-            </div>
+    <main className="mx-auto w-full min-w-0 max-w-7xl pb-28 md:pb-8">
+      <PageHeader
+        className="hidden md:flex"
+        eyebrow="Sales"
+        icon={Truck}
+        title="Shipment Details"
+        description="Add courier and tracking details for paid orders that are ready to ship."
+      />
 
-            <h1 className="mt-3 text-[24px] font-semibold tracking-tight text-slate-900 md:text-[30px]">
-              Shipment Details
-            </h1>
-          </div>
-
-          <div className="shrink-0 rounded-[20px] bg-white/90 px-4 py-3 text-right shadow-sm">
-            <div className="text-[11px] uppercase tracking-wide text-slate-500">
-              Open Orders
-            </div>
-            <div className="mt-1 text-xl font-semibold text-slate-900">
-              {openCount}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="mt-4">
-        <ShipmentDetailsBulkTable initialOrders={orders} />
+      <div className="md:mt-5">
+        <ShipmentDetailsBulkTable
+          initialOrders={
+            orders
+          }
+        />
       </div>
     </main>
   );

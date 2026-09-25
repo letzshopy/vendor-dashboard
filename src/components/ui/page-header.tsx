@@ -27,7 +27,7 @@ export function PageHeader({
   return (
     <header
       className={cn(
-        "ls-page-header",
+        "ls-page-header flex",
         className
       )}
     >
