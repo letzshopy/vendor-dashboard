@@ -1,20 +1,37 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+
+import {
+  useUnsavedChanges,
+} from "@/components/navigation/UnsavedChangesGuard";
+import {
+  AsyncButton,
+} from "@/components/ui/async-button";
+import {
+  Button,
+} from "@/components/ui/button";
+import {
+  Skeleton,
+} from "@/components/ui/skeleton";
+import {
+  Switch,
+} from "@/components/ui/switch";
+import {
+  actionFeedback,
+} from "@/lib/actionFeedback";
 import {
   Building2,
   ImagePlus,
   Mail,
   MapPin,
   Phone,
-  Save,
   UploadCloud,
   User,
   MessageCircle,
   Instagram,
   Facebook,
   Youtube,
-  CheckCircle2,
   Tags,
   Store,
 } from "lucide-react";
@@ -114,7 +131,6 @@ export default function ProfileTab() {
   const [logoUploading, setLogoUploading] = useState(false);
   const [logoPreviewUrl, setLogoPreviewUrl] = useState<string | null>(null);
   const [dirty, setDirty] = useState(false);
-  const [saveBanner, setSaveBanner] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const logoPreviewRef = useRef<string | null>(null);
 
@@ -128,18 +144,13 @@ export default function ProfileTab() {
   };
 
   const inputClass =
-    "h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-900 " +
-    "placeholder:text-slate-400 shadow-sm transition " +
-    "focus:border-indigo-400 focus:outline-none focus:ring-4 focus:ring-indigo-100";
+    "ls-focus-ring h-11 w-full rounded-xl border border-input bg-card px-3 text-sm text-foreground placeholder:text-muted-foreground";
 
   const selectClass =
-    "h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-900 " +
-    "shadow-sm transition focus:border-indigo-400 focus:outline-none focus:ring-4 focus:ring-indigo-100";
+    "ls-focus-ring h-11 w-full rounded-xl border border-input bg-card px-3 text-sm text-foreground";
 
   const textareaClass =
-    "w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 " +
-    "placeholder:text-slate-400 shadow-sm transition resize-none " +
-    "focus:border-indigo-400 focus:outline-none focus:ring-4 focus:ring-indigo-100";
+    "ls-focus-ring w-full resize-y rounded-xl border border-input bg-card px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground";
 
   const apiHasUsefulData = (value: unknown): boolean => {
     const profile = normalizeProfile(value);
@@ -220,18 +231,6 @@ export default function ProfileTab() {
   }, []);
 
   useEffect(() => {
-    if (!dirty) return;
-
-    const handler = (e: BeforeUnloadEvent) => {
-      e.preventDefault();
-      e.returnValue = "";
-    };
-
-    window.addEventListener("beforeunload", handler);
-    return () => window.removeEventListener("beforeunload", handler);
-  }, [dirty]);
-
-  useEffect(() => {
     return () => {
       if (logoPreviewRef.current) {
         URL.revokeObjectURL(logoPreviewRef.current);
@@ -241,10 +240,10 @@ export default function ProfileTab() {
 
   if (!data) {
     return (
-      <div className="p-4 md:p-5">
-        <div className="rounded-[24px] border border-slate-200 bg-white p-5 text-sm text-slate-500 shadow-sm">
-          Loading...
-        </div>
+      <div className="space-y-3">
+        <Skeleton className="h-16 w-full rounded-2xl" />
+        <Skeleton className="h-56 w-full rounded-2xl" />
+        <Skeleton className="h-56 w-full rounded-2xl" />
       </div>
     );
   }
@@ -306,54 +305,111 @@ export default function ProfileTab() {
     }
   };
 
-  const save = async () => {
-    if (!data) return;
+  const save = async (): Promise<boolean> => {
+    if (
+      !data ||
+      saving
+    ) {
+      return false;
+    }
+
+    const feedbackId =
+      "profile-save";
+
     setSaving(true);
 
-    if (typeof window !== "undefined") {
-      window.localStorage.setItem(LS_KEY, JSON.stringify(data));
+    actionFeedback.loading({
+      id: feedbackId,
+      title:
+        "Saving profile…",
+    });
+
+    if (
+      typeof window !==
+      "undefined"
+    ) {
+      window.localStorage.setItem(
+        LS_KEY,
+        JSON.stringify(
+          data
+        )
+      );
     }
 
     try {
-      const res = await fetch("/api/settings/profile", {
-        method: "PATCH",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify(data),
-      });
+      const res =
+        await fetch(
+          "/api/settings/profile",
+          {
+            method:
+              "PATCH",
+            headers: {
+              "content-type":
+                "application/json",
+            },
+            body:
+              JSON.stringify(
+                data
+              ),
+          }
+        );
 
       if (!res.ok) {
-        throw new Error("Failed to save");
+        throw new Error(
+          "Failed to save profile"
+        );
       }
 
       setDirty(false);
-      window.scrollTo({ top: 0, behavior: "smooth" });
-      setSaveBanner("Profile settings saved successfully.");
-      setTimeout(() => setSaveBanner(null), 5000);
-    } catch {
-      setSaveBanner("Saved locally, but server could not be updated. Please try again.");
-      setTimeout(() => setSaveBanner(null), 6000);
+
+      actionFeedback.success({
+        id: feedbackId,
+        title:
+          "Profile saved",
+        durationMs: 2200,
+      });
+
+      return true;
+    } catch (
+      error: unknown
+    ) {
+      actionFeedback.error({
+        id: feedbackId,
+        title:
+          "Could not save profile",
+        message:
+          error instanceof
+            Error
+            ? error.message
+            : "Please try again.",
+        durationMs: 4200,
+      });
+
+      return false;
     } finally {
       setSaving(false);
     }
   };
 
-  return (
-    <div className="space-y-4 p-3 md:space-y-5 md:p-5">
-      {saveBanner && (
-        <div className="flex items-start gap-3 rounded-[22px] border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800 shadow-sm">
-          <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
-          <span>{saveBanner}</span>
-        </div>
-      )}
+  useUnsavedChanges({
+    id:
+      "settings-profile",
+    dirty,
+    label:
+      "profile changes",
+    save,
+  });
 
-      <section className="overflow-hidden rounded-[26px] border border-slate-200 bg-white shadow-sm">
-        <div className="border-b border-slate-100 bg-gradient-to-r from-white via-slate-50 to-indigo-50/50 px-4 py-4 md:px-5">
+  return (
+    <div className="space-y-4">
+      <section className="overflow-hidden rounded-2xl border border-border bg-card">
+        <div className="border-b border-border px-4 py-3 md:px-5">
           <div className="flex items-start gap-3">
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600">
+            <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-secondary text-secondary-foreground">
               <User className="h-5 w-5" />
             </div>
             <div>
-              <h3 className="text-base font-semibold text-slate-900">Personal</h3>
+              <h3 className="text-sm font-extrabold text-heading">Personal</h3>
             </div>
           </div>
         </div>
@@ -400,14 +456,14 @@ export default function ProfileTab() {
         </div>
       </section>
 
-      <section className="overflow-hidden rounded-[26px] border border-slate-200 bg-white shadow-sm">
-        <div className="border-b border-slate-100 bg-gradient-to-r from-white via-slate-50 to-sky-50/50 px-4 py-4 md:px-5">
+      <section className="overflow-hidden rounded-2xl border border-border bg-card">
+        <div className="border-b border-border px-4 py-3 md:px-5">
           <div className="flex items-start gap-3">
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-sky-50 text-sky-600">
+            <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-secondary text-secondary-foreground">
               <Building2 className="h-5 w-5" />
             </div>
             <div>
-              <h3 className="text-base font-semibold text-slate-900">
+              <h3 className="text-sm font-extrabold text-heading">
                 Brand &amp; business identity
               </h3>
             </div>
@@ -480,9 +536,9 @@ export default function ProfileTab() {
               </Field>
             </div>
 
-            <div className="rounded-[24px] border border-slate-200 bg-slate-50/70 p-4">
-              <div className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                <Tags className="h-4 w-4 text-slate-400" />
+            <div className="rounded-2xl border border-border bg-surface-soft p-4">
+              <div className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                <Tags className="h-4 w-4 text-muted-foreground" />
                 <span>Business / product category</span>
               </div>
 
@@ -490,11 +546,11 @@ export default function ProfileTab() {
                 {PRODUCT_CATEGORIES.map((category) => (
                   <label
                     key={category}
-                    className="flex items-start gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 shadow-sm"
+                    className="flex items-start gap-2 rounded-xl border border-border bg-card px-3 py-2 text-sm text-foreground"
                   >
                     <input
                       type="checkbox"
-                      className="mt-0.5 h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                      className="mt-0.5 h-4 w-4 rounded border-slate-300 text-primary focus:ring-indigo-500"
                       checked={(data.business.productCategories || []).includes(category)}
                       onChange={() => toggleCategory(category)}
                     />
@@ -518,14 +574,14 @@ export default function ProfileTab() {
             </div>
           </div>
 
-          <div className="rounded-[24px] border border-dashed border-slate-300 bg-slate-50/70 p-4 md:p-5">
+          <div className="rounded-2xl border border-dashed border-border bg-surface-soft p-4 md:p-5">
             <div className="flex items-start gap-3">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-white text-slate-600 shadow-sm">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-card text-muted-foreground shadow-sm">
                 <ImagePlus className="h-5 w-5" />
               </div>
               <div>
-                <div className="text-sm font-semibold text-slate-900">Logo</div>
-                <p className="mt-1 text-xs leading-5 text-slate-500">
+                <div className="text-sm font-bold text-heading">Logo</div>
+                <p className="mt-1 text-xs leading-5 text-muted-foreground">
                   Used in invoices, emails and store branding areas.
                 </p>
               </div>
@@ -534,64 +590,77 @@ export default function ProfileTab() {
             <div className="mt-4">
               {logoPreviewUrl || data.business.logoUrl ? (
                 <div className="space-y-4">
-                  <div className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white p-3">
+                  <div className="flex items-center gap-3 rounded-2xl border border-border bg-card p-3">
                     <img
                       src={logoPreviewUrl || data.business.logoUrl}
                       alt="Logo"
-                      className="h-16 w-16 rounded-xl border border-slate-200 bg-white object-contain"
+                      className="h-16 w-16 rounded-xl border border-border bg-card object-contain"
                     />
                     <div className="min-w-0">
-                      <div className="text-sm font-medium text-slate-900">Current logo</div>
-                      <div className="mt-1 text-xs text-slate-500">
+                      <div className="text-sm font-bold text-heading">Current logo</div>
+                      <div className="mt-1 text-xs text-muted-foreground">
                         Recommended: square PNG or JPG under 1 MB
                       </div>
                     </div>
                   </div>
 
                   <div className="flex flex-wrap gap-2">
-                    <button
+                    <AsyncButton
                       type="button"
-                      className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-indigo-600 px-4 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700 disabled:opacity-60"
-                      onClick={() => fileRef.current?.click()}
-                      disabled={logoUploading}
+                      loading={
+                        logoUploading
+                      }
+                      loadingLabel="Uploading…"
+                      onClick={() =>
+                        fileRef.current?.click()
+                      }
                     >
                       <UploadCloud className="h-4 w-4" />
-                      {logoUploading ? "Uploading..." : "Replace logo"}
-                    </button>
+                      Replace logo
+                    </AsyncButton>
 
-                    <button
+                    <Button
                       type="button"
-                      className="inline-flex h-11 items-center justify-center rounded-2xl border border-rose-200 bg-rose-50 px-4 text-sm font-semibold text-rose-700 hover:bg-rose-100"
+                      variant="ghost"
+                      className="text-destructive"
                       onClick={() => {
                         clearLogoPreview();
-                        markDirtyChange("business.logoUrl", "");
+                        markDirtyChange(
+                          "business.logoUrl",
+                          ""
+                        );
                       }}
                     >
                       Remove
-                    </button>
+                    </Button>
                   </div>
                 </div>
               ) : (
                 <div className="space-y-4">
-                  <div className="rounded-2xl border border-dashed border-slate-300 bg-white px-4 py-6 text-center">
-                    <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-100 text-slate-500">
+                  <div className="rounded-2xl border border-dashed border-slate-300 bg-card px-4 py-6 text-center">
+                    <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-100 text-muted-foreground">
                       <ImagePlus className="h-5 w-5" />
                     </div>
-                    <div className="mt-3 text-sm font-medium text-slate-900">No logo uploaded</div>
-                    <div className="mt-1 text-xs text-slate-500">
+                    <div className="mt-3 text-sm font-bold text-heading">No logo uploaded</div>
+                    <div className="mt-1 text-xs text-muted-foreground">
                       Upload your store logo for a more branded experience.
                     </div>
                   </div>
 
-                  <button
+                  <AsyncButton
                     type="button"
-                    className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-2xl bg-indigo-600 px-4 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700 disabled:opacity-60"
-                    onClick={() => fileRef.current?.click()}
-                    disabled={logoUploading}
+                    className="w-full"
+                    loading={
+                      logoUploading
+                    }
+                    loadingLabel="Uploading…"
+                    onClick={() =>
+                      fileRef.current?.click()
+                    }
                   >
                     <UploadCloud className="h-4 w-4" />
-                    {logoUploading ? "Uploading..." : "Upload logo"}
-                  </button>
+                    Upload logo
+                  </AsyncButton>
                 </div>
               )}
 
@@ -614,14 +683,14 @@ export default function ProfileTab() {
         </div>
       </section>
 
-      <section className="overflow-hidden rounded-[26px] border border-slate-200 bg-white shadow-sm">
-        <div className="border-b border-slate-100 bg-gradient-to-r from-white via-slate-50 to-violet-50/50 px-4 py-4 md:px-5">
+      <section className="overflow-hidden rounded-2xl border border-border bg-card">
+        <div className="border-b border-border px-4 py-3 md:px-5">
           <div className="flex items-start gap-3">
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-violet-50 text-violet-600">
+            <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-secondary text-secondary-foreground">
               <MessageCircle className="h-5 w-5" />
             </div>
             <div>
-              <h3 className="text-base font-semibold text-slate-900">
+              <h3 className="text-sm font-extrabold text-heading">
                 Social &amp; WhatsApp
               </h3>
             </div>
@@ -669,48 +738,58 @@ export default function ProfileTab() {
             </Field>
           </div>
 
-          <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4">
-            <label className="flex items-start gap-3">
-              <input
-                type="checkbox"
-                className="mt-0.5 h-5 w-5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
-                checked={!!data.social.showWhatsAppIcon}
-                onChange={(e) =>
-                  markDirtyChange("social.showWhatsAppIcon", e.target.checked)
-                }
-              />
-              <span>
-                <span className="block text-sm font-semibold text-slate-900">
-                  Show floating WhatsApp button
-                </span>
-                <span className="mt-1 block text-xs leading-5 text-slate-500">
-                  Enable a floating WhatsApp support button on the storefront.
-                </span>
-              </span>
-            </label>
+          <div className="flex items-center justify-between gap-4 rounded-2xl bg-surface-soft px-4 py-3">
+            <div className="min-w-0">
+              <div className="text-sm font-bold text-heading">
+                Show WhatsApp button
+              </div>
+              <div className="mt-0.5 text-xs text-muted-foreground">
+                Show the floating WhatsApp shortcut on your storefront.
+              </div>
+            </div>
+
+            <Switch
+              checked={
+                Boolean(
+                  data.social.showWhatsAppIcon
+                )
+              }
+              onCheckedChange={(
+                checked
+              ) =>
+                markDirtyChange(
+                  "social.showWhatsAppIcon",
+                  Boolean(
+                    checked
+                  )
+                )
+              }
+            />
           </div>
         </div>
       </section>
 
-      <div className="sticky bottom-3 z-10 md:bottom-4">
-        <div className="rounded-[24px] border border-slate-200 bg-white/95 p-3 shadow-lg backdrop-blur">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="min-w-0">
-              <div className="text-sm font-semibold text-slate-900">
-                {dirty ? "Unsaved changes" : "All changes saved"}
-              </div>
+      <div className="sticky bottom-[calc(5.1rem+var(--ls-safe-area-bottom))] z-20 md:bottom-4">
+        <div className="flex items-center justify-between gap-3 rounded-2xl border border-border bg-card/95 p-2.5 shadow-[0_14px_36px_rgba(38,51,95,0.14)] backdrop-blur">
+          <div className="min-w-0 px-1">
+            <div className="text-xs font-bold text-heading">
+              {dirty
+                ? "Unsaved changes"
+                : "All changes saved"}
             </div>
-
-            <button
-              type="button"
-              className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-indigo-600 px-5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700 disabled:opacity-60"
-              onClick={save}
-              disabled={saving}
-            >
-              <Save className="h-4 w-4" />
-              {saving ? "Saving..." : "Save changes"}
-            </button>
           </div>
+
+          <AsyncButton
+            type="button"
+            loading={saving}
+            loadingLabel="Saving…"
+            disabled={!dirty}
+            onClick={() =>
+              void save()
+            }
+          >
+            Save
+          </AsyncButton>
         </div>
       </div>
     </div>
@@ -756,8 +835,8 @@ function Field({
 }) {
   return (
     <div>
-      <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
-        <span className="text-slate-400">{icon}</span>
+      <div className="mb-1.5 flex items-center gap-2 text-xs font-bold text-heading">
+        <span className="text-muted-foreground">{icon}</span>
         <span>{label}</span>
       </div>
       {children}
