@@ -109,7 +109,7 @@ function MethodCard({
   return (
     <section
       className={[
-        "overflow-hidden rounded-2xl border bg-card transition",
+        "overflow-hidden rounded-xl border bg-card transition md:rounded-2xl",
         enabled
           ? "border-primary/35"
           : "border-border",
@@ -157,7 +157,7 @@ function MethodCard({
 
       {enabled ? (
         <div className="border-t border-border bg-surface-soft p-3 md:p-5">
-          <div className="rounded-2xl border border-border bg-card p-4">
+          <div className="rounded-xl border border-border bg-card p-3 md:rounded-2xl md:p-4">
             {children}
           </div>
         </div>
@@ -663,7 +663,7 @@ export default function PaymentsTab() {
             </div>
           ) : null}
 
-          <section className="rounded-2xl border border-border bg-card">
+          <section className="rounded-xl border border-border bg-card md:rounded-2xl">
             <div className="flex items-start gap-3 px-3 py-3 md:px-5 md:py-3.5">
               <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg md:h-10 md:w-10 md:rounded-xl bg-secondary text-secondary-foreground">
                 <Settings2 className="h-4.5 w-4.5" />
@@ -830,13 +830,13 @@ export default function PaymentsTab() {
                   }
                 >
                   <div className="space-y-4">
-                    <div className="flex items-center justify-between gap-4 rounded-2xl bg-surface-soft px-4 py-3">
+                    <div className="flex items-center justify-between gap-3 rounded-xl bg-surface-soft px-3 py-2.5 md:rounded-2xl md:px-4 md:py-3">
                       <div className="min-w-0">
                         <div className="text-sm font-bold text-heading">
                           Payment screenshot
                         </div>
 
-                        <div className="mt-0.5 text-xs text-muted-foreground">
+                        <div className="mt-0.5 hidden text-xs text-muted-foreground sm:block">
                           Ask customers to upload payment proof on the success page.
                         </div>
                       </div>
@@ -928,6 +928,7 @@ export default function PaymentsTab() {
                   saving
                 }
                 loadingLabel="Saving…"
+                className="w-full sm:w-auto"
                 disabled={
                   !isDirty
                 }
