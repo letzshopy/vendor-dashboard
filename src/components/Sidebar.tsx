@@ -89,6 +89,22 @@ function itemMatches(
       return pathname === "/settings";
     }
 
+    if (
+      tab ===
+        "shippingDelivery" &&
+      (
+        currentTab ===
+          "shipping" ||
+        currentTab ===
+          "shipmentFulfillment"
+      )
+    ) {
+      return (
+        pathname ===
+        "/settings"
+      );
+    }
+
     if (tab === "profile") {
       return (
         pathname === "/settings" &&
@@ -341,13 +357,8 @@ const ALL_GROUPS: Group[] = [
         ready: true,
       },
       {
-        href: "/settings?tab=shipping",
-        label: "Shipping Charges",
-        ready: true,
-      },
-      {
-        href: "/settings?tab=shipmentFulfillment",
-        label: "Shipment Fulfillment",
+        href: "/settings?tab=shippingDelivery",
+        label: "Shipping & Delivery",
         ready: true,
       },
       {
