@@ -1,5 +1,14 @@
-// src/app/support/faq/page.tsx
-import type { Metadata } from "next";
+import type {
+  Metadata,
+} from "next";
+import {
+  ChevronDown,
+  CircleHelp,
+} from "lucide-react";
+
+import {
+  PageHeader,
+} from "@/components/ui/page-header";
 
 export const metadata: Metadata = {
   title: "FAQ | LetzShopy Vendor Help",
@@ -145,84 +154,144 @@ const faqs: FAQ[] = [
   },
 ];
 
-function groupByCategory(items: FAQ[]) {
-  const map = new Map<string, FAQ[]>();
+function groupByCategory(
+  items: FAQ[]
+) {
+  const map =
+    new Map<
+      string,
+      FAQ[]
+    >();
+
   for (const item of items) {
-    if (!map.has(item.category)) map.set(item.category, []);
-    map.get(item.category)!.push(item);
+    if (
+      !map.has(
+        item.category
+      )
+    ) {
+      map.set(
+        item.category,
+        []
+      );
+    }
+
+    map.get(
+      item.category
+    )!.push(item);
   }
-  return Array.from(map.entries());
+
+  return Array.from(
+    map.entries()
+  );
 }
 
-function slugify(label: string) {
+function slugify(
+  label: string
+) {
   return label
     .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/(^-|-$)/g, "");
+    .replace(
+      /[^a-z0-9]+/g,
+      "-"
+    )
+    .replace(
+      /(^-|-$)/g,
+      ""
+    );
 }
 
 export default function FAQPage() {
-  const grouped = groupByCategory(faqs);
+  const grouped =
+    groupByCategory(
+      faqs
+    );
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <header className="space-y-2 rounded-2xl border border-slate-200 bg-gradient-to-r from-indigo-50 via-sky-50 to-emerald-50 px-4 py-4 shadow-sm md:px-6 md:py-5">
-        <h1 className="text-lg font-semibold text-slate-900 md:text-xl">
-          FAQ
-        </h1>
-        <p className="max-w-3xl text-sm text-slate-600">
-          Frequently asked questions about onboarding, subscriptions, products,
-          orders, payments, shipping and support on LetzShopy.
-        </p>
+    <main className="mx-auto w-full min-w-0 max-w-7xl pb-28 md:pb-8">
+      <PageHeader
+        className="hidden md:flex"
+        eyebrow="Support"
+        icon={CircleHelp}
+        title="FAQ"
+        description="Quick answers about onboarding, products, orders, payments, shipping and support."
+      />
 
-        {/* Quick jump pills */}
-        <div className="mt-2 flex items-center gap-2 overflow-x-auto pb-1 text-xs">
-          {grouped.map(([category]) => (
-            <a
-              key={category}
-              href={`#${slugify(category)}`}
-              className="whitespace-nowrap rounded-full border border-slate-200 bg-white/80 px-3 py-1 text-[11px] font-medium text-slate-700 transition hover:bg-slate-900 hover:text-white"
-            >
-              {category}
-            </a>
-          ))}
-        </div>
-      </header>
-
-      {/* Sections by category */}
-      <div className="space-y-8">
-        {grouped.map(([category, items]) => (
-          <section key={category} id={slugify(category)} className="space-y-3">
-            <div className="flex items-center gap-2">
-              <h2 className="text-lg font-semibold text-slate-900">
+      <div className="space-y-5 md:mt-5 md:space-y-7">
+        <nav
+          aria-label="FAQ categories"
+          className="touch-scroll -mx-3 flex gap-2 overflow-x-auto px-3 pb-1 md:mx-0 md:flex-wrap md:px-0"
+        >
+          {grouped.map(
+            ([
+              category,
+            ]) => (
+              <a
+                key={category}
+                href={`#${slugify(category)}`}
+                className="ls-focus-ring inline-flex min-h-10 shrink-0 items-center rounded-xl border border-border bg-card px-3 text-xs font-bold text-foreground hover:bg-muted"
+              >
                 {category}
-              </h2>
-              <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] text-slate-500">
-                {items.length} question{items.length > 1 ? "s" : ""}
-              </span>
-            </div>
+              </a>
+            )
+          )}
+        </nav>
 
-            <div className="grid gap-3 md:grid-cols-2">
-              {items.map((item, idx) => (
-                <article
-                  key={idx}
-                  className="flex flex-col rounded-xl border border-slate-200 bg-white/90 p-4 text-sm shadow-sm transition hover:border-slate-300 hover:shadow-md"
-                >
-                  <h3 className="mb-2 text-sm font-semibold text-slate-800">
-                    {item.q}
-                  </h3>
-                  <div className="space-y-1.5 text-xs leading-relaxed text-slate-700">
-                    {item.a.map((line, i) => (
-                      <p key={i}>{line}</p>
-                    ))}
-                  </div>
-                </article>
-              ))}
-            </div>
-          </section>
-        ))}
+        {grouped.map(
+          ([
+            category,
+            items,
+          ]) => (
+            <section
+              key={category}
+              id={slugify(category)}
+              className="scroll-mt-24 space-y-2.5 md:space-y-3"
+            >
+              <div className="flex items-center justify-between gap-3">
+                <h2 className="text-base font-extrabold text-heading md:text-lg">
+                  {category}
+                </h2>
+
+                <span className="rounded-full bg-secondary px-2.5 py-1 text-[11px] font-bold text-secondary-foreground">
+                  {items.length}
+                </span>
+              </div>
+
+              <div className="grid gap-2 md:grid-cols-2 md:gap-3">
+                {items.map(
+                  (
+                    item
+                  ) => (
+                    <details
+                      key={item.q}
+                      className="group rounded-xl border border-border bg-card md:rounded-2xl"
+                    >
+                      <summary className="ls-focus-ring flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 rounded-xl px-3 py-3 text-left md:rounded-2xl md:px-4">
+                        <span className="text-sm font-bold leading-5 text-heading">
+                          {item.q}
+                        </span>
+
+                        <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-180" />
+                      </summary>
+
+                      <div className="space-y-2 border-t border-border px-3 pb-3 pt-3 text-sm leading-6 text-foreground md:px-4 md:pb-4">
+                        {item.a.map(
+                          (
+                            line
+                          ) => (
+                            <p key={line}>
+                              {line}
+                            </p>
+                          )
+                        )}
+                      </div>
+                    </details>
+                  )
+                )}
+              </div>
+            </section>
+          )
+        )}
       </div>
-    </div>
+    </main>
   );
 }
