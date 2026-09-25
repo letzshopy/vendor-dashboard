@@ -1,29 +1,81 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import {
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import Link from "next/link";
 import {
   ChevronLeft,
   ChevronRight,
-  MoreVertical,
-  Package2,
-  MessageCircle,
   Eye,
+  FileDown,
+  MessageCircle,
+  MoreHorizontal,
+  Package2,
   Trash2,
   X,
 } from "lucide-react";
-import { WCOrder } from "@/lib/order-utils";
-import OrdersExportButton from "./ui/OrdersExportButton";
-import { UPIVerificationInline } from "./UPIVerificationInline";
-import { extractShipmentFromMeta } from "@/lib/shipment-meta";
+import {
+  useRouter,
+} from "next/navigation";
 
-type Category = { id: number; name: string; parent: number };
-/* LETZSHOPY ORDER STATUS PRESENTATION V1
- * UI-only: all WooCommerce statuses continue to be fetched and shown.
- * The stronger mobile-first badge makes payment/order state immediately readable.
- */
-function orderStatusLabel(status?: string) {
-  const normalized = String(status || "pending").toLowerCase();
+import OrdersExportButton from "./ui/OrdersExportButton";
+import {
+  UPIVerificationInline,
+} from "./UPIVerificationInline";
+
+import {
+  BottomSheet,
+} from "@/components/ui/bottom-sheet";
+import {
+  AsyncButton,
+} from "@/components/ui/async-button";
+import {
+  Button,
+  buttonClassName,
+} from "@/components/ui/button";
+import {
+  ConfirmDialog,
+} from "@/components/ui/confirm-dialog";
+import {
+  EmptyState,
+} from "@/components/ui/empty-state";
+import {
+  StatusBadge,
+  type StatusTone,
+} from "@/components/ui/status-badge";
+import {
+  actionFeedback,
+} from "@/lib/actionFeedback";
+import {
+  type WCOrder,
+} from "@/lib/order-utils";
+import {
+  extractShipmentFromMeta,
+} from "@/lib/shipment-meta";
+
+type Category = {
+  id: number;
+  name: string;
+  parent: number;
+};
+
+type OrdersClientProps = {
+  orders: WCOrder[];
+  categories?: Category[];
+  storeName: string;
+};
+
+function orderStatusLabel(
+  status?: string
+) {
+  const normalized =
+    String(
+      status ||
+        "pending"
+    ).toLowerCase();
 
   switch (normalized) {
     case "pending":
@@ -43,111 +95,266 @@ function orderStatusLabel(status?: string) {
     case "trash":
       return "Trash";
     default:
-      return normalized.replace(/[-_]+/g, " ");
+      return normalized.replace(
+        /[-_]+/g,
+        " "
+      );
   }
 }
 
-function orderStatusPillClass(status?: string) {
-  const normalized = String(status || "pending").toLowerCase();
+function orderStatusTone(
+  status?: string
+): StatusTone {
+  const normalized =
+    String(
+      status ||
+        ""
+    ).toLowerCase();
 
-  const base =
-    "inline-flex min-h-[30px] shrink-0 items-center justify-center whitespace-nowrap rounded-full border px-3 py-1.5 text-[12px] font-extrabold uppercase leading-none tracking-[0.045em] shadow-sm md:min-h-7 md:px-2.5 md:py-1 md:text-[11px] md:font-bold";
-
-  switch (normalized) {
-    case "processing":
-      return `${base} border-blue-200 bg-blue-50 text-blue-800`;
-    case "completed":
-      return `${base} border-emerald-200 bg-emerald-50 text-emerald-800`;
-    case "pending":
-      return `${base} border-amber-300 bg-amber-50 text-amber-900`;
-    case "on-hold":
-      return `${base} border-yellow-300 bg-yellow-50 text-yellow-900`;
-    case "cancelled":
-      return `${base} border-rose-200 bg-rose-50 text-rose-800`;
-    case "failed":
-      return `${base} border-red-300 bg-red-50 text-red-800`;
-    case "refunded":
-      return `${base} border-teal-200 bg-teal-50 text-teal-800`;
-    case "trash":
-      return `${base} border-slate-300 bg-slate-100 text-slate-700`;
-    default:
-      return `${base} border-violet-200 bg-violet-50 text-violet-800`;
+  if (
+    normalized ===
+    "completed"
+  ) {
+    return "success";
   }
-}
-/* END LETZSHOPY ORDER STATUS PRESENTATION V1 */
 
-type OrdersClientProps = {
-  orders: WCOrder[];
-  categories?: Category[];
-  storeName: string;
-};
-
-function formatShortDate(date_gmt?: string) {
-  if (!date_gmt) return "-";
-  try {
-    const d = new Date(date_gmt + "Z");
-    if (Number.isNaN(d.getTime())) return "-";
-    const day = d.getUTCDate().toString().padStart(2, "0");
-    const month = (d.getUTCMonth() + 1).toString().padStart(2, "0");
-    const year = d.getUTCFullYear();
-    return `${day}-${month}-${year}`;
-  } catch {
-    return "-";
+  if (
+    normalized ===
+    "processing"
+  ) {
+    return "info";
   }
+
+  if (
+    normalized ===
+      "pending" ||
+    normalized ===
+      "on-hold"
+  ) {
+    return "warning";
+  }
+
+  if (
+    normalized ===
+      "cancelled" ||
+    normalized ===
+      "failed"
+  ) {
+    return "danger";
+  }
+
+  return "neutral";
 }
 
-
-function normalizeWhatsAppPhone(value?: string) {
-  const original = String(value || "").trim();
-  let digits = original.replace(/\D/g, "");
-
-  if (digits.startsWith("00")) {
-    digits = digits.slice(2);
+function formatShortDate(
+  dateGmt?: string
+) {
+  if (!dateGmt) {
+    return "—";
   }
 
-  if (original.startsWith("+")) {
-    return digits.length >= 10 && digits.length <= 15 ? digits : "";
+  const date =
+    new Date(
+      dateGmt.endsWith(
+        "Z"
+      )
+        ? dateGmt
+        : `${dateGmt}Z`
+    );
+
+  if (
+    Number.isNaN(
+      date.getTime()
+    )
+  ) {
+    return "—";
   }
 
-  if (digits.length === 11 && digits.startsWith("0")) {
-    digits = digits.slice(1);
-  }
-
-  if (digits.length === 10) {
-    digits = `91${digits}`;
-  }
-
-  return digits.length >= 10 && digits.length <= 15 ? digits : "";
+  return date.toLocaleDateString(
+    "en-IN",
+    {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    }
+  );
 }
 
-function formatWhatsAppDate(value?: string | null) {
-  if (!value) return "";
+function formatMoney(
+  value?: string
+) {
+  const amount =
+    Number(value || 0);
 
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return String(value);
+  if (
+    !Number.isFinite(
+      amount
+    )
+  ) {
+    return "₹0";
+  }
 
-  return d.toLocaleDateString("en-IN", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  });
+  return `₹${new Intl.NumberFormat(
+    "en-IN",
+    {
+      maximumFractionDigits:
+        2,
+    }
+  ).format(amount)}`;
 }
 
-function buildWhatsAppStatusMessage(order: WCOrder, storeName: string) {
-  const status = String(order.status || "pending").toLowerCase();
-  const firstName = String(order.billing?.first_name || "").trim() || "Customer";
-  const orderNumber = order.number || order.id;
-  const businessName = String(storeName || "").trim() || "Your Store";
-  const shipment = extractShipmentFromMeta((order as any).meta_data || []);
+function normalizeWhatsAppPhone(
+  value?: string
+) {
+  const original =
+    String(
+      value ||
+        ""
+    ).trim();
+  let digits =
+    original.replace(
+      /\D/g,
+      ""
+    );
 
-  const itemLines = (order.line_items || []).map((item: any) => {
-    const quantity = Number(item.quantity || 1);
-    const name = String(item.name || "Product").trim() || "Product";
-    return `- ${quantity} x ${name}`;
-  });
+  if (
+    digits.startsWith(
+      "00"
+    )
+  ) {
+    digits =
+      digits.slice(2);
+  }
 
-  let statusMessage: string;
-  let followUpMessage: string;
+  if (
+    original.startsWith(
+      "+"
+    )
+  ) {
+    return digits.length >=
+      10 &&
+      digits.length <=
+        15
+      ? digits
+      : "";
+  }
+
+  if (
+    digits.length ===
+      11 &&
+    digits.startsWith(
+      "0"
+    )
+  ) {
+    digits =
+      digits.slice(1);
+  }
+
+  if (
+    digits.length ===
+    10
+  ) {
+    digits =
+      `91${digits}`;
+  }
+
+  return digits.length >=
+    10 &&
+    digits.length <=
+      15
+    ? digits
+    : "";
+}
+
+function formatWhatsAppDate(
+  value?: string | null
+) {
+  if (!value) {
+    return "";
+  }
+
+  const date =
+    new Date(value);
+
+  if (
+    Number.isNaN(
+      date.getTime()
+    )
+  ) {
+    return String(value);
+  }
+
+  return date.toLocaleDateString(
+    "en-IN",
+    {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    }
+  );
+}
+
+function buildWhatsAppStatusMessage(
+  order: WCOrder,
+  storeName: string
+) {
+  const status =
+    String(
+      order.status ||
+        "pending"
+    ).toLowerCase();
+  const firstName =
+    String(
+      order.billing
+        ?.first_name ||
+        ""
+    ).trim() ||
+    "Customer";
+  const orderNumber =
+    order.number ||
+    order.id;
+  const businessName =
+    String(
+      storeName ||
+        ""
+    ).trim() ||
+    "Your Store";
+  const shipment =
+    extractShipmentFromMeta(
+      (
+        order as any
+      ).meta_data ||
+        []
+    );
+
+  const itemLines =
+    (
+      order.line_items ||
+      []
+    ).map(
+      (
+        item: any
+      ) => {
+        const quantity =
+          Number(
+            item.quantity ||
+              1
+          );
+        const name =
+          String(
+            item.name ||
+              "Product"
+          ).trim() ||
+          "Product";
+
+        return `- ${quantity} x ${name}`;
+      }
+    );
+
+  let statusMessage:
+    string;
+  let followUpMessage:
+    string;
 
   switch (status) {
     case "pending":
@@ -156,51 +363,45 @@ function buildWhatsAppStatusMessage(order: WCOrder, storeName: string) {
       followUpMessage =
         "We will update you as soon as your payment is received and verified.";
       break;
-
     case "on-hold":
       statusMessage =
         "Your order payment details have not yet been verified. Once verified, your order will be confirmed.";
       followUpMessage =
         "We will update you as soon as the verification is completed.";
       break;
-
     case "processing":
       statusMessage =
         "Your order payment details have been verified and your order is confirmed. It is now being processed.";
       followUpMessage =
         "We will notify you once your order is dispatched.";
       break;
-
     case "completed":
       statusMessage =
         "Your order has been completed. Thank you for shopping with us.";
       followUpMessage =
         "Please contact us if you need any further assistance with this order.";
       break;
-
     case "cancelled":
       statusMessage =
         "Your order has been cancelled.";
       followUpMessage =
         "Please contact us if you need assistance or would like to place the order again.";
       break;
-
     case "failed":
       statusMessage =
         "We could not confirm your order because the payment or order attempt was unsuccessful.";
       followUpMessage =
         "Please retry the payment or contact us for assistance.";
       break;
-
     case "refunded":
       statusMessage =
         "The refund for your order has been processed.";
       followUpMessage =
         "The amount may take a few business days to reflect, depending on your payment provider.";
       break;
-
     default:
-      statusMessage = `Your order status is now ${status.replace(/-/g, " ")}.`;
+      statusMessage =
+        `Your order status is now ${status.replace(/-/g, " ")}.`;
       followUpMessage =
         "We will keep you updated if there are any further changes.";
       break;
@@ -215,33 +416,61 @@ function buildWhatsAppStatusMessage(order: WCOrder, storeName: string) {
     "",
     `Order: #${orderNumber}`,
     "Order details:",
-    ...(itemLines.length ? itemLines : ["- Order item details unavailable"]),
+    ...(itemLines.length
+      ? itemLines
+      : [
+          "- Order item details unavailable",
+        ]),
   ];
 
-  const hasShipment = Boolean(
-    shipment.courier ||
-      shipment.awb ||
-      shipment.status ||
-      shipment.shippedDate
-  );
+  const hasShipment =
+    Boolean(
+      shipment.courier ||
+        shipment.awb ||
+        shipment.status ||
+        shipment.shippedDate
+    );
 
-  if (status === "completed" && hasShipment) {
-    lines.push("", "Shipment details:");
+  if (
+    status ===
+      "completed" &&
+    hasShipment
+  ) {
+    lines.push(
+      "",
+      "Shipment details:"
+    );
 
-    if (shipment.courier) {
-      lines.push(`Courier: ${shipment.courier}`);
+    if (
+      shipment.courier
+    ) {
+      lines.push(
+        `Courier: ${shipment.courier}`
+      );
     }
 
     if (shipment.awb) {
-      lines.push(`Tracking / AWB: ${shipment.awb}`);
+      lines.push(
+        `Tracking / AWB: ${shipment.awb}`
+      );
     }
 
-    if (shipment.status) {
-      lines.push(`Shipment status: ${shipment.status}`);
+    if (
+      shipment.status
+    ) {
+      lines.push(
+        `Shipment status: ${shipment.status}`
+      );
     }
 
-    if (shipment.shippedDate) {
-      lines.push(`Shipped on: ${formatWhatsAppDate(shipment.shippedDate)}`);
+    if (
+      shipment.shippedDate
+    ) {
+      lines.push(
+        `Shipped on: ${formatWhatsAppDate(
+          shipment.shippedDate
+        )}`
+      );
     }
   }
 
@@ -256,873 +485,1664 @@ function buildWhatsAppStatusMessage(order: WCOrder, storeName: string) {
     `${businessName} Team`
   );
 
-  return lines.join("\n");
+  return lines.join(
+    "\n"
+  );
 }
-function openWhatsAppStatusDraft(order: WCOrder, storeName: string) {
-  const phone = normalizeWhatsAppPhone(order.billing?.phone);
+
+function openWhatsAppStatusDraft(
+  order: WCOrder,
+  storeName: string
+) {
+  const phone =
+    normalizeWhatsAppPhone(
+      order.billing
+        ?.phone
+    );
+  const feedbackId =
+    `orders-whatsapp-${order.id}`;
 
   if (!phone) {
-    alert("Customer WhatsApp number is missing or invalid.");
+    actionFeedback.warning({
+      id: feedbackId,
+      title:
+        "WhatsApp unavailable",
+      message:
+        "Customer WhatsApp number is missing or invalid.",
+      durationMs: 3600,
+    });
     return;
   }
 
-  const message = buildWhatsAppStatusMessage(order, storeName);
-  const url = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
-  const popup = window.open(url, "_blank", "noopener,noreferrer");
+  const message =
+    buildWhatsAppStatusMessage(
+      order,
+      storeName
+    );
+  const url =
+    `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
+
+  actionFeedback.info({
+    id: feedbackId,
+    title:
+      "Opening WhatsApp",
+    message:
+      `Order #${order.number || order.id}`,
+    durationMs: 1800,
+  });
+
+  const popup =
+    window.open(
+      url,
+      "_blank",
+      "noopener,noreferrer"
+    );
 
   if (!popup) {
-    window.location.href = url;
+    window.location.href =
+      url;
   }
 }
-function ActionMenu({
+
+function OrderActionSheet({
   order,
   storeName,
-  onTrash,
+  onRequestTrash,
 }: {
   order: WCOrder;
   storeName: string;
-  onTrash: (id: number) => void;
+  onRequestTrash: (
+    order: WCOrder
+  ) => void;
 }) {
-  const [open, setOpen] = useState(false);
-  const isTrash = String(order.status || "").toLowerCase() === "trash";
-  const orderNumber = order.number || order.id;
+  const [
+    open,
+    setOpen,
+  ] =
+    useState(false);
+  const isTrash =
+    String(
+      order.status ||
+        ""
+    ).toLowerCase() ===
+    "trash";
+  const orderNumber =
+    order.number ||
+    order.id;
   const customerName =
     `${order.billing?.first_name || ""} ${order.billing?.last_name || ""}`.trim() ||
     "Customer";
-  const statusLabel = orderStatusLabel(order.status);
-
-  useEffect(() => {
-    if (!open) return;
-
-    function closeOnEscape(event: KeyboardEvent) {
-      if (event.key === "Escape") {
-        setOpen(false);
-      }
-    }
-
-    document.addEventListener("keydown", closeOnEscape);
-    return () => document.removeEventListener("keydown", closeOnEscape);
-  }, [open]);
 
   return (
-    <div className="relative">
-      <button
-        type="button"
+    <>
+      <Button
+        variant="ghost"
+        size="icon"
         aria-label={`Open actions for order ${orderNumber}`}
-        aria-expanded={open}
-        onClick={() => setOpen((value) => !value)}
-        className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:border-violet-300 hover:bg-violet-50 hover:text-violet-700"
+        onClick={() =>
+          setOpen(true)
+        }
+        className="h-10 w-10"
       >
-        <MoreVertical className="h-5 w-5" />
-      </button>
+        <MoreHorizontal className="h-5 w-5" />
+      </Button>
 
-      {open && (
-        <>
-          <button
-            type="button"
-            aria-label="Close order actions"
-            className="fixed inset-0 z-[80] bg-slate-950/40 backdrop-blur-[2px] xl:hidden"
-            onClick={() => setOpen(false)}
-          />
-
-          <section
-            role="dialog"
-            aria-modal="true"
-            aria-label={`Actions for order ${orderNumber}`}
-            className="fixed inset-x-3 bottom-3 z-[90] overflow-hidden rounded-[28px] border border-slate-200 bg-white p-3 shadow-[0_28px_80px_rgba(15,23,42,0.28)] xl:hidden"
+      <BottomSheet
+        open={open}
+        onOpenChange={
+          setOpen
+        }
+        title={`Order #${orderNumber}`}
+        description={`${customerName} · ${orderStatusLabel(order.status)}`}
+        popupClassName="md:mx-auto md:max-w-md"
+      >
+        <div className="space-y-2">
+          <Link
+            href={`/orders/${order.id}`}
+            onClick={() =>
+              setOpen(
+                false
+              )
+            }
+            className={buttonClassName({
+              variant:
+                "outline",
+              size: "lg",
+              className:
+                "w-full justify-start",
+            })}
           >
-            <div className="flex items-start justify-between gap-4 px-2 pb-3 pt-1">
-              <div className="min-w-0">
-                <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-violet-600">
-                  Order actions
-                </div>
-                <div className="mt-1 text-base font-semibold text-slate-900">
-                  Order #{orderNumber}
-                </div>
-                <div className="mt-0.5 truncate text-sm text-slate-500">
-                  {customerName}
-                </div>
-              </div>
+            <Eye className="h-4 w-4" />
+            View full order
+          </Link>
 
-              <button
-                type="button"
-                aria-label="Close"
-                onClick={() => setOpen(false)}
-                className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-600 transition hover:bg-slate-200"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-
-            <div className="space-y-2">
-              <Link
-                href={`/orders/${order.id}`}
-                onClick={() => setOpen(false)}
-                className="flex w-full items-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3.5 text-left transition hover:bg-slate-50"
-              >
-                <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-violet-100 text-violet-700">
-                  <Eye className="h-5 w-5" />
-                </span>
-                <span className="min-w-0">
-                  <span className="block text-sm font-semibold text-slate-900">
-                    View order
-                  </span>
-                  <span className="mt-0.5 block text-xs text-slate-500">
-                    Open full order details
-                  </span>
-                </span>
-              </Link>
-
-              {!isTrash && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setOpen(false);
-                    openWhatsAppStatusDraft(order, storeName);
-                  }}
-                  className="flex w-full items-center gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3.5 text-left transition hover:bg-emerald-100"
-                >
-                  <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-emerald-600 text-white shadow-sm">
-                    <MessageCircle className="h-5 w-5" />
-                  </span>
-                  <span className="min-w-0">
-                    <span className="block text-sm font-semibold text-emerald-900">
-                      Notify status in WhatsApp
-                    </span>
-                    <span className="mt-0.5 block text-xs capitalize text-emerald-700">
-                      Draft the current {statusLabel} update
-                    </span>
-                  </span>
-                </button>
-              )}
-
-              <button
-                type="button"
-                onClick={() => {
-                  setOpen(false);
-                  onTrash(order.id);
-                }}
-                className="flex w-full items-center gap-3 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3.5 text-left transition hover:bg-rose-100"
-              >
-                <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-rose-100 text-rose-700">
-                  <Trash2 className="h-5 w-5" />
-                </span>
-                <span className="min-w-0">
-                  <span className="block text-sm font-semibold text-rose-800">
-                    Move to trash
-                  </span>
-                  <span className="mt-0.5 block text-xs text-rose-600">
-                    Remove this order from the active list
-                  </span>
-                </span>
-              </button>
-            </div>
-          </section>
-
-          <div className="absolute right-0 top-12 z-30 hidden min-w-[210px] overflow-hidden rounded-2xl border border-slate-200 bg-white p-1.5 shadow-xl xl:block">
-            <Link
-              href={`/orders/${order.id}`}
-              className="block rounded-xl px-3 py-2.5 text-sm text-slate-700 hover:bg-slate-50"
-              onClick={() => setOpen(false)}
-            >
-              View order
-            </Link>
-
-            <button
-              type="button"
+          {!isTrash ? (
+            <Button
+              variant="secondary"
+              size="lg"
+              className="w-full justify-start"
               onClick={() => {
-                setOpen(false);
-                onTrash(order.id);
+                setOpen(
+                  false
+                );
+                openWhatsAppStatusDraft(
+                  order,
+                  storeName
+                );
               }}
-              className="block w-full rounded-xl px-3 py-2.5 text-left text-sm text-rose-600 hover:bg-rose-50"
             >
+              <MessageCircle className="h-4 w-4" />
+              Notify status in WhatsApp
+            </Button>
+          ) : null}
+
+          {!isTrash ? (
+            <Button
+              variant="danger"
+              size="lg"
+              className="w-full justify-start"
+              onClick={() => {
+                setOpen(
+                  false
+                );
+                onRequestTrash(
+                  order
+                );
+              }}
+            >
+              <Trash2 className="h-4 w-4" />
               Move to trash
-            </button>
-          </div>
-        </>
-      )}
-    </div>
+            </Button>
+          ) : null}
+        </div>
+      </BottomSheet>
+    </>
   );
 }
+
+function OrderStatus({
+  status,
+}: {
+  status?: string;
+}) {
+  const normalized =
+    String(
+      status ||
+        "pending"
+    ).toLowerCase();
+
+  return (
+    <StatusBadge
+      status={
+        normalized
+      }
+      label={
+        orderStatusLabel(
+          normalized
+        )
+      }
+      tone={
+        orderStatusTone(
+          normalized
+        )
+      }
+      className="whitespace-nowrap"
+    />
+  );
+}
+
 export default function OrdersClient({
   orders,
   categories = [],
   storeName,
 }: OrdersClientProps) {
-  const [selected, setSelected] = useState<number[]>([]);
-  const [action, setAction] = useState<string>("");
-  const [packSlipBusy, setPackSlipBusy] = useState(false);
-  const [previewImage, setPreviewImage] = useState<{
-    src: string;
-    alt: string;
-  } | null>(null);
+  const router =
+    useRouter();
 
-  const [rowsPerPage, setRowsPerPage] = useState(25);
-  const [page, setPage] = useState(1);
+  const [
+    selected,
+    setSelected,
+  ] =
+    useState<number[]>(
+      []
+    );
+  const [
+    action,
+    setAction,
+  ] =
+    useState("");
+  const [
+    bulkBusy,
+    setBulkBusy,
+  ] =
+    useState(false);
+  const [
+    packSlipBusy,
+    setPackSlipBusy,
+  ] =
+    useState(false);
+  const [
+    bulkTrashOpen,
+    setBulkTrashOpen,
+  ] =
+    useState(false);
+  const [
+    trashTarget,
+    setTrashTarget,
+  ] =
+    useState<WCOrder | null>(
+      null
+    );
+  const [
+    trashBusy,
+    setTrashBusy,
+  ] =
+    useState(false);
+  const [
+    previewImage,
+    setPreviewImage,
+  ] =
+    useState<{
+      src: string;
+      alt: string;
+    } | null>(null);
 
-  const allIds = useMemo(() => orders.map((o) => o.id), [orders]);
-  const allSelected = selected.length > 0 && selected.length === allIds.length;
+  const [
+    rowsPerPage,
+    setRowsPerPage,
+  ] =
+    useState(25);
+  const [
+    page,
+    setPage,
+  ] =
+    useState(1);
 
-  const pageCount = useMemo(
-    () => Math.max(1, Math.ceil((orders.length || 0) / rowsPerPage)),
-    [orders.length, rowsPerPage]
-  );
+  const pageCount =
+    useMemo(
+      () =>
+        Math.max(
+          1,
+          Math.ceil(
+            (
+              orders.length ||
+              0
+            ) /
+              rowsPerPage
+          )
+        ),
+      [
+        orders.length,
+        rowsPerPage,
+      ]
+    );
 
-  const currentPage = Math.min(page, pageCount);
+  const currentPage =
+    Math.min(
+      page,
+      pageCount
+    );
 
-  const paginatedOrders = useMemo(() => {
-    const start = (currentPage - 1) * rowsPerPage;
-    return orders.slice(start, start + rowsPerPage);
-  }, [orders, currentPage, rowsPerPage]);
+  const paginatedOrders =
+    useMemo(() => {
+      const start =
+        (currentPage -
+          1) *
+        rowsPerPage;
+
+      return orders.slice(
+        start,
+        start +
+          rowsPerPage
+      );
+    }, [
+      orders,
+      currentPage,
+      rowsPerPage,
+    ]);
+
+  const pageIds =
+    useMemo(
+      () =>
+        paginatedOrders.map(
+          (
+            order
+          ) =>
+            order.id
+        ),
+      [
+        paginatedOrders,
+      ]
+    );
+
+  const allPageSelected =
+    pageIds.length >
+      0 &&
+    pageIds.every(
+      (id) =>
+        selected.includes(
+          id
+        )
+    );
 
   useEffect(() => {
     setPage(1);
-  }, [rowsPerPage, orders.length]);
+    setSelected([]);
+    setAction("");
+  }, [
+    orders,
+    rowsPerPage,
+  ]);
 
-  function toggleAll(checked: boolean) {
-    setSelected(checked ? allIds : []);
+  function toggleAll(
+    checked: boolean
+  ) {
+    if (!checked) {
+      setSelected(
+        (
+          current
+        ) =>
+          current.filter(
+            (id) =>
+              !pageIds.includes(
+                id
+              )
+          )
+      );
+      return;
+    }
+
+    const next =
+      Array.from(
+        new Set([
+          ...selected,
+          ...pageIds,
+        ])
+      ).slice(
+        0,
+        50
+      );
+
+    if (
+      selected.length +
+        pageIds.filter(
+          (id) =>
+            !selected.includes(
+              id
+            )
+        ).length >
+      50
+    ) {
+      actionFeedback.warning({
+        id:
+          "orders-select-limit",
+        title:
+          "Selection limited to 50",
+        message:
+          "Bulk order updates support up to 50 orders at a time.",
+        durationMs: 3600,
+      });
+    }
+
+    setSelected(next);
   }
 
-  function toggleOne(id: number, checked: boolean) {
-    setSelected((prev) =>
-      checked ? [...new Set([...prev, id])] : prev.filter((x) => x !== id)
+  function toggleOne(
+    id: number,
+    checked: boolean
+  ) {
+    if (!checked) {
+      setSelected(
+        (
+          current
+        ) =>
+          current.filter(
+            (
+              item
+            ) =>
+              item !==
+              id
+          )
+      );
+      return;
+    }
+
+    if (
+      selected.length >=
+      50
+    ) {
+      actionFeedback.warning({
+        id:
+          "orders-select-limit",
+        title:
+          "Selection limited to 50",
+        message:
+          "Bulk order updates support up to 50 orders at a time.",
+        durationMs: 3600,
+      });
+      return;
+    }
+
+    setSelected(
+      (
+        current
+      ) =>
+        current.includes(
+          id
+        )
+          ? current
+          : [
+              ...current,
+              id,
+            ]
     );
   }
 
-  async function applyBulk() {
-    if (!action || selected.length === 0) return;
+  async function performBulk(
+    selectedAction =
+      action
+  ) {
+    if (
+      !selectedAction ||
+      selected.length ===
+        0 ||
+      bulkBusy
+    ) {
+      return;
+    }
 
-    const body: any = { ids: selected, action: "" };
+    const body:
+      Record<
+        string,
+        unknown
+      > = {
+      ids: selected,
+      action: "",
+    };
 
-    if (action === "trash") {
-      body.action = "trash";
-    } else if (action.startsWith("status:")) {
-      body.action = "status";
-      body.status = action.split(":")[1];
+    if (
+      selectedAction ===
+      "trash"
+    ) {
+      body.action =
+        "trash";
+    } else if (
+      selectedAction.startsWith(
+        "status:"
+      )
+    ) {
+      body.action =
+        "status";
+      body.status =
+        selectedAction.split(
+          ":"
+        )[1];
     } else {
       return;
     }
 
-    const res = await fetch("/api/orders", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
+    const feedbackId =
+      "orders-bulk-update";
+
+    setBulkBusy(true);
+
+    actionFeedback.loading({
+      id: feedbackId,
+      title:
+        selectedAction ===
+        "trash"
+          ? "Moving orders to trash…"
+          : "Updating orders…",
+      message:
+        `${selected.length} selected`,
     });
 
-    if (!res.ok) {
-      const j = await res.json().catch(() => ({}));
-      alert(j?.error || "Bulk action failed");
+    try {
+      const response =
+        await fetch(
+          "/api/orders",
+          {
+            method:
+              "PATCH",
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
+            body:
+              JSON.stringify(
+                body
+              ),
+          }
+        );
+
+      const payload =
+        await response
+          .json()
+          .catch(
+            () => ({})
+          );
+
+      if (
+        !response.ok
+      ) {
+        throw new Error(
+          typeof payload
+            .error ===
+          "string"
+            ? payload.error
+            : "Bulk order update failed."
+        );
+      }
+
+      actionFeedback.success({
+        id: feedbackId,
+        title:
+          selectedAction ===
+          "trash"
+            ? "Orders moved to trash"
+            : "Orders updated",
+        message:
+          `${selected.length} order${selected.length === 1 ? "" : "s"} updated.`,
+        durationMs: 2800,
+      });
+
+      setSelected([]);
+      setAction("");
+      setBulkTrashOpen(
+        false
+      );
+      router.refresh();
+    } catch (
+      error
+    ) {
+      actionFeedback.error({
+        id: feedbackId,
+        title:
+          "Order update failed",
+        message:
+          error instanceof
+          Error
+            ? error.message
+            : "Please try again.",
+        durationMs: 4200,
+      });
+    } finally {
+      setBulkBusy(false);
+    }
+  }
+
+  function requestBulkAction() {
+    if (
+      !action ||
+      selected.length ===
+        0
+    ) {
       return;
     }
 
-    location.reload();
+    if (
+      action ===
+      "trash"
+    ) {
+      setBulkTrashOpen(
+        true
+      );
+      return;
+    }
+
+    void performBulk(
+      action
+    );
   }
 
   async function downloadPackSlips() {
-    if (selected.length === 0) {
-      alert("Select at least one order to download packing slips.");
+    if (
+      selected.length ===
+      0 ||
+      packSlipBusy
+    ) {
       return;
     }
 
-    setPackSlipBusy(true);
+    const feedbackId =
+      "orders-pack-slips";
 
-    try {
-      const mod = await import("./ui/PackingSlipPdfClient");
-      await mod.default.generateForOrders(selected, storeName);
-    } catch (error) {
-      console.error(error);
-      alert("Failed to download packing slip PDF.");
-    } finally {
-      setPackSlipBusy(false);
-    }
-  }
-
-  async function moveOneToTrash(orderId: number) {
-    const res = await fetch("/api/orders", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        ids: [orderId],
-        action: "trash",
-      }),
+    setPackSlipBusy(
+      true
+    );
+    actionFeedback.loading({
+      id: feedbackId,
+      title:
+        "Preparing packing slips…",
+      message:
+        `${selected.length} selected order${selected.length === 1 ? "" : "s"}`,
     });
 
-    if (!res.ok) {
-      const j = await res.json().catch(() => ({}));
-      alert(j?.error || "Failed to move order to trash");
+    try {
+      const mod =
+        await import(
+          "./ui/PackingSlipPdfClient"
+        );
+
+      await mod.default.generateForOrders(
+        selected,
+        storeName
+      );
+
+      actionFeedback.success({
+        id: feedbackId,
+        title:
+          "Packing slips ready",
+        message:
+          "PDF download started.",
+        durationMs: 2600,
+      });
+    } catch (
+      error
+    ) {
+      console.error(
+        error
+      );
+
+      actionFeedback.error({
+        id: feedbackId,
+        title:
+          "Packing slip failed",
+        message:
+          "The PDF could not be generated. Please try again.",
+        durationMs: 4200,
+      });
+    } finally {
+      setPackSlipBusy(
+        false
+      );
+    }
+  }
+
+  async function moveOneToTrash() {
+    if (
+      !trashTarget ||
+      trashBusy
+    ) {
       return;
     }
 
-    location.reload();
+    const order =
+      trashTarget;
+    const feedbackId =
+      `orders-trash-${order.id}`;
+
+    setTrashBusy(true);
+    actionFeedback.loading({
+      id: feedbackId,
+      title:
+        "Moving order to trash…",
+      message:
+        `Order #${order.number || order.id}`,
+    });
+
+    try {
+      const response =
+        await fetch(
+          "/api/orders",
+          {
+            method:
+              "PATCH",
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
+            body:
+              JSON.stringify({
+                ids: [
+                  order.id,
+                ],
+                action:
+                  "trash",
+              }),
+          }
+        );
+
+      const payload =
+        await response
+          .json()
+          .catch(
+            () => ({})
+          );
+
+      if (
+        !response.ok
+      ) {
+        throw new Error(
+          typeof payload
+            .error ===
+          "string"
+            ? payload.error
+            : "Failed to move order to trash."
+        );
+      }
+
+      actionFeedback.success({
+        id: feedbackId,
+        title:
+          "Order moved to trash",
+        message:
+          `Order #${order.number || order.id}`,
+        durationMs: 2600,
+      });
+
+      setTrashTarget(
+        null
+      );
+      router.refresh();
+    } catch (
+      error
+    ) {
+      actionFeedback.error({
+        id: feedbackId,
+        title:
+          "Could not move order",
+        message:
+          error instanceof
+          Error
+            ? error.message
+            : "Please try again.",
+        durationMs: 4200,
+      });
+    } finally {
+      setTrashBusy(false);
+    }
   }
 
-  const total = orders.length;
-  const startIndex = total === 0 ? 0 : (currentPage - 1) * rowsPerPage + 1;
-  const endIndex = total === 0 ? 0 : Math.min(currentPage * rowsPerPage, total);
+  const total =
+    orders.length;
+  const startIndex =
+    total === 0
+      ? 0
+      : (currentPage -
+          1) *
+          rowsPerPage +
+        1;
+  const endIndex =
+    total === 0
+      ? 0
+      : Math.min(
+          currentPage *
+            rowsPerPage,
+          total
+        );
 
   return (
-    <div className="space-y-4">
-      <section className="md:overflow-hidden md:rounded-[22px] md:border md:border-slate-200/80 md:bg-white md:shadow-[0_8px_24px_rgba(15,23,42,0.04)]">
-        <div className="hidden border-b border-slate-100 bg-slate-50/70 px-4 py-4 md:block">
-          <div className="flex items-center justify-between gap-3">
-            <h2 className="text-[16px] font-semibold text-slate-900">
+    <div className="space-y-3">
+      <section className="overflow-hidden rounded-xl border border-border bg-card md:rounded-2xl">
+        <div className="flex items-center justify-between gap-3 border-b border-border px-3 py-3 md:px-4">
+          <div className="min-w-0">
+            <h2 className="text-sm font-extrabold text-heading md:text-base">
               Order list
             </h2>
-            <div className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">
-              {orders.length} orders
-            </div>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              {total} result
+              {total === 1
+                ? ""
+                : "s"}
+            </p>
           </div>
 
-          <div className="mt-3 flex flex-wrap items-center gap-2">
-            <select
-              value={action}
-              onChange={(e) => setAction(e.target.value)}
-              className="h-11 min-w-[180px] rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-700 shadow-sm focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-200"
-            >
-              <option value="">Bulk actions…</option>
-              <option value="trash">Move to trash</option>
-              <option value="status:processing">Change status → Processing</option>
-              <option value="status:completed">Change status → Completed</option>
-              <option value="status:on-hold">Change status → On hold</option>
-              <option value="status:cancelled">Change status → Cancelled</option>
-            </select>
-
-            <button
-              onClick={applyBulk}
-              className="inline-flex h-11 items-center justify-center rounded-2xl bg-violet-600 px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-violet-700"
-            >
-              Apply
-            </button>
-
-            <button
-              type="button"
-              onClick={downloadPackSlips}
-              disabled={packSlipBusy}
-              className="inline-flex h-11 items-center justify-center rounded-2xl border border-slate-200 bg-white px-5 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {packSlipBusy ? "Preparing PDF..." : "Download Pack Slips"}
-            </button>
-
-            <OrdersExportButton categories={categories} />
-
-            <div className="ml-auto rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">
-              {selected.length} selected
-            </div>
-          </div>
+          <OrdersExportButton
+            categories={
+              categories
+            }
+          />
         </div>
 
-        {/* Mobile list */}
-        <div className="block md:hidden">
-          {selected.length > 0 ? (
-            <div className="mb-3 rounded-2xl border border-[#D9DEEC] bg-[#F5F7FF] p-2.5 shadow-sm">
-              <div className="mb-2 flex items-center justify-between gap-3">
-                <span className="text-xs font-bold text-[#405296]">
-                  {selected.length} selected
-                </span>
-
-                <button
-                  type="button"
-                  onClick={() => setSelected([])}
-                  className="text-xs font-semibold text-slate-500"
-                >
-                  Clear
-                </button>
+        {selected.length >
+        0 ? (
+          <div className="border-b border-border bg-secondary/45 p-2.5 md:p-3">
+            <div className="flex items-center justify-between gap-3">
+              <div className="text-xs font-extrabold text-heading">
+                {
+                  selected.length
+                }{" "}
+                selected
               </div>
 
-              <div className="flex gap-2">
-                <select
-                  value={action}
-                  onChange={(e) => setAction(e.target.value)}
-                  className="h-10 min-w-0 flex-1 rounded-xl border border-[#D9DEEC] bg-white px-3 text-xs font-semibold text-slate-700 outline-none"
-                >
-                  <option value="">Bulk action</option>
-                  <option value="trash">Move to trash</option>
-                  <option value="status:processing">Set Processing</option>
-                  <option value="status:completed">Set Completed</option>
-                  <option value="status:on-hold">Set On hold</option>
-                  <option value="status:cancelled">Set Cancelled</option>
-                </select>
-
-                <button
-                  type="button"
-                  disabled={!action}
-                  onClick={applyBulk}
-                  className="h-10 shrink-0 rounded-xl bg-[#5366B7] px-3.5 text-xs font-bold text-white disabled:cursor-not-allowed disabled:opacity-40"
-                >
-                  Apply
-                </button>
-
-                <button
-                  type="button"
-                  onClick={downloadPackSlips}
-                  disabled={packSlipBusy}
-                  className="h-10 shrink-0 rounded-xl border border-[#D9DEEC] bg-white px-3 text-xs font-bold text-[#405296] disabled:opacity-50"
-                >
-                  {packSlipBusy ? "..." : "Slip"}
-                </button>
-              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                disabled={
+                  bulkBusy ||
+                  packSlipBusy
+                }
+                onClick={() => {
+                  setSelected(
+                    []
+                  );
+                  setAction(
+                    ""
+                  );
+                }}
+              >
+                Clear
+              </Button>
             </div>
-          ) : null}
 
-          {paginatedOrders.length > 0 ? (
-            <div className="space-y-2.5">
-              {paginatedOrders.map((o) => {
-                const first = o.line_items?.[0];
-                const img = first?.image?.src || "";
-                const customerName =
-                  `${o.billing?.first_name || ""} ${
-                    o.billing?.last_name || ""
-                  }`.trim() || "Customer";
-                const shipment = extractShipmentFromMeta(
-                  (o as any).meta_data || []
-                );
-                const hasShipment = !!(shipment.awb || shipment.courier);
-                const extraItemCount = Math.max(
-                  0,
-                  (o.line_items?.length || 0) - 1
-                );
-                const isUpi =
-                  String((o as any).payment_method || "") === "letz_upi";
+            <div className="mt-2 grid grid-cols-[minmax(0,1fr)_auto] gap-2 md:flex md:flex-wrap md:items-center">
+              <select
+                value={
+                  action
+                }
+                onChange={(
+                  event
+                ) =>
+                  setAction(
+                    event
+                      .target
+                      .value
+                  )
+                }
+                disabled={
+                  bulkBusy
+                }
+                className="ls-focus-ring h-11 min-w-0 rounded-xl border border-input bg-card px-3 text-sm font-semibold text-foreground md:min-w-[220px]"
+              >
+                <option value="">
+                  Choose action
+                </option>
+                <option value="status:processing">
+                  Set Processing
+                </option>
+                <option value="status:completed">
+                  Set Completed
+                </option>
+                <option value="status:on-hold">
+                  Set On hold
+                </option>
+                <option value="status:cancelled">
+                  Set Cancelled
+                </option>
+                <option value="trash">
+                  Move to trash
+                </option>
+              </select>
 
-                return (
-                  <article
-                    key={o.id}
-                    className={[
-                      "overflow-hidden rounded-[18px] border bg-white transition",
-                      selected.includes(o.id)
-                        ? "border-[#AAB4E1] shadow-[0_6px_18px_rgba(83,102,183,0.10)]"
-                        : "border-slate-200/90 shadow-[0_3px_12px_rgba(15,23,42,0.035)]",
-                    ].join(" ")}
-                  >
-                    <div className="px-3.5 pt-3.5">
-                      <div className="flex items-start gap-2.5">
-                        <input
-                          type="checkbox"
-                          aria-label={`Select order ${o.number || o.id}`}
-                          checked={selected.includes(o.id)}
-                          onChange={(e) =>
-                            toggleOne(o.id, e.currentTarget.checked)
-                          }
-                          className="mt-1 h-4 w-4 shrink-0 accent-[#5366B7]"
-                        />
+              <AsyncButton
+                loading={
+                  bulkBusy
+                }
+                loadingLabel="Applying…"
+                disabled={
+                  !action
+                }
+                onClick={
+                  requestBulkAction
+                }
+              >
+                Apply
+              </AsyncButton>
 
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-start justify-between gap-3">
-                            <div className="min-w-0">
-                              <Link
-                                href={`/orders/${o.id}`}
-                                className="text-[13px] font-bold text-[#5366B7]"
-                              >
-                                #{o.number || o.id}
-                              </Link>
+              <AsyncButton
+                variant="outline"
+                loading={
+                  packSlipBusy
+                }
+                loadingLabel="Preparing…"
+                onClick={
+                  downloadPackSlips
+                }
+                className="col-span-2 md:col-span-1"
+              >
+                <FileDown className="h-4 w-4" />
+                Packing slips
+              </AsyncButton>
+            </div>
+          </div>
+        ) : null}
 
-                              <div className="mt-0.5 truncate text-[15px] font-bold leading-tight text-slate-900">
-                                {customerName}
-                              </div>
-                            </div>
+        <div className="p-2.5 md:p-3 lg:hidden">
+          {paginatedOrders.length >
+          0 ? (
+            <div className="grid gap-2.5 md:grid-cols-2">
+              {paginatedOrders.map(
+                (
+                  order
+                ) => {
+                  const first =
+                    order.line_items?.[0];
+                  const image =
+                    first?.image
+                      ?.src ||
+                    "";
+                  const customerName =
+                    `${order.billing?.first_name || ""} ${order.billing?.last_name || ""}`.trim() ||
+                    "Customer";
+                  const shipment =
+                    extractShipmentFromMeta(
+                      (
+                        order as any
+                      ).meta_data ||
+                        []
+                    );
+                  const hasShipment =
+                    Boolean(
+                      shipment.awb ||
+                        shipment.courier
+                    );
+                  const extraItemCount =
+                    Math.max(
+                      0,
+                      (
+                        order.line_items
+                          ?.length ||
+                        0
+                      ) - 1
+                    );
+                  const isUpi =
+                    String(
+                      (
+                        order as any
+                      ).payment_method ||
+                        ""
+                    ) ===
+                    "letz_upi";
 
-                            <div className="flex shrink-0 items-start gap-1">
-                              <div className="pt-0.5 text-right">
-                                <div className="text-[16px] font-extrabold tracking-tight text-slate-950">
-                                  ₹{o.total}
-                                </div>
-                                <div className="mt-0.5 text-[10px] font-medium text-slate-400">
-                                  {formatShortDate(o.date_created_gmt)}
-                                </div>
-                              </div>
+                  return (
+                    <article
+                      key={
+                        order.id
+                      }
+                      className={[
+                        "overflow-hidden rounded-xl border bg-card transition",
+                        selected.includes(
+                          order.id
+                        )
+                          ? "border-primary/45 ring-2 ring-primary/10"
+                          : "border-border",
+                      ].join(
+                        " "
+                      )}
+                    >
+                      <div className="p-3">
+                        <div className="flex items-start gap-2.5">
+                          <input
+                            type="checkbox"
+                            aria-label={`Select order ${order.number || order.id}`}
+                            checked={
+                              selected.includes(
+                                order.id
+                              )
+                            }
+                            onChange={(
+                              event
+                            ) =>
+                              toggleOne(
+                                order.id,
+                                event
+                                  .currentTarget
+                                  .checked
+                              )
+                            }
+                            className="mt-1 h-4 w-4 shrink-0 accent-[var(--primary)]"
+                          />
 
-                              <ActionMenu
-                                order={o}
-                                storeName={storeName}
-                                onTrash={moveOneToTrash}
-                              />
+                          <div className="min-w-0 flex-1">
+                            <Link
+                              href={`/orders/${order.id}`}
+                              className="text-xs font-extrabold text-primary hover:underline"
+                            >
+                              #
+                              {order.number ||
+                                order.id}
+                            </Link>
+
+                            <div className="mt-0.5 truncate text-sm font-extrabold text-heading">
+                              {
+                                customerName
+                              }
                             </div>
                           </div>
 
-                          <div className="mt-3 flex min-w-0 gap-3">
-                            {img ? (
-                              <button
-                                type="button"
-                                aria-label={`Preview ${first?.name || "ordered product"}`}
-                                onClick={() =>
-                                  setPreviewImage({
-                                    src: img,
-                                    alt:
-                                      first?.name ||
-                                      `Order ${o.number || o.id} product`,
-                                  })
+                          <div className="shrink-0 text-right">
+                            <div className="text-sm font-extrabold text-heading">
+                              {formatMoney(
+                                order.total
+                              )}
+                            </div>
+                            <div className="mt-0.5 text-[10px] text-muted-foreground">
+                              {formatShortDate(
+                                order.date_created_gmt
+                              )}
+                            </div>
+                          </div>
+
+                          <OrderActionSheet
+                            order={
+                              order
+                            }
+                            storeName={
+                              storeName
+                            }
+                            onRequestTrash={
+                              setTrashTarget
+                            }
+                          />
+                        </div>
+
+                        <div className="mt-3 flex gap-3">
+                          {image ? (
+                            <button
+                              type="button"
+                              aria-label={`Preview ${first?.name || "ordered product"}`}
+                              onClick={() =>
+                                setPreviewImage({
+                                  src: image,
+                                  alt:
+                                    first?.name ||
+                                    `Order ${order.number || order.id} product`,
+                                })
+                              }
+                              className="ls-focus-ring h-16 w-16 shrink-0 overflow-hidden rounded-xl border border-border bg-muted"
+                            >
+                              <img
+                                src={
+                                  image
                                 }
-                                className="h-[68px] w-[68px] shrink-0 overflow-hidden rounded-[14px] border border-slate-100 bg-slate-50"
-                              >
-                                <img
-                                  src={img}
-                                  alt=""
-                                  className="h-full w-full object-cover"
-                                />
-                              </button>
-                            ) : (
-                              <div className="grid h-[68px] w-[68px] shrink-0 place-items-center rounded-[14px] border border-dashed border-slate-200 bg-slate-50 text-[10px] font-medium text-slate-400">
-                                No image
-                              </div>
-                            )}
-
-                            <div className="min-w-0 flex-1 py-0.5">
-                              <div className="line-clamp-2 text-[13px] font-semibold leading-[1.35] text-slate-800">
-                                {first?.name || "No product"}
-                              </div>
-
-                              {first?.sku ? (
-                                <div className="mt-1 truncate text-[11px] font-medium text-slate-400">
-                                  SKU {first.sku}
-                                </div>
-                              ) : null}
-
-                              {extraItemCount > 0 ? (
-                                <div className="mt-1 text-[11px] font-semibold text-[#5366B7]">
-                                  +{extraItemCount} more item
-                                  {extraItemCount === 1 ? "" : "s"}
-                                </div>
-                              ) : null}
+                                alt=""
+                                className="h-full w-full object-cover"
+                              />
+                            </button>
+                          ) : (
+                            <div className="grid h-16 w-16 shrink-0 place-items-center rounded-xl border border-dashed border-border bg-muted text-muted-foreground">
+                              <Package2 className="h-5 w-5" />
                             </div>
-                          </div>
+                          )}
 
-                          <div className="mt-3 flex flex-wrap items-center gap-2">
-                            <span className={orderStatusPillClass(o.status)}>
-                              {orderStatusLabel(o.status)}
-                            </span>
+                          <div className="min-w-0 flex-1">
+                            <div className="line-clamp-2 text-sm font-bold leading-5 text-foreground">
+                              {first
+                                ? `${Number((first as any).quantity || 1)} × ${first.name}`
+                                : "No product"}
+                            </div>
 
-                            {o.billing?.phone ? (
-                              <a
-                                href={`tel:${o.billing.phone}`}
-                                className="text-[11px] font-medium text-slate-500"
-                              >
-                                {o.billing.phone}
-                              </a>
+                            {first?.sku ? (
+                              <div className="mt-1 truncate text-[11px] text-muted-foreground">
+                                SKU{" "}
+                                {
+                                  first.sku
+                                }
+                              </div>
+                            ) : null}
+
+                            {extraItemCount >
+                            0 ? (
+                              <div className="mt-1 text-[11px] font-bold text-primary">
+                                +
+                                {
+                                  extraItemCount
+                                }{" "}
+                                more item
+                                {extraItemCount ===
+                                1
+                                  ? ""
+                                  : "s"}
+                              </div>
                             ) : null}
                           </div>
+                        </div>
 
-                          <div className="mt-3 grid grid-cols-2 gap-2 border-t border-slate-100 py-3 text-[11px]">
-                            <div className="min-w-0">
-                              <div className="font-medium text-slate-400">
-                                Shipment
-                              </div>
-                              <div
-                                className={[
-                                  "mt-0.5 truncate font-semibold",
-                                  hasShipment
-                                    ? "text-slate-700"
-                                    : "text-amber-600",
-                                ].join(" ")}
-                              >
-                                {hasShipment
-                                  ? shipment.courier || "Shipment added"
-                                  : "Not set"}
-                              </div>
+                        <div className="mt-3 flex flex-wrap items-center gap-2">
+                          <OrderStatus
+                            status={
+                              order.status
+                            }
+                          />
+                        </div>
+
+                        <div className="mt-3 grid grid-cols-2 overflow-hidden rounded-xl border border-border bg-surface-soft text-xs">
+                          <div className="min-w-0 p-2.5">
+                            <div className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
+                              Payment
                             </div>
+                            <div className="mt-1 truncate font-bold text-foreground">
+                              {order.payment_method_title ||
+                                "Not specified"}
+                            </div>
+                          </div>
 
-                            <div className="min-w-0 border-l border-slate-100 pl-3">
-                              <div className="font-medium text-slate-400">
-                                Payment
-                              </div>
-                              <div className="mt-0.5 truncate font-semibold text-slate-700">
-                                {o.payment_method_title || "Not specified"}
-                              </div>
+                          <div className="min-w-0 border-l border-border p-2.5">
+                            <div className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
+                              Shipment
+                            </div>
+                            <div
+                              className={[
+                                "mt-1 truncate font-bold",
+                                hasShipment
+                                  ? "text-foreground"
+                                  : "text-amber-700",
+                              ].join(
+                                " "
+                              )}
+                            >
+                              {hasShipment
+                                ? shipment.courier ||
+                                  "Added"
+                                : "Not set"}
                             </div>
                           </div>
                         </div>
-                      </div>
-                    </div>
 
-                    {isUpi ? (
-                      <div className="border-t border-slate-100 bg-slate-50/65 px-3.5 py-2.5">
-                        <UPIVerificationInline order={o as any} />
+                        <Link
+                          href={`/orders/${order.id}`}
+                          className={buttonClassName({
+                            variant:
+                              "outline",
+                            size: "md",
+                            className:
+                              "mt-3 w-full",
+                          })}
+                        >
+                          <Eye className="h-4 w-4" />
+                          View order
+                        </Link>
                       </div>
-                    ) : null}
-                  </article>
-                );
-              })}
+
+                      {isUpi ? (
+                        <div className="border-t border-border bg-surface-soft px-3 py-2.5">
+                          <UPIVerificationInline
+                            order={
+                              order as any
+                            }
+                          />
+                        </div>
+                      ) : null}
+                    </article>
+                  );
+                }
+              )}
             </div>
           ) : (
-            <div className="px-6 py-12 text-center">
-              <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100 text-slate-400">
-                <Package2 className="h-6 w-6" />
-              </div>
-
-              <div className="mt-4 text-sm font-semibold text-slate-700">
-                No orders found.
-              </div>
-            </div>
+            <EmptyState
+              icon={Package2}
+              title="No orders found"
+              description="Try another status, search term or date range."
+            />
           )}
         </div>
-        {/* Desktop table */}
-        <div className="hidden overflow-x-auto md:block">
+
+        <div className="hidden overflow-x-auto lg:block">
           <table className="min-w-full text-sm">
             <thead>
-              <tr className="bg-violet-50/60 text-left text-xs font-medium uppercase tracking-wide text-slate-600">
-                <th className="w-8 px-4 py-3">
+              <tr className="border-b border-border bg-surface-soft text-left text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+                <th className="w-10 px-4 py-3">
                   <input
                     type="checkbox"
-                    checked={allSelected}
-                    onChange={(e) => toggleAll(e.currentTarget.checked)}
+                    aria-label="Select visible orders"
+                    checked={
+                      allPageSelected
+                    }
+                    onChange={(
+                      event
+                    ) =>
+                      toggleAll(
+                        event
+                          .currentTarget
+                          .checked
+                      )
+                    }
                   />
                 </th>
-                <th className="px-4 py-3">Order</th>
-                <th className="px-4 py-3">Customer</th>
-                <th className="px-4 py-3">Product</th>
-                <th className="px-4 py-3">Status</th>
-                <th className="px-4 py-3">Shipment</th>
-                <th className="px-4 py-3">Payment</th>
-                <th className="px-4 py-3">Total</th>
-                <th className="px-4 py-3">Date</th>
-                <th className="px-4 py-3 text-right">Action</th>
+                <th className="px-4 py-3">
+                  Order
+                </th>
+                <th className="px-4 py-3">
+                  Product
+                </th>
+                <th className="px-4 py-3">
+                  Status
+                </th>
+                <th className="px-4 py-3">
+                  Payment
+                </th>
+                <th className="px-4 py-3">
+                  Shipment
+                </th>
+                <th className="px-4 py-3">
+                  Total
+                </th>
+                <th className="w-16 px-4 py-3 text-right">
+                  Action
+                </th>
               </tr>
             </thead>
 
             <tbody>
-              {paginatedOrders.map((o) => {
-                const first = o.line_items?.[0];
-                const shipment = extractShipmentFromMeta(
-                  (o as any).meta_data || []
-                );
-                const hasShipment = !!(shipment.awb || shipment.courier);
+              {paginatedOrders.map(
+                (
+                  order
+                ) => {
+                  const first =
+                    order.line_items?.[0];
+                  const shipment =
+                    extractShipmentFromMeta(
+                      (
+                        order as any
+                      ).meta_data ||
+                        []
+                    );
+                  const hasShipment =
+                    Boolean(
+                      shipment.awb ||
+                        shipment.courier
+                    );
+                  const customerName =
+                    `${order.billing?.first_name || ""} ${order.billing?.last_name || ""}`.trim() ||
+                    "Customer";
 
-                return (
-                  <tr
-                    key={o.id}
-                    className="border-t border-slate-100 bg-white/70 align-top hover:bg-violet-50/40"
-                  >
-                    <td className="px-4 py-4">
-                      <input
-                        type="checkbox"
-                        checked={selected.includes(o.id)}
-                        onChange={(e) => toggleOne(o.id, e.currentTarget.checked)}
-                      />
-                    </td>
+                  return (
+                    <tr
+                      key={
+                        order.id
+                      }
+                      className="border-b border-border/70 align-top transition last:border-b-0 hover:bg-muted/45"
+                    >
+                      <td className="px-4 py-4">
+                        <input
+                          type="checkbox"
+                          aria-label={`Select order ${order.number || order.id}`}
+                          checked={
+                            selected.includes(
+                              order.id
+                            )
+                          }
+                          onChange={(
+                            event
+                          ) =>
+                            toggleOne(
+                              order.id,
+                              event
+                                .currentTarget
+                                .checked
+                            )
+                          }
+                        />
+                      </td>
 
-                    <td className="px-4 py-4">
-                      <Link
-                        href={`/orders/${o.id}`}
-                        className="text-[15px] font-semibold text-indigo-700 hover:underline"
-                      >
-                        #{o.number || o.id}
-                      </Link>
-                    </td>
-
-                    <td className="px-4 py-4">
-                      <div className="font-medium text-slate-900">
-                        {o.billing?.first_name} {o.billing?.last_name}
-                      </div>
-                      {o.billing?.phone ? (
-                        <div className="text-xs text-slate-500">{o.billing.phone}</div>
-                      ) : null}
-                    </td>
-
-                    <td className="px-4 py-4">
-                      <div className="text-sm text-slate-800">
-                        {first?.name || "—"}
-                      </div>
-                      {first?.sku ? (
-                        <div className="text-xs text-slate-500">{first.sku}</div>
-                      ) : null}
-                    </td>
-
-                    <td className="px-4 py-4">
-                      <span className={orderStatusPillClass(o.status)}>
-                        {orderStatusLabel(o.status)}
-                      </span>
-                    </td>
-
-                    <td className="px-4 py-4">
-                      {hasShipment ? (
-                        <div className="text-xs text-slate-700">
-                          <div className="font-medium">{shipment.courier || "Courier"}</div>
-                          <div className="break-all text-[11px] text-slate-500">
-                            {shipment.awb || ""}
-                          </div>
+                      <td className="px-4 py-4">
+                        <Link
+                          href={`/orders/${order.id}`}
+                          className="font-extrabold text-primary hover:underline"
+                        >
+                          #
+                          {order.number ||
+                            order.id}
+                        </Link>
+                        <div className="mt-1 max-w-48 truncate font-bold text-heading">
+                          {
+                            customerName
+                          }
                         </div>
-                      ) : (
-                        <span className="text-[11px] text-slate-400">Not set</span>
-                      )}
-                    </td>
+                        {order.billing
+                          ?.phone ? (
+                          <a
+                            href={`tel:${order.billing.phone}`}
+                            className="mt-0.5 block text-xs text-muted-foreground hover:text-heading"
+                          >
+                            {
+                              order.billing
+                                .phone
+                            }
+                          </a>
+                        ) : null}
+                      </td>
 
-                    <td className="px-4 py-4">
-                      <div className="mb-1 text-sm text-slate-700">
-                        {o.payment_method_title || "-"}
-                      </div>
-                      <UPIVerificationInline order={o as any} />
-                    </td>
+                      <td className="max-w-56 px-4 py-4">
+                        <div className="line-clamp-2 font-semibold text-foreground">
+                          {first?.name ||
+                            "—"}
+                        </div>
+                        {first?.sku ? (
+                          <div className="mt-1 text-xs text-muted-foreground">
+                            SKU{" "}
+                            {
+                              first.sku
+                            }
+                          </div>
+                        ) : null}
+                        {(order.line_items
+                          ?.length ||
+                          0) >
+                        1 ? (
+                          <div className="mt-1 text-xs font-bold text-primary">
+                            +
+                            {(order.line_items
+                              ?.length ||
+                              0) -
+                              1}{" "}
+                            more
+                          </div>
+                        ) : null}
+                      </td>
 
-                    <td className="px-4 py-4 text-[15px] font-semibold text-slate-900">
-                      ₹{o.total}
-                    </td>
+                      <td className="px-4 py-4">
+                        <OrderStatus
+                          status={
+                            order.status
+                          }
+                        />
+                      </td>
 
-                    <td className="px-4 py-4 text-xs text-slate-500">
-                      {formatShortDate(o.date_created_gmt)}
-                    </td>
+                      <td className="max-w-48 px-4 py-4">
+                        <div className="text-sm font-semibold text-foreground">
+                          {order.payment_method_title ||
+                            "—"}
+                        </div>
+                        <UPIVerificationInline
+                          order={
+                            order as any
+                          }
+                        />
+                      </td>
 
-                    <td className="px-4 py-4 text-right">
-                      <ActionMenu order={o} storeName={storeName} onTrash={moveOneToTrash} />
-                    </td>
-                  </tr>
-                );
-              })}
+                      <td className="max-w-44 px-4 py-4">
+                        {hasShipment ? (
+                          <div className="text-xs">
+                            <div className="font-bold text-foreground">
+                              {shipment.courier ||
+                                "Shipment added"}
+                            </div>
+                            {shipment.awb ? (
+                              <div className="mt-1 break-all text-muted-foreground">
+                                {
+                                  shipment.awb
+                                }
+                              </div>
+                            ) : null}
+                          </div>
+                        ) : (
+                          <span className="text-xs font-semibold text-amber-700">
+                            Not set
+                          </span>
+                        )}
+                      </td>
 
-              {paginatedOrders.length === 0 && (
+                      <td className="whitespace-nowrap px-4 py-4">
+                        <div className="font-extrabold text-heading">
+                          {formatMoney(
+                            order.total
+                          )}
+                        </div>
+                        <div className="mt-1 text-xs text-muted-foreground">
+                          {formatShortDate(
+                            order.date_created_gmt
+                          )}
+                        </div>
+                      </td>
+
+                      <td className="px-4 py-4 text-right">
+                        <OrderActionSheet
+                          order={
+                            order
+                          }
+                          storeName={
+                            storeName
+                          }
+                          onRequestTrash={
+                            setTrashTarget
+                          }
+                        />
+                      </td>
+                    </tr>
+                  );
+                }
+              )}
+
+              {paginatedOrders.length ===
+              0 ? (
                 <tr>
-                  <td colSpan={10} className="px-6 py-12 text-center text-slate-500">
-                    No orders to display.
+                  <td
+                    colSpan={
+                      8
+                    }
+                  >
+                    <EmptyState
+                      icon={
+                        Package2
+                      }
+                      title="No orders found"
+                      description="Try another status, search term or date range."
+                    />
                   </td>
                 </tr>
-              )}
+              ) : null}
             </tbody>
           </table>
         </div>
 
-        {orders.length > 0 && (
-          <>
-            {/* Mobile pagination */}
-            <div className="mt-3 rounded-[18px] border border-slate-200/90 bg-white p-3 shadow-[0_3px_12px_rgba(15,23,42,0.035)] md:hidden">
-              <div className="flex items-center justify-between gap-3">
-                <div className="text-xs font-medium text-slate-500">
-                  <span className="font-bold text-slate-800">
-                    {startIndex}–{endIndex}
-                  </span>{" "}
-                  of {total}
-                </div>
-
-                <label className="flex items-center gap-2 text-[11px] font-medium text-slate-400">
-                  <span>Rows</span>
-                  <select
-                    className="h-8 rounded-xl border border-slate-200 bg-slate-50 px-2 text-xs font-semibold text-slate-700 outline-none"
-                    value={rowsPerPage}
-                    onChange={(e) =>
-                      setRowsPerPage(Number(e.target.value) || 25)
+        {orders.length >
+        0 ? (
+          <div className="border-t border-border px-3 py-3 md:px-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-center justify-between gap-3 text-xs text-muted-foreground sm:justify-start">
+                <span>
+                  <strong className="text-foreground">
+                    {
+                      startIndex
                     }
+                    –
+                    {
+                      endIndex
+                    }
+                  </strong>{" "}
+                  of{" "}
+                  {
+                    total
+                  }
+                </span>
+
+                <label className="flex items-center gap-2">
+                  <span>
+                    Rows
+                  </span>
+                  <select
+                    value={
+                      rowsPerPage
+                    }
+                    onChange={(
+                      event
+                    ) =>
+                      setRowsPerPage(
+                        Number(
+                          event
+                            .target
+                            .value
+                        ) ||
+                          25
+                      )
+                    }
+                    className="ls-focus-ring h-9 rounded-xl border border-input bg-card px-2 text-xs font-bold text-foreground"
                   >
-                    <option value={10}>10</option>
-                    <option value={25}>25</option>
-                    <option value={50}>50</option>
-                    <option value={100}>100</option>
+                    <option value={10}>
+                      10
+                    </option>
+                    <option value={25}>
+                      25
+                    </option>
+                    <option value={50}>
+                      50
+                    </option>
                   </select>
                 </label>
               </div>
 
-              <div className="mt-3 grid grid-cols-[42px_1fr_42px] items-center gap-2">
-                <button
-                  type="button"
+              <div className="grid grid-cols-[44px_1fr_44px] items-center gap-2 sm:flex">
+                <Button
+                  variant="outline"
+                  size="icon"
                   aria-label="Previous page"
-                  disabled={currentPage <= 1}
-                  onClick={() => setPage((p) => Math.max(1, p - 1))}
-                  className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 disabled:opacity-30"
+                  disabled={
+                    currentPage <=
+                    1
+                  }
+                  onClick={() =>
+                    setPage(
+                      (
+                        current
+                      ) =>
+                        Math.max(
+                          1,
+                          current -
+                            1
+                        )
+                    )
+                  }
                 >
                   <ChevronLeft className="h-4 w-4" />
-                </button>
+                </Button>
 
-                <div className="flex h-10 items-center justify-center rounded-xl bg-slate-100 text-xs font-semibold text-slate-700">
-                  Page {currentPage} of {pageCount}
+                <div className="flex min-h-11 items-center justify-center rounded-xl bg-muted px-3 text-xs font-bold text-foreground sm:min-w-28">
+                  Page{" "}
+                  {
+                    currentPage
+                  }{" "}
+                  of{" "}
+                  {
+                    pageCount
+                  }
                 </div>
 
-                <button
-                  type="button"
+                <Button
+                  variant="outline"
+                  size="icon"
                   aria-label="Next page"
-                  disabled={currentPage >= pageCount}
-                  onClick={() =>
-                    setPage((p) => Math.min(pageCount, p + 1))
+                  disabled={
+                    currentPage >=
+                    pageCount
                   }
-                  className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 disabled:opacity-30"
+                  onClick={() =>
+                    setPage(
+                      (
+                        current
+                      ) =>
+                        Math.min(
+                          pageCount,
+                          current +
+                            1
+                        )
+                    )
+                  }
                 >
                   <ChevronRight className="h-4 w-4" />
-                </button>
+                </Button>
               </div>
             </div>
-
-            {/* Desktop pagination */}
-            <div className="hidden border-t border-slate-100 bg-white px-5 py-4 text-xs text-slate-600 md:flex md:items-center md:justify-between">
-              <div>
-                Showing <span className="font-semibold">{startIndex}</span> –{" "}
-                <span className="font-semibold">{endIndex}</span> of{" "}
-                <span className="font-semibold">{total}</span> orders
-              </div>
-
-              <div className="flex items-center gap-4">
-                <div className="flex items-center gap-2">
-                  <span>Rows</span>
-                  <select
-                    className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700"
-                    value={rowsPerPage}
-                    onChange={(e) =>
-                      setRowsPerPage(Number(e.target.value) || 25)
-                    }
-                  >
-                    <option value={10}>10</option>
-                    <option value={25}>25</option>
-                    <option value={50}>50</option>
-                    <option value={100}>100</option>
-                  </select>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <button
-                    className="inline-flex items-center gap-1 rounded-full border border-slate-200 px-3 py-2 text-xs font-medium hover:bg-slate-50 disabled:opacity-40"
-                    disabled={currentPage <= 1}
-                    onClick={() => setPage((p) => Math.max(1, p - 1))}
-                  >
-                    <ChevronLeft className="h-3.5 w-3.5" />
-                    Previous
-                  </button>
-
-                  <span className="rounded-full bg-slate-100 px-3 py-2 text-xs font-medium text-slate-600">
-                    Page {currentPage} of {pageCount}
-                  </span>
-
-                  <button
-                    className="inline-flex items-center gap-1 rounded-full border border-slate-200 px-3 py-2 text-xs font-medium hover:bg-slate-50 disabled:opacity-40"
-                    disabled={currentPage >= pageCount}
-                    onClick={() =>
-                      setPage((p) => Math.min(pageCount, p + 1))
-                    }
-                  >
-                    Next
-                    <ChevronRight className="h-3.5 w-3.5" />
-                  </button>
-                </div>
-              </div>
-            </div>
-          </>
-        )}
+          </div>
+        ) : null}
       </section>
+
+      <ConfirmDialog
+        open={
+          bulkTrashOpen
+        }
+        onOpenChange={
+          setBulkTrashOpen
+        }
+        title="Move selected orders to trash?"
+        description={`${selected.length} selected order${selected.length === 1 ? "" : "s"} will be removed from the active order list.`}
+        confirmLabel="Move to trash"
+        loading={
+          bulkBusy
+        }
+        loadingLabel="Moving…"
+        destructive
+        onConfirm={() =>
+          performBulk(
+            "trash"
+          )
+        }
+      />
+
+      <ConfirmDialog
+        open={Boolean(
+          trashTarget
+        )}
+        onOpenChange={(
+          nextOpen
+        ) => {
+          if (
+            !nextOpen &&
+            !trashBusy
+          ) {
+            setTrashTarget(
+              null
+            );
+          }
+        }}
+        title="Move order to trash?"
+        description={
+          trashTarget
+            ? `Order #${trashTarget.number || trashTarget.id} will be removed from the active order list.`
+            : undefined
+        }
+        confirmLabel="Move to trash"
+        loading={
+          trashBusy
+        }
+        loadingLabel="Moving…"
+        destructive
+        onConfirm={
+          moveOneToTrash
+        }
+      />
 
       {previewImage ? (
         <div
-          className="fixed inset-0 z-[130] flex items-center justify-center bg-slate-950/80 p-4 backdrop-blur-sm"
+          className="fixed inset-0 z-[170] flex items-center justify-center bg-slate-950/80 p-4 backdrop-blur-sm"
           role="dialog"
           aria-modal="true"
           aria-label="Product image preview"
-          onClick={() => setPreviewImage(null)}
+          onClick={() =>
+            setPreviewImage(
+              null
+            )
+          }
         >
           <div
-            className="relative flex max-h-[88dvh] w-full max-w-lg flex-col overflow-hidden rounded-[24px] bg-white shadow-2xl"
-            onClick={(e) => e.stopPropagation()}
+            className="relative flex max-h-[88dvh] w-full max-w-lg flex-col overflow-hidden rounded-2xl bg-card shadow-2xl"
+            onClick={(
+              event
+            ) =>
+              event.stopPropagation()
+            }
           >
-            <button
-              type="button"
+            <Button
+              variant="outline"
+              size="icon"
               aria-label="Close image preview"
-              onClick={() => setPreviewImage(null)}
-              className="absolute right-3 top-3 z-10 inline-flex h-10 w-10 items-center justify-center rounded-full bg-white/95 text-slate-700 shadow-md"
+              onClick={() =>
+                setPreviewImage(
+                  null
+                )
+              }
+              className="absolute right-3 top-3 z-10 rounded-full bg-card/95"
             >
               <X className="h-5 w-5" />
-            </button>
+            </Button>
 
-            <div className="flex min-h-0 flex-1 items-center justify-center bg-slate-100 p-3">
+            <div className="flex min-h-0 flex-1 items-center justify-center bg-muted p-3">
               <img
-                src={previewImage.src}
-                alt={previewImage.alt}
-                className="max-h-[76dvh] w-auto max-w-full rounded-[16px] object-contain"
+                src={
+                  previewImage.src
+                }
+                alt={
+                  previewImage.alt
+                }
+                className="max-h-[76dvh] w-auto max-w-full rounded-xl object-contain"
               />
             </div>
 
-            <div className="border-t border-slate-100 bg-white px-4 py-3 text-center text-xs font-semibold text-slate-600">
-              {previewImage.alt}
+            <div className="border-t border-border bg-card px-4 py-3 text-center text-xs font-semibold text-muted-foreground">
+              {
+                previewImage.alt
+              }
             </div>
           </div>
         </div>
