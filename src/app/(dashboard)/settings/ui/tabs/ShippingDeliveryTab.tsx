@@ -123,7 +123,14 @@ export default function ShippingDeliveryTab({
           "delivery"
         }
       >
-        <ShipmentFulfillmentTab />
+        <ShipmentFulfillmentTab
+          enablePackingSlipSettings={
+            !(
+              storeType ===
+              "standalone"
+            )
+          }
+        />
       </div>
     </div>
   );
