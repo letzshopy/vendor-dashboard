@@ -158,7 +158,7 @@ function ZoneEditor({
     <div className="space-y-5 rounded-2xl border border-border bg-surface-soft p-4 md:p-5">
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
         <div>
-          <label className="mb-2 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+          <label className="mb-2 block text-xs font-bold text-heading">
             Zone name
           </label>
           <input
@@ -170,7 +170,7 @@ function ZoneEditor({
         </div>
 
         <div>
-          <label className="mb-2 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+          <label className="mb-2 block text-xs font-bold text-heading">
             Regions (states)
           </label>
           <RegionsField
@@ -199,7 +199,7 @@ function ZoneEditor({
               className={`inline-flex items-center rounded-full px-4 py-2 text-xs font-semibold transition ${
                 z.step === 1
                   ? "bg-primary text-primary-foreground"
-                  : "border border-slate-200 bg-white text-foreground hover:bg-slate-50"
+                  : "border border-border bg-card text-foreground hover:bg-muted"
               }`}
             >
               1 kg
@@ -211,7 +211,7 @@ function ZoneEditor({
               className={`inline-flex items-center rounded-full px-4 py-2 text-xs font-semibold transition ${
                 z.step === 0.5
                   ? "bg-primary text-primary-foreground"
-                  : "border border-slate-200 bg-white text-foreground hover:bg-slate-50"
+                  : "border border-border bg-card text-foreground hover:bg-muted"
               }`}
             >
               0.5 kg
@@ -220,7 +220,7 @@ function ZoneEditor({
         </div>
 
         <div className="rounded-2xl border border-border bg-card p-4">
-          <label className="mb-2 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+          <label className="mb-2 block text-xs font-bold text-heading">
             Max weight (kg)
           </label>
           <input
@@ -274,7 +274,7 @@ function ZoneEditor({
                     <span className="text-xs text-muted-foreground">₹</span>
                     <input
                       type="number"
-                      className="h-10 w-28 rounded-xl border border-slate-200 bg-white px-3 text-right text-sm text-slate-900 shadow-sm focus:border-indigo-400 focus:outline-none focus:ring-4 focus:ring-indigo-100"
+                      className="h-10 w-28 rounded-xl border border-border bg-card px-3 text-right text-sm text-slate-900 shadow-sm focus:border-indigo-400 focus:outline-none focus:ring-4 focus:ring-indigo-100"
                       value={price}
                       onChange={(e) => {
                         const next = { ...z };
@@ -304,7 +304,7 @@ function ZoneEditor({
             </div>
 
             {z.overrides.length === 0 && (
-              <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50/70 px-4 py-6 text-center text-xs text-muted-foreground">
+              <div className="rounded-2xl border border-dashed border-border bg-slate-50/70 px-4 py-6 text-center text-xs text-muted-foreground">
                 No category overrides added yet.
               </div>
             )}
@@ -320,7 +320,7 @@ function ZoneEditor({
                       <div className="text-sm font-bold text-heading">
                         {o.cat.name}
                       </div>
-                      <div className="text-[11px] text-slate-500">
+                      <div className="text-[11px] text-muted-foreground">
                         Category-specific slabs
                       </div>
                     </div>
@@ -364,7 +364,7 @@ function ZoneEditor({
                             <span className="text-xs text-muted-foreground">₹</span>
                             <input
                               type="number"
-                              className="h-10 w-28 rounded-xl border border-slate-200 bg-white px-3 text-right text-sm text-slate-900 shadow-sm focus:border-indigo-400 focus:outline-none focus:ring-4 focus:ring-indigo-100"
+                              className="h-10 w-28 rounded-xl border border-border bg-card px-3 text-right text-sm text-slate-900 shadow-sm focus:border-indigo-400 focus:outline-none focus:ring-4 focus:ring-indigo-100"
                               value={price}
                               onChange={(e) => {
                                 const next = { ...z };
@@ -412,7 +412,7 @@ function StatusPill({
       className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide ${
         active
           ? "bg-emerald-50 text-emerald-700"
-          : "bg-slate-100 text-slate-500"
+          : "bg-slate-100 text-muted-foreground"
       }`}
     >
       {active ? (
@@ -943,18 +943,23 @@ export default function ShippingTab() {
   return (
     <>
       <div className="space-y-4">
-        <section className="overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-sm">
-          <div className="border-b border-slate-100 bg-gradient-to-r from-white via-slate-50 to-indigo-50/40 px-4 py-4 md:px-5">
-            <h3 className="text-sm font-extrabold text-heading">
-              Choose shipping rules
-            </h3>
-            <p className="mt-1 text-xs leading-5 text-muted-foreground">
-              The page stays clean: only headings are visible first. Enable a
-              rule to open and edit its details.
-            </p>
+        <section className="space-y-3">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <h2 className="text-sm font-extrabold text-heading">
+                Shipping rules
+              </h2>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                Enable only the rules your store needs.
+              </p>
+            </div>
+
+            <span className="rounded-full bg-secondary px-3 py-1.5 text-xs font-bold text-secondary-foreground">
+              {enabledCount} active
+            </span>
           </div>
 
-          <div className="space-y-3 p-4 md:p-5">
+          <div className="space-y-3">
             <ShippingMethodCard
               icon={<ShieldCheck className="h-5 w-5" />}
               title="Free shipping"
@@ -970,7 +975,7 @@ export default function ShippingTab() {
             >
               <div className="space-y-4">
                 <div>
-                  <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  <div className="mb-2 text-xs font-bold text-heading">
                     Apply free shipping to
                   </div>
                   <div className="flex flex-wrap gap-2">
@@ -980,7 +985,7 @@ export default function ShippingTab() {
                       className={`inline-flex items-center rounded-full px-4 py-2 text-xs font-semibold transition ${
                         freeScope === "all"
                           ? "bg-primary text-primary-foreground"
-                          : "border border-slate-200 bg-white text-foreground hover:bg-slate-50"
+                          : "border border-border bg-card text-foreground hover:bg-muted"
                       }`}
                     >
                       All products
@@ -991,7 +996,7 @@ export default function ShippingTab() {
                       className={`inline-flex items-center rounded-full px-4 py-2 text-xs font-semibold transition ${
                         freeScope === "category"
                           ? "bg-primary text-primary-foreground"
-                          : "border border-slate-200 bg-white text-foreground hover:bg-slate-50"
+                          : "border border-border bg-card text-foreground hover:bg-muted"
                       }`}
                     >
                       Specific categories only
@@ -1001,7 +1006,7 @@ export default function ShippingTab() {
 
                 {freeScope === "category" && (
                   <div>
-                    <div className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    <div className="mb-3 text-xs font-bold text-heading">
                       Select categories
                     </div>
                     <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
@@ -1013,7 +1018,7 @@ export default function ShippingTab() {
                             className={`flex items-center gap-3 rounded-2xl border px-3 py-3 text-sm ${
                               on
                                 ? "border-primary bg-secondary text-secondary-foreground"
-                                : "border-slate-200 bg-white text-foreground hover:bg-slate-50"
+                                : "border-border bg-card text-foreground hover:bg-muted"
                             }`}
                           >
                             <input
@@ -1060,7 +1065,7 @@ export default function ShippingTab() {
                   <button
                     type="button"
                     onClick={addZone}
-                    className="inline-flex items-center justify-center rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-foreground shadow-sm hover:bg-slate-50"
+                    className="inline-flex items-center justify-center rounded-2xl border border-border bg-card px-4 py-2 text-sm font-semibold text-foreground hover:bg-muted"
                   >
                     + Add zone
                   </button>
@@ -1123,7 +1128,7 @@ export default function ShippingTab() {
               <div className="space-y-4">
                 <div className="grid gap-3 md:grid-cols-[minmax(0,280px)_auto] md:items-end">
                   <div>
-                    <label className="mb-2 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    <label className="mb-2 block text-xs font-bold text-heading">
                       Choose category
                     </label>
                     <select
@@ -1149,7 +1154,7 @@ export default function ShippingTab() {
                     onClick={() => {
                       if (catPicked) addCategoryMethod(catPicked);
                     }}
-                    className="inline-flex h-11 items-center justify-center rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold text-foreground shadow-sm hover:bg-slate-50 disabled:opacity-50"
+                    className="inline-flex h-11 items-center justify-center rounded-2xl border border-border bg-card px-4 text-sm font-semibold text-foreground hover:bg-muted disabled:opacity-50"
                   >
                     + Add category override
                   </button>
