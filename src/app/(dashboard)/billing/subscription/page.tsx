@@ -246,6 +246,14 @@ export default function BillingSubscriptionPage() {
   const [utr, setUtr] = useState("");
   const [domainUtr, setDomainUtr] = useState("");
 
+  const [
+    expandedPlans,
+    setExpandedPlans,
+  ] = useState<Record<PlanKey, boolean>>({
+    standard: false,
+    premium: false,
+  });
+
   const [error, setError] = useState<string | null>(null);
 
   const loadSubscription = useCallback(async () => {
@@ -1041,7 +1049,62 @@ export default function BillingSubscriptionPage() {
                     </div>
                   </button>
 
-                  <ul className="mt-4 grid gap-2 md:grid-cols-2">
+                  <ul className="mt-4 grid gap-2 md:hidden">
+                    {plan.features
+                      .slice(
+                        0,
+                        expandedPlans[
+                          plan.key
+                        ]
+                          ? plan.features
+                              .length
+                          : 4
+                      )
+                      .map(
+                        (
+                          feature
+                        ) => (
+                          <PlanFeature
+                            key={
+                              feature
+                            }
+                          >
+                            {
+                              feature
+                            }
+                          </PlanFeature>
+                        )
+                      )}
+                  </ul>
+
+                  {plan.features.length >
+                  4 ? (
+                    <button
+                      type="button"
+                      className="ls-focus-ring mt-2 text-xs font-bold text-primary md:hidden"
+                      onClick={() =>
+                        setExpandedPlans(
+                          (
+                            current
+                          ) => ({
+                            ...current,
+                            [plan.key]:
+                              !current[
+                                plan.key
+                              ],
+                          })
+                        )
+                      }
+                    >
+                      {expandedPlans[
+                        plan.key
+                      ]
+                        ? "Show fewer features"
+                        : `View all ${plan.features.length} features`}
+                    </button>
+                  ) : null}
+
+                  <ul className="mt-4 hidden gap-2 md:grid md:grid-cols-2">
                     {plan.features.map(
                       (
                         feature
