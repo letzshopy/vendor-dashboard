@@ -863,12 +863,23 @@ export default function OrdersClient({
   const pageIds =
     useMemo(
       () =>
-        paginatedOrders.map(
-          (
-            order
-          ) =>
-            order.id
-        ),
+        paginatedOrders
+          .filter(
+            (
+              order
+            ) =>
+              String(
+                order.status ||
+                  ""
+              ).toLowerCase() !==
+              "cancelled"
+          )
+          .map(
+            (
+              order
+            ) =>
+              order.id
+          ),
       [
         paginatedOrders,
       ]
@@ -1503,6 +1514,12 @@ export default function OrdersClient({
                         ""
                     ) ===
                     "letz_upi";
+                  const isCancelled =
+                    String(
+                      order.status ||
+                        ""
+                    ).toLowerCase() ===
+                    "cancelled";
 
                   return (
                     <article
@@ -1510,12 +1527,17 @@ export default function OrdersClient({
                         order.id
                       }
                       className={[
-                        "overflow-hidden rounded-xl border bg-card transition",
+                        "overflow-hidden rounded-xl border transition",
+                        isCancelled
+                          ? "border-rose-300 bg-rose-50/45 shadow-[0_0_0_1px_rgba(244,63,94,0.05)]"
+                          : "bg-card",
                         selected.includes(
                           order.id
                         )
                           ? "border-primary/45 ring-2 ring-primary/10"
-                          : "border-border",
+                          : isCancelled
+                            ? ""
+                            : "border-border",
                       ].join(
                         " "
                       )}
@@ -1524,11 +1546,18 @@ export default function OrdersClient({
                         <div className="flex items-start gap-2.5">
                           <input
                             type="checkbox"
-                            aria-label={`Select order ${order.number || order.id}`}
+                            aria-label={
+                              isCancelled
+                                ? `Cancelled order ${order.number || order.id} cannot be selected for processing`
+                                : `Select order ${order.number || order.id}`
+                            }
                             checked={
                               selected.includes(
                                 order.id
                               )
+                            }
+                            disabled={
+                              isCancelled
                             }
                             onChange={(
                               event
@@ -1540,7 +1569,7 @@ export default function OrdersClient({
                                   .checked
                               )
                             }
-                            className="mt-1 h-4 w-4 shrink-0 accent-[var(--primary)]"
+                            className="mt-1 h-4 w-4 shrink-0 accent-[var(--primary)] disabled:cursor-not-allowed disabled:opacity-35"
                           />
 
                           <div className="min-w-0 flex-1">
@@ -1594,6 +1623,15 @@ export default function OrdersClient({
                             }
                           />
                         </div>
+
+                        {isCancelled ? (
+                          <div className="mt-3 flex items-center gap-2 rounded-xl border border-rose-200 bg-rose-100/80 px-3 py-2 text-xs font-extrabold text-rose-800">
+                            <X className="h-4 w-4 shrink-0" />
+                            <span>
+                              Cancelled order — do not process or dispatch.
+                            </span>
+                          </div>
+                        ) : null}
 
                         <div className="mt-3 flex gap-3">
                           {image ? (
@@ -1797,22 +1835,40 @@ export default function OrdersClient({
                   const customerName =
                     `${order.billing?.first_name || ""} ${order.billing?.last_name || ""}`.trim() ||
                     "Customer";
+                  const isCancelled =
+                    String(
+                      order.status ||
+                        ""
+                    ).toLowerCase() ===
+                    "cancelled";
 
                   return (
                     <tr
                       key={
                         order.id
                       }
-                      className="border-b border-border/70 align-top transition last:border-b-0 hover:bg-muted/45"
+                      className={[
+                        "border-b align-top transition last:border-b-0",
+                        isCancelled
+                          ? "border-rose-200 bg-rose-50/45 hover:bg-rose-50/70"
+                          : "border-border/70 hover:bg-muted/45",
+                      ].join(" ")}
                     >
                       <td className="px-4 py-4">
                         <input
                           type="checkbox"
-                          aria-label={`Select order ${order.number || order.id}`}
+                          aria-label={
+                            isCancelled
+                              ? `Cancelled order ${order.number || order.id} cannot be selected for processing`
+                              : `Select order ${order.number || order.id}`
+                          }
                           checked={
                             selected.includes(
                               order.id
                             )
+                          }
+                          disabled={
+                            isCancelled
                           }
                           onChange={(
                             event
@@ -1824,6 +1880,7 @@ export default function OrdersClient({
                                 .checked
                             )
                           }
+                          className="disabled:cursor-not-allowed disabled:opacity-35"
                         />
                       </td>
 
@@ -1889,6 +1946,12 @@ export default function OrdersClient({
                             order.status
                           }
                         />
+
+                        {isCancelled ? (
+                          <div className="mt-1.5 text-[11px] font-bold text-rose-700">
+                            Do not process
+                          </div>
+                        ) : null}
                       </td>
 
                       <td className="max-w-48 px-4 py-4">
