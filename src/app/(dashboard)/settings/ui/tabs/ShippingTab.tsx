@@ -155,7 +155,7 @@ function ZoneEditor({
   const stops = useMemo(() => buildStops(z.step, z.max), [z.step, z.max]);
 
   return (
-    <div className="space-y-5 rounded-2xl border border-border bg-surface-soft p-4 md:p-5">
+    <div className="space-y-5 rounded-2xl border border-border bg-surface-soft p-3 md:p-5">
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
         <div>
           <label className="mb-2 block text-xs font-bold text-heading">
@@ -456,7 +456,7 @@ function ShippingMethodCard({
           : "",
       ].join(" ")}
     >
-      <div className="p-4 md:p-5">
+      <div className="p-3 md:p-5">
         <div className="flex items-start justify-between gap-4">
           <button
             type="button"
@@ -466,7 +466,7 @@ function ShippingMethodCard({
           >
             <div
               className={[
-                "grid h-10 w-10 shrink-0 place-items-center rounded-xl",
+                "grid h-9 w-9 shrink-0 place-items-center rounded-lg md:h-10 md:w-10 md:rounded-xl",
                 enabled
                   ? "bg-primary text-primary-foreground"
                   : "bg-secondary text-secondary-foreground",
@@ -500,7 +500,7 @@ function ShippingMethodCard({
       </div>
 
       {enabled ? (
-        <div className="border-t border-border bg-surface-soft p-4 md:p-5">
+        <div className="border-t border-border bg-surface-soft p-3 md:p-5">
           {children}
         </div>
       ) : null}
@@ -1207,8 +1207,8 @@ export default function ShippingTab() {
         )}
 
         <div className="sticky bottom-[calc(5.1rem+var(--ls-safe-area-bottom))] z-20 md:bottom-4">
-          <div className="flex items-center justify-between gap-3 rounded-2xl border border-border bg-card/95 p-2.5 shadow-[0_14px_36px_rgba(38,51,95,0.14)] backdrop-blur">
-            <div className="min-w-0 px-1">
+          <div className="flex items-center justify-between gap-2 rounded-xl border border-border bg-card/95 p-2 shadow-[0_12px_28px_rgba(38,51,95,0.12)] backdrop-blur md:gap-3 md:rounded-2xl md:p-2.5">
+            <div className="hidden min-w-0 px-1 sm:block">
               <div className="text-xs font-bold text-heading">
                 {isDirty
                   ? "Unsaved shipping changes"
@@ -1220,6 +1220,7 @@ export default function ShippingTab() {
               type="button"
               loading={busy}
               loadingLabel="Saving…"
+              className="w-full sm:w-auto"
               disabled={!isDirty}
               onClick={() =>
                 void saveAndSync()
