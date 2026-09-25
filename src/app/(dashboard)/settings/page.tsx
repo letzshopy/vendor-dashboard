@@ -31,7 +31,7 @@ export default async function SettingsPage({
 
   if (!tab) {
     redirect(
-      "/settings?tab=profile"
+      "/settings?tab=profileAccount"
     );
   }
 
@@ -52,7 +52,7 @@ export default async function SettingsPage({
     )
   ) {
     redirect(
-      "/settings?tab=tax"
+      "/settings?tab=storeSettings"
     );
   }
 
