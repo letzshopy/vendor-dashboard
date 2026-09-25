@@ -475,14 +475,14 @@ export default function WebsiteAnalyticsReportClient() {
   ];
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3 md:space-y-4">
       <div className="flex items-center justify-between gap-3">
-        <div className="hidden md:block">
-          <div className="flex items-center gap-2 text-sm font-extrabold text-heading">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-wide text-muted-foreground md:text-sm md:font-extrabold md:normal-case md:tracking-normal md:text-heading">
             <Globe2 className="h-4 w-4 text-primary" />
             Store traffic
           </div>
-          <p className="mt-0.5 text-xs text-muted-foreground">
+          <p className="mt-0.5 hidden text-xs text-muted-foreground md:block">
             Google Analytics — last 7 days.
           </p>
         </div>
@@ -522,6 +522,9 @@ export default function WebsiteAnalyticsReportClient() {
                 }
                 className={[
                   "min-w-0 rounded-xl border p-3 md:rounded-2xl md:p-4",
+                  card.label === "Events"
+                    ? "col-span-2 md:col-span-1"
+                    : "",
                   card.live
                     ? "border-emerald-200 bg-emerald-50"
                     : "border-border bg-card",
@@ -572,11 +575,6 @@ export default function WebsiteAnalyticsReportClient() {
           }
         )}
 
-        <div className="col-span-2 md:hidden">
-          <div className="rounded-xl bg-surface-soft px-3 py-2.5 text-xs text-muted-foreground">
-            Website activity is shown for the last 7 days, with live users updated from GA4.
-          </div>
-        </div>
       </div>
 
       <div className="grid gap-4 xl:grid-cols-2">
