@@ -478,6 +478,12 @@ export default function PaymentsLedgerClient() {
     useState(false);
 
   const [
+    refreshNonce,
+    setRefreshNonce,
+  ] =
+    useState(0);
+
+  const [
     draftSearch,
     setDraftSearch,
   ] =
@@ -675,7 +681,10 @@ export default function PaymentsLedgerClient() {
 
     return () =>
       controller.abort();
-  }, [query]);
+  }, [
+    query,
+    refreshNonce,
+  ]);
 
   const applyFilters =
     useCallback(
@@ -1126,12 +1135,9 @@ export default function PaymentsLedgerClient() {
           aria-label="Refresh payments"
           onClick={() => {
             requestedLiveOrderIds.current.clear();
-            setFilters(
-              (
-                current
-              ) => ({
-                ...current,
-              })
+            setRefreshNonce(
+              (current) =>
+                current + 1
             );
           }}
         >
