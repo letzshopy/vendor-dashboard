@@ -7,7 +7,7 @@ export default function OffersDiscountsLayout({
 }) {
   return (
     <>
-      <div className="mx-auto w-full min-w-0 max-w-7xl px-3 pt-3 md:px-4 md:pt-5">
+      <div className="mx-auto w-full min-w-0 max-w-[1440px] px-3 pt-3 md:px-4 md:pt-5">
         <OffersDiscountsNav />
       </div>
       {children}
