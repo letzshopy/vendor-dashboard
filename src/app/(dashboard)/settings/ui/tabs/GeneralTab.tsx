@@ -59,7 +59,7 @@ function SectionCard({
   children: React.ReactNode;
 }) {
   return (
-    <section className="overflow-hidden rounded-2xl border border-border bg-card">
+    <section className="overflow-hidden rounded-xl border border-border bg-card md:rounded-2xl">
       <div className="border-b border-border px-3 py-3 md:px-5">
         <div className="flex items-start gap-3">
           <div className="grid h-9 w-9 shrink-0 place-items-center rounded-lg md:h-10 md:w-10 md:rounded-xl bg-secondary text-secondary-foreground">
@@ -478,7 +478,7 @@ export default function GeneralTab() {
             </Field>
           </div>
 
-          <div className="flex items-center justify-between gap-4 rounded-2xl bg-surface-soft px-4 py-3">
+          <div className="flex items-center justify-between gap-4 rounded-xl bg-surface-soft px-3 py-2.5 md:rounded-2xl md:px-4 md:py-3">
             <div className="min-w-0">
               <div className="text-sm font-bold text-heading">
                 Product reviews
@@ -586,7 +586,7 @@ export default function GeneralTab() {
             </Field>
           </div>
 
-          <div className="rounded-2xl bg-surface-soft px-4 py-3 text-xs leading-5 text-muted-foreground">
+          <div className="rounded-xl bg-surface-soft px-3 py-2.5 md:rounded-2xl md:px-4 md:py-3 text-xs leading-5 text-muted-foreground">
             These units become the defaults when adding or editing products.
           </div>
         </SectionCard>
@@ -600,7 +600,7 @@ export default function GeneralTab() {
         description="Control stock tracking, alerts and storefront stock visibility."
       >
         <div className="grid gap-3 lg:grid-cols-3">
-          <div className="flex items-center justify-between gap-3 rounded-2xl bg-surface-soft px-4 py-3">
+          <div className="flex items-center justify-between gap-3 rounded-xl bg-surface-soft px-3 py-2.5 md:rounded-2xl md:px-4 md:py-3">
             <span className="text-sm font-bold text-heading">
               Manage stock
             </span>
@@ -622,7 +622,7 @@ export default function GeneralTab() {
             />
           </div>
 
-          <div className="flex items-center justify-between gap-3 rounded-2xl bg-surface-soft px-4 py-3">
+          <div className="flex items-center justify-between gap-3 rounded-xl bg-surface-soft px-3 py-2.5 md:rounded-2xl md:px-4 md:py-3">
             <span className="text-sm font-semibold text-foreground">
               Low-stock alert
             </span>
@@ -644,7 +644,7 @@ export default function GeneralTab() {
             />
           </div>
 
-          <div className="flex items-center justify-between gap-3 rounded-2xl bg-surface-soft px-4 py-3">
+          <div className="flex items-center justify-between gap-3 rounded-xl bg-surface-soft px-3 py-2.5 md:rounded-2xl md:px-4 md:py-3">
             <span className="text-sm font-semibold text-foreground">
               Out-of-stock alert
             </span>
