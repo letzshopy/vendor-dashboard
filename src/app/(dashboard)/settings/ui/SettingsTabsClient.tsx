@@ -7,6 +7,7 @@ import {
   useState,
 } from "react";
 import {
+  Check,
   ChevronDown,
   CreditCard,
   IdCard,
@@ -242,25 +243,24 @@ export default function SettingsTabsClient({
               true
             )
           }
-          className="ls-focus-ring flex min-h-14 w-full items-center gap-3 rounded-2xl border border-border bg-card px-3 text-left shadow-[0_4px_14px_rgba(38,51,95,0.04)]"
+          className="ls-focus-ring flex min-h-12 w-full items-center gap-2.5 rounded-xl border border-border bg-card px-3 text-left shadow-[0_3px_12px_rgba(38,51,95,0.04)]"
         >
-          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-secondary text-secondary-foreground">
-            <ActiveIcon className="h-4.5 w-4.5" />
+          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-secondary text-secondary-foreground">
+            <ActiveIcon className="h-4 w-4" />
           </span>
 
           <span className="min-w-0 flex-1">
-            <span className="block truncate text-sm font-extrabold text-heading">
-              {
-                activeTab.mobileLabel ||
-                activeTab.label
-              }
+            <span className="block text-[10px] font-bold uppercase tracking-[0.08em] text-muted-foreground">
+              Settings
             </span>
 
-            <span className="mt-0.5 block truncate text-xs text-muted-foreground">
-              {
-                activeTab.description
-              }
+            <span className="block truncate text-sm font-extrabold text-heading">
+              {activeTab.label}
             </span>
+          </span>
+
+          <span className="text-[11px] font-bold text-primary">
+            Change
           </span>
 
           <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
@@ -307,7 +307,7 @@ export default function SettingsTabsClient({
           setPickerOpen
         }
         title="Settings"
-        description="Choose what you want to manage."
+        description="Choose a settings section."
         popupClassName="md:mx-auto md:max-w-xl"
       >
         <div className="space-y-1">
@@ -336,7 +336,7 @@ export default function SettingsTabsClient({
                     )
                   }
                   className={[
-                    "ls-focus-ring flex min-h-13 items-center gap-3 rounded-xl border px-3 py-2.5",
+                    "ls-focus-ring flex min-h-12 items-center gap-3 rounded-xl border px-3 py-2.5",
                     active
                       ? "border-primary bg-secondary"
                       : "border-transparent bg-card hover:bg-muted",
@@ -344,7 +344,7 @@ export default function SettingsTabsClient({
                     " "
                   )}
                 >
-                  <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-secondary text-secondary-foreground">
+                  <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-secondary text-secondary-foreground">
                     <Icon className="h-4 w-4" />
                   </span>
 
@@ -356,12 +356,14 @@ export default function SettingsTabsClient({
                       }
                     </span>
 
-                    <span className="mt-0.5 block truncate text-xs text-muted-foreground">
-                      {
-                        tab.description
-                      }
+                    <span className="mt-0.5 hidden truncate text-xs text-muted-foreground min-[380px]:block">
+                      {tab.description}
                     </span>
                   </span>
+
+                  {active ? (
+                    <Check className="h-4 w-4 shrink-0 text-primary" />
+                  ) : null}
                 </Link>
               );
             }
