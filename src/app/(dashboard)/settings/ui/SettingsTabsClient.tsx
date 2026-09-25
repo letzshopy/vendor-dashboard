@@ -207,6 +207,32 @@ export default function SettingsTabsClient({
         );
       case "shippingDelivery":
         return (
+          <ShippingDeliveryTab
+            storeType={
+              storeType
+            }
+          />
+        );
+      case "payments":
+        return (
+          <PaymentsTab />
+        );
+      case "setupSite":
+        return (
+          <SetupSiteTab />
+        );
+      case "kyc":
+        return (
+          <KycTab />
+        );
+      default:
+        return (
+          <ProfileAccountTab />
+        );
+    }
+  }
+
+  return (
     <>
       <div className="md:hidden">
         <button
