@@ -59,7 +59,7 @@ export default function StoreSettingsTab({
   return (
     <div className="space-y-4">
       {!standalone ? (
-        <div className="inline-flex rounded-2xl bg-surface-soft p-1">
+        <div className="grid w-full grid-cols-2 rounded-xl bg-surface-soft p-1 md:inline-flex md:w-auto md:rounded-2xl">
           <button
             type="button"
             onClick={() =>
@@ -68,7 +68,7 @@ export default function StoreSettingsTab({
               )
             }
             className={[
-              "ls-focus-ring inline-flex min-h-10 items-center gap-2 rounded-xl px-4 text-sm font-bold transition",
+              "ls-focus-ring inline-flex min-h-10 items-center justify-center gap-1.5 rounded-lg px-2 text-xs font-bold transition md:justify-start md:gap-2 md:rounded-xl md:px-4 md:text-sm",
               view ===
               "store"
                 ? "bg-card text-heading shadow-sm"
@@ -89,7 +89,7 @@ export default function StoreSettingsTab({
               )
             }
             className={[
-              "ls-focus-ring inline-flex min-h-10 items-center gap-2 rounded-xl px-4 text-sm font-bold transition",
+              "ls-focus-ring inline-flex min-h-10 items-center justify-center gap-1.5 rounded-lg px-2 text-xs font-bold transition md:justify-start md:gap-2 md:rounded-xl md:px-4 md:text-sm",
               view ===
               "tax"
                 ? "bg-card text-heading shadow-sm"
