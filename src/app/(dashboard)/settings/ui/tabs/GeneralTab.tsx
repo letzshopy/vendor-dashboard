@@ -762,6 +762,5 @@ export default function GeneralTab() {
           </div>
         </div>
       </div>
-    </div>
   );
 }
