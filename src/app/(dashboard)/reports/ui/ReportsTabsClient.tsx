@@ -1,65 +1,199 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import OrdersReportClient from "./OrdersReportClient";
+import {
+  useEffect,
+  useState,
+} from "react";
+import {
+  Boxes,
+  Globe2,
+  ShoppingCart,
+  Users,
+} from "lucide-react";
+
 import CustomersReportClient from "./CustomersReportClient";
+import OrdersReportClient from "./OrdersReportClient";
 import StockReportClient from "./StockReportClient";
 import WebsiteAnalyticsReportClient from "./WebsiteAnalyticsReportClient";
 
-type Tab = "orders" | "customers" | "stock" | "website";
+type Tab =
+  | "orders"
+  | "customers"
+  | "stock"
+  | "website";
 
-const tabs: Array<{ key: Tab; label: string }> = [
-  { key: "orders", label: "Orders" },
-  { key: "customers", label: "Customers" },
-  { key: "stock", label: "Stock" },
-  { key: "website", label: "Website Analytics" },
+const tabs = [
+  {
+    key: "orders" as const,
+    label: "Orders",
+    mobileLabel:
+      "Orders",
+    icon:
+      ShoppingCart,
+  },
+  {
+    key:
+      "customers" as const,
+    label:
+      "Customers",
+    mobileLabel:
+      "Customers",
+    icon: Users,
+  },
+  {
+    key: "stock" as const,
+    label: "Stock",
+    mobileLabel:
+      "Stock",
+    icon: Boxes,
+  },
+  {
+    key:
+      "website" as const,
+    label:
+      "Website Analytics",
+    mobileLabel:
+      "Website",
+    icon: Globe2,
+  },
 ];
 
-function isValidTab(value: string | null): value is Tab {
-  return value === "orders" || value === "customers" || value === "stock" || value === "website";
+function isValidTab(
+  value: string | null
+): value is Tab {
+  return (
+    value === "orders" ||
+    value ===
+      "customers" ||
+    value === "stock" ||
+    value ===
+      "website"
+  );
 }
 
 export default function ReportsTabsClient() {
-  const [tab, setTab] = useState<Tab>("orders");
+  const [
+    tab,
+    setTab,
+  ] =
+    useState<Tab>(
+      "orders"
+    );
 
   useEffect(() => {
-    const url = new URL(window.location.href);
-    const current = url.searchParams.get("rt");
+    const url =
+      new URL(
+        window.location.href
+      );
 
-    if (isValidTab(current)) {
-      setTab(current);
+    const current =
+      url.searchParams.get(
+        "rt"
+      );
+
+    if (
+      isValidTab(
+        current
+      )
+    ) {
+      setTab(
+        current
+      );
     }
   }, []);
 
-  function select(next: Tab) {
+  function select(
+    next: Tab
+  ) {
     setTab(next);
-    const url = new URL(window.location.href);
-    url.searchParams.set("rt", next);
-    window.history.replaceState({}, "", url.toString());
+
+    const url =
+      new URL(
+        window.location.href
+      );
+
+    url.searchParams.set(
+      "rt",
+      next
+    );
+
+    window.history.replaceState(
+      {},
+      "",
+      url.toString()
+    );
   }
 
   return (
     <div className="min-w-0 space-y-4">
-      <div className="grid w-full min-w-0 grid-cols-2 items-center gap-2 rounded-[22px] bg-slate-100 p-1.5 sm:flex sm:w-fit sm:flex-wrap">
-        {tabs.map((item) => (
-          <button
-            key={item.key}
-            onClick={() => select(item.key)}
-            className={`min-w-0 rounded-[18px] px-3 py-2 text-center text-xs font-semibold transition sm:px-4 sm:text-sm ${
-              tab === item.key
-                ? "bg-white text-slate-900 shadow-sm"
-                : "text-slate-500 hover:text-slate-800"
-            }`}
-          >
-            {item.label}
-          </button>
-        ))}
+      <div className="grid grid-cols-4 gap-1 rounded-xl bg-surface-soft p-1 md:inline-flex md:w-auto md:gap-1.5 md:rounded-2xl">
+        {tabs.map(
+          (item) => {
+            const Icon =
+              item.icon;
+
+            const active =
+              tab ===
+              item.key;
+
+            return (
+              <button
+                key={
+                  item.key
+                }
+                type="button"
+                onClick={() =>
+                  select(
+                    item.key
+                  )
+                }
+                className={[
+                  "ls-focus-ring inline-flex min-h-11 min-w-0 items-center justify-center gap-1 rounded-lg px-2 text-[11px] font-bold transition md:rounded-xl md:px-4 md:text-sm",
+                  active
+                    ? "bg-card text-heading shadow-sm"
+                    : "text-muted-foreground hover:text-heading",
+                ].join(
+                  " "
+                )}
+              >
+                <Icon className="hidden h-4 w-4 sm:block" />
+
+                <span className="truncate md:hidden">
+                  {
+                    item.mobileLabel
+                  }
+                </span>
+
+                <span className="hidden md:inline">
+                  {
+                    item.label
+                  }
+                </span>
+              </button>
+            );
+          }
+        )}
       </div>
 
-      {tab === "orders" && <OrdersReportClient />}
-      {tab === "customers" && <CustomersReportClient />}
-      {tab === "stock" && <StockReportClient />}
-      {tab === "website" && <WebsiteAnalyticsReportClient />}
+      {tab ===
+      "orders" ? (
+        <OrdersReportClient />
+      ) : null}
+
+      {tab ===
+      "customers" ? (
+        <CustomersReportClient />
+      ) : null}
+
+      {tab ===
+      "stock" ? (
+        <StockReportClient />
+      ) : null}
+
+      {tab ===
+      "website" ? (
+        <WebsiteAnalyticsReportClient />
+      ) : null}
     </div>
   );
 }
