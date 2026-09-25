@@ -553,8 +553,8 @@ export default function ShipmentFulfillmentTab({
       ) : null}
 
       <section className="rounded-2xl border border-border bg-card">
-        <div className="flex items-start gap-3 border-b border-border px-4 py-3.5 md:px-5">
-          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-secondary text-secondary-foreground">
+        <div className="flex items-start gap-3 border-b border-border px-3 py-3 md:px-5 md:py-3.5">
+          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg md:h-10 md:w-10 md:rounded-xl bg-secondary text-secondary-foreground">
             <Truck className="h-4.5 w-4.5" />
           </span>
 
@@ -563,7 +563,7 @@ export default function ShipmentFulfillmentTab({
               Delivery method
             </h2>
 
-            <p className="mt-0.5 text-xs leading-5 text-muted-foreground">
+            <p className="mt-0.5 hidden text-xs leading-5 text-muted-foreground md:block">
               Choose how orders are dispatched after packing.
             </p>
           </div>
@@ -594,7 +594,7 @@ export default function ShipmentFulfillmentTab({
             )}
           >
             <div className="flex items-start gap-3">
-              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-card text-primary shadow-sm">
+              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg md:h-10 md:w-10 md:rounded-xl bg-card text-primary shadow-sm">
                 <Truck className="h-4.5 w-4.5" />
               </span>
 
@@ -634,7 +634,7 @@ export default function ShipmentFulfillmentTab({
             )}
           >
             <div className="flex items-start gap-3">
-              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-card text-primary shadow-sm">
+              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg md:h-10 md:w-10 md:rounded-xl bg-card text-primary shadow-sm">
                 <PackageCheck className="h-4.5 w-4.5" />
               </span>
 
@@ -655,8 +655,8 @@ export default function ShipmentFulfillmentTab({
       {data.mode ===
       "shift" ? (
         <section className="rounded-2xl border border-border bg-card">
-          <div className="flex items-start gap-3 border-b border-border px-4 py-3.5 md:px-5">
-            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-secondary text-secondary-foreground">
+          <div className="flex items-start gap-3 border-b border-border px-3 py-3 md:px-5 md:py-3.5">
+            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg md:h-10 md:w-10 md:rounded-xl bg-secondary text-secondary-foreground">
               <MapPin className="h-4.5 w-4.5" />
             </span>
 
@@ -665,7 +665,7 @@ export default function ShipmentFulfillmentTab({
                 Pickup address
               </h2>
 
-              <p className="mt-0.5 text-xs leading-5 text-muted-foreground">
+              <p className="mt-0.5 hidden text-xs leading-5 text-muted-foreground md:block">
                 Default pickup details used when booking courier shipments.
               </p>
             </div>
@@ -833,9 +833,9 @@ export default function ShipmentFulfillmentTab({
         </section>
       ) : (
         <div className="space-y-4">
-          <section className="rounded-2xl border border-border bg-card p-4 md:p-5">
+          <section className="rounded-2xl border border-border bg-card p-3 md:p-5">
             <div className="flex items-start gap-3">
-              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-secondary text-secondary-foreground">
+              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg md:h-10 md:w-10 md:rounded-xl bg-secondary text-secondary-foreground">
                 <PackageCheck className="h-4.5 w-4.5" />
               </span>
 
@@ -853,8 +853,8 @@ export default function ShipmentFulfillmentTab({
 
           {enablePackingSlipSettings ? (
             <section className="rounded-2xl border border-border bg-card">
-              <div className="flex items-start gap-3 border-b border-border px-4 py-3.5 md:px-5">
-                <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-secondary text-secondary-foreground">
+              <div className="flex items-start gap-3 border-b border-border px-3 py-3 md:px-5 md:py-3.5">
+                <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg md:h-10 md:w-10 md:rounded-xl bg-secondary text-secondary-foreground">
                   <Printer className="h-4.5 w-4.5" />
                 </span>
 
@@ -863,13 +863,13 @@ export default function ShipmentFulfillmentTab({
                     Packing slip sender address
                   </h2>
 
-                  <p className="mt-0.5 text-xs leading-5 text-muted-foreground">
+                  <p className="mt-0.5 hidden text-xs leading-5 text-muted-foreground md:block">
                     Choose the From / Return address printed on packing slips for self-shipped orders.
                   </p>
                 </div>
               </div>
 
-              <div className="space-y-4 p-4 md:p-5">
+              <div className="space-y-4 p-3 md:p-5">
                 <div className="grid gap-3 lg:grid-cols-2">
                   <button
                     type="button"
@@ -956,8 +956,8 @@ export default function ShipmentFulfillmentTab({
       )}
 
       <div className="sticky bottom-[calc(5.1rem+var(--ls-safe-area-bottom))] z-20 md:bottom-4">
-        <div className="flex items-center justify-between gap-3 rounded-2xl border border-border bg-card/95 p-2.5 shadow-[0_14px_36px_rgba(38,51,95,0.14)] backdrop-blur">
-          <div className="min-w-0 px-1">
+        <div className="flex items-center justify-between gap-2 rounded-xl border border-border bg-card/95 p-2 shadow-[0_12px_28px_rgba(38,51,95,0.12)] backdrop-blur md:gap-3 md:rounded-2xl md:p-2.5">
+          <div className="hidden min-w-0 px-1 sm:block">
             <div className="text-xs font-bold text-heading">
               {isDirty
                 ? "Unsaved delivery changes"
@@ -969,6 +969,7 @@ export default function ShipmentFulfillmentTab({
             type="button"
             loading={saving}
             loadingLabel="Saving…"
+            className="w-full sm:w-auto"
             disabled={
               !isDirty
             }
