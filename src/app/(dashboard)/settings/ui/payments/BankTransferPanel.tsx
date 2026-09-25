@@ -1,112 +1,106 @@
 "use client";
 
-import * as React from "react";
-import { useFormContext } from "react-hook-form";
-import type { PaymentsFormValues } from "@/types/payments";
+import {
+  useFormContext,
+} from "react-hook-form";
+
+import {
+  Input,
+} from "@/components/ui/input";
+import type {
+  PaymentsFormValues,
+} from "@/types/payments";
+
+function Field({
+  label,
+  children,
+}: {
+  label: string;
+  children:
+    React.ReactNode;
+}) {
+  return (
+    <div>
+      <label className="mb-1.5 block text-xs font-bold text-heading">
+        {label}
+      </label>
+      {children}
+    </div>
+  );
+}
 
 export default function BankTransferPanel() {
-  const { register } = useFormContext<PaymentsFormValues>();
+  const {
+    register,
+  } =
+    useFormContext<PaymentsFormValues>();
 
   return (
     <div className="space-y-4">
-      {/* Row: Account name + number + IFSC */}
-      <div className="grid gap-4 md:grid-cols-3">
-        <div>
-          <label
-            htmlFor="bank_account_name"
-            className="block text-sm font-medium mb-1"
-          >
-            Account name
-          </label>
-          <input
-            id="bank_account_name"
-            className="w-full border rounded-md px-3 py-2 text-sm"
+      <div className="grid gap-4 lg:grid-cols-3">
+        <Field label="Account holder">
+          <Input
             placeholder="Account holder name"
-            {...register("bank.account_name")}
+            {...register(
+              "bank.account_name"
+            )}
           />
-        </div>
-        <div>
-          <label
-            htmlFor="bank_account_number"
-            className="block text-sm font-medium mb-1"
-          >
-            Account number
-          </label>
-          <input
-            id="bank_account_number"
-            className="w-full border rounded-md px-3 py-2 text-sm"
+        </Field>
+
+        <Field label="Account number">
+          <Input
+            inputMode="numeric"
             placeholder="XXXXXXXXXXXX"
-            {...register("bank.account_number")}
+            {...register(
+              "bank.account_number"
+            )}
           />
-        </div>
-        <div>
-          <label
-            htmlFor="bank_ifsc"
-            className="block text-sm font-medium mb-1"
-          >
-            IFSC
-          </label>
-          <input
-            id="bank_ifsc"
-            className="w-full border rounded-md px-3 py-2 text-sm"
+        </Field>
+
+        <Field label="IFSC">
+          <Input
             placeholder="SBIN0000000"
-            {...register("bank.ifsc")}
+            {...register(
+              "bank.ifsc"
+            )}
           />
-        </div>
+        </Field>
       </div>
 
-      {/* Row: Bank + Branch */}
       <div className="grid gap-4 md:grid-cols-2">
-        <div>
-          <label
-            htmlFor="bank_bank"
-            className="block text-sm font-medium mb-1"
-          >
-            Bank
-          </label>
-          <input
-            id="bank_bank"
-            className="w-full border rounded-md px-3 py-2 text-sm"
+        <Field label="Bank">
+          <Input
             placeholder="Bank name"
-            {...register("bank.bank")}
+            {...register(
+              "bank.bank"
+            )}
           />
-        </div>
-        <div>
-          <label
-            htmlFor="bank_branch"
-            className="block text-sm font-medium mb-1"
-          >
-            Branch
-          </label>
-          <input
-            id="bank_branch"
-            className="w-full border rounded-md px-3 py-2 text-sm"
+        </Field>
+
+        <Field label="Branch">
+          <Input
             placeholder="Branch name"
-            {...register("bank.branch")}
+            {...register(
+              "bank.branch"
+            )}
           />
-        </div>
+        </Field>
       </div>
 
-      {/* Notes */}
-      <div>
-        <label
-          htmlFor="bank_notes"
-          className="block text-sm font-medium mb-1"
-        >
-          Notes (shown on Thank-you &amp; Email)
-        </label>
+      <Field label="Customer instructions">
         <textarea
-          id="bank_notes"
           rows={3}
-          className="w-full border rounded-md px-3 py-2 text-sm"
-          placeholder="Bank transfer instructions for the customer"
-          {...register("bank.notes")}
+          className="ls-focus-ring w-full resize-y rounded-xl border border-input bg-card px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground"
+          placeholder="Bank transfer instructions shown after order placement"
+          {...register(
+            "bank.notes"
+          )}
         />
-        <p className="text-xs text-muted-foreground mt-1">
-          Customers will see these instructions on checkout, thank-you page and
-          in order emails.
+
+        <p className="mt-1.5 text-xs text-muted-foreground">
+          Shown on checkout, thank-you page and order email.
         </p>
-      </div>
+      </Field>
     </div>
   );
 }
