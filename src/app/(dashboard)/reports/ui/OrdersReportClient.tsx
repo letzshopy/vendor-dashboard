@@ -3,9 +3,26 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
+
+import {
+  AsyncButton,
+} from "@/components/ui/async-button";
+import {
+  BottomSheet,
+} from "@/components/ui/bottom-sheet";
+import {
+  Button,
+} from "@/components/ui/button";
+import {
+  Input,
+} from "@/components/ui/input";
+import {
+  Skeleton,
+} from "@/components/ui/skeleton";
 import {
   CalendarDays,
   ChartColumn,
+  Filter,
   Package2,
   ShoppingCart,
   Truck,
@@ -73,6 +90,7 @@ export default function OrdersReportClient() {
 
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState<any>(null);
+  const [filterOpen, setFilterOpen] = useState(false);
 
   async function fetchReport(opts: { rf: string; rt: string; rs: string }) {
     setLoading(true);
@@ -113,7 +131,12 @@ export default function OrdersReportClient() {
   }
 
   async function run() {
-    await fetchReport({ rf: dateFrom, rt: dateTo, rs: status });
+    await fetchReport({
+      rf: dateFrom,
+      rt: dateTo,
+      rs: status,
+    });
+    setFilterOpen(false);
   }
 
   useEffect(() => {
@@ -164,340 +187,822 @@ export default function OrdersReportClient() {
     [tab, data]
   );
 
+  if (
+    loading &&
+    !data
+  ) {
+    return (
+      <div className="space-y-3">
+        <div className="grid grid-cols-2 gap-2 md:grid-cols-4 md:gap-3">
+          {Array.from({
+            length: 4,
+          }).map(
+            (
+              _,
+              index
+            ) => (
+              <Skeleton
+                key={
+                  index
+                }
+                className="h-24 rounded-xl md:h-28 md:rounded-2xl"
+              />
+            )
+          )}
+        </div>
+
+        <Skeleton className="h-72 rounded-xl md:rounded-2xl" />
+      </div>
+    );
+  }
+
   return (
     <section className="space-y-4">
-      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-        <div>
-          <h2 className="text-xl font-semibold text-slate-900">Orders</h2>
+      <div className="flex items-center justify-between gap-2">
+        <div className="grid flex-1 grid-cols-3 rounded-xl bg-surface-soft p-1 md:inline-flex md:flex-none md:rounded-2xl">
+          {(
+            [
+              [
+                "date",
+                "By date",
+              ],
+              [
+                "product",
+                "By product",
+              ],
+              [
+                "category",
+                "By category",
+              ],
+            ] as const
+          ).map(
+            ([
+              key,
+              label,
+            ]) => (
+              <button
+                key={key}
+                type="button"
+                onClick={() =>
+                  setTab(key)
+                }
+                className={[
+                  "ls-focus-ring min-h-10 rounded-lg px-2 text-xs font-bold transition md:rounded-xl md:px-4 md:text-sm",
+                  tab === key
+                    ? "bg-card text-heading shadow-sm"
+                    : "text-muted-foreground hover:text-heading",
+                ].join(
+                  " "
+                )}
+              >
+                {label}
+              </button>
+            )
+          )}
         </div>
 
-        <div className="inline-flex w-full flex-wrap items-center rounded-[20px] bg-slate-100 p-1 sm:w-fit">
-          <button
-            onClick={() => setTab("date")}
-            className={`rounded-[16px] px-3 py-2 text-xs font-semibold transition sm:text-sm ${
-              tab === "date"
-                ? "bg-white text-slate-900 shadow-sm"
-                : "text-slate-500 hover:text-slate-800"
-            }`}
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="md:hidden"
+          onClick={() =>
+            setFilterOpen(
+              true
+            )
+          }
+        >
+          <Filter className="h-3.5 w-3.5" />
+          Filter
+        </Button>
+      </div>
+
+      <div className="hidden rounded-2xl border border-border bg-card p-3 md:block">
+        <div className="grid gap-3 xl:grid-cols-[1fr_1fr_1fr_auto]">
+          <select
+            value={status}
+            onChange={(event) =>
+              setStatus(
+                event.target
+                  .value
+              )
+            }
+            className="ls-focus-ring h-11 rounded-xl border border-input bg-card px-3 text-sm text-foreground"
           >
-            By date
-          </button>
-          <button
-            onClick={() => setTab("product")}
-            className={`rounded-[16px] px-3 py-2 text-xs font-semibold transition sm:text-sm ${
-              tab === "product"
-                ? "bg-white text-slate-900 shadow-sm"
-                : "text-slate-500 hover:text-slate-800"
-            }`}
+            <option value="all">
+              All statuses
+            </option>
+            <option value="processing">
+              Processing
+            </option>
+            <option value="completed">
+              Completed
+            </option>
+            <option value="cancelled">
+              Cancelled
+            </option>
+            <option value="refunded">
+              Refunded
+            </option>
+            <option value="on-hold">
+              On hold
+            </option>
+            <option value="pending">
+              Pending payment
+            </option>
+          </select>
+
+          <Input
+            type="date"
+            value={
+              dateFrom
+            }
+            onChange={(
+              event
+            ) =>
+              setDateFrom(
+                event.target
+                  .value
+              )
+            }
+          />
+
+          <Input
+            type="date"
+            value={dateTo}
+            onChange={(
+              event
+            ) =>
+              setDateTo(
+                event.target
+                  .value
+              )
+            }
+          />
+
+          <AsyncButton
+            type="button"
+            loading={loading}
+            loadingLabel="Loading…"
+            onClick={() =>
+              void run()
+            }
           >
-            By product
-          </button>
-          <button
-            onClick={() => setTab("category")}
-            className={`rounded-[16px] px-3 py-2 text-xs font-semibold transition sm:text-sm ${
-              tab === "category"
-                ? "bg-white text-slate-900 shadow-sm"
-                : "text-slate-500 hover:text-slate-800"
-            }`}
-          >
-            By category
-          </button>
+            Apply
+          </AsyncButton>
         </div>
       </div>
 
-      <div className="rounded-[22px] border border-slate-200 bg-slate-50/80 p-3">
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          <div className="flex flex-col gap-1">
-            <span className="text-[11px] font-medium text-slate-500">Status</span>
-            <select
-              value={status}
-              onChange={(e) => setStatus(e.target.value)}
-              className="h-11 rounded-2xl border border-slate-200 bg-white px-3 text-sm text-slate-800 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
-            >
-              <option value="all">All statuses</option>
-              <option value="processing">Processing</option>
-              <option value="completed">Completed</option>
-              <option value="cancelled">Cancelled</option>
-              <option value="refunded">Refunded</option>
-              <option value="on-hold">On hold</option>
-              <option value="pending">Pending payment</option>
-            </select>
-          </div>
-
-          <div className="flex flex-col gap-1">
-            <span className="text-[11px] font-medium text-slate-500">From</span>
-            <input
-              type="date"
-              value={dateFrom}
-              onChange={(e) => setDateFrom(e.target.value)}
-              className="h-11 rounded-2xl border border-slate-200 bg-white px-3 text-sm text-slate-800 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
-            />
-          </div>
-
-          <div className="flex flex-col gap-1">
-            <span className="text-[11px] font-medium text-slate-500">To</span>
-            <input
-              type="date"
-              value={dateTo}
-              onChange={(e) => setDateTo(e.target.value)}
-              className="h-11 rounded-2xl border border-slate-200 bg-white px-3 text-sm text-slate-800 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
-            />
-          </div>
-
-          <div className="flex items-end">
-            <button
-              onClick={run}
-              className="inline-flex h-11 w-full items-center justify-center rounded-2xl bg-blue-600 px-4 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 disabled:opacity-60"
-            >
-              {loading ? "Loading..." : "Apply"}
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {tab === "date" && data && (
+      {tab ===
+        "date" &&
+      data ? (
         <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-3 xl:grid-cols-5">
-            <Metric icon={<Wallet className="h-4 w-4" />} label="Gross sales" value={formatINR(data?.totals?.gross)} />
-            <Metric icon={<ShoppingCart className="h-4 w-4" />} label="Orders" value={String(data?.totals?.orders ?? 0)} />
-            <Metric icon={<Package2 className="h-4 w-4" />} label="Items" value={String(data?.totals?.items ?? 0)} />
-            <Metric icon={<Truck className="h-4 w-4" />} label="Shipping" value={formatINR(data?.totals?.shipping)} />
-            <Metric icon={<ChartColumn className="h-4 w-4" />} label="Refunds" value={formatINR(data?.totals?.refunds)} />
+          <div className="grid grid-cols-2 gap-2 md:grid-cols-3 xl:grid-cols-5 md:gap-3">
+            <Metric
+              icon={
+                <Wallet className="h-4 w-4" />
+              }
+              label="Gross sales"
+              value={formatINR(
+                data?.totals
+                  ?.gross
+              )}
+            />
+            <Metric
+              icon={
+                <ShoppingCart className="h-4 w-4" />
+              }
+              label="Orders"
+              value={String(
+                data?.totals
+                  ?.orders ??
+                  0
+              )}
+            />
+            <Metric
+              icon={
+                <Package2 className="h-4 w-4" />
+              }
+              label="Items"
+              value={String(
+                data?.totals
+                  ?.items ??
+                  0
+              )}
+            />
+            <Metric
+              icon={
+                <Truck className="h-4 w-4" />
+              }
+              label="Shipping"
+              value={formatINR(
+                data?.totals
+                  ?.shipping
+              )}
+            />
+            <Metric
+              icon={
+                <ChartColumn className="h-4 w-4" />
+              }
+              label="Refunds"
+              value={formatINR(
+                data?.totals
+                  ?.refunds
+              )}
+            />
           </div>
 
-          {dateSeries.length > 0 && (
-            <div className="hidden rounded-[22px] border border-slate-200 bg-white p-3 shadow-sm sm:p-4 md:block">
-              <div className="mb-3 text-sm font-semibold text-slate-900">Gross sales trend</div>
+          {dateSeries.length >
+          0 ? (
+            <div className="hidden rounded-2xl border border-border bg-card p-4 md:block">
+              <div className="mb-3 text-sm font-extrabold text-heading">
+                Gross sales trend
+              </div>
+
               <div className="h-72">
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={dateSeries} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
-                    <CartesianGrid stroke={COLORS.grid} strokeDasharray="3 3" />
-                    <XAxis dataKey="date" tick={{ fontSize: 11 }} minTickGap={24} />
-                    <YAxis tick={{ fontSize: 11 }} />
-                    <Tooltip formatter={(v: any, n) => (n === "gross" ? formatINR(v) : v)} />
-                    <Line type="monotone" dataKey="gross" stroke={COLORS.line} strokeWidth={2} activeDot={{ r: 4 }} dot={false} />
+                <ResponsiveContainer
+                  width="100%"
+                  height="100%"
+                >
+                  <LineChart
+                    data={
+                      dateSeries
+                    }
+                    margin={{
+                      top: 5,
+                      right: 10,
+                      left: 0,
+                      bottom: 0,
+                    }}
+                  >
+                    <CartesianGrid
+                      stroke={
+                        COLORS.grid
+                      }
+                      strokeDasharray="3 3"
+                    />
+                    <XAxis
+                      dataKey="date"
+                      tick={{
+                        fontSize: 11,
+                      }}
+                      minTickGap={
+                        24
+                      }
+                    />
+                    <YAxis
+                      tick={{
+                        fontSize: 11,
+                      }}
+                    />
+                    <Tooltip
+                      formatter={(
+                        value: any,
+                        name
+                      ) =>
+                        name ===
+                        "gross"
+                          ? formatINR(
+                              value
+                            )
+                          : value
+                      }
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="gross"
+                      stroke={
+                        COLORS.line
+                      }
+                      strokeWidth={
+                        2
+                      }
+                      activeDot={{
+                        r: 4,
+                      }}
+                      dot={false}
+                    />
                   </LineChart>
                 </ResponsiveContainer>
               </div>
             </div>
-          )}
+          ) : null}
 
-          <div className="overflow-hidden rounded-[22px] border border-slate-200 bg-white shadow-sm">
-            <div className="border-b border-slate-100 px-4 py-3">
-              <div className="text-sm font-semibold text-slate-900">Sales by date</div>
+          <div className="overflow-hidden rounded-xl border border-border bg-card md:rounded-2xl">
+            <div className="border-b border-border px-3 py-3 md:px-4">
+              <div className="text-sm font-extrabold text-heading">
+                Sales by date
+              </div>
             </div>
 
-            <div className="block md:hidden">
-              {data.rows.length > 0 ? (
-                <div className="space-y-2 p-3">
-                  {data.rows.map((r: any) => (
-                    <div key={r.date} className="rounded-2xl border border-slate-200 bg-slate-50/60 p-3">
+            <div className="divide-y divide-border md:hidden">
+              {data.rows.length >
+              0 ? (
+                data.rows.map(
+                  (
+                    row: any
+                  ) => (
+                    <div
+                      key={
+                        row.date
+                      }
+                      className="p-3"
+                    >
                       <div className="flex items-center justify-between gap-3">
                         <div className="flex items-center gap-2">
-                          <CalendarDays className="h-4 w-4 text-slate-500" />
-                          <div className="text-sm font-semibold text-slate-900">{r.date}</div>
+                          <CalendarDays className="h-4 w-4 text-muted-foreground" />
+                          <div className="text-sm font-bold text-heading">
+                            {
+                              row.date
+                            }
+                          </div>
                         </div>
-                        <div className="text-sm font-semibold text-slate-900">{formatINR(r.gross)}</div>
+
+                        <div className="text-sm font-extrabold text-heading">
+                          {formatINR(
+                            row.gross
+                          )}
+                        </div>
                       </div>
 
-                      <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
-                        <MiniInfo label="Orders" value={String(r.orders)} />
-                        <MiniInfo label="Items" value={String(r.items)} />
-                        <MiniInfo label="Shipping" value={formatINR(r.shipping)} />
-                        <MiniInfo label="Refunds" value={formatINR(r.refunds)} />
+                      <div className="mt-2.5 grid grid-cols-2 gap-2">
+                        <MiniInfo
+                          label="Orders"
+                          value={String(
+                            row.orders
+                          )}
+                        />
+                        <MiniInfo
+                          label="Items"
+                          value={String(
+                            row.items
+                          )}
+                        />
+                        <MiniInfo
+                          label="Shipping"
+                          value={formatINR(
+                            row.shipping
+                          )}
+                        />
+                        <MiniInfo
+                          label="Refunds"
+                          value={formatINR(
+                            row.refunds
+                          )}
+                        />
                       </div>
                     </div>
-                  ))}
-                </div>
+                  )
+                )
               ) : (
-                <div className="p-5 text-center text-sm text-slate-500">No data for this range.</div>
+                <div className="p-6 text-center text-sm text-muted-foreground">
+                  No data for this range.
+                </div>
               )}
             </div>
 
             <div className="hidden overflow-x-auto md:block">
               <table className="w-full table-fixed text-sm">
-                <colgroup>
-                  <col className="w-2/12" />
-                  <col className="w-2/12" />
-                  <col className="w-2/12" />
-                  <col className="w-2/12" />
-                  <col className="w-2/12" />
-                  <col className="w-2/12" />
-                </colgroup>
-                <thead className="bg-slate-50 text-slate-600">
+                <thead className="bg-surface-soft text-xs font-bold text-muted-foreground">
                   <tr>
-                    <th className="p-3 text-left">Date</th>
-                    <th className="p-3 text-right">Orders</th>
-                    <th className="p-3 text-right">Items</th>
-                    <th className="p-3 text-right">Gross</th>
-                    <th className="p-3 text-right">Shipping</th>
-                    <th className="p-3 text-right">Refunds</th>
+                    <th className="p-3 text-left">
+                      Date
+                    </th>
+                    <th className="p-3 text-right">
+                      Orders
+                    </th>
+                    <th className="p-3 text-right">
+                      Items
+                    </th>
+                    <th className="p-3 text-right">
+                      Gross
+                    </th>
+                    <th className="p-3 text-right">
+                      Shipping
+                    </th>
+                    <th className="p-3 text-right">
+                      Refunds
+                    </th>
                   </tr>
                 </thead>
+
                 <tbody>
-                  {data.rows.map((r: any) => (
-                    <tr key={r.date} className="border-t border-slate-100">
-                      <td className="p-3">{r.date}</td>
-                      <td className="p-3 text-right">{r.orders}</td>
-                      <td className="p-3 text-right">{r.items}</td>
-                      <td className="p-3 text-right">{formatINR(r.gross)}</td>
-                      <td className="p-3 text-right">{formatINR(r.shipping)}</td>
-                      <td className="p-3 text-right">{formatINR(r.refunds)}</td>
-                    </tr>
-                  ))}
-                  {data.rows.length === 0 && (
-                    <tr>
-                      <td colSpan={6} className="p-4 text-center text-slate-500">No data for this range.</td>
-                    </tr>
+                  {data.rows.map(
+                    (
+                      row: any
+                    ) => (
+                      <tr
+                        key={
+                          row.date
+                        }
+                        className="border-t border-border"
+                      >
+                        <td className="p-3 text-foreground">
+                          {
+                            row.date
+                          }
+                        </td>
+                        <td className="p-3 text-right text-foreground">
+                          {
+                            row.orders
+                          }
+                        </td>
+                        <td className="p-3 text-right text-foreground">
+                          {
+                            row.items
+                          }
+                        </td>
+                        <td className="p-3 text-right font-bold text-heading">
+                          {formatINR(
+                            row.gross
+                          )}
+                        </td>
+                        <td className="p-3 text-right text-foreground">
+                          {formatINR(
+                            row.shipping
+                          )}
+                        </td>
+                        <td className="p-3 text-right text-foreground">
+                          {formatINR(
+                            row.refunds
+                          )}
+                        </td>
+                      </tr>
+                    )
                   )}
+
+                  {data.rows.length ===
+                  0 ? (
+                    <tr>
+                      <td
+                        colSpan={6}
+                        className="p-5 text-center text-muted-foreground"
+                      >
+                        No data for this range.
+                      </td>
+                    </tr>
+                  ) : null}
                 </tbody>
               </table>
             </div>
           </div>
-
-          <MobileSummaryList
-            title="Top days by sales"
-            items={[...(data.rows || [])]
-              .sort((a: any, b: any) => Number(b.gross || 0) - Number(a.gross || 0))
-              .slice(0, 5)
-              .map((r: any) => ({
-                title: r.date,
-                value: formatINR(r.gross),
-                sub: `${r.orders} orders • ${r.items} items`,
-              }))}
-          />
         </div>
-      )}
+      ) : null}
 
-      {tab !== "date" && data && (
+      {tab !==
+        "date" &&
+      data ? (
         <div className="space-y-4">
-          {barSeries.length > 0 && (
-            <div className="hidden rounded-[22px] border border-slate-200 bg-white p-3 shadow-sm sm:p-4 md:block">
-              <div className="mb-3 text-sm font-semibold text-slate-900">
-                {tab === "product" ? "Top products by sales" : "Sales by category"}
+          {barSeries.length >
+          0 ? (
+            <div className="hidden rounded-2xl border border-border bg-card p-4 md:block">
+              <div className="mb-3 text-sm font-extrabold text-heading">
+                {tab ===
+                "product"
+                  ? "Top products by sales"
+                  : "Sales by category"}
               </div>
+
               <div className="h-72">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={barSeries.slice(0, 8)} margin={{ top: 5, right: 10, left: 0, bottom: 18 }}>
-                    <CartesianGrid stroke={COLORS.grid} strokeDasharray="3 3" />
-                    <XAxis dataKey="label" tick={{ fontSize: 11 }} interval={0} />
-                    <YAxis tick={{ fontSize: 11 }} />
-                    <Tooltip
-                      formatter={(v: any, n: any, item: any) =>
-                        n === "total"
-                          ? [formatINR(v), item?.payload?.fullLabel || "Total"]
-                          : [v, "Qty"]
+                <ResponsiveContainer
+                  width="100%"
+                  height="100%"
+                >
+                  <BarChart
+                    data={barSeries.slice(
+                      0,
+                      8
+                    )}
+                    margin={{
+                      top: 5,
+                      right: 10,
+                      left: 0,
+                      bottom: 18,
+                    }}
+                  >
+                    <CartesianGrid
+                      stroke={
+                        COLORS.grid
+                      }
+                      strokeDasharray="3 3"
+                    />
+                    <XAxis
+                      dataKey="label"
+                      tick={{
+                        fontSize: 11,
+                      }}
+                      interval={
+                        0
                       }
                     />
-                    <Bar dataKey="total" fill={COLORS.bar} radius={[6, 6, 0, 0]} />
+                    <YAxis
+                      tick={{
+                        fontSize: 11,
+                      }}
+                    />
+                    <Tooltip
+                      formatter={(
+                        value: any,
+                        name: any,
+                        item: any
+                      ) =>
+                        name ===
+                        "total"
+                          ? [
+                              formatINR(
+                                value
+                              ),
+                              item
+                                ?.payload
+                                ?.fullLabel ||
+                                "Total",
+                            ]
+                          : [
+                              value,
+                              "Qty",
+                            ]
+                      }
+                    />
+                    <Bar
+                      dataKey="total"
+                      fill={
+                        COLORS.bar
+                      }
+                      radius={[
+                        6,
+                        6,
+                        0,
+                        0,
+                      ]}
+                    />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
             </div>
-          )}
+          ) : null}
 
-          <div className="overflow-hidden rounded-[22px] border border-slate-200 bg-white shadow-sm">
-            <div className="border-b border-slate-100 px-4 py-3">
-              <div className="text-sm font-semibold text-slate-900">
-                {tab === "product" ? "Sales by product" : "Sales by category"}
+          <div className="overflow-hidden rounded-xl border border-border bg-card md:rounded-2xl">
+            <div className="border-b border-border px-3 py-3 md:px-4">
+              <div className="text-sm font-extrabold text-heading">
+                {tab ===
+                "product"
+                  ? "Sales by product"
+                  : "Sales by category"}
               </div>
             </div>
 
-            <div className="block md:hidden">
-              {data.rows.length > 0 ? (
-                <div className="space-y-2 p-3">
-                  {data.rows.map((r: any, idx: number) => {
+            <div className="divide-y divide-border md:hidden">
+              {data.rows.length >
+              0 ? (
+                data.rows.map(
+                  (
+                    row: any,
+                    index: number
+                  ) => {
                     const label =
-                      tab === "product" ? String(r.name || "—") : String(r.category || "—");
+                      tab ===
+                      "product"
+                        ? String(
+                            row.name ||
+                              "—"
+                          )
+                        : String(
+                            row.category ||
+                              "—"
+                          );
 
                     return (
                       <div
-                        key={(tab === "product" ? r.product_id : r.category) || idx}
-                        className="rounded-2xl border border-slate-200 bg-slate-50/60 p-3"
+                        key={
+                          (
+                            tab ===
+                            "product"
+                              ? row.product_id
+                              : row.category
+                          ) ||
+                          index
+                        }
+                        className="p-3"
                       >
-                        <div className="text-sm font-semibold text-slate-900">{label}</div>
-                        <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
-                          <MiniInfo label="Qty" value={String(r.qty || 0)} />
-                          <MiniInfo label="Total" value={formatINR(r.total)} />
+                        <div className="text-sm font-bold text-heading">
+                          {
+                            label
+                          }
+                        </div>
+
+                        <div className="mt-2.5 grid grid-cols-2 gap-2">
+                          <MiniInfo
+                            label="Qty"
+                            value={String(
+                              row.qty ||
+                                0
+                            )}
+                          />
+                          <MiniInfo
+                            label="Total"
+                            value={formatINR(
+                              row.total
+                            )}
+                          />
                         </div>
                       </div>
                     );
-                  })}
-
-                  <div className="rounded-2xl border border-slate-200 bg-white p-3">
-                    <div className="flex items-center justify-between text-sm font-semibold text-slate-900">
-                      <span>Totals</span>
-                      <span>{formatINR(data?.totals?.total)}</span>
-                    </div>
-                    <div className="mt-1 text-xs text-slate-500">
-                      Qty: {data?.totals?.qty ?? 0}
-                    </div>
-                  </div>
-                </div>
+                  }
+                )
               ) : (
-                <div className="p-5 text-center text-sm text-slate-500">No data for this range.</div>
+                <div className="p-6 text-center text-sm text-muted-foreground">
+                  No data for this range.
+                </div>
               )}
             </div>
 
             <div className="hidden overflow-x-auto md:block">
               <table className="w-full table-fixed text-sm">
-                <colgroup>
-                  <col className="w-8/12" />
-                  <col className="w-2/12" />
-                  <col className="w-2/12" />
-                </colgroup>
-                <thead className="bg-slate-50 text-slate-600">
+                <thead className="bg-surface-soft text-xs font-bold text-muted-foreground">
                   <tr>
-                    <th className="p-3 text-left">{tab === "product" ? "Product" : "Category"}</th>
-                    <th className="p-3 text-right">Qty</th>
-                    <th className="p-3 text-right">Total</th>
+                    <th className="p-3 text-left">
+                      {tab ===
+                      "product"
+                        ? "Product"
+                        : "Category"}
+                    </th>
+                    <th className="p-3 text-right">
+                      Qty
+                    </th>
+                    <th className="p-3 text-right">
+                      Total
+                    </th>
                   </tr>
                 </thead>
+
                 <tbody>
-                  {data.rows.map((r: any, idx: number) => (
-                    <tr
-                      key={(tab === "product" ? r.product_id : r.category) || idx}
-                      className="border-t border-slate-100"
-                    >
-                      <td className="p-3">{tab === "product" ? r.name : r.category}</td>
-                      <td className="p-3 text-right">{r.qty}</td>
-                      <td className="p-3 text-right">{formatINR(r.total)}</td>
-                    </tr>
-                  ))}
-                  {data.rows.length === 0 && (
-                    <tr>
-                      <td colSpan={3} className="p-4 text-center text-slate-500">No data for this range.</td>
-                    </tr>
+                  {data.rows.map(
+                    (
+                      row: any,
+                      index: number
+                    ) => (
+                      <tr
+                        key={
+                          (
+                            tab ===
+                            "product"
+                              ? row.product_id
+                              : row.category
+                          ) ||
+                          index
+                        }
+                        className="border-t border-border"
+                      >
+                        <td className="p-3 text-foreground">
+                          {tab ===
+                          "product"
+                            ? row.name
+                            : row.category}
+                        </td>
+                        <td className="p-3 text-right text-foreground">
+                          {
+                            row.qty
+                          }
+                        </td>
+                        <td className="p-3 text-right font-bold text-heading">
+                          {formatINR(
+                            row.total
+                          )}
+                        </td>
+                      </tr>
+                    )
                   )}
+
+                  {data.rows.length ===
+                  0 ? (
+                    <tr>
+                      <td
+                        colSpan={3}
+                        className="p-5 text-center text-muted-foreground"
+                      >
+                        No data for this range.
+                      </td>
+                    </tr>
+                  ) : null}
                 </tbody>
-                {data.rows.length > 0 && (
+
+                {data.rows.length >
+                0 ? (
                   <tfoot>
-                    <tr className="border-t border-slate-100 font-medium">
-                      <td className="p-3 text-right">Totals</td>
-                      <td className="p-3 text-right">{data?.totals?.qty ?? 0}</td>
-                      <td className="p-3 text-right">{formatINR(data?.totals?.total)}</td>
+                    <tr className="border-t border-border font-bold text-heading">
+                      <td className="p-3 text-right">
+                        Totals
+                      </td>
+                      <td className="p-3 text-right">
+                        {data
+                          ?.totals
+                          ?.qty ??
+                          0}
+                      </td>
+                      <td className="p-3 text-right">
+                        {formatINR(
+                          data
+                            ?.totals
+                            ?.total
+                        )}
+                      </td>
                     </tr>
                   </tfoot>
-                )}
+                ) : null}
               </table>
             </div>
           </div>
-
-          <MobileSummaryList
-            title={tab === "product" ? "Top products" : "Top categories"}
-            items={[...(data.rows || [])]
-              .sort((a: any, b: any) => Number(b.total || 0) - Number(a.total || 0))
-              .slice(0, 5)
-              .map((r: any) => ({
-                title: tab === "product" ? String(r.name || "—") : String(r.category || "—"),
-                value: formatINR(r.total),
-                sub: `${r.qty || 0} qty`,
-              }))}
-          />
         </div>
-      )}
+      ) : null}
+
+      <BottomSheet
+        open={filterOpen}
+        onOpenChange={
+          setFilterOpen
+        }
+        title="Report filters"
+        description="Choose order status and date range."
+        popupClassName="md:mx-auto md:max-w-lg"
+      >
+        <div className="space-y-3">
+          <select
+            value={status}
+            onChange={(event) =>
+              setStatus(
+                event.target
+                  .value
+              )
+            }
+            className="ls-focus-ring h-11 w-full rounded-xl border border-input bg-card px-3 text-sm text-foreground"
+          >
+            <option value="all">
+              All statuses
+            </option>
+            <option value="processing">
+              Processing
+            </option>
+            <option value="completed">
+              Completed
+            </option>
+            <option value="cancelled">
+              Cancelled
+            </option>
+            <option value="refunded">
+              Refunded
+            </option>
+            <option value="on-hold">
+              On hold
+            </option>
+            <option value="pending">
+              Pending payment
+            </option>
+          </select>
+
+          <Input
+            type="date"
+            value={
+              dateFrom
+            }
+            onChange={(
+              event
+            ) =>
+              setDateFrom(
+                event.target
+                  .value
+              )
+            }
+          />
+
+          <Input
+            type="date"
+            value={dateTo}
+            onChange={(
+              event
+            ) =>
+              setDateTo(
+                event.target
+                  .value
+              )
+            }
+          />
+
+          <AsyncButton
+            type="button"
+            loading={loading}
+            loadingLabel="Loading…"
+            className="w-full"
+            onClick={() =>
+              void run()
+            }
+          >
+            Apply Filters
+          </AsyncButton>
+        </div>
+      </BottomSheet>
     </section>
   );
+}
+
 }
 
 function Metric({
@@ -510,53 +1015,30 @@ function Metric({
   value: string;
 }) {
   return (
-    <div className="rounded-[22px] border border-slate-200 bg-white px-4 py-4 shadow-sm">
-      <div className="flex items-center gap-2 text-slate-500">
+    <div className="rounded-xl border border-border bg-card p-3 md:rounded-2xl md:p-4">
+      <div className="flex items-center gap-2 text-muted-foreground">
         {icon}
-        <div className="text-[11px] font-medium uppercase tracking-wide">{label}</div>
+        <div className="text-[10px] font-bold uppercase tracking-wide md:text-[11px]">
+          {label}
+        </div>
       </div>
-      <div className="mt-3 text-xl font-semibold text-slate-900">{value}</div>
+      <div className="mt-2 text-lg font-extrabold text-heading md:mt-3 md:text-xl">
+        {value}
+      </div>
     </div>
   );
 }
 
 function MiniInfo({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-xl bg-white px-3 py-2">
-      <div className="text-[11px] uppercase tracking-wide text-slate-500">{label}</div>
-      <div className="mt-1 text-sm font-semibold text-slate-900">{value}</div>
-    </div>
-  );
-}
-
-function MobileSummaryList({
-  title,
-  items,
-}: {
-  title: string;
-  items: { title: string; value: string; sub?: string }[];
-}) {
-  if (!items.length) return null;
-
-  return (
-    <div className="rounded-[22px] border border-slate-200 bg-white shadow-sm md:hidden">
-      <div className="border-b border-slate-100 px-4 py-3">
-        <div className="text-sm font-semibold text-slate-900">{title}</div>
+    <div className="rounded-lg bg-surface-soft px-3 py-2">
+      <div className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
+        {label}
       </div>
-
-      <div className="space-y-2 p-3">
-        {items.map((item, idx) => (
-          <div key={`${item.title}-${idx}`} className="rounded-2xl border border-slate-200 bg-slate-50/60 p-3">
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <div className="text-sm font-semibold text-slate-900">{item.title}</div>
-                {item.sub ? <div className="mt-1 text-xs text-slate-500">{item.sub}</div> : null}
-              </div>
-              <div className="shrink-0 text-sm font-semibold text-slate-900">{item.value}</div>
-            </div>
-          </div>
-        ))}
+      <div className="mt-1 text-sm font-bold text-heading">
+        {value}
       </div>
     </div>
   );
 }
+
