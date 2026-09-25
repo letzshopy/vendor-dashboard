@@ -7,7 +7,6 @@ import {
   useState,
 } from "react";
 import {
-  Building2,
   ChevronDown,
   CreditCard,
   IdCard,
@@ -31,24 +30,20 @@ import {
   isStandaloneV1SettingsTabAllowed,
 } from "@/lib/storeCapabilities";
 
-import AccountTab from "./tabs/AccountTab";
-import GeneralTab from "./tabs/GeneralTab";
+import ProfileAccountTab from "./tabs/ProfileAccountTab";
+import StoreSettingsTab from "./tabs/StoreSettingsTab";
 import KycTab from "./tabs/KycTab";
 import PaymentsTab from "./tabs/PaymentsTab";
-import ProfileTab from "./tabs/ProfileTab";
 import SetupSiteTab from "./tabs/SetupSiteTab";
 import ShippingDeliveryTab from "./tabs/ShippingDeliveryTab";
-import TaxTab from "./tabs/TaxTab";
 
 type TabId =
-  | "profile"
-  | "kyc"
-  | "setupSite"
-  | "general"
+  | "profileAccount"
+  | "storeSettings"
   | "shippingDelivery"
-  | "tax"
   | "payments"
-  | "account";
+  | "setupSite"
+  | "kyc";
 
 type TabDef = {
   id: TabId;
@@ -62,18 +57,35 @@ type TabDef = {
 
 const TABS: TabDef[] = [
   {
-    id: "profile",
-    label: "Profile",
+    id: "profileAccount",
+    label: "Profile & Account",
+    mobileLabel: "Profile",
     description:
-      "Business identity, contact details and social links.",
+      "Business profile, account details and dashboard security.",
     icon: User,
   },
   {
-    id: "kyc",
-    label: "KYC",
+    id: "storeSettings",
+    label: "Store Settings",
+    mobileLabel: "Store",
     description:
-      "Business verification documents.",
-    icon: IdCard,
+      "Store display, product rules, stock and tax settings.",
+    icon: Settings2,
+  },
+  {
+    id: "shippingDelivery",
+    label: "Shipping & Delivery",
+    mobileLabel: "Shipping",
+    description:
+      "Shipping charges, courier mode and delivery setup.",
+    icon: Truck,
+  },
+  {
+    id: "payments",
+    label: "Payments",
+    description:
+      "PayGlocal, UPI, bank transfer and COD.",
+    icon: CreditCard,
   },
   {
     id: "setupSite",
@@ -84,41 +96,11 @@ const TABS: TabDef[] = [
     icon: LayoutTemplate,
   },
   {
-    id: "general",
-    label: "Store Settings",
-    mobileLabel: "Store",
+    id: "kyc",
+    label: "KYC",
     description:
-      "Currency, measurements, reviews and stock rules.",
-    icon: Settings2,
-  },
-  {
-    id: "shippingDelivery",
-    label: "Shipping & Delivery",
-    mobileLabel: "Shipping",
-    description:
-      "Shipping charges, courier mode and pickup setup.",
-    icon: Truck,
-  },
-  {
-    id: "tax",
-    label: "Tax",
-    description:
-      "GST and tax display settings.",
-    icon: Percent,
-  },
-  {
-    id: "payments",
-    label: "Payments",
-    description:
-      "PayGlocal, UPI, bank transfer and COD.",
-    icon: CreditCard,
-  },
-  {
-    id: "account",
-    label: "Account",
-    description:
-      "Plan, login and account details.",
-    icon: Building2,
+      "Business verification documents.",
+    icon: IdCard,
   },
 ];
 
@@ -130,11 +112,17 @@ function normalizeTab(
   const normalizedRaw =
     rawTab === "pages"
       ? "setupSite"
-      : rawTab === "shipping" ||
-          rawTab ===
-            "shipmentFulfillment"
-        ? "shippingDelivery"
-        : rawTab;
+      : rawTab === "profile" ||
+          rawTab === "account"
+        ? "profileAccount"
+        : rawTab === "general" ||
+            rawTab === "tax"
+          ? "storeSettings"
+          : rawTab === "shipping" ||
+              rawTab ===
+                "shipmentFulfillment"
+            ? "shippingDelivery"
+            : rawTab;
 
   const matched =
     availableTabs.find(
@@ -147,7 +135,7 @@ function normalizeTab(
     matched?.id ||
     availableTabs[0]
       ?.id ||
-    "profile"
+    "profileAccount"
   );
 }
 
@@ -205,16 +193,40 @@ export default function SettingsTabsClient({
 
   function renderActiveTab() {
     switch (activeTab.id) {
-      case "profile":
-        return <ProfileTab />;
-      case "kyc":
-        return <KycTab />;
-      case "setupSite":
-        return <SetupSiteTab />;
-      case "general":
-        return <GeneralTab />;
+      case "profileAccount":
+        return (
+          <ProfileAccountTab />
+        );
+      case "storeSettings":
+        return (
+          <StoreSettingsTab
+            storeType={
+              storeType
+            }
+          />
+        );
       case "shippingDelivery":
         return (
+          <ShippingDeliveryTab
+            storeType={
+              storeType
+            }
+          />
+        );
+      case "payments":
+        return <PaymentsTab />;
+      case "setupSite":
+        return <SetupSiteTab />;
+      case "kyc":
+        return <KycTab />;
+      default:
+        return (
+          <ProfileAccountTab />
+        );
+    }
+  }
+
+  return (
           <ShippingDeliveryTab
             storeType={
               storeType
