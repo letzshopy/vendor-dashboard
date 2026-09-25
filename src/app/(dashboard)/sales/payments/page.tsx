@@ -45,15 +45,6 @@ export default async function PaymentsPage() {
         description="Track payment method, status and transaction reference for customer orders."
       />
 
-      <div className="mb-3 md:hidden">
-        <div className="text-[11px] font-bold uppercase tracking-[0.08em] text-accent">
-          Sales
-        </div>
-        <h1 className="mt-0.5 text-[22px] font-extrabold tracking-tight text-heading">
-          Payments
-        </h1>
-      </div>
-
       <div className="md:mt-5">
         <PaymentsLedgerClient />
       </div>
