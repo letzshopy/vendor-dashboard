@@ -228,7 +228,7 @@ function Section({
     React.ReactNode;
 }) {
   return (
-    <section className="rounded-2xl border border-border bg-card">
+    <section className="rounded-xl border border-border bg-card md:rounded-2xl">
       <div className="flex items-start gap-3 border-b border-border px-3 py-3 md:px-5 md:py-3.5">
         <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg md:h-10 md:w-10 md:rounded-xl bg-secondary text-secondary-foreground">
           {icon}
@@ -552,7 +552,7 @@ export default function TaxTab() {
         title="Tax calculation"
         description="Turn GST calculation on or off and control how prices are treated."
       >
-        <div className="flex items-center justify-between gap-4 rounded-2xl bg-surface-soft px-4 py-3">
+        <div className="flex items-center justify-between gap-4 rounded-xl bg-surface-soft px-3 py-2.5 md:rounded-2xl md:px-4 md:py-3">
           <div className="min-w-0">
             <div className="flex items-center gap-2">
               <div className="text-sm font-bold text-heading">
@@ -592,7 +592,7 @@ export default function TaxTab() {
         </div>
 
         {settings.enable ? (
-          <div className="grid gap-4 lg:grid-cols-2">
+          <div className="grid gap-3 md:gap-4 lg:grid-cols-2">
             <Field label="Product prices">
               <select
                 className={
@@ -728,7 +728,7 @@ export default function TaxTab() {
               </select>
             </Field>
 
-            <div className="flex items-center justify-between gap-4 rounded-2xl bg-surface-soft px-4 py-3 lg:col-span-2">
+            <div className="flex items-center justify-between gap-4 rounded-xl bg-surface-soft px-3 py-2.5 md:rounded-2xl md:px-4 md:py-3 lg:col-span-2">
               <div className="min-w-0">
                 <div className="text-sm font-bold text-heading">
                   Round tax at subtotal
@@ -823,7 +823,7 @@ export default function TaxTab() {
           title="GST information"
           description="Business GST identity and standard product tax slab."
         >
-          <div className="grid gap-4 md:grid-cols-2">
+          <div className="grid gap-3 md:gap-4 md:grid-cols-2">
             <Field label="GSTIN">
               <Input
                 value={
@@ -935,7 +935,7 @@ export default function TaxTab() {
             </Field>
           </div>
 
-          <div className="flex items-center justify-between gap-3 rounded-2xl bg-surface-soft px-4 py-3">
+          <div className="flex items-center justify-between gap-3 rounded-xl bg-surface-soft px-3 py-2.5 md:rounded-2xl md:px-4 md:py-3">
             <div>
               <div className="text-sm font-bold text-heading">
                 Standard GST slab
