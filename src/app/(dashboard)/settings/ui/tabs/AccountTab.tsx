@@ -89,7 +89,7 @@ function Section({
     React.ReactNode;
 }) {
   return (
-    <section className="rounded-2xl border border-border bg-card">
+    <section className="rounded-xl border border-border bg-card md:rounded-2xl">
       <div className="flex items-start gap-3 border-b border-border px-3 py-3 md:px-5 md:py-3.5">
         <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg md:h-10 md:w-10 md:rounded-xl bg-secondary text-secondary-foreground">
           {icon}
@@ -153,7 +153,7 @@ function ReadOnlyValue({
   value: string;
 }) {
   return (
-    <div className="rounded-2xl bg-surface-soft px-4 py-3">
+    <div className="rounded-xl bg-surface-soft px-3 py-2.5 md:rounded-2xl md:px-4 md:py-3">
       <div className="flex items-center gap-2 text-[11px] font-bold text-muted-foreground">
         {icon}
         {label}
@@ -859,7 +859,7 @@ export default function AccountTab() {
             </div>
           </div>
 
-          <div className="rounded-2xl border border-border bg-surface-soft p-4">
+          <div className="rounded-xl border border-border bg-surface-soft p-3 md:rounded-2xl md:p-4">
             <div className="text-sm font-extrabold text-heading">
               Change password
             </div>
