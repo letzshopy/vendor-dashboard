@@ -12,7 +12,6 @@ import {
   CreditCard,
   IdCard,
   LayoutTemplate,
-  PackageSearch,
   Percent,
   Settings2,
   Truck,
@@ -38,8 +37,7 @@ import KycTab from "./tabs/KycTab";
 import PaymentsTab from "./tabs/PaymentsTab";
 import ProfileTab from "./tabs/ProfileTab";
 import SetupSiteTab from "./tabs/SetupSiteTab";
-import ShipmentFulfillmentTab from "./tabs/ShipmentFulfillmentTab";
-import ShippingTab from "./tabs/ShippingTab";
+import ShippingDeliveryTab from "./tabs/ShippingDeliveryTab";
 import TaxTab from "./tabs/TaxTab";
 
 type TabId =
@@ -47,8 +45,7 @@ type TabId =
   | "kyc"
   | "setupSite"
   | "general"
-  | "shipping"
-  | "shipmentFulfillment"
+  | "shippingDelivery"
   | "tax"
   | "payments"
   | "account";
@@ -61,23 +58,6 @@ type TabDef = {
   icon: React.ComponentType<{
     className?: string;
   }>;
-};
-
-const TAB_COMPONENTS:
-  Record<
-    TabId,
-    React.ReactNode
-  > = {
-  profile: <ProfileTab />,
-  kyc: <KycTab />,
-  setupSite: <SetupSiteTab />,
-  general: <GeneralTab />,
-  shipping: <ShippingTab />,
-  shipmentFulfillment:
-    <ShipmentFulfillmentTab />,
-  tax: <TaxTab />,
-  payments: <PaymentsTab />,
-  account: <AccountTab />,
 };
 
 const TABS: TabDef[] = [
@@ -112,20 +92,12 @@ const TABS: TabDef[] = [
     icon: Settings2,
   },
   {
-    id: "shipping",
-    label: "Shipping Charges",
+    id: "shippingDelivery",
+    label: "Shipping & Delivery",
     mobileLabel: "Shipping",
     description:
-      "Shipping zones, methods and charges.",
+      "Shipping charges, courier mode and pickup setup.",
     icon: Truck,
-  },
-  {
-    id: "shipmentFulfillment",
-    label: "Shipment Fulfillment",
-    mobileLabel: "Fulfillment",
-    description:
-      "Courier and tracking workflow.",
-    icon: PackageSearch,
   },
   {
     id: "tax",
@@ -158,7 +130,11 @@ function normalizeTab(
   const normalizedRaw =
     rawTab === "pages"
       ? "setupSite"
-      : rawTab;
+      : rawTab === "shipping" ||
+          rawTab ===
+            "shipmentFulfillment"
+        ? "shippingDelivery"
+        : rawTab;
 
   const matched =
     availableTabs.find(
@@ -227,6 +203,35 @@ export default function SettingsTabsClient({
   const ActiveIcon =
     activeTab.icon;
 
+  function renderActiveTab() {
+    switch (activeTab.id) {
+      case "profile":
+        return <ProfileTab />;
+      case "kyc":
+        return <KycTab />;
+      case "setupSite":
+        return <SetupSiteTab />;
+      case "general":
+        return <GeneralTab />;
+      case "shippingDelivery":
+        return (
+          <ShippingDeliveryTab
+            storeType={
+              storeType
+            }
+          />
+        );
+      case "tax":
+        return <TaxTab />;
+      case "payments":
+        return <PaymentsTab />;
+      case "account":
+        return <AccountTab />;
+      default:
+        return <ProfileTab />;
+    }
+  }
+
   return (
     <>
       <div className="md:hidden">
@@ -290,11 +295,7 @@ export default function SettingsTabsClient({
         </div>
 
         <div className="mt-3 min-w-0 md:mt-5">
-          {
-            TAB_COMPONENTS[
-              activeTab.id
-            ]
-          }
+          {renderActiveTab()}
         </div>
       </section>
 
