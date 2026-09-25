@@ -225,12 +225,13 @@ export default function GeneralTab() {
           LetzShopy support.
         </div>
       </div>
+    </div>
   );
 }
 
   if (!p) return null;
 
-  const setField = <K extends keyof ProductsGeneral>(
+  const setField = <K extends keyof ProductsGeneral,>(
     k: K,
     v: ProductsGeneral[K]
   ) => setP({ ...p, [k]: v });
