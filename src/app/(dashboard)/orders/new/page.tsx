@@ -420,7 +420,7 @@ export default function CreateOrderPage() {
 
           <div className="rounded-xl border border-border bg-card p-3 md:rounded-2xl md:p-4">
             <div className="mb-4 flex items-center justify-between gap-3">
-              <h2 className="text-lg font-semibold">Products</h2>
+              <h2 className="text-base font-extrabold text-heading">Products</h2>
               <button
                 type="button"
                 onClick={addRow}
@@ -482,7 +482,7 @@ export default function CreateOrderPage() {
                       {row.open && (
                         <div className="absolute z-30 mt-2 max-h-72 w-full overflow-auto rounded-xl border border-border bg-card shadow-xl">
                           {row.searching ? (
-                            <div className="px-3 py-2 text-sm text-gray-500">Searching...</div>
+                            <div className="px-3 py-3 text-sm text-muted-foreground">Searching...</div>
                           ) : row.results.length > 0 ? (
                             row.results.map((item) => (
                               <button
@@ -498,7 +498,7 @@ export default function CreateOrderPage() {
                               </button>
                             ))
                           ) : row.search.trim() ? (
-                            <div className="px-3 py-2 text-sm text-gray-500">
+                            <div className="px-3 py-3 text-sm text-muted-foreground">
                               No products found.
                             </div>
                           ) : null}
@@ -548,7 +548,7 @@ export default function CreateOrderPage() {
                   </div>
 
                   {row.productId ? (
-                    <div className="mt-3 text-xs text-gray-500">
+                    <div className="mt-3 text-xs text-muted-foreground">
                       Selected: #{row.productId} {row.name} {row.sku ? `• SKU: ${row.sku}` : ""}
                     </div>
                   ) : null}
@@ -676,7 +676,7 @@ export default function CreateOrderPage() {
         </aside>
       </div>
 
-      <div className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-card/95 px-3 pb-[calc(var(--ls-safe-area-bottom)+0.75rem)] pt-2.5 shadow-[0_-10px_30px_rgba(15,23,42,0.08)] backdrop-blur md:hidden">
+      <div className="fixed inset-x-0 bottom-[calc(4.5rem+var(--ls-safe-area-bottom))] z-50 border-t border-border bg-card/95 px-3 py-2.5 shadow-[0_-10px_30px_rgba(15,23,42,0.08)] backdrop-blur md:hidden">
         <div className="mx-auto flex max-w-7xl items-center gap-3">
           <div className="min-w-0 flex-1">
             <div className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
