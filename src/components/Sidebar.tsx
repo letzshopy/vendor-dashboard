@@ -560,20 +560,20 @@ export default function Sidebar({
 
     return (
       <div className="flex h-full min-h-0 flex-col">
-        <div className="border-b border-white/10 px-3 py-3">
+        <div className="border-b border-border px-3 py-3">
           <Link
             href="/dashboard"
-            className="flex min-h-10 items-center gap-2 rounded-xl px-3 text-[12px] font-semibold text-indigo-100/80 transition hover:bg-white/[0.07] hover:text-white"
+            className="ls-focus-ring flex min-h-10 items-center gap-2 rounded-xl px-3 text-[12px] font-bold text-muted-foreground transition hover:bg-muted hover:text-heading"
           >
             <ArrowLeft className="h-4 w-4" />
             Dashboard
           </Link>
 
           <div className="mt-2 px-3 pb-1">
-            <div className="text-[11px] font-bold uppercase tracking-[0.12em] text-indigo-200/60">
+            <div className="text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
               Store settings
             </div>
-            <div className="mt-1 text-[17px] font-bold text-white">
+            <div className="mt-1 text-[17px] font-extrabold text-heading">
               Settings
             </div>
           </div>
@@ -603,16 +603,16 @@ export default function Sidebar({
                     className={[
                       "flex min-h-10 items-center gap-2.5 rounded-xl px-3 py-2 text-[13px] font-semibold transition",
                       active
-                        ? "bg-white text-[#26335F] shadow-sm ring-1 ring-[#D9DEEC]"
-                        : "text-indigo-100/85 hover:bg-white/[0.07] hover:text-white",
+                        ? "bg-secondary text-secondary-foreground shadow-sm ring-1 ring-border"
+                        : "text-foreground hover:bg-muted",
                     ].join(" ")}
                   >
                     <span
                       className={[
                         "h-1.5 w-1.5 shrink-0 rounded-full",
                         active
-                          ? "bg-[#E85D4A]"
-                          : "bg-white/30",
+                          ? "bg-accent"
+                          : "bg-border",
                       ].join(" ")}
                     />
 
@@ -633,13 +633,13 @@ export default function Sidebar({
     return (
       <div className="flex h-full min-h-0 flex-col">
         <div
-          className="flex items-center justify-between border-b border-white/10 px-3 pb-3 md:hidden"
+          className="flex items-center justify-between border-b border-border px-3 pb-3 md:hidden"
           style={{
             paddingTop:
               "calc(0.75rem + var(--ls-safe-area-top))",
           }}
         >
-          <div className="flex h-11 items-center rounded-2xl bg-white px-3 shadow-sm">
+          <div className="flex h-11 items-center rounded-xl border border-border bg-card px-3">
             <div className="relative h-7 w-[8.25rem]">
               {BRAND_LOGO_URL ? (
                 <Image
@@ -661,7 +661,7 @@ export default function Sidebar({
             type="button"
             onClick={onClose}
             aria-label="Close navigation"
-            className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-white/10 text-white transition active:scale-95"
+            className="ls-focus-ring inline-flex h-10 w-10 items-center justify-center rounded-xl border border-border bg-muted text-heading"
           >
             <X className="h-5 w-5" />
           </button>
@@ -673,7 +673,7 @@ export default function Sidebar({
           className="min-h-0 flex-1 touch-pan-y space-y-2 overflow-y-auto overscroll-contain px-3 pb-[calc(1.5rem+var(--ls-safe-area-bottom))] pt-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:pb-6 md:pt-4"
         >
           {locked && (
-            <div className="mb-3 rounded-2xl border border-amber-300/20 bg-amber-400/10 px-3 py-3 text-[13px] leading-5 text-amber-100">
+            <div className="mb-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-3 text-[13px] leading-5 text-amber-800">
               Dashboard locked. Only Settings
               and Subscription are available.
             </div>
@@ -738,8 +738,8 @@ export default function Sidebar({
                   className={[
                     "flex min-h-12 w-full items-center justify-between gap-3 rounded-2xl px-2.5 py-2 text-left transition",
                     groupActive
-                      ? "bg-white/[0.12] text-white shadow-sm ring-1 ring-white/10"
-                      : "text-indigo-100 hover:bg-white/[0.07] hover:text-white",
+                      ? "bg-secondary text-secondary-foreground shadow-sm ring-1 ring-border"
+                      : "text-foreground hover:bg-muted",
                   ].join(" ")}
                 >
                   <span className="flex min-w-0 items-center gap-3">
@@ -747,8 +747,8 @@ export default function Sidebar({
                       className={[
                         "inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl transition",
                         groupActive
-                          ? "bg-[#E85D4A] text-white shadow-sm"
-                          : "bg-white/[0.08] text-indigo-100",
+                          ? "bg-accent text-accent-foreground shadow-sm"
+                          : "bg-muted text-primary",
                       ].join(" ")}
                     >
                       <Icon className="h-[18px] w-[18px]" />
@@ -761,7 +761,7 @@ export default function Sidebar({
 
                   <ChevronDown
                     className={[
-                      "h-4 w-4 shrink-0 text-indigo-100/65 transition-transform duration-200",
+                      "h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200",
                       expanded
                         ? "rotate-180"
                         : "",
@@ -774,7 +774,7 @@ export default function Sidebar({
                     id={
                       `sidebar-group-${group.key}`
                     }
-                    className="ml-[1.35rem] space-y-1 border-l border-white/10 pl-3"
+                    className="ml-[1.35rem] space-y-1 border-l border-border pl-3"
                   >
                     {group.items.map(
                       (item) => {
@@ -803,9 +803,7 @@ export default function Sidebar({
                               ) {
                                 event.preventDefault();
 
-                                alert(
-                                  `${item.label} coming soon`
-                                );
+                                return;
 
                                 return;
                               }
@@ -815,16 +813,16 @@ export default function Sidebar({
                             className={[
                               "flex min-h-11 items-center gap-2.5 rounded-xl px-3 py-2 text-[13px] font-medium transition",
                               active
-                                ? "bg-white !text-[#26335F] shadow-sm ring-1 ring-[#D9DEEC]"
-                                : "text-indigo-100/85 hover:bg-white/[0.07] hover:text-white",
+                                ? "bg-card !text-heading shadow-sm ring-1 ring-border"
+                                : "text-muted-foreground hover:bg-muted hover:text-heading",
                             ].join(" ")}
                           >
                             <span
                               className={[
                                 "h-1.5 w-1.5 shrink-0 rounded-full",
                                 active
-                                  ? "bg-[#E85D4A]"
-                                  : "bg-white/30",
+                                  ? "bg-accent"
+                                  : "bg-border",
                               ].join(" ")}
                             />
 
@@ -832,7 +830,7 @@ export default function Sidebar({
                               className={[
                                 "min-w-0 flex-1 truncate",
                                 active
-                                  ? "!text-[#26335F]"
+                                  ? "!text-heading"
                                   : "",
                               ].join(" ")}
                             >
@@ -840,7 +838,7 @@ export default function Sidebar({
                             </span>
 
                             {!item.ready && (
-                              <span className="rounded-full bg-white/10 px-2 py-0.5 text-[9px] uppercase tracking-wide text-indigo-100">
+                              <span className="rounded-full bg-muted px-2 py-0.5 text-[9px] uppercase tracking-wide text-muted-foreground">
                                 Soon
                               </span>
                             )}
@@ -860,7 +858,7 @@ export default function Sidebar({
 
   return (
     <>
-      <aside className="sticky top-[72px] hidden h-[calc(100dvh-72px)] w-[270px] shrink-0 overflow-hidden border-r border-white/10 bg-[linear-gradient(180deg,#2E3F7D_0%,#26366E_100%)] text-indigo-50 md:block">
+      <aside className="sticky top-[68px] hidden h-[calc(100dvh-68px)] w-[252px] shrink-0 overflow-hidden border-r border-border bg-card text-foreground md:block">
         {pathname === "/settings"
           ? renderDesktopSettingsNavigation()
           : renderNavigation()}
@@ -880,7 +878,7 @@ export default function Sidebar({
           aria-label="Close navigation"
           onClick={onClose}
           className={[
-            "absolute inset-0 h-full w-full bg-slate-950/60 backdrop-blur-[3px] transition-opacity duration-200",
+            "absolute inset-0 h-full w-full bg-slate-950/45 backdrop-blur-[3px] transition-opacity duration-200",
             open
               ? "opacity-100"
               : "opacity-0",
@@ -890,7 +888,7 @@ export default function Sidebar({
         <aside
           aria-label="Mobile dashboard navigation"
           className={[
-            "absolute left-0 top-0 h-[100dvh] max-h-[100dvh] w-[86vw] max-w-[304px] overflow-hidden bg-[linear-gradient(180deg,#2E3F7D_0%,#26366E_100%)] text-indigo-50 shadow-2xl transition-transform duration-200 ease-out",
+            "absolute left-0 top-0 h-[100dvh] max-h-[100dvh] w-[86vw] max-w-[304px] overflow-hidden border-r border-border bg-card text-foreground shadow-2xl transition-transform duration-200 ease-out",
             open
               ? "translate-x-0"
               : "-translate-x-full",
