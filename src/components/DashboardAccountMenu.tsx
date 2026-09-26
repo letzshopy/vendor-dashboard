@@ -380,16 +380,16 @@ export default function DashboardAccountMenu({
         className={[
           "inline-flex shrink-0 items-center gap-1.5 border shadow-sm transition active:scale-95",
           dashboardTrigger
-            ? "h-10 rounded-2xl border-white/15 bg-white/10 px-1.5 text-white hover:bg-white/15 md:rounded-full"
-            : "h-11 rounded-2xl border-[#2E3F7D] bg-[#2E3F7D] px-2 text-white",
+            ? "h-10 rounded-xl border-[#40518F] bg-[#2A3A74] px-1.5 text-white hover:bg-[#344785] md:rounded-xl"
+            : "h-10 rounded-xl border-[#40518F] bg-[#2A3A74] px-1.5 text-white hover:bg-[#344785]",
         ].join(" ")}
       >
         <span
           className={[
             "inline-flex items-center justify-center rounded-full text-[11px] font-bold",
             dashboardTrigger
-              ? "h-7 w-7 bg-white/15 text-white"
-              : "h-7 w-7 bg-white/15 text-white",
+              ? "h-7 w-7 bg-[#40518F] text-white"
+              : "h-7 w-7 bg-[#40518F] text-white",
           ].join(" ")}
         >
           {initials}
@@ -406,10 +406,10 @@ export default function DashboardAccountMenu({
       </button>
 
       {open && (
-        <div className="absolute right-0 top-full mt-2 w-[19rem] max-w-[calc(100vw-1rem)] overflow-hidden rounded-[24px] border border-[#D9DEEC] bg-white text-sm text-[#26335F] shadow-2xl shadow-slate-900/20">
-          <div className="bg-[linear-gradient(145deg,#2E3F7D_0%,#26366E_100%)] px-4 py-4 text-white">
+        <div className="absolute right-0 top-full mt-2 w-[19rem] max-w-[calc(100vw-1rem)] overflow-hidden rounded-2xl border border-border bg-card text-sm text-heading shadow-[0_20px_60px_rgba(25,35,75,0.18)]">
+          <div className="border-b border-[#C84A3B] bg-[#F15E4A] px-4 py-4 text-white">
             <div className="flex items-start gap-3">
-              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#E85D4A] text-sm font-bold text-white shadow-sm">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#182451] text-sm font-bold text-white shadow-sm">
                 {initials}
               </div>
 
@@ -429,7 +429,7 @@ export default function DashboardAccountMenu({
                   </div>
                 )}
 
-                <div className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-white/10 px-2.5 py-1 text-[10px] font-semibold text-white">
+                <div className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-white px-2.5 py-1 text-[10px] font-extrabold text-[#182451]">
                   <span
                     className={[
                       "h-1.5 w-1.5 rounded-full",
@@ -451,13 +451,13 @@ export default function DashboardAccountMenu({
 
           <div className="space-y-1 p-2">
             <Link
-              href="/settings?tab=profile"
+              href="/settings?tab=profileAccount"
               onClick={() =>
                 onOpenChange(false)
               }
-              className="group flex min-h-12 items-center gap-3 rounded-xl px-3 py-2.5 transition hover:bg-[#F6F7FC]"
+              className="group flex min-h-12 items-center gap-3 rounded-xl px-3 py-2.5 transition hover:bg-muted"
             >
-              <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#EEF1FA] text-[#5366B7] transition group-hover:bg-[#E85D4A] group-hover:text-white">
+              <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-secondary text-secondary-foreground transition group-hover:bg-primary group-hover:text-primary-foreground">
                 <Settings2 className="h-4 w-4" />
               </span>
 
@@ -471,9 +471,9 @@ export default function DashboardAccountMenu({
               onClick={() =>
                 onOpenChange(false)
               }
-              className="group flex min-h-12 items-center gap-3 rounded-xl px-3 py-2.5 transition hover:bg-[#F6F7FC]"
+              className="group flex min-h-12 items-center gap-3 rounded-xl px-3 py-2.5 transition hover:bg-muted"
             >
-              <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#EEF1FA] text-[#5366B7] transition group-hover:bg-[#E85D4A] group-hover:text-white">
+              <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-secondary text-secondary-foreground transition group-hover:bg-primary group-hover:text-primary-foreground">
                 <ReceiptIndianRupee className="h-4 w-4" />
               </span>
 
@@ -487,9 +487,9 @@ export default function DashboardAccountMenu({
               onClick={() =>
                 onOpenChange(false)
               }
-              className="group flex min-h-12 items-center gap-3 rounded-xl px-3 py-2.5 transition hover:bg-[#F6F7FC]"
+              className="group flex min-h-12 items-center gap-3 rounded-xl px-3 py-2.5 transition hover:bg-muted"
             >
-              <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#EEF1FA] text-[#5366B7] transition group-hover:bg-[#E85D4A] group-hover:text-white">
+              <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-secondary text-secondary-foreground transition group-hover:bg-primary group-hover:text-primary-foreground">
                 <FileText className="h-4 w-4" />
               </span>
 
@@ -503,9 +503,9 @@ export default function DashboardAccountMenu({
               onClick={() =>
                 onOpenChange(false)
               }
-              className="group flex min-h-12 items-center gap-3 rounded-xl px-3 py-2.5 transition hover:bg-[#F6F7FC]"
+              className="group flex min-h-12 items-center gap-3 rounded-xl px-3 py-2.5 transition hover:bg-muted"
             >
-              <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#EEF1FA] text-[#5366B7] transition group-hover:bg-[#E85D4A] group-hover:text-white">
+              <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-secondary text-secondary-foreground transition group-hover:bg-primary group-hover:text-primary-foreground">
                 <LifeBuoy className="h-4 w-4" />
               </span>
 
@@ -515,13 +515,13 @@ export default function DashboardAccountMenu({
             </Link>
 
             <Link
-              href="/settings?tab=account"
+              href="/settings?tab=profileAccount"
               onClick={() =>
                 onOpenChange(false)
               }
-              className="group flex min-h-12 items-center gap-3 rounded-xl px-3 py-2.5 transition hover:bg-[#F6F7FC]"
+              className="group flex min-h-12 items-center gap-3 rounded-xl px-3 py-2.5 transition hover:bg-muted"
             >
-              <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#EEF1FA] text-[#5366B7] transition group-hover:bg-[#E85D4A] group-hover:text-white">
+              <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-secondary text-secondary-foreground transition group-hover:bg-primary group-hover:text-primary-foreground">
                 <Settings2 className="h-4 w-4" />
               </span>
 
@@ -531,7 +531,7 @@ export default function DashboardAccountMenu({
             </Link>
           </div>
 
-          <div className="border-t border-[#E7EAF2] p-2">
+          <div className="border-t border-border p-2">
             <button
               type="button"
               onClick={async () => {

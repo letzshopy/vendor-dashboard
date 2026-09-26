@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import {
   Bell,
@@ -21,8 +21,6 @@ import { useDashboardSubscription } from "@/components/subscription/Subscription
 
 const FALLBACK_STORE_URL = process.env.NEXT_PUBLIC_SITE_URL || "#";
 const BRAND_LOGO_URL = process.env.NEXT_PUBLIC_BRAND_LOGO_URL || "";
-const SURFACE_CLASS = "bg-[#f5f3ff]";
-
 type TopbarProps = {
   onToggleSidebar?: () => void;
   verifiedStoreUrl?: string;
@@ -123,17 +121,17 @@ function statusDotClass(status: SubscriptionStatus): string {
 function statusChipClass(status: SubscriptionStatus): string {
   switch (status) {
     case "active":
-      return "bg-[#3b4a8d] text-indigo-100";
+      return "border-emerald-200 bg-emerald-50 text-emerald-700";
     case "trial":
-      return "bg-sky-500/15 text-sky-100";
+      return "border-sky-200 bg-sky-50 text-sky-700";
     case "pending_payment":
     case "payment_submitted":
-      return "bg-amber-500/15 text-amber-100";
+      return "border-amber-200 bg-amber-50 text-amber-700";
     case "suspended":
     case "expired":
     case "inactive":
     default:
-      return "bg-rose-500/15 text-rose-100";
+      return "border-rose-200 bg-rose-50 text-rose-700";
   }
 }
 
@@ -147,6 +145,7 @@ export default function Topbar({
 }: TopbarProps) {
   const { subscription } = useDashboardSubscription();
   const pathname = usePathname() || "/";
+  const router = useRouter();
   const showMobileDashboardTopbar =
     pathname === "/dashboard";
   const [accountOpen, setAccountOpen] = useState(false);
@@ -389,7 +388,11 @@ export default function Topbar({
     }
 
     setShowSearchDropdown(false);
-    window.location.href = url;
+    setMobileSearchOpen(false);
+    window.dispatchEvent(
+      new Event("letzshopy:navigation-start")
+    );
+    router.push(url);
   }
 
   function handleSearchSubmit(e: React.FormEvent) {
@@ -401,7 +404,7 @@ export default function Topbar({
   const subStatus = deriveStatus(subscription?.status);
 
   const searchDropdown = showSearchDropdown && (
-    <div className="absolute left-0 right-0 top-full z-30 mt-2 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl shadow-slate-200">
+    <div className="absolute left-0 right-0 top-full z-30 mt-2 overflow-hidden rounded-2xl border border-border bg-card shadow-[0_18px_50px_rgba(25,35,75,0.16)]">
       <div className="border-b border-slate-100 px-3 py-2 text-[11px] font-medium uppercase tracking-wide text-slate-500">
         {searchScope === "orders" ? "Orders" : "Products"}{" "}
         matching “{search.trim()}”
@@ -415,9 +418,14 @@ export default function Topbar({
                 type="button"
                 onMouseDown={(e) => {
                   e.preventDefault();
-                  window.location.href = item.url;
+                  setShowSearchDropdown(false);
+                  setMobileSearchOpen(false);
+                  window.dispatchEvent(
+                    new Event("letzshopy:navigation-start")
+                  );
+                  router.push(item.url);
                 }}
-                className="flex w-full flex-col items-start gap-0.5 px-3 py-3 text-left hover:bg-violet-50"
+                className="flex w-full flex-col items-start gap-0.5 px-3 py-3 text-left hover:bg-muted"
               >
                 <span className="text-[13px] font-medium text-slate-900">
                   {item.label}
@@ -443,28 +451,32 @@ export default function Topbar({
 
   return (
     <header
+      style={{
+        paddingTop:
+          "var(--ls-safe-area-top)",
+      }}
       className={[
-        "sticky top-0 z-40 w-full border-b border-white/10 bg-[#27346D]/95 shadow-sm shadow-black/20 backdrop-blur",
+        "sticky top-0 z-40 w-full border-b border-[#111B3F] bg-[#182451] shadow-[0_8px_28px_rgba(17,27,63,0.24)]",
         showMobileDashboardTopbar
           ? "block"
           : "hidden",
         "md:block",
       ].join(" ")}
     >
-      <div className="mx-auto w-full max-w-[1600px]">
-        <div className="flex min-h-16 items-center justify-between gap-2 px-3 sm:px-4 md:min-h-[72px] md:px-6 xl:px-8">
+      <div className="w-full">
+        <div className="flex min-h-[60px] items-center justify-between gap-2 px-3 sm:px-4 md:min-h-[68px] md:px-5 xl:px-6">
           <div className="flex min-w-0 items-center gap-2 sm:gap-3 md:gap-4">
             <button
               type="button"
               onClick={onToggleSidebar}
-              className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/10 text-indigo-50 shadow-sm shadow-[#141936] md:hidden"
+              className="ls-focus-ring inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[#40518F] bg-[#2A3A74] text-white md:hidden"
             >
               <Menu className="h-5 w-5" />
             </button>
 
             <div className="flex min-w-0 items-center gap-3">
-              <div className="flex items-center justify-center rounded-xl bg-white/95 px-2 py-1.5 shadow-md shadow-black/20 md:rounded-2xl md:px-3 md:py-2">
-                <div className="relative h-7 w-[7rem] sm:h-8 sm:w-[8rem] md:h-10 md:w-[10.5rem] lg:h-11 lg:w-[12rem]">
+              <div className="flex items-center justify-center rounded-xl bg-white px-2 py-1.5 shadow-[0_5px_16px_rgba(13,22,63,0.18)] md:px-2.5">
+                <div className="relative h-7 w-[6.75rem] sm:w-[7.5rem] md:h-8 md:w-[8.5rem] lg:w-[9.25rem]">
                   {BRAND_LOGO_URL ? (
                     <Image
                       src={BRAND_LOGO_URL}
@@ -484,19 +496,19 @@ export default function Topbar({
 
               <div className="hidden min-w-0 lg:flex lg:flex-col">
                 <div className="flex items-center gap-2">
-                  <span className="truncate text-sm font-semibold text-white">
+                  <span className="truncate text-sm font-extrabold text-white">
                     Vendor Dashboard
                   </span>
-                  <span className="inline-flex items-center gap-1 rounded-full bg-[#FDE9FF]/10 px-2 py-0.5 text-[11px] font-medium text-[#FFE1F5]">
-                    <Sparkles className="h-3 w-3 text-[#FFE1F5]" />
+                  <span className="inline-flex items-center gap-1 rounded-full bg-[#F15E4A] px-2 py-0.5 text-[10px] font-extrabold text-white">
+                    <Sparkles className="h-3 w-3 text-accent" />
                     Live
                   </span>
                 </div>
 
-                <div className="mt-0.5 flex flex-col gap-0.5 text-[11px] text-indigo-100/80">
+                <div className="mt-0.5 flex items-center gap-2 text-[11px] text-indigo-100/75">
                   <span className="truncate">
                     Store:{" "}
-                    <span className="font-medium text-white">
+                    <span className="font-semibold text-white">
                       {normalizedStore || "yourstore.letzshopy.in"}
                     </span>
                   </span>
@@ -504,7 +516,7 @@ export default function Topbar({
                   {loginEmail && (
                     <span className="truncate">
                       Login:{" "}
-                      <span className="font-medium text-white">
+                      <span className="font-semibold text-white">
                         {loginEmail}
                       </span>
                     </span>
@@ -520,27 +532,27 @@ export default function Topbar({
           >
             <form
               onSubmit={handleSearchSubmit}
-              className={`flex w-full items-center rounded-full border border-[#d1cdfc] ${SURFACE_CLASS} px-2 py-1.5 text-xs text-slate-600 shadow-sm focus-within:border-[#A05AFF] focus-within:ring-1 focus-within:ring-[#A05AFF]/40`}
+              className={`flex w-full items-center rounded-xl border border-white/15 bg-white/95 px-2 py-1 text-xs text-muted-foreground shadow-[0_8px_22px_rgba(13,22,63,0.14)] focus-within:border-white focus-within:ring-2 focus-within:ring-white/20`}
             >
               <select
                 value={searchScope}
                 onChange={(e) => setSearchScope(e.target.value as SearchScope)}
-                className="mr-2 inline-flex h-9 items-center rounded-full border border-[#d1cdfc] bg-white px-3 text-xs font-medium text-slate-700 shadow-sm focus:outline-none"
+                className="mr-2 inline-flex h-9 items-center rounded-lg border border-[#D9DEEC] bg-[#EEF1FA] px-2.5 text-xs font-bold text-[#26335F] outline-none"
               >
                 <option value="products">Products</option>
                 <option value="orders">Orders</option>
 
               </select>
 
-              <SearchIcon className="mr-2 h-4 w-4 text-[#7B3EF3]" />
+              <SearchIcon className="mr-2 h-4 w-4 text-muted-foreground" />
               <input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Search products or orders…"
-                className="h-8 flex-1 bg-transparent text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none"
+                className="h-8 flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground focus:outline-none"
               />
               {isSearching && (
-                <Loader2 className="ml-2 h-4 w-4 animate-spin text-[#7B3EF3]" />
+                <Loader2 className="ml-2 h-4 w-4 animate-spin text-primary" />
               )}
             </form>
 
@@ -550,7 +562,7 @@ export default function Topbar({
           <div className="flex shrink-0 items-center gap-2">
             {!statusLoading && (
               <span
-                className={`hidden items-center gap-1 rounded-full px-3 py-1.5 text-[11px] font-medium lg:inline-flex ${statusChipClass(
+                className={`hidden items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-[11px] font-bold lg:inline-flex ${statusChipClass(
                   subStatus
                 )}`}
               >
@@ -569,7 +581,7 @@ export default function Topbar({
               href={storeUrl}
               target="_blank"
               rel="noreferrer"
-              className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[#DDF8F3] text-[#0F9F8A] shadow-sm transition active:scale-95 md:rounded-full md:bg-[#1BCFB4] md:text-white md:shadow-[#0f7669] md:hover:bg-[#16b5a0]"
+              className="ls-focus-ring inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#20B486] text-white shadow-sm hover:bg-[#199A74]"
               aria-label="View Store"
               title="View Store"
             >
@@ -586,13 +598,13 @@ export default function Topbar({
               }}
               aria-label="Open dashboard search"
               aria-expanded={mobileSearchOpen}
-              className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[#EEF1FA] text-[#2E3F7D] shadow-sm transition active:scale-95 md:hidden"
+              className="ls-focus-ring inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[#40518F] bg-[#2A3A74] text-white md:hidden"
             >
               <SearchIcon className="h-5 w-5" />
             </button>
             <Link
   href="/settings"
-  className="hidden h-10 w-10 items-center justify-center rounded-full bg-[#f5f3ff] text-[#27346D] shadow-sm transition hover:bg-[#ebe6ff] md:inline-flex"
+  className="ls-focus-ring hidden h-10 w-10 items-center justify-center rounded-xl border border-[#40518F] bg-[#2A3A74] text-white hover:bg-[#344785] md:inline-flex"
   aria-label="Settings"
   title="Settings"
 >
@@ -602,18 +614,18 @@ export default function Topbar({
               <button
                 type="button"
                 onClick={toggleNotifications}
-                className="relative inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[#EEF1FA] text-[#2E3F7D] shadow-sm transition active:scale-95 md:rounded-full md:bg-[#f5f3ff] md:text-[#27346D] md:hover:bg-[#ebe6ff]"
+                className="ls-focus-ring relative inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[#40518F] bg-[#2A3A74] text-white hover:bg-[#344785]"
               >
                 <Bell className="h-4 w-4" />
                 {unreadCount > 0 && (
-                  <span className="absolute right-0.5 top-0.5 inline-flex min-h-[16px] min-w-[16px] items-center justify-center rounded-full bg-[#ff5a8a] px-1 text-[10px] font-semibold text-white ring-2 ring-[#27346D]">
+                  <span className="absolute right-0.5 top-0.5 inline-flex min-h-[16px] min-w-[16px] items-center justify-center rounded-full bg-[#ff5a8a] px-1 text-[10px] font-semibold text-white ring-2 ring-[#182451]">
                     {unreadCount > 9 ? "9+" : unreadCount}
                   </span>
                 )}
               </button>
 
               {notificationsOpen && (
-                <div className="absolute right-0 top-full mt-2 w-[20rem] max-w-[calc(100vw-1rem)] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl shadow-slate-300">
+                <div className="absolute right-0 top-full mt-2 w-[21rem] max-w-[calc(100vw-1rem)] overflow-hidden rounded-2xl border border-border bg-card shadow-[0_20px_60px_rgba(25,35,75,0.18)]">
                   <div className="flex items-center justify-between border-b border-slate-100 px-3 py-3">
                     <span className="text-xs font-semibold uppercase tracking-wide text-slate-600">
                       Notifications
@@ -622,7 +634,7 @@ export default function Topbar({
                       <button
                         type="button"
                         onClick={markAllNotificationsRead}
-                        className="text-[11px] font-medium text-violet-600 hover:text-violet-700"
+                        className="text-[11px] font-medium text-primary hover:text-heading"
                       >
                         Mark all read
                       </button>
@@ -648,9 +660,13 @@ export default function Topbar({
                         key={n.id}
                         type="button"
                         onClick={() => {
-                          window.location.href = `/orders/${n.order_id}`;
+                          setNotificationsOpen(false);
+                          window.dispatchEvent(
+                            new Event("letzshopy:navigation-start")
+                          );
+                          router.push(`/orders/${n.order_id}`);
                         }}
-                        className="flex w-full items-start gap-2 px-3 py-3 text-left hover:bg-violet-50/60"
+                        className="flex w-full items-start gap-2 px-3 py-3 text-left hover:bg-muted/60"
                       >
                         <div
                           className={`mt-0.5 flex h-6 w-6 items-center justify-center rounded-full text-white ${
@@ -687,7 +703,7 @@ export default function Topbar({
                   <div className="flex items-center justify-between border-t border-slate-100 px-3 py-2">
                     <Link
                       href="/orders"
-                      className="text-[11px] font-medium text-violet-600 hover:text-violet-700"
+                      className="text-[11px] font-medium text-primary hover:text-heading"
                     >
                       View all orders
                     </Link>
@@ -719,12 +735,12 @@ export default function Topbar({
 
         <div
           className={[
-            "relative z-10 border-t border-white/10 px-3 pb-3 pt-2 md:hidden",
+            "relative z-10 border-t border-[#2A396C] bg-[#182451] px-3 pb-3 pt-2 md:hidden",
             mobileSearchOpen ? "block" : "hidden",
           ].join(" ")}
         >
   <div className="relative" ref={mobileSearchRef}>
-    <div className="mb-2 grid grid-cols-2 rounded-2xl bg-white/10 p-1">
+    <div className="mb-2 grid grid-cols-2 rounded-xl bg-[#26366E] p-1">
       <button
         type="button"
         onClick={() => setSearchScope("products")}
@@ -733,8 +749,8 @@ export default function Topbar({
         className={[
           "min-h-10 rounded-xl px-3 text-sm font-semibold transition",
           searchScope === "products"
-            ? "bg-white text-[#2E3F7D] shadow-sm"
-            : "text-white/75",
+            ? "bg-white text-[#26335F] shadow-sm"
+            : "text-white/70",
         ].join(" ")}
       >
         Products
@@ -748,26 +764,26 @@ export default function Topbar({
         className={[
           "min-h-10 rounded-xl px-3 text-sm font-semibold transition",
           searchScope === "orders"
-            ? "bg-white text-[#2E3F7D] shadow-sm"
-            : "text-white/75",
+            ? "bg-white text-[#26335F] shadow-sm"
+            : "text-white/70",
         ].join(" ")}
       >
         Orders
       </button>
     </div>
     <form onSubmit={handleSearchSubmit}>
-      <div className="flex h-12 items-center rounded-full border border-white/15 bg-white/95 px-3 shadow-sm">
-        <SearchIcon className="h-5 w-5 shrink-0 text-[#7B3EF3]" />
+      <div className="flex h-12 items-center rounded-xl border border-white/15 bg-white px-3 shadow-sm">
+        <SearchIcon className="h-5 w-5 shrink-0 text-primary" />
 
         <input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder={mobileScopeLabel(searchScope)}
-          className="ml-2 h-9 min-w-0 flex-1 bg-transparent text-[15px] text-slate-700 placeholder:text-slate-400 focus:outline-none"
+          className="ml-2 h-9 min-w-0 flex-1 bg-transparent text-[15px] text-foreground placeholder:text-muted-foreground focus:outline-none"
         />
 
         {isSearching ? (
-          <Loader2 className="mr-2 h-4 w-4 shrink-0 animate-spin text-[#7B3EF3]" />
+          <Loader2 className="mr-2 h-4 w-4 shrink-0 animate-spin text-primary" />
         ) : null}
       </div>
     </form>
