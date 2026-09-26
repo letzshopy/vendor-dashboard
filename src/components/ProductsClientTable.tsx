@@ -21,6 +21,7 @@ import {
 import { AsyncButton } from "@/components/ui/async-button";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { actionFeedback } from "@/lib/actionFeedback";
 
 /** ---------- Types ---------- */
@@ -303,6 +304,9 @@ export default function ProductsClientTable({
   }
 
   const [bulk, setBulk] = useState("");
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const [bulkTrashOpen, setBulkTrashOpen] = useState(false);
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
   const [showCats, setShowCats] = useState(false);
   const [showTags, setShowTags] = useState(false);
   const [showPrice, setShowPrice] = useState(false);
@@ -328,26 +332,15 @@ export default function ProductsClientTable({
   const [priceValue, setPriceValue] = useState<string>("");
 
   async function applyBulk() {
-    if (!bulk || checked.length === 0) return;
+    if (!bulk || checked.length === 0 || bulkBusy) return;
 
     if (bulk === "trash") {
-      await Promise.all(
-        checked.map((id) =>
-          fetch(`/api/products/${id}/trash`, { method: "DELETE" })
-        )
-      );
-      location.reload();
+      setBulkTrashOpen(true);
       return;
     }
 
     if (bulk === "delete") {
-      if (!confirm("Permanently delete selected products?")) return;
-      await Promise.all(
-        checked.map((id) =>
-          fetch(`/api/products/${id}/delete`, { method: "DELETE" })
-        )
-      );
-      location.reload();
+      setBulkDeleteOpen(true);
       return;
     }
 
@@ -371,6 +364,72 @@ export default function ProductsClientTable({
     if (bulk === "set-price") {
       setShowPrice(true);
       return;
+    }
+  }
+
+  async function performBulkRemoval(permanent: boolean) {
+    if (checked.length === 0 || bulkBusy) return;
+
+    const feedbackId = permanent
+      ? "products-bulk-delete"
+      : "products-bulk-trash";
+
+    setBulkBusy(true);
+
+    actionFeedback.loading({
+      id: feedbackId,
+      title: permanent
+        ? "Deleting products…"
+        : "Moving products to trash…",
+      message: `${checked.length} selected`,
+    });
+
+    try {
+      const responses = await Promise.all(
+        checked.map((id) =>
+          fetch(
+            permanent
+              ? `/api/products/${id}/delete`
+              : `/api/products/${id}/trash`,
+            { method: "DELETE" }
+          )
+        )
+      );
+
+      if (responses.some((response) => !response.ok)) {
+        throw new Error(
+          permanent
+            ? "One or more products could not be deleted."
+            : "One or more products could not be moved to trash."
+        );
+      }
+
+      actionFeedback.success({
+        id: feedbackId,
+        title: permanent
+          ? "Products deleted"
+          : "Products moved to trash",
+        message: `${checked.length} product${checked.length === 1 ? "" : "s"} updated.`,
+        durationMs: 2800,
+      });
+
+      setChecked([]);
+      setBulk("");
+      setBulkTrashOpen(false);
+      setBulkDeleteOpen(false);
+      router.refresh();
+    } catch (error) {
+      actionFeedback.error({
+        id: feedbackId,
+        title: permanent
+          ? "Delete failed"
+          : "Trash action failed",
+        message:
+          error instanceof Error ? error.message : "Please try again.",
+        durationMs: 4200,
+      });
+    } finally {
+      setBulkBusy(false);
     }
   }
 
