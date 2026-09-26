@@ -21,8 +21,6 @@ import { useDashboardSubscription } from "@/components/subscription/Subscription
 
 const FALLBACK_STORE_URL = process.env.NEXT_PUBLIC_SITE_URL || "#";
 const BRAND_LOGO_URL = process.env.NEXT_PUBLIC_BRAND_LOGO_URL || "";
-const SURFACE_CLASS = "bg-card";
-
 type TopbarProps = {
   onToggleSidebar?: () => void;
   verifiedStoreUrl?: string;
