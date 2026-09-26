@@ -123,17 +123,17 @@ function statusDotClass(status: SubscriptionStatus): string {
 function statusChipClass(status: SubscriptionStatus): string {
   switch (status) {
     case "active":
-      return "bg-[#3b4a8d] text-indigo-100";
+      return "border-emerald-200 bg-emerald-50 text-emerald-700";
     case "trial":
-      return "bg-sky-500/15 text-sky-100";
+      return "border-sky-200 bg-sky-50 text-sky-700";
     case "pending_payment":
     case "payment_submitted":
-      return "bg-amber-500/15 text-amber-100";
+      return "border-amber-200 bg-amber-50 text-amber-700";
     case "suspended":
     case "expired":
     case "inactive":
     default:
-      return "bg-rose-500/15 text-rose-100";
+      return "border-rose-200 bg-rose-50 text-rose-700";
   }
 }
 
@@ -406,7 +406,7 @@ export default function Topbar({
   const subStatus = deriveStatus(subscription?.status);
 
   const searchDropdown = showSearchDropdown && (
-    <div className="absolute left-0 right-0 top-full z-30 mt-2 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl shadow-slate-200">
+    <div className="absolute left-0 right-0 top-full z-30 mt-2 overflow-hidden rounded-2xl border border-border bg-card shadow-[0_18px_50px_rgba(25,35,75,0.16)]">
       <div className="border-b border-slate-100 px-3 py-2 text-[11px] font-medium uppercase tracking-wide text-slate-500">
         {searchScope === "orders" ? "Orders" : "Products"}{" "}
         matching “{search.trim()}”
@@ -427,7 +427,7 @@ export default function Topbar({
                   );
                   router.push(item.url);
                 }}
-                className="flex w-full flex-col items-start gap-0.5 px-3 py-3 text-left hover:bg-violet-50"
+                className="flex w-full flex-col items-start gap-0.5 px-3 py-3 text-left hover:bg-muted"
               >
                 <span className="text-[13px] font-medium text-slate-900">
                   {item.label}
@@ -514,7 +514,7 @@ export default function Topbar({
                   {loginEmail && (
                     <span className="truncate">
                       Login:{" "}
-                      <span className="font-medium text-white">
+                      <span className="font-semibold text-foreground">
                         {loginEmail}
                       </span>
                     </span>
@@ -560,7 +560,7 @@ export default function Topbar({
           <div className="flex shrink-0 items-center gap-2">
             {!statusLoading && (
               <span
-                className={`hidden items-center gap-1 rounded-full px-3 py-1.5 text-[11px] font-medium lg:inline-flex ${statusChipClass(
+                className={`hidden items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-[11px] font-bold lg:inline-flex ${statusChipClass(
                   subStatus
                 )}`}
               >
@@ -632,7 +632,7 @@ export default function Topbar({
                       <button
                         type="button"
                         onClick={markAllNotificationsRead}
-                        className="text-[11px] font-medium text-violet-600 hover:text-violet-700"
+                        className="text-[11px] font-medium text-primary hover:text-heading"
                       >
                         Mark all read
                       </button>
@@ -664,7 +664,7 @@ export default function Topbar({
                           );
                           router.push(`/orders/${n.order_id}`);
                         }}
-                        className="flex w-full items-start gap-2 px-3 py-3 text-left hover:bg-violet-50/60"
+                        className="flex w-full items-start gap-2 px-3 py-3 text-left hover:bg-muted/60"
                       >
                         <div
                           className={`mt-0.5 flex h-6 w-6 items-center justify-center rounded-full text-white ${
@@ -701,7 +701,7 @@ export default function Topbar({
                   <div className="flex items-center justify-between border-t border-slate-100 px-3 py-2">
                     <Link
                       href="/orders"
-                      className="text-[11px] font-medium text-violet-600 hover:text-violet-700"
+                      className="text-[11px] font-medium text-primary hover:text-heading"
                     >
                       View all orders
                     </Link>
@@ -733,7 +733,7 @@ export default function Topbar({
 
         <div
           className={[
-            "relative z-10 border-t border-white/10 px-3 pb-3 pt-2 md:hidden",
+            "relative z-10 border-t border-border bg-card px-3 pb-3 pt-2 md:hidden",
             mobileSearchOpen ? "block" : "hidden",
           ].join(" ")}
         >
@@ -777,7 +777,7 @@ export default function Topbar({
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder={mobileScopeLabel(searchScope)}
-          className="ml-2 h-9 min-w-0 flex-1 bg-transparent text-[15px] text-slate-700 placeholder:text-slate-400 focus:outline-none"
+          className="ml-2 h-9 min-w-0 flex-1 bg-transparent text-[15px] text-foreground placeholder:text-muted-foreground focus:outline-none"
         />
 
         {isSearching ? (
