@@ -261,7 +261,7 @@ export default function SigninPage() {
         </div>
       </section>
 
-      <div className="mx-auto flex min-h-[calc(100dvh-var(--ls-safe-area-top))] w-full max-w-[1220px] items-center justify-center md:px-6 md:py-8 lg:px-8">
+      <div className="mx-auto flex w-full max-w-[1220px] items-center justify-center md:min-h-[calc(100dvh-var(--ls-safe-area-top))] md:px-6 md:py-8 lg:px-8">
         <div className="grid w-full overflow-hidden bg-white md:min-h-[690px] md:rounded-[30px] md:border md:border-[#DDE3EE] md:shadow-[0_26px_80px_rgba(24,36,81,0.14)] lg:grid-cols-[0.92fr_1.08fr]">
           <aside className="relative hidden overflow-hidden bg-[#182451] p-8 text-white lg:flex lg:flex-col lg:justify-between xl:p-10">
             <div>
@@ -334,7 +334,7 @@ export default function SigninPage() {
             </div>
           </aside>
 
-          <section className="-mt-8 flex min-h-[calc(100dvh-7rem)] items-start justify-center rounded-t-[30px] bg-white px-4 pb-[calc(var(--ls-safe-area-bottom)+1.5rem)] pt-6 md:mt-0 md:min-h-0 md:items-center md:rounded-none md:px-8 md:py-10 lg:px-12 xl:px-16">
+          <section className="-mt-8 flex min-h-[calc(100dvh-8.25rem-var(--ls-safe-area-top))] items-start justify-center rounded-t-[30px] bg-white px-4 pb-[calc(var(--ls-safe-area-bottom)+1.5rem)] pt-6 md:mt-0 md:min-h-0 md:items-center md:rounded-none md:px-8 md:py-10 lg:px-12 xl:px-16">
             <div className="w-full max-w-[440px]">
               <div className="hidden md:block lg:hidden">
                 <div className="inline-flex rounded-2xl border border-[#DDE3EE] bg-white px-4 py-3 shadow-sm">
