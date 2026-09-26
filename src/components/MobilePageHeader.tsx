@@ -542,7 +542,7 @@ export default function MobilePageHeader({
   ) {
     return (
       <header
-        className="sticky top-0 z-40 border-b border-[#1F2C63] bg-[linear-gradient(105deg,#26366E_0%,#31458B_100%)] shadow-[0_8px_24px_rgba(25,35,75,0.16)] backdrop-blur-xl md:hidden"
+        className="sticky top-0 z-40 border-b border-[#111B3F] bg-[#182451] shadow-[0_8px_24px_rgba(17,27,63,0.24)] md:hidden"
         style={{
           paddingTop:
             "var(--ls-safe-area-top)",
@@ -552,7 +552,7 @@ export default function MobilePageHeader({
           <Link
             href={config.backHref}
             aria-label="Go back"
-            className="ls-focus-ring inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-white/15 bg-white/10 text-white"
+            className="ls-focus-ring inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#2A3A74] text-white"
           >
             <ArrowLeft className="h-5 w-5" />
           </Link>
@@ -568,7 +568,7 @@ export default function MobilePageHeader({
               href={action.href}
               aria-label={action.label}
               title={action.label}
-              className="ls-focus-ring inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-accent text-accent-foreground shadow-sm"
+              className="ls-focus-ring inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#F15E4A] text-white shadow-sm"
             >
               <ActionIcon className="h-5 w-5" />
             </Link>
@@ -580,7 +580,7 @@ export default function MobilePageHeader({
 
   return (
     <header
-      className="sticky top-0 z-40 border-b border-[#1F2C63] bg-[linear-gradient(105deg,#26366E_0%,#31458B_100%)] shadow-[0_8px_24px_rgba(25,35,75,0.16)] backdrop-blur-xl md:hidden"
+      className="sticky top-0 z-40 border-b border-[#111B3F] bg-[#182451] shadow-[0_8px_24px_rgba(17,27,63,0.24)] md:hidden"
       style={{
         paddingTop:
           "var(--ls-safe-area-top)",
@@ -591,7 +591,7 @@ export default function MobilePageHeader({
           type="button"
           onClick={onToggleSidebar}
           aria-label="Open navigation"
-          className="ls-focus-ring inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-white/15 bg-white/10 text-white"
+          className="ls-focus-ring inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#2A3A74] text-white"
         >
           <Menu className="h-5 w-5" />
         </button>
@@ -607,7 +607,7 @@ export default function MobilePageHeader({
             href={action.href}
             aria-label={action.label}
             title={action.label}
-            className="ls-focus-ring inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-accent text-accent-foreground shadow-sm"
+            className="ls-focus-ring inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#F15E4A] text-white shadow-sm"
           >
             <ActionIcon className="h-5 w-5" />
           </Link>
