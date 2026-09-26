@@ -34,7 +34,7 @@ export default async function OrderPage({
   }
 
   return (
-    <main className="mx-auto max-w-7xl px-3 pb-28 pt-3 md:px-4 md:pb-8 md:pt-5">
+    <main className="mx-auto w-full min-w-0 max-w-7xl pb-28 md:pb-8">
       <OrderDetailClient initialOrder={order as any} />
     </main>
   );
