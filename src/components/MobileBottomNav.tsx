@@ -140,14 +140,14 @@ function BottomNavLink({
       aria-current={
         active ? "page" : undefined
       }
-      className="flex min-h-14 min-w-0 flex-1 flex-col items-center justify-center gap-1 px-1 text-[10px] font-semibold"
+      className="ls-focus-ring flex min-h-14 min-w-0 flex-1 flex-col items-center justify-center gap-1 px-1 text-[10px] font-semibold"
     >
       <span
         className={[
-          "flex h-7 w-7 items-center justify-center rounded-lg transition",
+          "flex h-8 w-8 items-center justify-center rounded-xl transition",
           active
-            ? "bg-[#2E3F7D] text-white"
-            : "bg-[#EEF1FA] text-[#2E3F7D]",
+            ? "bg-primary text-primary-foreground shadow-sm"
+            : "bg-transparent text-muted-foreground",
         ].join(" ")}
       >
         <Icon className="h-[18px] w-[18px] stroke-[2.6]" />
@@ -157,8 +157,8 @@ function BottomNavLink({
         className={[
           "max-w-full truncate",
           active
-            ? "font-bold text-[#2E3F7D]"
-            : "text-[#6F7891]",
+            ? "font-extrabold text-heading"
+            : "text-muted-foreground",
         ].join(" ")}
       >
         {item.label}
@@ -216,7 +216,7 @@ export default function MobileBottomNav({
     return (
       <nav
         aria-label="Restricted dashboard navigation"
-        className="dashboard-mobile-bottom-nav fixed inset-x-0 bottom-0 z-[60] flex items-start justify-around border-t border-[#D9DEEC] bg-white/95 px-3 backdrop-blur-xl md:hidden"
+        className="dashboard-mobile-bottom-nav fixed inset-x-0 bottom-0 z-[60] flex items-start justify-around border-t border-border bg-card/95 px-3 backdrop-blur-xl md:hidden"
       >
         {visibleLockedItems.map((item) => (
           <BottomNavLink
@@ -252,7 +252,7 @@ export default function MobileBottomNav({
     <>
       <nav
         aria-label="Dashboard navigation"
-        className="dashboard-mobile-bottom-nav fixed inset-x-0 bottom-0 z-[60] grid grid-cols-5 items-start border-t border-[#D9DEEC] bg-white/95 px-1 backdrop-blur-xl md:hidden"
+        className="dashboard-mobile-bottom-nav fixed inset-x-0 bottom-0 z-[60] grid grid-cols-5 items-start border-t border-border bg-card/95 px-1 backdrop-blur-xl md:hidden"
       >
         <BottomNavLink
           pathname={pathname}
@@ -277,14 +277,14 @@ export default function MobileBottomNav({
           aria-current={
             addActive ? "page" : undefined
           }
-          className="flex min-h-14 min-w-0 flex-col items-center justify-center gap-1 px-1 text-[10px] font-semibold"
+          className="ls-focus-ring flex min-h-14 min-w-0 flex-col items-center justify-center gap-1 px-1 text-[10px] font-semibold"
         >
           <span
             className={[
-              "flex h-7 w-7 items-center justify-center rounded-lg transition",
+              "flex h-9 w-9 items-center justify-center rounded-xl transition",
               addActive
-                ? "bg-[#2E3F7D] text-white"
-                : "bg-[#EEF1FA] text-[#2E3F7D]",
+                ? "bg-accent text-accent-foreground shadow-sm"
+                : "bg-accent text-accent-foreground shadow-sm",
             ].join(" ")}
           >
             <Plus className="h-[18px] w-[18px] stroke-[2.8]" />
@@ -293,8 +293,8 @@ export default function MobileBottomNav({
           <span
             className={
               addActive
-                ? "truncate font-bold text-[#2E3F7D]"
-                : "truncate text-[#6F7891]"
+                ? "truncate font-extrabold text-heading"
+                : "truncate text-muted-foreground"
             }
           >
             Add
@@ -312,10 +312,10 @@ export default function MobileBottomNav({
         >
           <span
             className={[
-              "flex h-7 w-7 items-center justify-center rounded-lg transition",
+              "flex h-8 w-8 items-center justify-center rounded-xl transition",
               productsActive
-                ? "bg-[#2E3F7D] text-white"
-                : "bg-[#EEF1FA] text-[#2E3F7D]",
+                ? "bg-primary text-primary-foreground shadow-sm"
+                : "bg-transparent text-muted-foreground",
             ].join(" ")}
           >
             <ShoppingBag className="h-[18px] w-[18px] stroke-[2.6]" />
@@ -325,8 +325,8 @@ export default function MobileBottomNav({
             className={[
               "max-w-full truncate",
               productsActive
-                ? "font-bold text-[#2E3F7D]"
-                : "text-[#6F7891]",
+                ? "font-extrabold text-heading"
+                : "text-muted-foreground",
             ].join(" ")}
           >
             Products
@@ -343,10 +343,10 @@ export default function MobileBottomNav({
         >
           <span
             className={[
-              "flex h-7 w-7 items-center justify-center rounded-lg transition",
+              "flex h-8 w-8 items-center justify-center rounded-xl transition",
               moreActive
-                ? "bg-[#2E3F7D] text-white"
-                : "bg-[#EEF1FA] text-[#2E3F7D]",
+                ? "bg-primary text-primary-foreground shadow-sm"
+                : "bg-transparent text-muted-foreground",
             ].join(" ")}
           >
             <MoreHorizontal className="h-[18px] w-[18px] stroke-[2.8]" />
@@ -354,8 +354,8 @@ export default function MobileBottomNav({
           <span
             className={
               moreActive
-                ? "font-bold text-[#2E3F7D]"
-                : "text-[#6F7891]"
+                ? "font-extrabold text-heading"
+                : "text-muted-foreground"
             }
           >
             More
@@ -376,14 +376,14 @@ export default function MobileBottomNav({
             onClick={() =>
               setMoreOpen(false)
             }
-            className="absolute inset-0 h-full w-full bg-[#12182E]/55 backdrop-blur-[2px]"
+            className="absolute inset-0 h-full w-full bg-slate-950/45 backdrop-blur-[3px]"
           />
 
-          <section className="dashboard-mobile-more-sheet absolute inset-x-0 bottom-0 max-h-[78dvh] overflow-y-auto rounded-t-[28px] border-t border-[#D9DEEC] bg-white px-4 pt-3 shadow-[0_-18px_45px_rgba(25,35,75,0.2)]">
+          <section className="dashboard-mobile-more-sheet absolute inset-x-0 bottom-0 max-h-[78dvh] overflow-y-auto rounded-t-[28px] border-t border-border bg-card px-4 pt-3 shadow-[0_-18px_45px_rgba(25,35,75,0.2)]">
             <div className="mx-auto mb-3 h-1.5 w-12 rounded-full bg-[#D9DEEC]" />
 
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-bold text-[#26335F]">
+              <h2 className="text-lg font-extrabold text-heading">
                 More
               </h2>
 
@@ -393,7 +393,7 @@ export default function MobileBottomNav({
                 onClick={() =>
                   setMoreOpen(false)
                 }
-                className="flex h-11 w-11 items-center justify-center rounded-full bg-[#F1F3F8] text-[#536079]"
+                className="ls-focus-ring flex h-10 w-10 items-center justify-center rounded-xl bg-muted text-heading"
               >
                 <X className="h-5 w-5" />
               </button>
@@ -415,16 +415,16 @@ export default function MobileBottomNav({
                     className={[
                       "flex min-w-0 items-center gap-3 rounded-2xl border px-3 py-3.5",
                       active
-                        ? "border-[#A9B2E5] bg-[#EEF1FF] text-[#33458B]"
-                        : "border-[#E1E5EF] bg-[#F8F9FC] text-[#34405F]",
+                        ? "border-ring bg-secondary text-secondary-foreground"
+                        : "border-border bg-surface-soft text-foreground",
                     ].join(" ")}
                   >
                     <span
                       className={[
                         "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl",
                         active
-                          ? "bg-[#5366B7] text-white"
-                          : "bg-white text-[#5366B7]",
+                          ? "bg-primary text-primary-foreground"
+                          : "bg-card text-primary",
                       ].join(" ")}
                     >
                       <Icon className="h-5 w-5" />
