@@ -4,6 +4,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   ChevronLeft,
   ChevronRight,
@@ -16,6 +17,11 @@ import {
   Search,
   Trash2,
 } from "lucide-react";
+
+import { AsyncButton } from "@/components/ui/async-button";
+import { BottomSheet } from "@/components/ui/bottom-sheet";
+import { Button } from "@/components/ui/button";
+import { actionFeedback } from "@/lib/actionFeedback";
 
 /** ---------- Types ---------- */
 type P = {
@@ -245,6 +251,7 @@ export default function ProductsClientTable({
   products: P[];
   categories?: Category[];
 }) {
+  const router = useRouter();
   const [query, setQuery] = useState("");
 
   const filteredProducts = useMemo(() => {
@@ -501,30 +508,67 @@ export default function ProductsClientTable({
 
   async function confirmBulkClone() {
     const count = Number(cloneCount || 0);
-    if (!cloneProductId || !count || count < 1) return;
+    if (!cloneProductId || !Number.isSafeInteger(count) || count < 1 || count > 50) {
+      actionFeedback.warning({
+        id: "products-bulk-clone-count",
+        title: "Check clone quantity",
+        message: "Choose between 1 and 50 clones.",
+        durationMs: 3200,
+      });
+      return;
+    }
+
     if (cloneBusyRef.current) return;
 
+    const feedbackId = "products-bulk-clone";
     cloneBusyRef.current = true;
     setCloneBusy(true);
 
-    try {
-      const r = await fetch(`/api/products/${cloneProductId}/bulk-clone`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ count }),
-      });
+    actionFeedback.loading({
+      id: feedbackId,
+      title: "Creating product clones…",
+      message: `${count} clone${count === 1 ? "" : "s"}`,
+    });
 
-      if (!r.ok) {
-        alert("Clone failed");
-        return;
+    try {
+      const response = await fetch(
+        `/api/products/${cloneProductId}/bulk-clone`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ count }),
+        }
+      );
+
+      const payload = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        throw new Error(
+          typeof payload?.error === "string"
+            ? payload.error
+            : "Bulk clone failed."
+        );
       }
+
+      actionFeedback.success({
+        id: feedbackId,
+        title: "Product clones created",
+        message: `${count} new product${count === 1 ? "" : "s"} added as drafts.`,
+        durationMs: 3000,
+      });
 
       setShowCloneModal(false);
       setCloneProductId(null);
       setCloneCount("1");
-      location.reload();
-    } catch {
-      alert("Clone failed");
+      router.refresh();
+    } catch (error) {
+      actionFeedback.error({
+        id: feedbackId,
+        title: "Bulk clone failed",
+        message:
+          error instanceof Error ? error.message : "Please try again.",
+        durationMs: 4200,
+      });
     } finally {
       cloneBusyRef.current = false;
       setCloneBusy(false);
@@ -532,14 +576,75 @@ export default function ProductsClientTable({
   }
 
   async function rowTrash(id: number) {
-    await fetch(`/api/products/${id}/trash`, { method: "DELETE" });
-    location.reload();
+    const feedbackId = `product-trash-${id}`;
+    actionFeedback.loading({
+      id: feedbackId,
+      title: "Moving product to trash…",
+    });
+
+    try {
+      const response = await fetch(`/api/products/${id}/trash`, {
+        method: "DELETE",
+      });
+
+      if (!response.ok) {
+        throw new Error("Could not move product to trash.");
+      }
+
+      actionFeedback.success({
+        id: feedbackId,
+        title: "Product moved to trash",
+        durationMs: 2600,
+      });
+      router.refresh();
+    } catch (error) {
+      actionFeedback.error({
+        id: feedbackId,
+        title: "Trash action failed",
+        message:
+          error instanceof Error ? error.message : "Please try again.",
+        durationMs: 4200,
+      });
+    }
   }
 
   async function rowDuplicate(id: number) {
-    const r = await fetch(`/api/products/${id}/duplicate`, { method: "POST" });
-    if (r.ok) location.reload();
-    else alert("Duplicate failed");
+    const feedbackId = `product-duplicate-${id}`;
+    actionFeedback.loading({
+      id: feedbackId,
+      title: "Duplicating product…",
+    });
+
+    try {
+      const response = await fetch(`/api/products/${id}/duplicate`, {
+        method: "POST",
+      });
+      const payload = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        throw new Error(
+          typeof payload?.error === "string"
+            ? payload.error
+            : "Duplicate failed."
+        );
+      }
+
+      actionFeedback.success({
+        id: feedbackId,
+        title: "Product duplicated",
+        message: "A new draft copy was created.",
+        durationMs: 2800,
+      });
+      router.refresh();
+    } catch (error) {
+      actionFeedback.error({
+        id: feedbackId,
+        title: "Duplicate failed",
+        message:
+          error instanceof Error ? error.message : "Please try again.",
+        durationMs: 4200,
+      });
+    }
   }
 
   function rowView(url?: string) {
@@ -1188,60 +1293,66 @@ export default function ProductsClientTable({
         </div>
       )}
 
-      {/* Clone Modal */}
-      {showCloneModal && (
-        <div className="fixed inset-0 z-[120] flex items-start justify-center bg-black/30 px-4 pt-24">
-          <div className="w-full max-w-[420px] rounded-2xl border border-slate-200 bg-white shadow-lg">
-            <div className="border-b px-4 py-3 text-sm font-semibold text-slate-800">
-              Bulk clone product
-            </div>
+      <BottomSheet
+        open={showCloneModal}
+        onOpenChange={(nextOpen) => {
+          if (!nextOpen && !cloneBusy) {
+            setShowCloneModal(false);
+            setCloneProductId(null);
+            setCloneCount("1");
+          }
+        }}
+        title="Bulk clone product"
+        description="Create multiple draft copies with new unique SKUs."
+        popupClassName="md:mx-auto md:max-w-md"
+      >
+        <div className="space-y-4">
+          <div className="rounded-xl border border-border bg-surface-soft p-3 text-xs leading-5 text-muted-foreground">
+            Product content and variations are copied. Bulk clones intentionally do not copy product images.
+          </div>
 
-            <div className="space-y-3 px-4 py-4">
-              <p className="text-sm text-slate-600">
-                Enter how many clones you want to create.
-              </p>
+          <label className="block">
+            <span className="mb-1.5 block text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+              Number of clones
+            </span>
+            <input
+              type="number"
+              min={1}
+              max={50}
+              inputMode="numeric"
+              value={cloneCount}
+              disabled={cloneBusy}
+              onChange={(event) => setCloneCount(event.currentTarget.value)}
+              className="ls-focus-ring h-11 w-full rounded-xl border border-input bg-card px-3 text-sm font-bold text-heading disabled:cursor-not-allowed disabled:opacity-60"
+            />
+            <span className="mt-1.5 block text-[11px] text-muted-foreground">
+              Up to 50 copies per action.
+            </span>
+          </label>
 
-              <div>
-                <label className="mb-1 block text-sm font-medium text-slate-700">
-                  Number of clones
-                </label>
-                <input
-                  type="number"
-                  min={1}
-                  value={cloneCount}
-                  disabled={cloneBusy}
-                  onChange={(e) => setCloneCount(e.target.value)}
-                  className="h-11 w-full rounded-xl border border-slate-200 px-3 text-sm text-slate-700 shadow-sm focus:border-[#5366B7] focus:outline-none focus:ring-2 focus:ring-[#E5E8F6] disabled:cursor-not-allowed disabled:opacity-60"
-                />
-              </div>
-            </div>
+          <div className="grid grid-cols-2 gap-2">
+            <Button
+              variant="outline"
+              disabled={cloneBusy}
+              onClick={() => {
+                setShowCloneModal(false);
+                setCloneProductId(null);
+                setCloneCount("1");
+              }}
+            >
+              Cancel
+            </Button>
 
-            <div className="flex justify-end gap-2 border-t px-4 py-3">
-              <button
-                type="button"
-                disabled={cloneBusy}
-                className="rounded-xl border px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
-                onClick={() => {
-                  setShowCloneModal(false);
-                  setCloneProductId(null);
-                  setCloneCount("1");
-                }}
-              >
-                Cancel
-              </button>
-
-              <button
-                type="button"
-                disabled={cloneBusy}
-                className="rounded-xl bg-[#E85D4A] px-4 py-2 text-sm font-bold text-white hover:bg-[#D94F3D] disabled:cursor-not-allowed disabled:opacity-60"
-                onClick={confirmBulkClone}
-              >
-                {cloneBusy ? "Creating…" : "Create clones"}
-              </button>
-            </div>
+            <AsyncButton
+              loading={cloneBusy}
+              loadingLabel="Creating…"
+              onClick={confirmBulkClone}
+            >
+              Create clones
+            </AsyncButton>
           </div>
         </div>
-      )}
+      </BottomSheet>
     </div>
   );
 }
