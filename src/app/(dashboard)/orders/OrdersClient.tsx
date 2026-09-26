@@ -625,6 +625,16 @@ function OrderActionSheet({
   const customerName =
     `${order.billing?.first_name || ""} ${order.billing?.last_name || ""}`.trim() ||
     "Customer";
+  const firstItem =
+    order.line_items?.[0];
+  const extraItems =
+    Math.max(
+      0,
+      (
+        order.line_items
+          ?.length || 0
+      ) - 1
+    );
 
   return (
     <>
@@ -646,66 +656,127 @@ function OrderActionSheet({
           setOpen
         }
         title={`Order #${orderNumber}`}
-        description={`${customerName} · ${orderStatusLabel(order.status)}`}
+        description={
+          customerName
+        }
         popupClassName="md:mx-auto md:max-w-md"
       >
-        <div className="space-y-2">
-          <Link
-            href={`/orders/${order.id}`}
-            onClick={() =>
-              setOpen(
-                false
-              )
-            }
-            className={buttonClassName({
-              variant:
-                "outline",
-              size: "lg",
-              className:
-                "w-full justify-start",
-            })}
-          >
-            <Eye className="h-4 w-4" />
-            View full order
-          </Link>
+        <div className="space-y-4">
+          <section className="rounded-xl border border-border bg-surface-soft p-3">
+            <div className="flex items-center justify-between gap-3">
+              <OrderStatus
+                status={
+                  order.status
+                }
+              />
+
+              <div className="shrink-0 text-right">
+                <div className="text-base font-extrabold text-heading">
+                  {formatMoney(
+                    order.total
+                  )}
+                </div>
+                <div className="mt-0.5 text-[10px] text-muted-foreground">
+                  {formatShortDate(
+                    order.date_created_gmt
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-3 min-w-0">
+              <div className="truncate text-sm font-bold text-heading">
+                {firstItem?.name ||
+                  "Order items"}
+              </div>
+
+              <div className="mt-1 flex min-w-0 items-center gap-1.5 text-[11px] text-muted-foreground">
+                {extraItems >
+                0 ? (
+                  <span className="shrink-0 font-bold text-primary">
+                    +{extraItems} more
+                  </span>
+                ) : null}
+
+                <span className="truncate">
+                  {paymentMethodLabel(
+                    order
+                  )}
+                </span>
+              </div>
+            </div>
+          </section>
+
+          <section>
+            <div className="mb-2 px-1 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
+              Order actions
+            </div>
+
+            <div className="grid gap-2">
+              <Link
+                href={`/orders/${order.id}`}
+                onClick={() =>
+                  setOpen(
+                    false
+                  )
+                }
+                className={buttonClassName({
+                  variant:
+                    "primary",
+                  size: "lg",
+                  className:
+                    "w-full justify-between",
+                })}
+              >
+                <span className="inline-flex items-center gap-2">
+                  <Eye className="h-4 w-4" />
+                  View full order
+                </span>
+
+                <ChevronRight className="h-4 w-4 opacity-75" />
+              </Link>
+
+              {!isTrash ? (
+                <Button
+                  variant="outline"
+                  size="lg"
+                  className="w-full justify-start"
+                  onClick={() => {
+                    setOpen(
+                      false
+                    );
+                    openWhatsAppStatusDraft(
+                      order,
+                      storeName
+                    );
+                  }}
+                >
+                  <MessageCircle className="h-4 w-4" />
+                  Notify customer in WhatsApp
+                </Button>
+              ) : null}
+            </div>
+          </section>
 
           {!isTrash ? (
-            <Button
-              variant="secondary"
-              size="lg"
-              className="w-full justify-start"
-              onClick={() => {
-                setOpen(
-                  false
-                );
-                openWhatsAppStatusDraft(
-                  order,
-                  storeName
-                );
-              }}
-            >
-              <MessageCircle className="h-4 w-4" />
-              Notify status in WhatsApp
-            </Button>
-          ) : null}
-
-          {!isTrash ? (
-            <Button
-              variant="danger"
-              size="lg"
-              className="w-full justify-start"
-              onClick={() => {
-                setOpen(
-                  false
-                );
-                onRequestTrash(
-                  order
-                );
-              }}
-            >
-              <Trash2 className="h-4 w-4" />
-              Move to trash
-            </Button>
+            <section className="border-t border-border pt-3">
+              <Button
+                variant="ghost"
+                size="md"
+                className="w-full justify-start text-destructive hover:bg-destructive/10 hover:text-destructive"
+                onClick={() => {
+                  setOpen(
+                    false
+                  );
+                  onRequestTrash(
+                    order
+                  );
+                }}
+              >
+                <Trash2 className="h-4 w-4" />
+                Move order to trash
+              </Button>
+            </section>
           ) : null}
         </div>
       </BottomSheet>
