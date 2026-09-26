@@ -381,7 +381,7 @@ export default function DashboardAccountMenu({
           "inline-flex shrink-0 items-center gap-1.5 border shadow-sm transition active:scale-95",
           dashboardTrigger
             ? "h-10 rounded-xl border-white/15 bg-white/10 px-1.5 text-white hover:bg-white/15 md:rounded-xl"
-            : "h-11 rounded-xl border-border bg-card px-2 text-heading hover:bg-muted",
+            : "h-10 rounded-xl border-white/15 bg-white/10 px-1.5 text-white hover:bg-white/15",
         ].join(" ")}
       >
         <span
@@ -389,7 +389,7 @@ export default function DashboardAccountMenu({
             "inline-flex items-center justify-center rounded-full text-[11px] font-bold",
             dashboardTrigger
               ? "h-7 w-7 bg-white/15 text-white"
-              : "h-7 w-7 bg-secondary text-secondary-foreground",
+              : "h-7 w-7 bg-white/15 text-white",
           ].join(" ")}
         >
           {initials}
