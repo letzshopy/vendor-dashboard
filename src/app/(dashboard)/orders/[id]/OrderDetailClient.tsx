@@ -3,7 +3,13 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import type { WCOrder } from "@/lib/order-utils";
-import { statusPillClass } from "@/lib/order-utils";
+import { actionFeedback } from "@/lib/actionFeedback";
+import { AsyncButton } from "@/components/ui/async-button";
+import { Button, buttonClassName } from "@/components/ui/button";
+import {
+  StatusBadge,
+  type StatusTone,
+} from "@/components/ui/status-badge";
 import OrderPaymentInformation from "./OrderPaymentInformation";
 import {
   extractShipmentFromMeta,
@@ -116,6 +122,73 @@ function toNumberPrice(v: string | number | null | undefined) {
   return Number.isFinite(n) ? n : 0;
 }
 
+function orderStatusLabel(status?: string) {
+  const normalized = String(status || "pending").toLowerCase();
+
+  switch (normalized) {
+    case "pending":
+      return "Pending payment";
+    case "processing":
+      return "Processing";
+    case "on-hold":
+      return "On hold";
+    case "completed":
+      return "Completed";
+    case "cancelled":
+      return "Cancelled";
+    case "failed":
+      return "Payment failed";
+    case "refunded":
+      return "Refunded";
+    default:
+      return normalized.replace(/[-_]+/g, " ");
+  }
+}
+
+function orderStatusTone(status?: string): StatusTone {
+  const normalized = String(status || "").toLowerCase();
+
+  if (normalized === "completed") return "success";
+  if (normalized === "processing") return "info";
+  if (normalized === "pending" || normalized === "on-hold") return "warning";
+  if (normalized === "cancelled" || normalized === "failed") return "danger";
+
+  return "neutral";
+}
+
+function OrderStatusBadge({ status }: { status?: string }) {
+  return (
+    <StatusBadge
+      status={String(status || "pending")}
+      label={orderStatusLabel(status)}
+      tone={orderStatusTone(status)}
+      className="min-h-7 px-3 py-1.5 text-xs font-extrabold shadow-sm"
+    />
+  );
+}
+
+function paymentMethodLabel(order: WCOrder) {
+  const method = String(
+    (order as WCOrder & { payment_method?: string }).payment_method || ""
+  )
+    .trim()
+    .toLowerCase();
+  const title = String(order.payment_method_title || "").trim();
+  const titleKey = title.toLowerCase();
+
+  if (
+    method.includes("payglocal") ||
+    (titleKey.includes("upi") &&
+      (titleKey.includes("debit") ||
+        titleKey.includes("credit") ||
+        titleKey.includes("netbanking")))
+  ) {
+    return "PayGlocal Payment Gateway";
+  }
+
+  return title || "Not specified";
+}
+
 function SectionCard({
   title,
   hint,
@@ -130,33 +203,36 @@ function SectionCard({
   right?: React.ReactNode;
 }) {
   return (
-    <section className="overflow-hidden rounded-[26px] border border-slate-200/80 bg-white shadow-[0_10px_30px_rgba(15,23,42,0.05)]">
-      <div className="border-b border-slate-100 bg-gradient-to-r from-[#faf7ff] via-white to-[#f4fbff] px-4 py-4 md:px-5">
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex items-start gap-3">
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-100 to-fuchsia-50 text-violet-700 shadow-sm">
-              <Icon className="h-5 w-5" />
-            </div>
-            <div>
-              <h2 className="text-[17px] font-semibold tracking-tight text-slate-900">
-                {title}
-              </h2>
-              {hint ? (
-                <p className="mt-1 text-xs leading-5 text-slate-500">{hint}</p>
-              ) : null}
-            </div>
+    <section className="overflow-hidden rounded-xl border border-border bg-card md:rounded-2xl">
+      <div className="flex items-start justify-between gap-3 border-b border-border px-3 py-3 md:px-4">
+        <div className="flex min-w-0 items-start gap-2.5">
+          <div className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-secondary text-secondary-foreground">
+            <Icon className="h-4 w-4" />
           </div>
-          {right ? <div className="shrink-0">{right}</div> : null}
+
+          <div className="min-w-0">
+            <h2 className="text-sm font-extrabold text-heading md:text-base">
+              {title}
+            </h2>
+            {hint ? (
+              <p className="mt-0.5 text-xs leading-5 text-muted-foreground">
+                {hint}
+              </p>
+            ) : null}
+          </div>
         </div>
+
+        {right ? <div className="shrink-0">{right}</div> : null}
       </div>
-      <div className="p-4 md:p-5">{children}</div>
+
+      <div className="p-3 md:p-4">{children}</div>
     </section>
   );
 }
 
 function FieldLabel({ children }: { children: React.ReactNode }) {
   return (
-    <label className="mb-1.5 block text-[12px] font-semibold uppercase tracking-[0.08em] text-slate-500">
+    <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
       {children}
     </label>
   );
@@ -167,8 +243,8 @@ function MobileField(props: React.InputHTMLAttributes<HTMLInputElement>) {
     <input
       {...props}
       className={[
-        "h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-900 shadow-sm transition",
-        "placeholder:text-slate-400 focus:border-violet-400 focus:outline-none focus:ring-4 focus:ring-violet-100",
+        "ls-focus-ring h-11 w-full rounded-xl border border-input bg-card px-3 text-sm text-foreground shadow-[0_1px_2px_rgba(25,35,75,0.03)] transition",
+        "placeholder:text-muted-foreground",
         props.className || "",
       ].join(" ")}
     />
@@ -180,23 +256,7 @@ function MobileSelect(props: React.SelectHTMLAttributes<HTMLSelectElement>) {
     <select
       {...props}
       className={[
-        "h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-900 shadow-sm transition",
-        "focus:border-violet-400 focus:outline-none focus:ring-4 focus:ring-violet-100",
-        props.className || "",
-      ].join(" ")}
-    />
-  );
-}
-
-function MobileTextarea(
-  props: React.TextareaHTMLAttributes<HTMLTextAreaElement>
-) {
-  return (
-    <textarea
-      {...props}
-      className={[
-        "w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 shadow-sm transition",
-        "placeholder:text-slate-400 focus:border-violet-400 focus:outline-none focus:ring-4 focus:ring-violet-100",
+        "ls-focus-ring h-11 w-full rounded-xl border border-input bg-card px-3 text-sm text-foreground shadow-[0_1px_2px_rgba(25,35,75,0.03)] transition",
         props.className || "",
       ].join(" ")}
     />
