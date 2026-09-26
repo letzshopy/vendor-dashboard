@@ -736,7 +736,7 @@ export default function Sidebar({
                     )
                   }
                   className={[
-                    "flex min-h-12 w-full items-center justify-between gap-3 rounded-2xl px-2.5 py-2 text-left transition",
+                    "ls-focus-ring flex min-h-11 w-full items-center justify-between gap-3 rounded-xl px-2.5 py-1.5 text-left transition",
                     groupActive
                       ? "bg-secondary text-secondary-foreground shadow-sm ring-1 ring-border"
                       : "text-foreground hover:bg-muted",
@@ -802,8 +802,6 @@ export default function Sidebar({
                                 !item.ready
                               ) {
                                 event.preventDefault();
-
-                                return;
 
                                 return;
                               }
