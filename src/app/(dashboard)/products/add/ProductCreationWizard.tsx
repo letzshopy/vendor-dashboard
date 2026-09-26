@@ -64,11 +64,14 @@ type LocalPhoto = {
   id: string;
   name: string;
   url: string;
-  file: File;
+  file?: File;
+  mediaId?: number;
+  existing?: boolean;
 };
 
 type VariationRow = {
   id: string;
+  variationId?: number;
   option: string;
   price: string;
   quantity: string;
@@ -354,8 +357,13 @@ function screenMeta(
   }
 }
 
-export default function ProductCreationWizard() {
+export default function ProductCreationWizard({
+  editProductId,
+}: {
+  editProductId?: number;
+} = {}) {
   const router = useRouter();
+  const editMode = Number.isSafeInteger(editProductId) && Number(editProductId) > 0;
 
   const [step, setStep] = useState(1);
 
@@ -369,6 +377,7 @@ export default function ProductCreationWizard() {
 
   const [productName, setProductName] = useState("");
   const [sku, setSku] = useState("");
+  const [originalSku, setOriginalSku] = useState("");
   const [shortDescription, setShortDescription] = useState("");
   const [description, setDescription] = useState("");
 
@@ -436,6 +445,9 @@ export default function ProductCreationWizard() {
   const [categoryCreateError, setCategoryCreateError] =
     useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [editLoading, setEditLoading] = useState(editMode);
+  const [editLoadError, setEditLoadError] = useState<string | null>(null);
+  const [originalVariationIds, setOriginalVariationIds] = useState<number[]>([]);
   const [submitError, setSubmitError] =
     useState<string | null>(null);
   const [submitStage, setSubmitStage] =
