@@ -512,11 +512,11 @@ export default function MobileBottomNav({
                           ? "col-span-2"
                           : "",
                         active
-                          ? "ring-3 ring-white/80 ring-offset-2 ring-offset-[#F4F6FB]"
+                          ? "ring-[3px] ring-white/80 ring-offset-2 ring-offset-[#F4F6FB]"
                           : "",
                       ].join(" ")}
                     >
-                      <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/16">
+                      <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/15">
                         <Icon className="h-5 w-5" />
                       </span>
 
