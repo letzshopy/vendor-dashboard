@@ -533,6 +533,508 @@ export default function ProductCreationWizard({
   }, []);
 
   useEffect(() => {
+    if (!editMode || !editProductId) {
+      setEditLoading(false);
+      return;
+    }
+
+    const controller = new AbortController();
+
+    async function loadProductForEdit() {
+      try {
+        setEditLoading(true);
+        setEditLoadError(null);
+
+        const productResponse = await fetch(
+          `/api/products/${editProductId}`,
+          {
+            method: "GET",
+            cache: "no-store",
+            signal: controller.signal,
+          }
+        );
+
+        const productJson: unknown =
+          await productResponse.json();
+
+        if (
+          !productResponse.ok ||
+          !isRecord(productJson)
+        ) {
+          throw new Error(
+            "Unable to load this product for editing."
+          );
+        }
+
+        const productType =
+          typeof productJson.type === "string"
+            ? productJson.type
+            : "";
+
+        if (
+          productType !== "simple" &&
+          productType !== "variable"
+        ) {
+          throw new Error(
+            "This product type cannot be edited in the product wizard yet."
+          );
+        }
+
+        const attributes =
+          Array.isArray(productJson.attributes)
+            ? productJson.attributes.filter(isRecord)
+            : [];
+
+        const colourAttribute =
+          attributes.find((attribute) => {
+            const name =
+              typeof attribute.name === "string"
+                ? attribute.name.trim().toLowerCase()
+                : "";
+            const slug =
+              typeof attribute.slug === "string"
+                ? attribute.slug.trim().toLowerCase()
+                : "";
+
+            return (
+              attribute.variation === true &&
+              (
+                name === "colour" ||
+                name === "color" ||
+                slug.includes("colour") ||
+                slug.includes("color")
+              )
+            );
+          });
+
+        const nextProductType: ProductType =
+          productType === "simple"
+            ? "simple"
+            : colourAttribute
+              ? "variable-colour"
+              : "variable-size";
+
+        const categoryIds =
+          Array.isArray(productJson.category_ids)
+            ? productJson.category_ids
+            : [];
+
+        const firstCategoryId =
+          Number(categoryIds[0] ?? 0);
+
+        setSelectedCategoryId(
+          Number.isSafeInteger(firstCategoryId) &&
+            firstCategoryId > 0
+            ? firstCategoryId
+            : null
+        );
+        setSelectedProductType(nextProductType);
+
+        setProductName(
+          typeof productJson.name === "string"
+            ? productJson.name
+            : ""
+        );
+
+        const loadedSku =
+          typeof productJson.sku === "string"
+            ? productJson.sku
+            : "";
+
+        setSku(loadedSku);
+        setOriginalSku(loadedSku);
+
+        setShortDescription(
+          typeof productJson.short_description === "string"
+            ? productJson.short_description
+            : ""
+        );
+        setDescription(
+          typeof productJson.description === "string"
+            ? productJson.description
+            : ""
+        );
+        setRegularPrice(
+          typeof productJson.regular_price === "string"
+            ? productJson.regular_price
+            : typeof productJson.price === "string"
+              ? productJson.price
+              : ""
+        );
+        setStockQuantity(
+          productJson.stock_quantity === null ||
+          productJson.stock_quantity === undefined
+            ? "0"
+            : String(productJson.stock_quantity)
+        );
+        setWeight(
+          typeof productJson.weight === "string"
+            ? productJson.weight
+            : ""
+        );
+
+        const dimensions =
+          isRecord(productJson.dimensions)
+            ? productJson.dimensions
+            : null;
+
+        const nextLength =
+          dimensions &&
+          typeof dimensions.length === "string"
+            ? dimensions.length
+            : "";
+        const nextWidth =
+          dimensions &&
+          typeof dimensions.width === "string"
+            ? dimensions.width
+            : "";
+        const nextHeight =
+          dimensions &&
+          typeof dimensions.height === "string"
+            ? dimensions.height
+            : "";
+
+        setLength(nextLength);
+        setWidth(nextWidth);
+        setHeight(nextHeight);
+        setDimensionsEnabled(
+          Boolean(
+            nextLength ||
+            nextWidth ||
+            nextHeight
+          )
+        );
+
+        setColor(
+          typeof productJson.color === "string"
+            ? productJson.color
+            : ""
+        );
+
+        setTags(
+          Array.isArray(productJson.tags)
+            ? productJson.tags.flatMap((item) => {
+                if (
+                  !isRecord(item) ||
+                  typeof item.name !== "string"
+                ) {
+                  return [];
+                }
+
+                const name =
+                  item.name.trim();
+
+                return name ? [name] : [];
+              })
+            : []
+        );
+
+        setStatus(
+          productJson.status === "publish"
+            ? "publish"
+            : "draft"
+        );
+        setVisibility(
+          productJson.catalog_visibility === "hidden"
+            ? "hidden"
+            : "visible"
+        );
+
+        const existingProductPhotos: LocalPhoto[] =
+          Array.isArray(productJson.image_objects)
+            ? productJson.image_objects.flatMap(
+                (item, index) => {
+                  if (!isRecord(item)) return [];
+
+                  const id = Number(item.id);
+                  const url =
+                    typeof item.src === "string"
+                      ? item.src
+                      : "";
+
+                  if (
+                    !Number.isSafeInteger(id) ||
+                    id <= 0 ||
+                    !url
+                  ) {
+                    return [];
+                  }
+
+                  return [{
+                    id: `existing-product-${id}-${index}`,
+                    name:
+                      typeof item.name === "string" &&
+                      item.name.trim()
+                        ? item.name
+                        : `Product image ${index + 1}`,
+                    url,
+                    mediaId: id,
+                    existing: true,
+                  }];
+                }
+              )
+            : [];
+
+        setLocalPhotos(existingProductPhotos);
+
+        if (nextProductType === "simple") {
+          setSizeRows([]);
+          setColourRows([]);
+          setOriginalVariationIds([]);
+          return;
+        }
+
+        const variationsResponse =
+          await fetch(
+            `/api/products/${editProductId}/variations`,
+            {
+              method: "GET",
+              cache: "no-store",
+              signal: controller.signal,
+            }
+          );
+
+        const variationsJson: unknown =
+          await variationsResponse.json();
+
+        if (
+          !variationsResponse.ok ||
+          !isRecord(variationsJson)
+        ) {
+          throw new Error(
+            "Unable to load product variations."
+          );
+        }
+
+        const rawVariations =
+          Array.isArray(variationsJson.variations)
+            ? variationsJson.variations.filter(isRecord)
+            : [];
+
+        const variationIds =
+          rawVariations.flatMap((variation) => {
+            const id = Number(variation.id);
+            return Number.isSafeInteger(id) && id > 0
+              ? [id]
+              : [];
+          });
+
+        setOriginalVariationIds(variationIds);
+
+        let galleryByVariation =
+          new Map<number, LocalPhoto[]>();
+
+        if (
+          nextProductType === "variable-colour" &&
+          variationIds.length > 0
+        ) {
+          try {
+            const galleriesResponse =
+              await fetch(
+                `/api/products/${editProductId}/variation-galleries`,
+                {
+                  method: "GET",
+                  cache: "no-store",
+                  signal: controller.signal,
+                }
+              );
+
+            const galleriesJson: unknown =
+              await galleriesResponse.json();
+
+            if (
+              galleriesResponse.ok &&
+              isRecord(galleriesJson) &&
+              Array.isArray(galleriesJson.galleries)
+            ) {
+              galleryByVariation =
+                new Map(
+                  galleriesJson.galleries.flatMap(
+                    (gallery) => {
+                      if (!isRecord(gallery)) {
+                        return [];
+                      }
+
+                      const variationId =
+                        Number(gallery.variation_id);
+
+                      if (
+                        !Number.isSafeInteger(variationId) ||
+                        variationId <= 0
+                      ) {
+                        return [];
+                      }
+
+                      const photos: LocalPhoto[] =
+                        Array.isArray(gallery.images)
+                          ? gallery.images.flatMap(
+                              (image, index) => {
+                                if (!isRecord(image)) {
+                                  return [];
+                                }
+
+                                const mediaId =
+                                  Number(image.id);
+                                const url =
+                                  typeof image.url === "string"
+                                    ? image.url
+                                    : "";
+
+                                if (
+                                  !Number.isSafeInteger(mediaId) ||
+                                  mediaId <= 0 ||
+                                  !url
+                                ) {
+                                  return [];
+                                }
+
+                                return [{
+                                  id: `existing-colour-${variationId}-${mediaId}-${index}`,
+                                  name:
+                                    typeof image.alt === "string" &&
+                                    image.alt.trim()
+                                      ? image.alt
+                                      : `Colour image ${index + 1}`,
+                                  url,
+                                  mediaId,
+                                  existing: true,
+                                }];
+                              }
+                            )
+                          : [];
+
+                      return [[variationId, photos] as const];
+                    }
+                  )
+                );
+            }
+          } catch {
+            galleryByVariation =
+              new Map<number, LocalPhoto[]>();
+          }
+        }
+
+        const mappedRows: VariationRow[] =
+          rawVariations.flatMap(
+            (variation, index) => {
+              const variationId =
+                Number(variation.id);
+
+              if (
+                !Number.isSafeInteger(variationId) ||
+                variationId <= 0
+              ) {
+                return [];
+              }
+
+              const variationAttributes =
+                Array.isArray(variation.attributes)
+                  ? variation.attributes.filter(isRecord)
+                  : [];
+
+              const optionEntry =
+                variationAttributes.find(
+                  (attribute) =>
+                    typeof attribute.option === "string" &&
+                    attribute.option.trim()
+                );
+
+              const option =
+                optionEntry &&
+                typeof optionEntry.option === "string"
+                  ? optionEntry.option.trim()
+                  : `Option ${index + 1}`;
+
+              let photos =
+                galleryByVariation.get(variationId) || [];
+
+              if (
+                nextProductType === "variable-colour" &&
+                photos.length === 0 &&
+                isRecord(variation.image)
+              ) {
+                const mediaId =
+                  Number(variation.image.id);
+                const url =
+                  typeof variation.image.src === "string"
+                    ? variation.image.src
+                    : "";
+
+                if (
+                  Number.isSafeInteger(mediaId) &&
+                  mediaId > 0 &&
+                  url
+                ) {
+                  photos = [{
+                    id: `existing-colour-main-${variationId}-${mediaId}`,
+                    name: option,
+                    url,
+                    mediaId,
+                    existing: true,
+                  }];
+                }
+              }
+
+              return [{
+                id: `edit-variation-${variationId}`,
+                variationId,
+                option,
+                price:
+                  typeof variation.regular_price === "string" &&
+                  variation.regular_price.trim()
+                    ? variation.regular_price
+                    : typeof variation.price === "string"
+                      ? variation.price
+                      : "",
+                quantity:
+                  variation.stock_quantity === null ||
+                  variation.stock_quantity === undefined
+                    ? "0"
+                    : String(variation.stock_quantity),
+                photos:
+                  nextProductType === "variable-colour"
+                    ? photos
+                    : [],
+              }];
+            }
+          );
+
+        if (nextProductType === "variable-colour") {
+          setColourRows(mappedRows);
+          setSizeRows([]);
+        } else {
+          setSizeRows(mappedRows);
+          setColourRows([]);
+        }
+      } catch (error: unknown) {
+        if (
+          error instanceof DOMException &&
+          error.name === "AbortError"
+        ) {
+          return;
+        }
+
+        setEditLoadError(
+          error instanceof Error
+            ? error.message
+            : "Unable to load this product for editing."
+        );
+      } finally {
+        if (!controller.signal.aborted) {
+          setEditLoading(false);
+        }
+      }
+    }
+
+    void loadProductForEdit();
+
+    return () => controller.abort();
+  }, [
+    editMode,
+    editProductId,
+  ]);
+
+  useEffect(() => {
     const controller = new AbortController();
 
     async function ensureDefaultVariationAttributes() {
