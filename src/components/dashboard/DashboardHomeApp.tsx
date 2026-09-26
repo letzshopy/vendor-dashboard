@@ -1087,9 +1087,9 @@ export default function DashboardHomeApp() {
         )}
       </section>
 
-      <div className="mt-4 grid min-w-0 gap-4 xl:grid-cols-[minmax(0,2fr)_minmax(320px,1fr)] xl:items-start xl:gap-5">
-        <div className="space-y-4 xl:space-y-5">
-          <SectionSurface>
+      <div className="mt-4 flex min-w-0 flex-col gap-4 xl:grid xl:grid-cols-[minmax(0,2fr)_minmax(320px,1fr)] xl:items-start xl:gap-5">
+        <div className="contents xl:block xl:space-y-5">
+          <SectionSurface className="order-4 xl:order-none">
             <SectionHeader
               title="Revenue Trend"
               subtitle="Paid-order revenue from the latest four weeks."
@@ -1209,7 +1209,7 @@ export default function DashboardHomeApp() {
             </div>
           </SectionSurface>
 
-          <SectionSurface>
+          <SectionSurface className="order-3 xl:order-none">
             <SectionHeader
               title="Recent Orders"
               subtitle="Latest customer orders and payment status."
@@ -1303,8 +1303,8 @@ export default function DashboardHomeApp() {
           </SectionSurface>
         </div>
 
-        <aside className="space-y-4 xl:space-y-5">
-          <SectionSurface>
+        <aside className="contents xl:block xl:space-y-5">
+          <SectionSurface className="order-1 xl:order-none">
             <SectionHeader
               title="Needs Attention"
               subtitle="Important store work waiting for you."
@@ -1387,7 +1387,7 @@ export default function DashboardHomeApp() {
             )}
           </SectionSurface>
 
-          <SectionSurface>
+          <SectionSurface className="order-2 xl:order-none">
             <SectionHeader
               title="Quick Actions"
               subtitle="Start common store tasks."
@@ -1431,7 +1431,7 @@ export default function DashboardHomeApp() {
             </div>
           </SectionSurface>
 
-          <SectionSurface>
+          <SectionSurface className="order-5 xl:order-none">
             <SectionHeader
               title="Products & Stock"
               subtitle="Current catalogue availability."
@@ -1521,7 +1521,7 @@ export default function DashboardHomeApp() {
             )}
           </SectionSurface>
 
-          <details className="group overflow-hidden rounded-2xl border border-[#E1E6F0] bg-white shadow-[0_8px_24px_rgba(38,51,95,0.05)]">
+          <details className="group order-6 overflow-hidden rounded-2xl border border-[#E1E6F0] bg-white shadow-[0_8px_24px_rgba(38,51,95,0.05)] xl:order-none">
             <summary className="flex min-h-16 cursor-pointer list-none items-center gap-3 bg-[#26366E] px-4 text-white">
               <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#4059A7]">
                 <Settings2 className="h-4 w-4" />
