@@ -4,7 +4,7 @@ import Link from "next/link";
 import {
   usePathname } from "next/navigation";
 import {
-  ArrowLeft,   Bell,   Menu,   Pencil,   Plus,   type LucideIcon,   } from "lucide-react";
+  ArrowLeft,   Menu,   Pencil,   Plus,   type LucideIcon,   } from "lucide-react";
 import {
   useEffect,   useState,   useRef,
 } from "react";
@@ -542,23 +542,23 @@ export default function MobilePageHeader({
   ) {
     return (
       <header
-        className="sticky top-0 z-40 border-b border-[#D9DEEC] bg-white/95 shadow-sm backdrop-blur-xl md:hidden"
+        className="sticky top-0 z-40 border-b border-border bg-card/95 shadow-[0_1px_0_rgba(38,51,95,0.04)] backdrop-blur-xl md:hidden"
         style={{
           paddingTop:
             "var(--ls-safe-area-top)",
         }}
       >
-        <div className="flex min-h-16 items-center gap-2 px-3">
+        <div className="flex min-h-[60px] items-center gap-2 px-3">
           <Link
             href={config.backHref}
             aria-label="Go back"
-            className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#EEF1FA] text-[#2E3F7D] active:scale-95"
+            className="ls-focus-ring inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-border bg-secondary text-secondary-foreground"
           >
             <ArrowLeft className="h-5 w-5" />
           </Link>
 
           <div className="min-w-0 flex-1 px-1">
-            <h1 className="truncate text-[19px] font-bold tracking-tight text-[#26335F]">
+            <h1 className="truncate text-[17px] font-extrabold tracking-tight text-heading">
               {config.title}
             </h1>
           </div>
@@ -568,7 +568,7 @@ export default function MobilePageHeader({
               href={action.href}
               aria-label={action.label}
               title={action.label}
-              className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#E85D4A] text-white shadow-sm active:scale-95"
+              className="ls-focus-ring inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-accent text-accent-foreground shadow-sm"
             >
               <ActionIcon className="h-5 w-5" />
             </Link>
@@ -580,18 +580,18 @@ export default function MobilePageHeader({
 
   return (
     <header
-      className="sticky top-0 z-40 border-b border-[#D9DEEC] bg-white/95 shadow-sm backdrop-blur-xl md:hidden"
+      className="sticky top-0 z-40 border-b border-border bg-card/95 shadow-[0_1px_0_rgba(38,51,95,0.04)] backdrop-blur-xl md:hidden"
       style={{
         paddingTop:
           "var(--ls-safe-area-top)",
       }}
     >
-      <div className="flex min-h-16 items-center gap-2 px-3">
+      <div className="flex min-h-[60px] items-center gap-2 px-3">
         <button
           type="button"
           onClick={onToggleSidebar}
           aria-label="Open navigation"
-          className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#EEF1FA] text-[#2E3F7D] active:scale-95"
+          className="ls-focus-ring inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-border bg-secondary text-secondary-foreground"
         >
           <Menu className="h-5 w-5" />
         </button>
@@ -610,16 +610,6 @@ export default function MobilePageHeader({
             className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#E85D4A] text-white shadow-sm active:scale-95"
           >
             <ActionIcon className="h-5 w-5" />
-          </Link>
-        )}
-
-        {!locked && (
-          <Link
-            href="/orders"
-            aria-label="Notifications"
-            className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#EEF1FA] text-[#2E3F7D] active:scale-95"
-          >
-            <Bell className="h-5 w-5" />
           </Link>
         )}
 
