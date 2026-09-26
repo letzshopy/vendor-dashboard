@@ -795,14 +795,15 @@ export default function ProductsClientTable({
               <option value="set-price">Set price</option>
             </select>
 
-            <button
-              type="button"
+            <AsyncButton
+              size="sm"
+              loading={bulkBusy}
+              loadingLabel="Applying…"
               onClick={applyBulk}
               disabled={!bulk || checked.length === 0}
-              className="inline-flex h-9 shrink-0 items-center justify-center rounded-xl bg-[#5366B7] px-4 text-sm font-bold text-white disabled:cursor-not-allowed disabled:bg-slate-300"
             >
               Apply
-            </button>
+            </AsyncButton>
 
             <span className="col-span-2 text-xs font-semibold text-slate-500 sm:col-span-1">
               {checked.length} selected
@@ -1351,6 +1352,30 @@ export default function ProductsClientTable({
           </div>
         </div>
       )}
+
+      <ConfirmDialog
+        open={bulkTrashOpen}
+        onOpenChange={setBulkTrashOpen}
+        title="Move selected products to trash?"
+        description={`${checked.length} selected product${checked.length === 1 ? "" : "s"} will be removed from the active catalogue.`}
+        confirmLabel="Move to trash"
+        loading={bulkBusy}
+        loadingLabel="Moving…"
+        destructive
+        onConfirm={() => performBulkRemoval(false)}
+      />
+
+      <ConfirmDialog
+        open={bulkDeleteOpen}
+        onOpenChange={setBulkDeleteOpen}
+        title="Permanently delete selected products?"
+        description="This cannot be undone. Product data will be permanently removed."
+        confirmLabel="Delete permanently"
+        loading={bulkBusy}
+        loadingLabel="Deleting…"
+        destructive
+        onConfirm={() => performBulkRemoval(true)}
+      />
 
       <BottomSheet
         open={showCloneModal}
