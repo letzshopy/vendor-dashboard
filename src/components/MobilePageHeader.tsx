@@ -597,7 +597,7 @@ export default function MobilePageHeader({
         </button>
 
         <div className="min-w-0 flex-1 px-1">
-          <h1 className="truncate text-[19px] font-bold tracking-tight text-[#26335F]">
+          <h1 className="truncate text-[17px] font-extrabold tracking-tight text-heading">
             {config.title}
           </h1>
         </div>
@@ -607,7 +607,7 @@ export default function MobilePageHeader({
             href={action.href}
             aria-label={action.label}
             title={action.label}
-            className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#E85D4A] text-white shadow-sm active:scale-95"
+            className="ls-focus-ring inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-accent text-accent-foreground shadow-sm"
           >
             <ActionIcon className="h-5 w-5" />
           </Link>
