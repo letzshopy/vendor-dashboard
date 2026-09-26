@@ -13,6 +13,10 @@ import {
   Users,
 } from "lucide-react";
 
+import {
+  actionFeedback,
+} from "@/lib/actionFeedback";
+
 type WebsiteMetricsResponse = {
   ok?: boolean;
   realtime?: {
@@ -46,21 +50,31 @@ export default function DashboardHomeAnalyticsCards() {
   const [
     loading,
     setLoading,
-  ] = useState(true);
+  ] =
+    useState(true);
 
   const [
     refreshing,
     setRefreshing,
-  ] = useState(false);
+  ] =
+    useState(false);
 
   const loadMetrics =
     useCallback(
       async (
         isRefresh = false
       ) => {
+        const feedbackId =
+          "dashboard-website-refresh";
+
         try {
           if (isRefresh) {
             setRefreshing(true);
+            actionFeedback.loading({
+              id: feedbackId,
+              title:
+                "Refreshing website activity…",
+            });
           } else {
             setLoading(true);
           }
@@ -69,7 +83,8 @@ export default function DashboardHomeAnalyticsCards() {
             await fetch(
               "/api/metrics/website",
               {
-                cache: "no-store",
+                cache:
+                  "no-store",
               }
             );
 
@@ -77,7 +92,9 @@ export default function DashboardHomeAnalyticsCards() {
             (
               await response
                 .json()
-                .catch(() => null)
+                .catch(
+                  () => null
+                )
             ) as
               | WebsiteMetricsResponse
               | null;
@@ -86,28 +103,51 @@ export default function DashboardHomeAnalyticsCards() {
             !response.ok ||
             !parsed?.ok
           ) {
-            setData({
-              ok: false,
-              error:
-                parsed?.error ||
-                "Website activity is temporarily unavailable.",
-            });
-
-            return;
+            throw new Error(
+              parsed?.error ||
+                "Website activity is temporarily unavailable."
+            );
           }
 
           setData(parsed);
-        } catch (error) {
+
+          if (isRefresh) {
+            actionFeedback.success({
+              id: feedbackId,
+              title:
+                "Website activity refreshed",
+              durationMs: 2200,
+            });
+          }
+        } catch (
+          error
+        ) {
+          const message =
+            error instanceof
+            Error
+              ? error.message
+              : "Website activity is temporarily unavailable.";
+
           setData({
             ok: false,
             error:
-              error instanceof Error
-                ? error.message
-                : "Website activity is temporarily unavailable.",
+              message,
           });
+
+          if (isRefresh) {
+            actionFeedback.error({
+              id: feedbackId,
+              title:
+                "Could not refresh website activity",
+              message,
+              durationMs: 4200,
+            });
+          }
         } finally {
           setLoading(false);
-          setRefreshing(false);
+          setRefreshing(
+            false
+          );
         }
       },
       []
@@ -119,7 +159,7 @@ export default function DashboardHomeAnalyticsCards() {
     const timer =
       window.setInterval(
         () => {
-          void loadMetrics(true);
+          void loadMetrics();
         },
         60_000
       );
@@ -131,16 +171,21 @@ export default function DashboardHomeAnalyticsCards() {
   }, [loadMetrics]);
 
   return (
-    <section className="rounded-2xl border border-[#DFE5F1] bg-[linear-gradient(120deg,#F2F4FB_0%,#FFFFFF_55%,#FFF6F3_100%)] px-4 py-4 shadow-[0_8px_24px_rgba(38,51,95,0.04)] md:px-5">
-      <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_minmax(320px,auto)] md:items-center">
+    <section className="overflow-hidden rounded-2xl bg-[#26366E] text-white shadow-[0_14px_34px_rgba(38,54,110,0.18)]">
+      <div className="grid gap-4 p-4 md:grid-cols-[minmax(0,1fr)_minmax(360px,auto)] md:items-center md:p-5">
         <div className="min-w-0">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <h2 className="text-[17px] font-bold text-[#26335F]">
+              <div className="inline-flex items-center gap-2 rounded-full bg-[#314784] px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-[0.08em] text-indigo-100">
+                <span className="h-1.5 w-1.5 rounded-full bg-[#20B486]" />
+                Store traffic
+              </div>
+
+              <h2 className="mt-3 text-lg font-extrabold tracking-tight">
                 Website Activity
               </h2>
 
-              <p className="mt-1 text-xs leading-5 text-slate-500">
+              <p className="mt-1 max-w-xl text-xs leading-5 text-indigo-100/75">
                 Live and today&apos;s visitors from Google Analytics.
               </p>
             </div>
@@ -148,11 +193,15 @@ export default function DashboardHomeAnalyticsCards() {
             <button
               type="button"
               onClick={() =>
-                void loadMetrics(true)
+                void loadMetrics(
+                  true
+                )
               }
-              disabled={refreshing}
+              disabled={
+                refreshing
+              }
               aria-label="Refresh website activity"
-              className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/80 text-slate-400 md:hidden"
+              className="ls-focus-ring inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#314784] text-white hover:bg-[#3A518F]"
             >
               <RefreshCw
                 className={[
@@ -160,42 +209,45 @@ export default function DashboardHomeAnalyticsCards() {
                   refreshing
                     ? "animate-spin"
                     : "",
-                ].join(" ")}
+                ].join(
+                  " "
+                )}
               />
             </button>
           </div>
 
           <Link
             href="/reports?rt=website"
-            className="mt-2 inline-flex min-h-8 items-center gap-1 text-xs font-bold text-[#5366B7]"
+            className="mt-4 inline-flex min-h-9 items-center gap-1.5 rounded-xl bg-white px-3 text-xs font-extrabold text-[#26366E]"
           >
             Open website report
             <ArrowRight className="h-3.5 w-3.5" />
           </Link>
         </div>
 
-        {data?.ok === false ? (
-          <p className="border-l-2 border-rose-400 pl-3 text-sm text-rose-700">
+        {data?.ok ===
+        false ? (
+          <div className="rounded-xl border border-rose-300/20 bg-rose-400/10 px-3 py-3 text-sm text-rose-100">
             {data.error ||
               "Website activity is temporarily unavailable."}
-          </p>
+          </div>
         ) : (
           <div
             aria-live="polite"
-            className="grid grid-cols-2 divide-x divide-[#D9DEEC] rounded-xl bg-white/75 px-2 py-3"
+            className="grid grid-cols-2 overflow-hidden rounded-xl bg-[#1F2C63]"
           >
-            <div className="flex min-w-0 items-center gap-3 px-3">
-              <span className="relative inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700">
+            <div className="flex min-w-0 items-center gap-3 border-r border-white/10 px-3 py-3.5">
+              <span className="relative inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#20B486] text-white">
                 <Radio className="h-5 w-5" />
-                <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-emerald-500" />
+                <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-white" />
               </span>
 
               <div className="min-w-0">
-                <div className="text-[10px] font-bold uppercase tracking-[0.07em] text-slate-500">
+                <div className="text-[10px] font-extrabold uppercase tracking-[0.07em] text-indigo-100/70">
                   Live now
                 </div>
 
-                <div className="mt-0.5 text-2xl font-extrabold text-[#26335F]">
+                <div className="mt-0.5 text-2xl font-extrabold">
                   {loading
                     ? "…"
                     : formatNumber(
@@ -207,17 +259,17 @@ export default function DashboardHomeAnalyticsCards() {
               </div>
             </div>
 
-            <div className="flex min-w-0 items-center gap-3 px-3">
-              <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#EEF1FA] text-[#5366B7]">
+            <div className="flex min-w-0 items-center gap-3 px-3 py-3.5">
+              <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#F15E4A] text-white">
                 <Users className="h-5 w-5" />
               </span>
 
               <div className="min-w-0">
-                <div className="text-[10px] font-bold uppercase tracking-[0.07em] text-slate-500">
+                <div className="text-[10px] font-extrabold uppercase tracking-[0.07em] text-indigo-100/70">
                   Visitors today
                 </div>
 
-                <div className="mt-0.5 text-2xl font-extrabold text-[#26335F]">
+                <div className="mt-0.5 text-2xl font-extrabold">
                   {loading
                     ? "…"
                     : formatNumber(
@@ -230,18 +282,6 @@ export default function DashboardHomeAnalyticsCards() {
             </div>
           </div>
         )}
-
-        <button
-          type="button"
-          onClick={() =>
-            void loadMetrics(true)
-          }
-          disabled={refreshing}
-          aria-label="Refresh website activity"
-          className="absolute hidden"
-        >
-          <RefreshCw />
-        </button>
       </div>
     </section>
   );

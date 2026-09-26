@@ -90,42 +90,42 @@ export default function InstallAppCard() {
   const canInstall = !!deferredPrompt;
 
   return (
-    <section className="rounded-[24px] border border-slate-200 bg-white shadow-sm">
-      <div className="flex items-start justify-between gap-3 px-4 py-4 sm:px-5 sm:py-5">
-        <div className="flex min-w-0 flex-1 items-start gap-3">
-          <div className="mt-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-indigo-100 text-indigo-600">
-            <Smartphone className="h-5 w-5" />
-          </div>
+    <section className="overflow-hidden rounded-2xl border border-[#E1E6F0] bg-white shadow-[0_8px_24px_rgba(38,51,95,0.05)]">
+      <div className="flex items-start gap-3 border-l-4 border-[#4059A7] px-4 py-4 sm:px-5">
+        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#4059A7] text-white">
+          <Smartphone className="h-5 w-5" />
+        </div>
 
-          <div className="min-w-0 flex-1">
-            <h3 className="text-base font-semibold text-slate-900">
-              Install LetzShopy App
-            </h3>
+        <div className="min-w-0 flex-1">
+          <h3 className="text-base font-extrabold text-[#182451]">
+            Install LetzShopy App
+          </h3>
 
-                        <div className="mt-4 flex flex-col items-stretch gap-2 sm:flex-row sm:items-center">
-              <button
-                type="button"
-                onClick={handleInstall}
-                disabled={!canInstall || installing}
-                className={`inline-flex min-h-[42px] items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium transition ${
-                  canInstall
-                    ? "bg-indigo-600 text-white hover:bg-indigo-700"
-                    : "bg-slate-100 text-slate-400 cursor-not-allowed"
-                }`}
-              >
-                <Download className="h-4 w-4" />
-                {installing ? "Installing..." : "Install App"}
-              </button>
+          <p className="mt-1 text-xs leading-5 text-slate-500">
+            Add the vendor dashboard to this device for quicker access.
+          </p>
 
-              
-            </div>
+          <div className="mt-3">
+            <button
+              type="button"
+              onClick={handleInstall}
+              disabled={!canInstall || installing}
+              className={`inline-flex min-h-10 items-center justify-center gap-2 rounded-xl px-4 text-sm font-extrabold transition ${
+                canInstall
+                  ? "bg-[#F15E4A] text-white hover:bg-[#D84F3E]"
+                  : "cursor-not-allowed bg-slate-100 text-slate-400"
+              }`}
+            >
+              <Download className="h-4 w-4" />
+              {installing ? "Installing…" : "Install App"}
+            </button>
           </div>
         </div>
 
         <button
           type="button"
           onClick={handleDismiss}
-          className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
+          className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-500 transition hover:bg-slate-200"
           aria-label="Dismiss install banner"
         >
           <X className="h-4 w-4" />
