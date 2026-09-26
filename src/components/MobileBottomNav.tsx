@@ -1,10 +1,16 @@
 "use client";
 
-import type { SessionStoreType } from "@/lib/session";
-import { isStandaloneV1NavigationHrefAllowed } from "@/lib/storeCapabilities";
+import type {
+  SessionStoreType,
+} from "@/lib/session";
+import {
+  isStandaloneV1NavigationHrefAllowed,
+} from "@/lib/storeCapabilities";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import {
+  usePathname,
+} from "next/navigation";
 import {
   BarChart3,
   FolderTree,
@@ -39,6 +45,8 @@ type NavItem = {
   icon: ComponentType<{
     className?: string;
   }>;
+  tileClass?: string;
+  wide?: boolean;
 };
 
 const moreItems: NavItem[] = [
@@ -46,46 +54,65 @@ const moreItems: NavItem[] = [
     href: "/categories",
     label: "Categories",
     icon: FolderTree,
+    tileClass:
+      "bg-[#F15E4A]",
   },
   {
     href: "/customers",
     label: "Customers",
     icon: Users,
+    tileClass:
+      "bg-[#20B486]",
   },
   {
     href: "/sales/payments",
     label: "Payments",
     icon: WalletCards,
+    tileClass:
+      "bg-[#4059A7]",
   },
   {
     href: "/media",
     label: "Media",
     icon: ImageIcon,
+    tileClass:
+      "bg-[#D88A16]",
   },
   {
     href: "/menu",
     label: "Menu Layout",
     icon: Menu,
+    tileClass:
+      "bg-[#26366E]",
   },
   {
     href: "/reports",
     label: "Reports",
     icon: BarChart3,
+    tileClass:
+      "bg-[#5E4FB3]",
   },
   {
     href: "/billing/subscription",
     label: "Subscription",
     icon: ReceiptIndianRupee,
+    tileClass:
+      "bg-[#4059A7]",
   },
   {
     href: "/settings",
     label: "Settings",
     icon: Settings2,
+    tileClass:
+      "bg-[#F15E4A]",
   },
   {
     href: "/support/tickets",
     label: "Support",
     icon: LifeBuoy,
+    tileClass:
+      "bg-[#20B486]",
+    wide: true,
   },
 ];
 
@@ -111,13 +138,21 @@ function pathIsActive(
   pathname: string,
   href: string
 ): boolean {
-  if (href === "/dashboard") {
-    return pathname === "/dashboard";
+  if (
+    href ===
+    "/dashboard"
+  ) {
+    return (
+      pathname ===
+      "/dashboard"
+    );
   }
 
   return (
     pathname === href ||
-    pathname.startsWith(`${href}/`)
+    pathname.startsWith(
+      `${href}/`
+    )
   );
 }
 
@@ -129,16 +164,19 @@ function BottomNavLink({
   pathname: string;
 }) {
   const Icon = item.icon;
-  const active = pathIsActive(
-    pathname,
-    item.href
-  );
+  const active =
+    pathIsActive(
+      pathname,
+      item.href
+    );
 
   return (
     <Link
       href={item.href}
       aria-current={
-        active ? "page" : undefined
+        active
+          ? "page"
+          : undefined
       }
       className="ls-focus-ring flex min-h-14 min-w-0 flex-1 flex-col items-center justify-center gap-1 px-1 text-[10px] font-semibold"
     >
@@ -146,8 +184,8 @@ function BottomNavLink({
         className={[
           "flex h-8 w-8 items-center justify-center rounded-xl transition",
           active
-            ? "bg-primary text-primary-foreground shadow-sm"
-            : "bg-transparent text-muted-foreground",
+            ? "bg-white text-[#182451] shadow-[0_5px_14px_rgba(0,0,0,0.16)]"
+            : "bg-[#26366E] text-indigo-100",
         ].join(" ")}
       >
         <Icon className="h-[18px] w-[18px] stroke-[2.6]" />
@@ -157,8 +195,8 @@ function BottomNavLink({
         className={[
           "max-w-full truncate",
           active
-            ? "font-extrabold text-heading"
-            : "text-muted-foreground",
+            ? "font-extrabold text-white"
+            : "text-indigo-100/70",
         ].join(" ")}
       >
         {item.label}
@@ -171,26 +209,37 @@ export default function MobileBottomNav({
   locked = false,
   storeType = "multisite",
 }: MobileBottomNavProps) {
-  const pathname = usePathname() || "/";
+  const pathname =
+    usePathname() || "/";
+
   const visibleMoreItems =
-    storeType === "standalone"
-      ? moreItems.filter((item) =>
-          isStandaloneV1NavigationHrefAllowed(
-            storeType,
-            item.href
-          )
+    storeType ===
+    "standalone"
+      ? moreItems.filter(
+          (item) =>
+            isStandaloneV1NavigationHrefAllowed(
+              storeType,
+              item.href
+            )
         )
       : moreItems;
+
   const visibleLockedItems =
-    storeType === "standalone"
-      ? lockedItems.filter((item) =>
-          isStandaloneV1NavigationHrefAllowed(
-            storeType,
-            item.href
-          )
+    storeType ===
+    "standalone"
+      ? lockedItems.filter(
+          (item) =>
+            isStandaloneV1NavigationHrefAllowed(
+              storeType,
+              item.href
+            )
         )
       : lockedItems;
-  const [moreOpen, setMoreOpen] =
+
+  const [
+    moreOpen,
+    setMoreOpen,
+  ] =
     useState(false);
 
   useEffect(() => {
@@ -198,10 +247,13 @@ export default function MobileBottomNav({
   }, [pathname]);
 
   useEffect(() => {
-    if (!moreOpen) return;
+    if (!moreOpen) {
+      return;
+    }
 
     const previousOverflow =
-      document.body.style.overflow;
+      document.body.style
+        .overflow;
 
     document.body.style.overflow =
       "hidden";
@@ -216,46 +268,63 @@ export default function MobileBottomNav({
     return (
       <nav
         aria-label="Restricted dashboard navigation"
-        className="dashboard-mobile-bottom-nav fixed inset-x-0 bottom-0 z-[60] flex items-start justify-around border-t border-border bg-card/95 px-3 backdrop-blur-xl md:hidden"
+        className="dashboard-mobile-bottom-nav fixed inset-x-0 bottom-0 z-[60] flex items-start justify-around rounded-t-[24px] border-t border-[#26366E] bg-[#182451] px-3 shadow-[0_-14px_34px_rgba(17,27,63,0.24)] md:hidden"
       >
-        {visibleLockedItems.map((item) => (
-          <BottomNavLink
-            key={item.href}
-            item={item}
-            pathname={pathname}
-          />
-        ))}
+        {visibleLockedItems.map(
+          (item) => (
+            <BottomNavLink
+              key={
+                item.href
+              }
+              item={
+                item
+              }
+              pathname={
+                pathname
+              }
+            />
+          )
+        )}
       </nav>
     );
   }
 
   const addActive =
-    pathname === "/products/add" ||
-    pathname.startsWith("/products/add/");
+    pathname ===
+      "/products/add" ||
+    pathname.startsWith(
+      "/products/add/"
+    );
 
   const productsActive =
     !addActive &&
     (
-      pathname === "/products" ||
-      pathname.startsWith("/products/")
+      pathname ===
+        "/products" ||
+      pathname.startsWith(
+        "/products/"
+      )
     );
 
   const moreActive =
-    visibleMoreItems.some((item) =>
-      pathIsActive(
-        pathname,
-        item.href
-      )
+    visibleMoreItems.some(
+      (item) =>
+        pathIsActive(
+          pathname,
+          item.href
+        )
     );
 
   return (
     <>
       <nav
         aria-label="Dashboard navigation"
-        className="dashboard-mobile-bottom-nav fixed inset-x-0 bottom-0 z-[60] grid grid-cols-5 items-start border-t border-border bg-card/95 px-1 backdrop-blur-xl md:hidden"
+        className="dashboard-mobile-bottom-nav fixed inset-x-0 bottom-0 z-[60] grid grid-cols-5 items-start rounded-t-[24px] border-t border-[#26366E] bg-[#182451] px-1 shadow-[0_-14px_34px_rgba(17,27,63,0.24)] md:hidden"
       >
         <BottomNavLink
-          pathname={pathname}
+          pathname={
+            pathname
+          }
           item={{
             href: "/dashboard",
             label: "Home",
@@ -264,7 +333,9 @@ export default function MobileBottomNav({
         />
 
         <BottomNavLink
-          pathname={pathname}
+          pathname={
+            pathname
+          }
           item={{
             href: "/orders",
             label: "Orders",
@@ -275,28 +346,24 @@ export default function MobileBottomNav({
         <Link
           href="/products/add"
           aria-current={
-            addActive ? "page" : undefined
+            addActive
+              ? "page"
+              : undefined
           }
-          className="ls-focus-ring flex min-h-14 min-w-0 flex-col items-center justify-center gap-1 px-1 text-[10px] font-semibold"
+          className="ls-focus-ring flex min-h-14 min-w-0 flex-col items-center justify-center gap-0.5 px-1 text-[10px] font-semibold"
         >
           <span
             className={[
-              "flex h-9 w-9 items-center justify-center rounded-xl transition",
+              "flex h-11 w-11 -translate-y-1 items-center justify-center rounded-2xl bg-[#F15E4A] text-white ring-4 ring-[#182451] transition",
               addActive
-                ? "bg-accent text-accent-foreground shadow-sm"
-                : "bg-accent text-accent-foreground shadow-sm",
+                ? "shadow-[0_8px_20px_rgba(241,94,74,0.38)]"
+                : "shadow-[0_6px_16px_rgba(241,94,74,0.28)]",
             ].join(" ")}
           >
-            <Plus className="h-[18px] w-[18px] stroke-[2.8]" />
+            <Plus className="h-5 w-5 stroke-[3]" />
           </span>
 
-          <span
-            className={
-              addActive
-                ? "truncate font-extrabold text-heading"
-                : "truncate text-muted-foreground"
-            }
-          >
+          <span className="truncate font-extrabold text-white">
             Add
           </span>
         </Link>
@@ -308,14 +375,14 @@ export default function MobileBottomNav({
               ? "page"
               : undefined
           }
-          className="flex min-h-14 min-w-0 flex-col items-center justify-center gap-1 px-1 text-[10px] font-semibold"
+          className="ls-focus-ring flex min-h-14 min-w-0 flex-col items-center justify-center gap-1 px-1 text-[10px] font-semibold"
         >
           <span
             className={[
               "flex h-8 w-8 items-center justify-center rounded-xl transition",
               productsActive
-                ? "bg-primary text-primary-foreground shadow-sm"
-                : "bg-transparent text-muted-foreground",
+                ? "bg-white text-[#182451] shadow-[0_5px_14px_rgba(0,0,0,0.16)]"
+                : "bg-[#26366E] text-indigo-100",
             ].join(" ")}
           >
             <ShoppingBag className="h-[18px] w-[18px] stroke-[2.6]" />
@@ -325,8 +392,8 @@ export default function MobileBottomNav({
             className={[
               "max-w-full truncate",
               productsActive
-                ? "font-extrabold text-heading"
-                : "text-muted-foreground",
+                ? "font-extrabold text-white"
+                : "text-indigo-100/70",
             ].join(" ")}
           >
             Products
@@ -336,34 +403,41 @@ export default function MobileBottomNav({
         <button
           type="button"
           onClick={() =>
-            setMoreOpen(true)
+            setMoreOpen(
+              true
+            )
           }
-          aria-expanded={moreOpen}
-          className="flex min-h-14 min-w-0 flex-col items-center justify-center gap-1 px-1 text-[10px] font-semibold"
+          aria-expanded={
+            moreOpen
+          }
+          className="ls-focus-ring flex min-h-14 min-w-0 flex-col items-center justify-center gap-1 px-1 text-[10px] font-semibold"
         >
           <span
             className={[
               "flex h-8 w-8 items-center justify-center rounded-xl transition",
-              moreActive
-                ? "bg-primary text-primary-foreground shadow-sm"
-                : "bg-transparent text-muted-foreground",
+              moreActive ||
+              moreOpen
+                ? "bg-white text-[#182451] shadow-[0_5px_14px_rgba(0,0,0,0.16)]"
+                : "bg-[#26366E] text-indigo-100",
             ].join(" ")}
           >
             <MoreHorizontal className="h-[18px] w-[18px] stroke-[2.8]" />
           </span>
+
           <span
-            className={
-              moreActive
-                ? "font-extrabold text-heading"
-                : "text-muted-foreground"
-            }
+            className={[
+              moreActive ||
+              moreOpen
+                ? "font-extrabold text-white"
+                : "text-indigo-100/70",
+            ].join(" ")}
           >
             More
           </span>
         </button>
       </nav>
 
-      {moreOpen && (
+      {moreOpen ? (
         <div
           className="fixed inset-0 z-[70] md:hidden"
           role="dialog"
@@ -374,72 +448,91 @@ export default function MobileBottomNav({
             type="button"
             aria-label="Close navigation"
             onClick={() =>
-              setMoreOpen(false)
+              setMoreOpen(
+                false
+              )
             }
-            className="absolute inset-0 h-full w-full bg-slate-950/45 backdrop-blur-[3px]"
+            className="absolute inset-0 h-full w-full bg-[#10172F]/75 backdrop-blur-[3px]"
           />
 
-          <section className="dashboard-mobile-more-sheet absolute inset-x-0 bottom-0 max-h-[78dvh] overflow-y-auto rounded-t-[28px] border-t border-border bg-card px-4 pt-3 shadow-[0_-18px_45px_rgba(25,35,75,0.2)]">
-            <div className="mx-auto mb-3 h-1.5 w-12 rounded-full bg-border" />
+          <section className="dashboard-mobile-more-sheet absolute inset-x-0 bottom-0 max-h-[82dvh] overflow-y-auto rounded-t-[30px] bg-[#F4F6FB] shadow-[0_-24px_60px_rgba(17,27,63,0.34)]">
+            <div className="sticky top-0 z-10 rounded-t-[30px] bg-[#182451] px-4 pb-4 pt-3 text-white">
+              <div className="mx-auto mb-3 h-1.5 w-12 rounded-full bg-white/25" />
 
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-extrabold text-heading">
-                More
-              </h2>
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <h2 className="text-lg font-extrabold">
+                    More
+                  </h2>
+                  <p className="mt-0.5 text-xs text-indigo-100/70">
+                    Manage your store
+                  </p>
+                </div>
 
-              <button
-                type="button"
-                aria-label="Close"
-                onClick={() =>
-                  setMoreOpen(false)
-                }
-                className="ls-focus-ring flex h-10 w-10 items-center justify-center rounded-xl bg-muted text-heading"
-              >
-                <X className="h-5 w-5" />
-              </button>
+                <button
+                  type="button"
+                  aria-label="Close"
+                  onClick={() =>
+                    setMoreOpen(
+                      false
+                    )
+                  }
+                  className="ls-focus-ring flex h-10 w-10 items-center justify-center rounded-xl bg-[#26366E] text-white"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
             </div>
 
-            <div className="mt-4 grid grid-cols-2 gap-3">
-              {visibleMoreItems.map((item) => {
-                const Icon = item.icon;
-                const active =
-                  pathIsActive(
-                    pathname,
-                    item.href
-                  );
+            <div className="grid grid-cols-2 gap-3 p-4">
+              {visibleMoreItems.map(
+                (item) => {
+                  const Icon =
+                    item.icon;
 
-                return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    className={[
-                      "flex min-w-0 items-center gap-3 rounded-2xl border px-3 py-3.5",
-                      active
-                        ? "border-ring bg-secondary text-secondary-foreground"
-                        : "border-border bg-surface-soft text-foreground",
-                    ].join(" ")}
-                  >
-                    <span
+                  const active =
+                    pathIsActive(
+                      pathname,
+                      item.href
+                    );
+
+                  return (
+                    <Link
+                      key={
+                        item.href
+                      }
+                      href={
+                        item.href
+                      }
                       className={[
-                        "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl",
+                        "flex min-h-[92px] min-w-0 flex-col justify-between rounded-2xl p-3 text-white shadow-[0_8px_20px_rgba(25,35,75,0.12)] transition active:scale-[0.98]",
+                        item.tileClass ||
+                          "bg-[#26366E]",
+                        item.wide
+                          ? "col-span-2"
+                          : "",
                         active
-                          ? "bg-primary text-primary-foreground"
-                          : "bg-card text-primary",
+                          ? "ring-3 ring-white/80 ring-offset-2 ring-offset-[#F4F6FB]"
+                          : "",
                       ].join(" ")}
                     >
-                      <Icon className="h-5 w-5" />
-                    </span>
+                      <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/16">
+                        <Icon className="h-5 w-5" />
+                      </span>
 
-                    <span className="min-w-0 truncate text-sm font-semibold">
-                      {item.label}
-                    </span>
-                  </Link>
-                );
-              })}
+                      <span className="mt-3 truncate text-sm font-extrabold">
+                        {
+                          item.label
+                        }
+                      </span>
+                    </Link>
+                  );
+                }
+              )}
             </div>
           </section>
         </div>
-      )}
+      ) : null}
     </>
   );
 }
