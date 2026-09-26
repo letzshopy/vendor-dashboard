@@ -380,7 +380,7 @@ export default function MobileBottomNav({
           />
 
           <section className="dashboard-mobile-more-sheet absolute inset-x-0 bottom-0 max-h-[78dvh] overflow-y-auto rounded-t-[28px] border-t border-border bg-card px-4 pt-3 shadow-[0_-18px_45px_rgba(25,35,75,0.2)]">
-            <div className="mx-auto mb-3 h-1.5 w-12 rounded-full bg-[#D9DEEC]" />
+            <div className="mx-auto mb-3 h-1.5 w-12 rounded-full bg-border" />
 
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-extrabold text-heading">
