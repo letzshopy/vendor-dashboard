@@ -456,7 +456,7 @@ export default function Topbar({
           "var(--ls-safe-area-top)",
       }}
       className={[
-        "sticky top-0 z-40 w-full border-b border-[#1F2C63] bg-[linear-gradient(105deg,#26366E_0%,#31458B_55%,#26366E_100%)] shadow-[0_8px_28px_rgba(25,35,75,0.18)] backdrop-blur-xl",
+        "sticky top-0 z-40 w-full border-b border-[#111B3F] bg-[#182451] shadow-[0_8px_28px_rgba(17,27,63,0.24)]",
         showMobileDashboardTopbar
           ? "block"
           : "hidden",
@@ -469,7 +469,7 @@ export default function Topbar({
             <button
               type="button"
               onClick={onToggleSidebar}
-              className="ls-focus-ring inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-white/15 bg-white/10 text-white md:hidden"
+              className="ls-focus-ring inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[#40518F] bg-[#2A3A74] text-white md:hidden"
             >
               <Menu className="h-5 w-5" />
             </button>
@@ -499,7 +499,7 @@ export default function Topbar({
                   <span className="truncate text-sm font-extrabold text-white">
                     Vendor Dashboard
                   </span>
-                  <span className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/10 px-2 py-0.5 text-[10px] font-bold text-white/90">
+                  <span className="inline-flex items-center gap-1 rounded-full bg-[#F15E4A] px-2 py-0.5 text-[10px] font-extrabold text-white">
                     <Sparkles className="h-3 w-3 text-accent" />
                     Live
                   </span>
@@ -581,7 +581,7 @@ export default function Topbar({
               href={storeUrl}
               target="_blank"
               rel="noreferrer"
-              className="ls-focus-ring inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-emerald-300/25 bg-emerald-400/15 text-emerald-100 hover:bg-emerald-400/20"
+              className="ls-focus-ring inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#20B486] text-white shadow-sm hover:bg-[#199A74]"
               aria-label="View Store"
               title="View Store"
             >
@@ -598,13 +598,13 @@ export default function Topbar({
               }}
               aria-label="Open dashboard search"
               aria-expanded={mobileSearchOpen}
-              className="ls-focus-ring inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-white/15 bg-white/10 text-white md:hidden"
+              className="ls-focus-ring inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[#40518F] bg-[#2A3A74] text-white md:hidden"
             >
               <SearchIcon className="h-5 w-5" />
             </button>
             <Link
   href="/settings"
-  className="ls-focus-ring hidden h-10 w-10 items-center justify-center rounded-xl border border-white/15 bg-white/10 text-white hover:bg-white/15 md:inline-flex"
+  className="ls-focus-ring hidden h-10 w-10 items-center justify-center rounded-xl border border-[#40518F] bg-[#2A3A74] text-white hover:bg-[#344785] md:inline-flex"
   aria-label="Settings"
   title="Settings"
 >
@@ -614,11 +614,11 @@ export default function Topbar({
               <button
                 type="button"
                 onClick={toggleNotifications}
-                className="ls-focus-ring relative inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-white/15 bg-white/10 text-white hover:bg-white/15"
+                className="ls-focus-ring relative inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[#40518F] bg-[#2A3A74] text-white hover:bg-[#344785]"
               >
                 <Bell className="h-4 w-4" />
                 {unreadCount > 0 && (
-                  <span className="absolute right-0.5 top-0.5 inline-flex min-h-[16px] min-w-[16px] items-center justify-center rounded-full bg-[#ff5a8a] px-1 text-[10px] font-semibold text-white ring-2 ring-[#31458B]">
+                  <span className="absolute right-0.5 top-0.5 inline-flex min-h-[16px] min-w-[16px] items-center justify-center rounded-full bg-[#ff5a8a] px-1 text-[10px] font-semibold text-white ring-2 ring-[#182451]">
                     {unreadCount > 9 ? "9+" : unreadCount}
                   </span>
                 )}
@@ -735,12 +735,12 @@ export default function Topbar({
 
         <div
           className={[
-            "relative z-10 border-t border-white/10 bg-[#26366E] px-3 pb-3 pt-2 md:hidden",
+            "relative z-10 border-t border-[#2A396C] bg-[#182451] px-3 pb-3 pt-2 md:hidden",
             mobileSearchOpen ? "block" : "hidden",
           ].join(" ")}
         >
   <div className="relative" ref={mobileSearchRef}>
-    <div className="mb-2 grid grid-cols-2 rounded-xl bg-white/10 p-1">
+    <div className="mb-2 grid grid-cols-2 rounded-xl bg-[#26366E] p-1">
       <button
         type="button"
         onClick={() => setSearchScope("products")}
