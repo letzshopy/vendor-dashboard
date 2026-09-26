@@ -542,7 +542,7 @@ export default function MobilePageHeader({
   ) {
     return (
       <header
-        className="sticky top-0 z-40 border-b border-border bg-card/95 shadow-[0_1px_0_rgba(38,51,95,0.04)] backdrop-blur-xl md:hidden"
+        className="sticky top-0 z-40 border-b border-[#1F2C63] bg-[linear-gradient(105deg,#26366E_0%,#31458B_100%)] shadow-[0_8px_24px_rgba(25,35,75,0.16)] backdrop-blur-xl md:hidden"
         style={{
           paddingTop:
             "var(--ls-safe-area-top)",
@@ -552,13 +552,13 @@ export default function MobilePageHeader({
           <Link
             href={config.backHref}
             aria-label="Go back"
-            className="ls-focus-ring inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-border bg-secondary text-secondary-foreground"
+            className="ls-focus-ring inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-white/15 bg-white/10 text-white"
           >
             <ArrowLeft className="h-5 w-5" />
           </Link>
 
           <div className="min-w-0 flex-1 px-1">
-            <h1 className="truncate text-[17px] font-extrabold tracking-tight text-heading">
+            <h1 className="truncate text-[17px] font-extrabold tracking-tight text-white">
               {config.title}
             </h1>
           </div>
@@ -580,7 +580,7 @@ export default function MobilePageHeader({
 
   return (
     <header
-      className="sticky top-0 z-40 border-b border-border bg-card/95 shadow-[0_1px_0_rgba(38,51,95,0.04)] backdrop-blur-xl md:hidden"
+      className="sticky top-0 z-40 border-b border-[#1F2C63] bg-[linear-gradient(105deg,#26366E_0%,#31458B_100%)] shadow-[0_8px_24px_rgba(25,35,75,0.16)] backdrop-blur-xl md:hidden"
       style={{
         paddingTop:
           "var(--ls-safe-area-top)",
@@ -591,13 +591,13 @@ export default function MobilePageHeader({
           type="button"
           onClick={onToggleSidebar}
           aria-label="Open navigation"
-          className="ls-focus-ring inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-border bg-secondary text-secondary-foreground"
+          className="ls-focus-ring inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-white/15 bg-white/10 text-white"
         >
           <Menu className="h-5 w-5" />
         </button>
 
         <div className="min-w-0 flex-1 px-1">
-          <h1 className="truncate text-[17px] font-extrabold tracking-tight text-heading">
+          <h1 className="truncate text-[17px] font-extrabold tracking-tight text-white">
             {config.title}
           </h1>
         </div>
