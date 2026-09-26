@@ -115,8 +115,8 @@ export default function DashboardShell({
         />
 
         <div className="flex min-w-0 flex-1 flex-col">
-          <main className="min-w-0 flex-1 overflow-x-clip">
-            <div className="dashboard-app-content flex w-full min-w-0 max-w-none flex-col gap-3 px-3 py-3 pb-28 sm:px-4 md:gap-5 md:px-5 md:py-5 md:pb-10 xl:px-6">
+          <main className="min-w-0 flex-1 overflow-x-clip bg-[#F8FAFD]">
+            <div className="dashboard-app-content flex w-full min-w-0 max-w-none flex-col gap-3 bg-[#F8FAFD] px-3 py-3 pb-28 sm:px-4 md:gap-5 md:px-5 md:py-5 md:pb-10 xl:px-6">
               <SubscriptionAccessNotice />
               {pathAllowed ? (
                 children
