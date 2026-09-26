@@ -380,16 +380,16 @@ export default function DashboardAccountMenu({
         className={[
           "inline-flex shrink-0 items-center gap-1.5 border shadow-sm transition active:scale-95",
           dashboardTrigger
-            ? "h-10 rounded-2xl border-white/15 bg-white/10 px-1.5 text-white hover:bg-white/15 md:rounded-full"
-            : "h-11 rounded-2xl border-[#2E3F7D] bg-[#2E3F7D] px-2 text-white",
+            ? "h-10 rounded-xl border-border bg-card px-1.5 text-heading hover:bg-muted md:rounded-xl"
+            : "h-11 rounded-xl border-border bg-card px-2 text-heading hover:bg-muted",
         ].join(" ")}
       >
         <span
           className={[
             "inline-flex items-center justify-center rounded-full text-[11px] font-bold",
             dashboardTrigger
-              ? "h-7 w-7 bg-white/15 text-white"
-              : "h-7 w-7 bg-white/15 text-white",
+              ? "h-7 w-7 bg-secondary text-secondary-foreground"
+              : "h-7 w-7 bg-secondary text-secondary-foreground",
           ].join(" ")}
         >
           {initials}
@@ -451,7 +451,7 @@ export default function DashboardAccountMenu({
 
           <div className="space-y-1 p-2">
             <Link
-              href="/settings?tab=profile"
+              href="/settings?tab=profileAccount"
               onClick={() =>
                 onOpenChange(false)
               }
@@ -515,7 +515,7 @@ export default function DashboardAccountMenu({
             </Link>
 
             <Link
-              href="/settings?tab=account"
+              href="/settings?tab=profileAccount"
               onClick={() =>
                 onOpenChange(false)
               }
