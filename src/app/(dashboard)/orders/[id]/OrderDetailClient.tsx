@@ -5,7 +5,7 @@ import Link from "next/link";
 import type { WCOrder } from "@/lib/order-utils";
 import { actionFeedback } from "@/lib/actionFeedback";
 import { AsyncButton } from "@/components/ui/async-button";
-import { Button, buttonClassName } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
 import {
   StatusBadge,
   type StatusTone,
@@ -1541,8 +1541,8 @@ export default function OrderDetailClient({ initialOrder }: Props) {
       )}
 
       {editMode && (
-        <div className="sticky bottom-3 z-40 -mx-1 md:hidden">
-          <div className="rounded-[26px] border border-slate-200/90 bg-white/92 p-3 shadow-[0_20px_50px_rgba(15,23,42,0.12)] backdrop-blur">
+        <div className="fixed inset-x-0 bottom-[calc(4.5rem+var(--ls-safe-area-bottom))] z-50 border-t border-border bg-card/95 px-3 py-2.5 shadow-[0_-10px_30px_rgba(15,23,42,0.08)] backdrop-blur md:hidden">
+          <div className="mx-auto w-full max-w-7xl">
             <div className="grid grid-cols-2 gap-2">
               <Button
                 variant="outline"
