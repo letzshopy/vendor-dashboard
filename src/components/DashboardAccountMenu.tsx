@@ -380,16 +380,16 @@ export default function DashboardAccountMenu({
         className={[
           "inline-flex shrink-0 items-center gap-1.5 border shadow-sm transition active:scale-95",
           dashboardTrigger
-            ? "h-10 rounded-xl border-white/15 bg-white/10 px-1.5 text-white hover:bg-white/15 md:rounded-xl"
-            : "h-10 rounded-xl border-white/15 bg-white/10 px-1.5 text-white hover:bg-white/15",
+            ? "h-10 rounded-xl border-[#40518F] bg-[#2A3A74] px-1.5 text-white hover:bg-[#344785] md:rounded-xl"
+            : "h-10 rounded-xl border-[#40518F] bg-[#2A3A74] px-1.5 text-white hover:bg-[#344785]",
         ].join(" ")}
       >
         <span
           className={[
             "inline-flex items-center justify-center rounded-full text-[11px] font-bold",
             dashboardTrigger
-              ? "h-7 w-7 bg-white/15 text-white"
-              : "h-7 w-7 bg-white/15 text-white",
+              ? "h-7 w-7 bg-[#40518F] text-white"
+              : "h-7 w-7 bg-[#40518F] text-white",
           ].join(" ")}
         >
           {initials}
@@ -407,9 +407,9 @@ export default function DashboardAccountMenu({
 
       {open && (
         <div className="absolute right-0 top-full mt-2 w-[19rem] max-w-[calc(100vw-1rem)] overflow-hidden rounded-2xl border border-border bg-card text-sm text-heading shadow-[0_20px_60px_rgba(25,35,75,0.18)]">
-          <div className="border-b border-[#24336F] bg-[linear-gradient(135deg,#26366E_0%,#334A93_100%)] px-4 py-4 text-white">
+          <div className="border-b border-[#C84A3B] bg-[#F15E4A] px-4 py-4 text-white">
             <div className="flex items-start gap-3">
-              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#E85D4A] text-sm font-bold text-white shadow-sm">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#182451] text-sm font-bold text-white shadow-sm">
                 {initials}
               </div>
 
@@ -429,7 +429,7 @@ export default function DashboardAccountMenu({
                   </div>
                 )}
 
-                <div className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/10 px-2.5 py-1 text-[10px] font-bold text-white">
+                <div className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-white px-2.5 py-1 text-[10px] font-extrabold text-[#182451]">
                   <span
                     className={[
                       "h-1.5 w-1.5 rounded-full",
