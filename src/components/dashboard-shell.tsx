@@ -73,7 +73,7 @@ export default function DashboardShell({
 
   return (
     <UnsavedChangesProvider>
-      <div className="dashboard-app-shell min-h-screen min-w-0 bg-[#F8F9FC] text-[#202A48]">
+      <div className="dashboard-app-shell min-h-screen min-w-0 bg-background text-foreground">
       <NavigationProgress />
 
       <Topbar
@@ -95,7 +95,7 @@ export default function DashboardShell({
       />
 
       {locked && (
-        <div className="sticky top-16 z-30 border-b border-amber-200 bg-amber-50/95 px-3 py-3 text-sm text-amber-800 backdrop-blur md:top-[72px] md:px-5">
+        <div className="sticky top-16 z-30 border-b border-amber-200 bg-amber-50/95 px-3 py-3 text-sm text-amber-800 backdrop-blur md:top-[68px] md:px-5">
           <div className="w-full">
             Your dashboard access is restricted.
             Use Settings, Subscription or Support
