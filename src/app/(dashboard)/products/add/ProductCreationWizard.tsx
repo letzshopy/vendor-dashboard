@@ -462,13 +462,14 @@ export default function ProductCreationWizard({
     }
 
     actionFeedback.loading({
-      id: "product-create",
-      title: "Creating product",
+      id: editMode ? "product-update" : "product-create",
+      title: editMode ? "Updating product" : "Creating product",
       message: submitStage,
     });
   }, [
     submitting,
     submitStage,
+    editMode,
   ]);
 
   const flow = useMemo(
