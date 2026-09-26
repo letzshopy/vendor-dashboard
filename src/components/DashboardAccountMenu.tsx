@@ -380,7 +380,7 @@ export default function DashboardAccountMenu({
         className={[
           "inline-flex shrink-0 items-center gap-1.5 border shadow-sm transition active:scale-95",
           dashboardTrigger
-            ? "h-10 rounded-xl border-border bg-card px-1.5 text-heading hover:bg-muted md:rounded-xl"
+            ? "h-10 rounded-xl border-white/15 bg-white/10 px-1.5 text-white hover:bg-white/15 md:rounded-xl"
             : "h-11 rounded-xl border-border bg-card px-2 text-heading hover:bg-muted",
         ].join(" ")}
       >
@@ -388,7 +388,7 @@ export default function DashboardAccountMenu({
           className={[
             "inline-flex items-center justify-center rounded-full text-[11px] font-bold",
             dashboardTrigger
-              ? "h-7 w-7 bg-secondary text-secondary-foreground"
+              ? "h-7 w-7 bg-white/15 text-white"
               : "h-7 w-7 bg-secondary text-secondary-foreground",
           ].join(" ")}
         >
@@ -407,7 +407,7 @@ export default function DashboardAccountMenu({
 
       {open && (
         <div className="absolute right-0 top-full mt-2 w-[19rem] max-w-[calc(100vw-1rem)] overflow-hidden rounded-2xl border border-border bg-card text-sm text-heading shadow-[0_20px_60px_rgba(25,35,75,0.18)]">
-          <div className="border-b border-border bg-surface-soft px-4 py-4 text-heading">
+          <div className="border-b border-[#24336F] bg-[linear-gradient(135deg,#26366E_0%,#334A93_100%)] px-4 py-4 text-white">
             <div className="flex items-start gap-3">
               <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#E85D4A] text-sm font-bold text-white shadow-sm">
                 {initials}
@@ -418,18 +418,18 @@ export default function DashboardAccountMenu({
                   Your Store
                 </div>
 
-                <div className="mt-0.5 truncate text-[12px] text-muted-foreground">
+                <div className="mt-0.5 truncate text-[12px] text-indigo-100">
                   {normalizedStore ||
                     "yourstore.letzshopy.in"}
                 </div>
 
                 {loginEmail && (
-                  <div className="truncate text-[11px] text-muted-foreground">
+                  <div className="truncate text-[11px] text-indigo-100/75">
                     {loginEmail}
                   </div>
                 )}
 
-                <div className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-2.5 py-1 text-[10px] font-bold text-foreground">
+                <div className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/10 px-2.5 py-1 text-[10px] font-bold text-white">
                   <span
                     className={[
                       "h-1.5 w-1.5 rounded-full",
