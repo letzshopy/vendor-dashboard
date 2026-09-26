@@ -3,6 +3,12 @@
 import { useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { ArrowLeft, ReceiptText } from "lucide-react";
+
+import { AsyncButton } from "@/components/ui/async-button";
+import { buttonClassName } from "@/components/ui/button";
+import { PageHeader } from "@/components/ui/page-header";
+import { actionFeedback } from "@/lib/actionFeedback";
 
 type ProductSearchItem = {
   id: number;
@@ -213,11 +219,19 @@ export default function CreateOrderPage() {
   }
 
   async function handleCreateOrder() {
+    if (saving) return;
+
     setError("");
 
     const validationError = validateForm();
     if (validationError) {
       setError(validationError);
+      actionFeedback.warning({
+        id: "manual-order-validation",
+        title: "Complete the required details",
+        message: validationError,
+        durationMs: 3600,
+      });
       return;
     }
 
@@ -249,7 +263,14 @@ export default function CreateOrderPage() {
       note: orderNote.trim(),
     };
 
+    const feedbackId = "manual-order-create";
     setSaving(true);
+
+    actionFeedback.loading({
+      id: feedbackId,
+      title: "Creating order…",
+      message: customerName.trim(),
+    });
 
     try {
       const res = await fetch("/api/orders/create", {
@@ -260,7 +281,7 @@ export default function CreateOrderPage() {
         body: JSON.stringify(payload),
       });
 
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
 
       if (!res.ok) {
         throw new Error(data?.error || "Failed to create order.");
@@ -271,117 +292,139 @@ export default function CreateOrderPage() {
         throw new Error("Order created, but order ID was not returned.");
       }
 
+      actionFeedback.success({
+        id: feedbackId,
+        title: "Order created",
+        message: `Order #${data?.order?.number || orderId}`,
+        durationMs: 2200,
+      });
+
+      window.dispatchEvent(
+        new Event("letzshopy:navigation-start")
+      );
       router.push(`/orders/${orderId}`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to create order.");
+      const message =
+        err instanceof Error ? err.message : "Failed to create order.";
+
+      setError(message);
+      actionFeedback.error({
+        id: feedbackId,
+        title: "Order creation failed",
+        message,
+        durationMs: 4200,
+      });
     } finally {
       setSaving(false);
     }
   }
 
   return (
-    <main className="p-4 md:p-6 max-w-6xl mx-auto">
-      <div className="mb-6 flex items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold">Create Manual Order</h1>
-          <p className="text-sm text-gray-500 mt-1">
-            Create a new order from the dashboard.
-          </p>
-        </div>
+    <main className="mx-auto w-full min-w-0 max-w-7xl pb-32 md:pb-8">
+      <PageHeader
+        className="hidden md:flex"
+        eyebrow="Orders"
+        icon={ReceiptText}
+        title="Create Order"
+        description="Create a manual customer order with products, charges and payment status."
+        actions={
+          <Link
+            href="/orders"
+            className={buttonClassName({
+              variant: "outline",
+            })}
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Back to Orders
+          </Link>
+        }
+      />
 
-        <Link
-          href="/orders"
-          className="inline-flex items-center rounded-xl border px-4 py-2 text-sm font-medium hover:bg-gray-50"
-        >
-          Back to Orders
-        </Link>
-      </div>
-
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-        <section className="xl:col-span-2 space-y-6">
-          <div className="rounded-2xl border bg-white p-5">
-            <h2 className="text-lg font-semibold mb-4">Customer Details</h2>
+      <div className="grid gap-3 md:mt-5 md:gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">
+        <section className="space-y-3 md:space-y-4">
+          <div className="rounded-xl border border-border bg-card p-3 md:rounded-2xl md:p-4">
+            <h2 className="mb-3 text-base font-extrabold text-heading">Customer Details</h2>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="md:col-span-2">
-                <label className="block text-sm font-medium mb-1">Customer Name *</label>
+                <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wide text-muted-foreground">Customer Name *</label>
                 <input
                   value={customerName}
                   onChange={(e) => setCustomerName(e.target.value)}
-                  className="w-full rounded-xl border px-3 py-2"
+                  className="ls-focus-ring h-11 w-full rounded-xl border border-input bg-card px-3 text-sm text-foreground shadow-[0_1px_2px_rgba(25,35,75,0.03)] placeholder:text-muted-foreground"
                   placeholder="Enter customer name"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-1">Mobile Number *</label>
+                <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wide text-muted-foreground">Mobile Number *</label>
                 <input
                   value={mobile}
                   onChange={(e) => setMobile(e.target.value)}
-                  className="w-full rounded-xl border px-3 py-2"
+                  className="ls-focus-ring h-11 w-full rounded-xl border border-input bg-card px-3 text-sm text-foreground shadow-[0_1px_2px_rgba(25,35,75,0.03)] placeholder:text-muted-foreground"
                   placeholder="Enter mobile number"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-1">Email</label>
+                <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wide text-muted-foreground">Email</label>
                 <input
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full rounded-xl border px-3 py-2"
+                  className="ls-focus-ring h-11 w-full rounded-xl border border-input bg-card px-3 text-sm text-foreground shadow-[0_1px_2px_rgba(25,35,75,0.03)] placeholder:text-muted-foreground"
                   placeholder="Enter email (optional)"
                 />
               </div>
 
               <div className="md:col-span-2">
-                <label className="block text-sm font-medium mb-1">Address Line 1 *</label>
+                <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wide text-muted-foreground">Address Line 1 *</label>
                 <input
                   value={address1}
                   onChange={(e) => setAddress1(e.target.value)}
-                  className="w-full rounded-xl border px-3 py-2"
+                  className="ls-focus-ring h-11 w-full rounded-xl border border-input bg-card px-3 text-sm text-foreground shadow-[0_1px_2px_rgba(25,35,75,0.03)] placeholder:text-muted-foreground"
                   placeholder="House / street / area"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-1">City *</label>
+                <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wide text-muted-foreground">City *</label>
                 <input
                   value={city}
                   onChange={(e) => setCity(e.target.value)}
-                  className="w-full rounded-xl border px-3 py-2"
+                  className="ls-focus-ring h-11 w-full rounded-xl border border-input bg-card px-3 text-sm text-foreground shadow-[0_1px_2px_rgba(25,35,75,0.03)] placeholder:text-muted-foreground"
                   placeholder="City"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-1">State *</label>
+                <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wide text-muted-foreground">State *</label>
                 <input
                   value={stateName}
                   onChange={(e) => setStateName(e.target.value)}
-                  className="w-full rounded-xl border px-3 py-2"
+                  className="ls-focus-ring h-11 w-full rounded-xl border border-input bg-card px-3 text-sm text-foreground shadow-[0_1px_2px_rgba(25,35,75,0.03)] placeholder:text-muted-foreground"
                   placeholder="State"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-1">Pincode *</label>
+                <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wide text-muted-foreground">Pincode *</label>
                 <input
                   value={pincode}
                   onChange={(e) => setPincode(e.target.value)}
-                  className="w-full rounded-xl border px-3 py-2"
+                  className="ls-focus-ring h-11 w-full rounded-xl border border-input bg-card px-3 text-sm text-foreground shadow-[0_1px_2px_rgba(25,35,75,0.03)] placeholder:text-muted-foreground"
                   placeholder="Pincode"
                 />
               </div>
             </div>
           </div>
 
-          <div className="rounded-2xl border bg-white p-5">
+          <div className="rounded-xl border border-border bg-card p-3 md:rounded-2xl md:p-4">
             <div className="mb-4 flex items-center justify-between gap-3">
               <h2 className="text-lg font-semibold">Products</h2>
               <button
                 type="button"
                 onClick={addRow}
-                className="rounded-xl border px-4 py-2 text-sm font-medium hover:bg-gray-50"
+                className="ls-focus-ring min-h-10 rounded-xl border border-border bg-card px-3 text-xs font-bold text-foreground hover:bg-muted"
               >
                 + Add Product
               </button>
@@ -389,13 +432,13 @@ export default function CreateOrderPage() {
 
             <div className="space-y-4">
               {rows.map((row, index) => (
-                <div key={row.rowId} className="rounded-2xl border p-4">
+                <div key={row.rowId} className="rounded-xl border border-border bg-surface-soft p-3">
                   <div className="mb-3 flex items-center justify-between">
-                    <div className="text-sm font-medium">Product Row {index + 1}</div>
+                    <div className="text-sm font-bold text-heading">Product Row {index + 1}</div>
                     <button
                       type="button"
                       onClick={() => removeRow(row.rowId)}
-                      className="text-sm text-red-600 hover:underline"
+                      className="ls-focus-ring rounded-lg px-2 py-1 text-xs font-bold text-destructive hover:bg-destructive/10"
                     >
                       Remove
                     </button>
@@ -403,7 +446,7 @@ export default function CreateOrderPage() {
 
                   <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
                     <div className="md:col-span-6 relative">
-                      <label className="block text-sm font-medium mb-1">
+                      <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
                         Search Product *
                       </label>
                       <input
@@ -432,12 +475,12 @@ export default function CreateOrderPage() {
                             }
                           }
                         }}
-                        className="w-full rounded-xl border px-3 py-2"
+                        className="ls-focus-ring h-11 w-full rounded-xl border border-input bg-card px-3 text-sm text-foreground shadow-[0_1px_2px_rgba(25,35,75,0.03)] placeholder:text-muted-foreground"
                         placeholder="Search by product name or SKU"
                       />
 
                       {row.open && (
-                        <div className="absolute z-20 mt-2 w-full rounded-xl border bg-white shadow-lg max-h-64 overflow-auto">
+                        <div className="absolute z-30 mt-2 max-h-72 w-full overflow-auto rounded-xl border border-border bg-card shadow-xl">
                           {row.searching ? (
                             <div className="px-3 py-2 text-sm text-gray-500">Searching...</div>
                           ) : row.results.length > 0 ? (
@@ -446,10 +489,10 @@ export default function CreateOrderPage() {
                                 key={item.id}
                                 type="button"
                                 onClick={() => selectProduct(row.rowId, item)}
-                                className="w-full text-left px-3 py-2 hover:bg-gray-50 border-b last:border-b-0"
+                                className="min-h-14 w-full border-b border-border px-3 py-2.5 text-left last:border-b-0 hover:bg-muted"
                               >
-                                <div className="text-sm font-medium">{item.name}</div>
-                                <div className="text-xs text-gray-500">
+                                <div className="text-sm font-bold text-heading">{item.name}</div>
+                                <div className="text-xs text-muted-foreground">
                                   SKU: {item.sku || "-"}
                                 </div>
                               </button>
@@ -464,7 +507,7 @@ export default function CreateOrderPage() {
                     </div>
 
                     <div className="md:col-span-2">
-                      <label className="block text-sm font-medium mb-1">Qty *</label>
+                      <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wide text-muted-foreground">Qty *</label>
                       <input
                         type="number"
                         min={1}
@@ -474,12 +517,12 @@ export default function CreateOrderPage() {
                             qty: Math.max(1, Number(e.target.value || 1)),
                           })
                         }
-                        className="w-full rounded-xl border px-3 py-2"
+                        className="ls-focus-ring h-11 w-full rounded-xl border border-input bg-card px-3 text-sm text-foreground shadow-[0_1px_2px_rgba(25,35,75,0.03)] placeholder:text-muted-foreground"
                       />
                     </div>
 
                     <div className="md:col-span-2">
-                      <label className="block text-sm font-medium mb-1">Unit Price</label>
+                      <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wide text-muted-foreground">Unit Price</label>
                       <input
                         type="number"
                         min={0}
@@ -490,16 +533,16 @@ export default function CreateOrderPage() {
                             unitPrice: Math.max(0, Number(e.target.value || 0)),
                           })
                         }
-                        className="w-full rounded-xl border px-3 py-2"
+                        className="ls-focus-ring h-11 w-full rounded-xl border border-input bg-card px-3 text-sm text-foreground shadow-[0_1px_2px_rgba(25,35,75,0.03)] placeholder:text-muted-foreground"
                       />
                     </div>
 
                     <div className="md:col-span-2">
-                      <label className="block text-sm font-medium mb-1">Line Total</label>
+                      <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wide text-muted-foreground">Line Total</label>
                       <input
                         value={row.lineTotal.toFixed(2)}
                         readOnly
-                        className="w-full rounded-xl border bg-gray-50 px-3 py-2"
+                        className="h-11 w-full rounded-xl border border-border bg-muted px-3 text-sm font-semibold text-heading"
                       />
                     </div>
                   </div>
@@ -514,56 +557,56 @@ export default function CreateOrderPage() {
             </div>
           </div>
 
-          <div className="rounded-2xl border bg-white p-5">
-            <h2 className="text-lg font-semibold mb-4">Charges & Notes</h2>
+          <div className="rounded-xl border border-border bg-card p-3 md:rounded-2xl md:p-4">
+            <h2 className="mb-3 text-base font-extrabold text-heading">Charges & Notes</h2>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium mb-1">Shipping Charge</label>
+                <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wide text-muted-foreground">Shipping Charge</label>
                 <input
                   type="number"
                   step="0.01"
                   min={0}
                   value={shippingCharge}
                   onChange={(e) => setShippingCharge(e.target.value)}
-                  className="w-full rounded-xl border px-3 py-2"
+                  className="ls-focus-ring h-11 w-full rounded-xl border border-input bg-card px-3 text-sm text-foreground shadow-[0_1px_2px_rgba(25,35,75,0.03)] placeholder:text-muted-foreground"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-1">Discount</label>
+                <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wide text-muted-foreground">Discount</label>
                 <input
                   type="number"
                   step="0.01"
                   min={0}
                   value={discount}
                   onChange={(e) => setDiscount(e.target.value)}
-                  className="w-full rounded-xl border px-3 py-2"
+                  className="ls-focus-ring h-11 w-full rounded-xl border border-input bg-card px-3 text-sm text-foreground shadow-[0_1px_2px_rgba(25,35,75,0.03)] placeholder:text-muted-foreground"
                 />
               </div>
 
               <div className="md:col-span-2">
-                <label className="block text-sm font-medium mb-1">Order Note</label>
+                <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wide text-muted-foreground">Order Note</label>
                 <textarea
                   value={orderNote}
                   onChange={(e) => setOrderNote(e.target.value)}
-                  className="w-full rounded-xl border px-3 py-2 min-h-28"
+                  className="ls-focus-ring min-h-24 w-full rounded-xl border border-input bg-card px-3 py-3 text-sm text-foreground placeholder:text-muted-foreground"
                   placeholder="Optional internal or customer note"
                 />
               </div>
             </div>
           </div>
 
-          <div className="rounded-2xl border bg-white p-5">
-            <h2 className="text-lg font-semibold mb-4">Payment</h2>
+          <div className="rounded-xl border border-border bg-card p-3 md:rounded-2xl md:p-4">
+            <h2 className="mb-3 text-base font-extrabold text-heading">Payment</h2>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium mb-1">Payment Method *</label>
+                <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wide text-muted-foreground">Payment Method *</label>
                 <select
                   value={paymentMethod}
                   onChange={(e) => setPaymentMethod(e.target.value as PaymentMethod)}
-                  className="w-full rounded-xl border px-3 py-2"
+                  className="ls-focus-ring h-11 w-full rounded-xl border border-input bg-card px-3 text-sm text-foreground shadow-[0_1px_2px_rgba(25,35,75,0.03)] placeholder:text-muted-foreground"
                 >
                   <option value="cod">COD</option>
                   <option value="upi_paid">UPI Paid</option>
@@ -573,13 +616,13 @@ export default function CreateOrderPage() {
 
               {(paymentMethod === "upi_paid" || paymentMethod === "payment_pending") && (
                 <div>
-                  <label className="block text-sm font-medium mb-1">
+                  <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
                     Transaction ID / UTR {paymentMethod === "upi_paid" ? "*" : ""}
                   </label>
                   <input
                     value={transactionId}
                     onChange={(e) => setTransactionId(e.target.value)}
-                    className="w-full rounded-xl border px-3 py-2"
+                    className="ls-focus-ring h-11 w-full rounded-xl border border-input bg-card px-3 text-sm text-foreground shadow-[0_1px_2px_rgba(25,35,75,0.03)] placeholder:text-muted-foreground"
                     placeholder="Enter transaction reference"
                   />
                 </div>
@@ -588,9 +631,9 @@ export default function CreateOrderPage() {
           </div>
         </section>
 
-        <aside className="xl:col-span-1">
-          <div className="sticky top-6 rounded-2xl border bg-white p-5">
-            <h2 className="text-lg font-semibold mb-4">Order Summary</h2>
+        <aside className="hidden xl:block">
+          <div className="sticky top-24 rounded-2xl border border-border bg-card p-4">
+            <h2 className="mb-3 text-base font-extrabold text-heading">Order Summary</h2>
 
             <div className="space-y-3 text-sm">
               <div className="flex items-center justify-between">
@@ -620,16 +663,40 @@ export default function CreateOrderPage() {
               </div>
             ) : null}
 
-            <button
-              type="button"
+            <AsyncButton
+              size="lg"
+              className="mt-5 w-full"
+              loading={saving}
+              loadingLabel="Creating…"
               onClick={handleCreateOrder}
-              disabled={saving}
-              className="mt-5 w-full rounded-xl bg-black text-white px-4 py-3 text-sm font-medium disabled:opacity-60"
             >
-              {saving ? "Creating Order..." : "Create Order"}
-            </button>
+              Create Order
+            </AsyncButton>
           </div>
         </aside>
+      </div>
+
+      <div className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-card/95 px-3 pb-[calc(var(--ls-safe-area-bottom)+0.75rem)] pt-2.5 shadow-[0_-10px_30px_rgba(15,23,42,0.08)] backdrop-blur md:hidden">
+        <div className="mx-auto flex max-w-7xl items-center gap-3">
+          <div className="min-w-0 flex-1">
+            <div className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
+              Order Total
+            </div>
+            <div className="truncate text-lg font-extrabold text-heading">
+              ₹{grandTotal.toFixed(2)}
+            </div>
+          </div>
+
+          <AsyncButton
+            size="lg"
+            loading={saving}
+            loadingLabel="Creating…"
+            onClick={handleCreateOrder}
+            className="min-w-40"
+          >
+            Create Order
+          </AsyncButton>
+        </div>
       </div>
     </main>
   );
