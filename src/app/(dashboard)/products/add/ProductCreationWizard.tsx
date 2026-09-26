@@ -4148,6 +4148,11 @@ export default function ProductCreationWizard({
     }
 
     if (currentScreen === "publish") {
+      if (editMode) {
+        await updateExistingProduct();
+        return;
+      }
+
       if (
         selectedProductType === "simple"
       ) {
@@ -4190,8 +4195,48 @@ export default function ProductCreationWizard({
 
   const actionLabel =
     currentScreen === "publish"
-      ? "Create Product"
+      ? editMode
+        ? "Update Product"
+        : "Create Product"
       : "Continue";
+
+  if (editLoading) {
+    return (
+      <main className="mx-auto flex min-h-[420px] w-full max-w-6xl items-center justify-center rounded-2xl border border-border bg-card">
+        <div className="flex flex-col items-center gap-3 px-6 py-10 text-center">
+          <Loader2 className="h-7 w-7 animate-spin text-primary" />
+          <div className="text-sm font-bold text-heading">
+            Loading product into the wizard…
+          </div>
+          <div className="text-xs text-muted-foreground">
+            Product details, variations and images are being prepared.
+          </div>
+        </div>
+      </main>
+    );
+  }
+
+  if (editLoadError) {
+    return (
+      <main className="mx-auto w-full max-w-3xl pb-28 md:pb-8">
+        <div className="rounded-xl border border-destructive/20 bg-destructive/5 p-4">
+          <div className="text-sm font-extrabold text-destructive">
+            Product could not be opened for editing
+          </div>
+          <div className="mt-1 text-sm text-destructive">
+            {editLoadError}
+          </div>
+          <button
+            type="button"
+            onClick={() => router.push("/products")}
+            className="mt-4 inline-flex min-h-10 items-center rounded-xl border border-border bg-card px-4 text-sm font-bold text-foreground"
+          >
+            Back to Products
+          </button>
+        </div>
+      </main>
+    );
+  }
 
   return (
     <main
@@ -4220,10 +4265,14 @@ export default function ProductCreationWizard({
 
             <div className="min-w-0">
               <h1 className="truncate text-base font-bold tracking-tight md:text-lg">
-                {meta.title}
+                {editMode && currentScreen === "publish"
+                  ? "Review and update"
+                  : meta.title}
               </h1>
               <p className="hidden truncate text-xs text-white/65 sm:block">
-                {meta.subtitle}
+                {editMode && currentScreen === "type"
+                  ? "Product type is locked while editing"
+                  : meta.subtitle}
               </p>
             </div>
           </div>
@@ -4544,14 +4593,20 @@ export default function ProductCreationWizard({
                   <button
                     key={productType.id}
                     type="button"
-                    onClick={() =>
-                      chooseProductType(productType.id)
-                    }
+                    disabled={editMode}
+                    onClick={() => {
+                      if (!editMode) {
+                        chooseProductType(productType.id);
+                      }
+                    }}
                     className={[
                       "relative flex min-h-[76px] flex-row items-center gap-3 rounded-2xl border p-3 pr-12 text-left transition active:scale-[0.985] sm:min-h-40 sm:flex-col sm:items-start sm:gap-0 sm:p-4 sm:pr-4",
                       selected
                         ? `${productType.selectedClass} shadow-[0_10px_24px_rgba(44,56,104,0.10)]`
                         : "border-[#DFE3ED] bg-white hover:border-[#BFC6D8]",
+                      editMode
+                        ? "cursor-default disabled:opacity-65"
+                        : "",
                     ].join(" ")}
                   >
                     <div
