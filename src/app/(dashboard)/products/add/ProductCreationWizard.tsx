@@ -2759,6 +2759,450 @@ export default function ProductCreationWizard({
     }));
   }
 
+  async function completeProductUpdate() {
+    const productId = Number(editProductId);
+
+    actionFeedback.success({
+      id: "product-update",
+      title: "Product updated",
+      message: `${productName.trim() || "Product"} · Opening product details…`,
+      durationMs: 3000,
+    });
+
+    setOriginalSku(sku.trim());
+
+    router.prefetch(
+      `/products/${productId}`
+    );
+
+    await new Promise<void>((resolve) => {
+      window.setTimeout(resolve, 350);
+    });
+
+    window.dispatchEvent(
+      new Event("letzshopy:navigation-start")
+    );
+
+    router.replace(
+      `/products/${productId}`
+    );
+  }
+
+  async function updateExistingProduct() {
+    if (
+      !editMode ||
+      !editProductId ||
+      submitting ||
+      !selectedProductType ||
+      !selectedCategory
+    ) {
+      return;
+    }
+
+    const productId = Number(editProductId);
+    const feedbackId = "product-update";
+
+    try {
+      setSubmitting(true);
+      setSubmitError(null);
+      setConfirmation(null);
+
+      setSubmitStage("Checking product details");
+      await verifySkuBeforeUpload();
+
+      const commonPayload: JsonRecord = {
+        name: productName.trim(),
+        sku: sku.trim(),
+        status,
+        catalog_visibility: visibility,
+        short_description: shortDescription.trim(),
+        description: description.trim(),
+        weight: weight.trim(),
+        categories: [
+          {
+            id: selectedCategory.id,
+          },
+        ],
+        tags: tags.map((name) => ({
+          name,
+        })),
+        dimensions: dimensionsEnabled
+          ? {
+              length: length.trim(),
+              width: width.trim(),
+              height: height.trim(),
+            }
+          : {
+              length: "",
+              width: "",
+              height: "",
+            },
+      };
+
+      if (color.trim()) {
+        commonPayload.color = color.trim();
+      } else {
+        commonPayload.color = "";
+      }
+
+      if (selectedProductType === "simple") {
+        setSubmitStage(
+          `Preparing product images`
+        );
+
+        const imageIds =
+          await uploadProductPhotos(
+            localPhotos,
+            (completed, total) => {
+              setSubmitStage(
+                `Preparing images ${completed} of ${total}`
+              );
+            }
+          );
+
+        const payload: JsonRecord = {
+          ...commonPayload,
+          type: "simple",
+          regular_price: regularPrice.trim(),
+          manage_stock: true,
+          stock_quantity: Number(stockQuantity),
+          stock_status:
+            Number(stockQuantity) > 0
+              ? "instock"
+              : "outofstock",
+          images: imageIds.map((id, position) => ({
+            id,
+            position,
+          })),
+        };
+
+        setSubmitStage("Saving product");
+
+        const response = await fetch(
+          `/api/products/${productId}/update`,
+          {
+            method: "PUT",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify(payload),
+          }
+        );
+
+        const json = await responseJson(response);
+
+        if (!response.ok) {
+          throw new Error(
+            typeof json.error === "string"
+              ? json.error
+              : "Unable to update the product."
+          );
+        }
+
+        await completeProductUpdate();
+        return;
+      }
+
+      const rows =
+        selectedProductType === "variable-colour"
+          ? colourRows
+          : sizeRows;
+
+      const attributeId =
+        selectedProductType === "variable-colour"
+          ? await ensureColourAttribute(
+              rows.map((row) => row.option)
+            )
+          : await ensureSizeAttribute(
+              rows.map((row) => row.option)
+            );
+
+      let parentImageIds: number[] = [];
+      let uploadedGalleries: UploadedColourGallery[] = [];
+
+      if (selectedProductType === "variable-colour") {
+        setSubmitStage("Preparing colour images");
+
+        uploadedGalleries =
+          await uploadColourGalleries(
+            colourRows,
+            (completed, total) => {
+              setSubmitStage(
+                `Preparing colour images ${completed} of ${total}`
+              );
+            }
+          );
+
+        parentImageIds =
+          Array.from(
+            new Set(
+              uploadedGalleries.flatMap(
+                (gallery) => gallery.imageIds
+              )
+            )
+          ).slice(0, 20);
+      } else {
+        setSubmitStage("Preparing shared images");
+
+        parentImageIds =
+          await uploadProductPhotosConcurrently(
+            localPhotos,
+            (completed, total) => {
+              setSubmitStage(
+                `Preparing images ${completed} of ${total}`
+              );
+            }
+          );
+      }
+
+      const variablePayload: JsonRecord = {
+        ...commonPayload,
+        type: "variable",
+        images: parentImageIds.map((id, position) => ({
+          id,
+          position,
+        })),
+        attributes: [
+          {
+            id: attributeId,
+            visible: true,
+            variation: true,
+            options: rows.map((row) => row.option),
+          },
+        ],
+      };
+
+      if (selectedProductType === "variable-colour") {
+        variablePayload.color = colourRows
+          .map((row) => row.option.trim())
+          .filter(Boolean)
+          .join(", ")
+          .slice(0, 100);
+      }
+
+      setSubmitStage("Saving product");
+
+      const parentResponse = await fetch(
+        `/api/products/${productId}/update`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(variablePayload),
+        }
+      );
+
+      const parentJson =
+        await responseJson(parentResponse);
+
+      if (!parentResponse.ok) {
+        throw new Error(
+          typeof parentJson.error === "string"
+            ? parentJson.error
+            : "Unable to update the product."
+        );
+      }
+
+      setSubmitStage("Saving variations");
+
+      const activeVariationIds =
+        rows.flatMap((row) =>
+          Number.isSafeInteger(row.variationId) &&
+          Number(row.variationId) > 0
+            ? [Number(row.variationId)]
+            : []
+        );
+
+      const deleteIds =
+        originalVariationIds.filter(
+          (id) => !activeVariationIds.includes(id)
+        );
+
+      const variationResponse = await fetch(
+        `/api/products/${productId}/variations`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            variations: rows.map((row) => {
+              const base: JsonRecord = {
+                sku: variationSku(
+                  sku,
+                  row.option
+                ),
+                regular_price: row.price.trim(),
+                manage_stock: true,
+                stock_quantity: Number(row.quantity),
+                stock_status:
+                  Number(row.quantity) > 0
+                    ? "instock"
+                    : "outofstock",
+                backorders: "no",
+                attributes: [
+                  {
+                    id: attributeId,
+                    option: row.option,
+                  },
+                ],
+              };
+
+              if (
+                Number.isSafeInteger(row.variationId) &&
+                Number(row.variationId) > 0
+              ) {
+                base.id = Number(row.variationId);
+              }
+
+              if (
+                selectedProductType === "variable-colour"
+              ) {
+                const gallery =
+                  uploadedGalleries.find(
+                    (item) =>
+                      item.rowId === row.id
+                  );
+
+                const mainImageId =
+                  gallery?.imageIds[0];
+
+                if (mainImageId) {
+                  base.image = {
+                    id: mainImageId,
+                  };
+                }
+              }
+
+              return base;
+            }),
+            delete_ids: deleteIds,
+          }),
+        }
+      );
+
+      const variationJson =
+        await responseJson(
+          variationResponse
+        );
+
+      if (!variationResponse.ok) {
+        throw new Error(
+          typeof variationJson.error === "string"
+            ? variationJson.error
+            : "Unable to save product variations."
+        );
+      }
+
+      const savedVariations =
+        Array.isArray(variationJson.variations)
+          ? variationJson.variations.filter(isRecord)
+          : [];
+
+      if (
+        selectedProductType === "variable-colour"
+      ) {
+        setSubmitStage("Saving colour galleries");
+
+        const galleries =
+          colourRows.map((row) => {
+            const saved =
+              savedVariations.find((variation) => {
+                if (!Array.isArray(variation.attributes)) {
+                  return false;
+                }
+
+                return variation.attributes.some(
+                  (attribute) =>
+                    isRecord(attribute) &&
+                    typeof attribute.option === "string" &&
+                    attribute.option.trim().toLowerCase() ===
+                      row.option.trim().toLowerCase()
+                );
+              });
+
+            const variationId =
+              Number(row.variationId) ||
+              Number(saved?.id);
+
+            if (
+              !Number.isSafeInteger(variationId) ||
+              variationId <= 0
+            ) {
+              throw new Error(
+                `Unable to match the saved variation for ${row.option}.`
+              );
+            }
+
+            const gallery =
+              uploadedGalleries.find(
+                (item) =>
+                  item.rowId === row.id
+              );
+
+            return {
+              variation_id: variationId,
+              image_ids:
+                gallery?.imageIds || [],
+            };
+          });
+
+        const galleryResponse = await fetch(
+          `/api/products/${productId}/variation-galleries`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              galleries,
+            }),
+          }
+        );
+
+        const galleryJson =
+          await responseJson(
+            galleryResponse
+          );
+
+        if (
+          !galleryResponse.ok ||
+          galleryJson.ok !== true
+        ) {
+          throw new Error(
+            typeof galleryJson.error === "string"
+              ? galleryJson.error
+              : "Unable to save colour galleries."
+          );
+        }
+      }
+
+      await completeProductUpdate();
+    } catch (error: unknown) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Product update failed.";
+
+      setSubmitError(message);
+
+      actionFeedback.error({
+        id: feedbackId,
+        title: "Product update failed",
+        message,
+        durationMs: 4200,
+      });
+
+      if (message === "SKU already taken") {
+        setSkuTaken(true);
+      }
+    } finally {
+      setSubmitStage(null);
+      setSubmitting(false);
+    }
+  }
+
   async function completeProductCreate() {
     const createdName =
       productName.trim() ||
