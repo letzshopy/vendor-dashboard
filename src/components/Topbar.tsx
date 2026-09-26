@@ -453,6 +453,10 @@ export default function Topbar({
 
   return (
     <header
+      style={{
+        paddingTop:
+          "var(--ls-safe-area-top)",
+      }}
       className={[
         "sticky top-0 z-40 w-full border-b border-border bg-card/95 shadow-[0_1px_0_rgba(38,51,95,0.04)] backdrop-blur-xl",
         showMobileDashboardTopbar
@@ -462,7 +466,7 @@ export default function Topbar({
       ].join(" ")}
     >
       <div className="w-full">
-        <div className="flex min-h-16 items-center justify-between gap-2 px-3 sm:px-4 md:min-h-[68px] md:px-5 xl:px-6">
+        <div className="flex min-h-[60px] items-center justify-between gap-2 px-3 sm:px-4 md:min-h-[68px] md:px-5 xl:px-6">
           <div className="flex min-w-0 items-center gap-2 sm:gap-3 md:gap-4">
             <button
               type="button"
