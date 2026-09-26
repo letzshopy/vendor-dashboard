@@ -1099,6 +1099,17 @@ export default function ProductCreationWizard({
   useEffect(() => {
     const normalizedSku = sku.trim();
 
+    if (
+      editMode &&
+      normalizedSku &&
+      normalizedSku === originalSku.trim()
+    ) {
+      setSkuChecking(false);
+      setSkuTaken(false);
+      setSkuCheckError(null);
+      return;
+    }
+
     if (!normalizedSku) {
       setSkuChecking(false);
       setSkuTaken(false);
@@ -1157,7 +1168,11 @@ export default function ProductCreationWizard({
       window.clearTimeout(timer);
       controller.abort();
     };
-  }, [sku]);
+  }, [
+    sku,
+    editMode,
+    originalSku,
+  ]);
 
   useEffect(() => {
     return () => {
@@ -1537,7 +1552,7 @@ export default function ProductCreationWizard({
       (photo) => photo.id === photoId
     );
 
-    if (selected) {
+    if (selected?.file) {
       URL.revokeObjectURL(selected.url);
       photoUrlsRef.current =
         photoUrlsRef.current.filter(
@@ -1733,7 +1748,7 @@ export default function ProductCreationWizard({
       .find((row) => row.id === rowId)
       ?.photos.find((photo) => photo.id === photoId);
 
-    if (selectedPhoto) {
+    if (selectedPhoto?.file) {
       URL.revokeObjectURL(selectedPhoto.url);
       variationPhotoUrlsRef.current =
         variationPhotoUrlsRef.current.filter(
@@ -1960,6 +1975,19 @@ export default function ProductCreationWizard({
   async function uploadSingleProductPhoto(
     photo: LocalPhoto
   ): Promise<number> {
+    if (
+      Number.isSafeInteger(photo.mediaId) &&
+      Number(photo.mediaId) > 0
+    ) {
+      return Number(photo.mediaId);
+    }
+
+    if (!photo.file) {
+      throw new Error(
+        `"${photo.name}" is missing its upload file.`
+      );
+    }
+
     let preparedFile: File;
 
     try {
@@ -2109,6 +2137,14 @@ export default function ProductCreationWizard({
   }
   async function verifySkuBeforeUpload() {
     const normalizedSku = sku.trim();
+
+    if (
+      editMode &&
+      normalizedSku &&
+      normalizedSku === originalSku.trim()
+    ) {
+      return;
+    }
 
     if (!normalizedSku) return;
 
