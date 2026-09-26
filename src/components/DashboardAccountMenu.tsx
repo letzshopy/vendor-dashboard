@@ -406,8 +406,8 @@ export default function DashboardAccountMenu({
       </button>
 
       {open && (
-        <div className="absolute right-0 top-full mt-2 w-[19rem] max-w-[calc(100vw-1rem)] overflow-hidden rounded-[24px] border border-[#D9DEEC] bg-white text-sm text-[#26335F] shadow-2xl shadow-slate-900/20">
-          <div className="bg-[linear-gradient(145deg,#2E3F7D_0%,#26366E_100%)] px-4 py-4 text-white">
+        <div className="absolute right-0 top-full mt-2 w-[19rem] max-w-[calc(100vw-1rem)] overflow-hidden rounded-2xl border border-border bg-card text-sm text-heading shadow-[0_20px_60px_rgba(25,35,75,0.18)]">
+          <div className="border-b border-border bg-surface-soft px-4 py-4 text-heading">
             <div className="flex items-start gap-3">
               <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#E85D4A] text-sm font-bold text-white shadow-sm">
                 {initials}
@@ -418,18 +418,18 @@ export default function DashboardAccountMenu({
                   Your Store
                 </div>
 
-                <div className="mt-0.5 truncate text-[12px] text-indigo-100">
+                <div className="mt-0.5 truncate text-[12px] text-muted-foreground">
                   {normalizedStore ||
                     "yourstore.letzshopy.in"}
                 </div>
 
                 {loginEmail && (
-                  <div className="truncate text-[11px] text-indigo-100/75">
+                  <div className="truncate text-[11px] text-muted-foreground">
                     {loginEmail}
                   </div>
                 )}
 
-                <div className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-white/10 px-2.5 py-1 text-[10px] font-semibold text-white">
+                <div className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-2.5 py-1 text-[10px] font-bold text-foreground">
                   <span
                     className={[
                       "h-1.5 w-1.5 rounded-full",
@@ -455,9 +455,9 @@ export default function DashboardAccountMenu({
               onClick={() =>
                 onOpenChange(false)
               }
-              className="group flex min-h-12 items-center gap-3 rounded-xl px-3 py-2.5 transition hover:bg-[#F6F7FC]"
+              className="group flex min-h-12 items-center gap-3 rounded-xl px-3 py-2.5 transition hover:bg-muted"
             >
-              <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#EEF1FA] text-[#5366B7] transition group-hover:bg-[#E85D4A] group-hover:text-white">
+              <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-secondary text-secondary-foreground transition group-hover:bg-primary group-hover:text-primary-foreground">
                 <Settings2 className="h-4 w-4" />
               </span>
 
@@ -471,9 +471,9 @@ export default function DashboardAccountMenu({
               onClick={() =>
                 onOpenChange(false)
               }
-              className="group flex min-h-12 items-center gap-3 rounded-xl px-3 py-2.5 transition hover:bg-[#F6F7FC]"
+              className="group flex min-h-12 items-center gap-3 rounded-xl px-3 py-2.5 transition hover:bg-muted"
             >
-              <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#EEF1FA] text-[#5366B7] transition group-hover:bg-[#E85D4A] group-hover:text-white">
+              <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-secondary text-secondary-foreground transition group-hover:bg-primary group-hover:text-primary-foreground">
                 <ReceiptIndianRupee className="h-4 w-4" />
               </span>
 
@@ -487,9 +487,9 @@ export default function DashboardAccountMenu({
               onClick={() =>
                 onOpenChange(false)
               }
-              className="group flex min-h-12 items-center gap-3 rounded-xl px-3 py-2.5 transition hover:bg-[#F6F7FC]"
+              className="group flex min-h-12 items-center gap-3 rounded-xl px-3 py-2.5 transition hover:bg-muted"
             >
-              <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#EEF1FA] text-[#5366B7] transition group-hover:bg-[#E85D4A] group-hover:text-white">
+              <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-secondary text-secondary-foreground transition group-hover:bg-primary group-hover:text-primary-foreground">
                 <FileText className="h-4 w-4" />
               </span>
 
@@ -503,9 +503,9 @@ export default function DashboardAccountMenu({
               onClick={() =>
                 onOpenChange(false)
               }
-              className="group flex min-h-12 items-center gap-3 rounded-xl px-3 py-2.5 transition hover:bg-[#F6F7FC]"
+              className="group flex min-h-12 items-center gap-3 rounded-xl px-3 py-2.5 transition hover:bg-muted"
             >
-              <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#EEF1FA] text-[#5366B7] transition group-hover:bg-[#E85D4A] group-hover:text-white">
+              <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-secondary text-secondary-foreground transition group-hover:bg-primary group-hover:text-primary-foreground">
                 <LifeBuoy className="h-4 w-4" />
               </span>
 
@@ -519,9 +519,9 @@ export default function DashboardAccountMenu({
               onClick={() =>
                 onOpenChange(false)
               }
-              className="group flex min-h-12 items-center gap-3 rounded-xl px-3 py-2.5 transition hover:bg-[#F6F7FC]"
+              className="group flex min-h-12 items-center gap-3 rounded-xl px-3 py-2.5 transition hover:bg-muted"
             >
-              <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#EEF1FA] text-[#5366B7] transition group-hover:bg-[#E85D4A] group-hover:text-white">
+              <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-secondary text-secondary-foreground transition group-hover:bg-primary group-hover:text-primary-foreground">
                 <Settings2 className="h-4 w-4" />
               </span>
 
@@ -531,7 +531,7 @@ export default function DashboardAccountMenu({
             </Link>
           </div>
 
-          <div className="border-t border-[#E7EAF2] p-2">
+          <div className="border-t border-border p-2">
             <button
               type="button"
               onClick={async () => {
