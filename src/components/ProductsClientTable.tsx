@@ -433,130 +433,219 @@ export default function ProductsClientTable({
     }
   }
 
+  async function finishBulkUpdate({
+    feedbackId,
+    loadingTitle,
+    successTitle,
+    work,
+    close,
+  }: {
+    feedbackId: string;
+    loadingTitle: string;
+    successTitle: string;
+    work: () => Promise<Response[]>;
+    close: () => void;
+  }) {
+    if (bulkBusy || checked.length === 0) return;
+
+    setBulkBusy(true);
+
+    actionFeedback.loading({
+      id: feedbackId,
+      title: loadingTitle,
+      message: `${checked.length} selected`,
+    });
+
+    try {
+      const responses = await work();
+
+      if (responses.some((response) => !response.ok)) {
+        throw new Error(
+          "One or more products could not be updated."
+        );
+      }
+
+      actionFeedback.success({
+        id: feedbackId,
+        title: successTitle,
+        message: `${checked.length} product${checked.length === 1 ? "" : "s"} updated.`,
+        durationMs: 2800,
+      });
+
+      close();
+      setChecked([]);
+      setBulk("");
+      router.refresh();
+    } catch (error) {
+      actionFeedback.error({
+        id: feedbackId,
+        title: "Bulk update failed",
+        message:
+          error instanceof Error ? error.message : "Please try again.",
+        durationMs: 4200,
+      });
+    } finally {
+      setBulkBusy(false);
+    }
+  }
+
   async function doBulkSetCategories() {
     if (selectedCatIds.length === 0) return;
 
-    await Promise.all(
-      checked.map((id) =>
-        fetch(`/api/products/${id}/update`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            categories: selectedCatIds.map((cid) => ({ id: cid })),
-          }),
-        })
-      )
-    );
-    location.reload();
+    await finishBulkUpdate({
+      feedbackId: "products-bulk-categories",
+      loadingTitle: "Updating categories…",
+      successTitle: "Categories updated",
+      close: () => setShowCats(false),
+      work: () =>
+        Promise.all(
+          checked.map((id) =>
+            fetch(`/api/products/${id}/update`, {
+              method: "PUT",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                categories: selectedCatIds.map((cid) => ({ id: cid })),
+              }),
+            })
+          )
+        ),
+    });
   }
 
   async function doBulkSetTags() {
     const names = tagsCSV
       .split(",")
-      .map((s) => s.trim())
+      .map((value) => value.trim())
       .filter(Boolean);
 
     if (names.length === 0) return;
 
-    await Promise.all(
-      checked.map((id) =>
-        fetch(`/api/products/${id}/update`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            tags: names.map((name) => ({ name })),
-          }),
-        })
-      )
-    );
-    location.reload();
+    await finishBulkUpdate({
+      feedbackId: "products-bulk-tags",
+      loadingTitle: "Updating tags…",
+      successTitle: "Tags updated",
+      close: () => setShowTags(false),
+      work: () =>
+        Promise.all(
+          checked.map((id) =>
+            fetch(`/api/products/${id}/update`, {
+              method: "PUT",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                tags: names.map((name) => ({ name })),
+              }),
+            })
+          )
+        ),
+    });
   }
 
   async function doBulkSetPrice() {
     if (!priceValue) return;
-    const val = Number(priceValue);
-    if (Number.isNaN(val)) return;
 
-    await Promise.all(
-      checked.map(async (id) => {
-        if (priceMode === "set") {
-          return fetch(`/api/products/${id}/update`, {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ regular_price: String(val) }),
-          });
-        }
+    const value = Number(priceValue);
 
-        const r = await fetch(`/api/products/${id}`);
-        const pj = await r.json();
-        const cur = Number(pj?.regular_price || 0) || 0;
-        let next = cur;
+    if (!Number.isFinite(value) || value < 0) {
+      actionFeedback.warning({
+        id: "products-bulk-price-value",
+        title: "Check the price value",
+        message: "Enter a valid non-negative number.",
+        durationMs: 3200,
+      });
+      return;
+    }
 
-        switch (priceMode) {
-          case "incpct":
-            next = cur * (1 + val / 100);
-            break;
-          case "decpct":
-            next = cur * (1 - val / 100);
-            break;
-          case "incval":
-            next = cur + val;
-            break;
-          case "decval":
-            next = Math.max(0, cur - val);
-            break;
-        }
+    await finishBulkUpdate({
+      feedbackId: "products-bulk-price",
+      loadingTitle: "Updating prices…",
+      successTitle: "Prices updated",
+      close: () => setShowPrice(false),
+      work: () =>
+        Promise.all(
+          checked.map(async (id) => {
+            let next = value;
 
-        return fetch(`/api/products/${id}/update`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ regular_price: String(Math.round(next)) }),
-        });
-      })
-    );
+            if (priceMode !== "set") {
+              const readResponse = await fetch(`/api/products/${id}`, {
+                cache: "no-store",
+              });
 
-    location.reload();
+              if (!readResponse.ok) {
+                return readResponse;
+              }
+
+              const product = await readResponse.json();
+              const current =
+                Number(product?.regular_price || product?.price || 0) || 0;
+
+              switch (priceMode) {
+                case "incpct":
+                  next = current * (1 + value / 100);
+                  break;
+                case "decpct":
+                  next = Math.max(0, current * (1 - value / 100));
+                  break;
+                case "incval":
+                  next = current + value;
+                  break;
+                case "decval":
+                  next = Math.max(0, current - value);
+                  break;
+              }
+            }
+
+            return fetch(`/api/products/${id}/update`, {
+              method: "PUT",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                regular_price: String(Math.round(next)),
+              }),
+            });
+          })
+        ),
+    });
   }
 
   async function doBulkSetStock() {
-    if (stockMode === "instock") {
-      const qtyNum = Number(stockQty);
-      if (!Number.isFinite(qtyNum) || qtyNum < 0) {
-        alert("Please enter a valid stock quantity (0 or more).");
-        return;
-      }
+    const quantity =
+      stockMode === "instock"
+        ? Number(stockQty)
+        : 0;
 
-      await Promise.all(
-        checked.map((id) =>
-          fetch(`/api/products/${id}/update`, {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              manage_stock: true,
-              stock_quantity: qtyNum,
-              stock_status: qtyNum > 0 ? "instock" : "outofstock",
-            }),
-          })
-        )
-      );
-    } else {
-      await Promise.all(
-        checked.map((id) =>
-          fetch(`/api/products/${id}/update`, {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              manage_stock: true,
-              stock_quantity: 0,
-              stock_status: "outofstock",
-            }),
-          })
-        )
-      );
+    if (
+      stockMode === "instock" &&
+      (!Number.isSafeInteger(quantity) || quantity < 0)
+    ) {
+      actionFeedback.warning({
+        id: "products-bulk-stock-value",
+        title: "Check stock quantity",
+        message: "Enter a whole number of 0 or more.",
+        durationMs: 3200,
+      });
+      return;
     }
 
-    setShowStockModal(false);
-    location.reload();
+    await finishBulkUpdate({
+      feedbackId: "products-bulk-stock",
+      loadingTitle: "Updating stock…",
+      successTitle: "Stock updated",
+      close: () => setShowStockModal(false),
+      work: () =>
+        Promise.all(
+          checked.map((id) =>
+            fetch(`/api/products/${id}/update`, {
+              method: "PUT",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                manage_stock: true,
+                stock_quantity: quantity,
+                stock_status:
+                  quantity > 0 ? "instock" : "outofstock",
+              }),
+            })
+          )
+        ),
+    });
   }
 
   function rowBulkClone(id: number) {
