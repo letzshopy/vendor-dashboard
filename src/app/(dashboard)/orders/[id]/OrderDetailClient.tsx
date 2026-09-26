@@ -307,6 +307,7 @@ export default function OrderDetailClient({ initialOrder }: Props) {
   const [order, setOrder] = useState(initialOrder);
   const [status, setStatus] = useState(order.status || "pending");
   const [savingStatus, setSavingStatus] = useState(false);
+  const [invoiceBusy, setInvoiceBusy] = useState(false);
 
   const [editMode, setEditMode] = useState(false);
   const [savingOrder, setSavingOrder] = useState(false);
@@ -413,7 +414,16 @@ export default function OrderDetailClient({ initialOrder }: Props) {
   );
 
   async function handleStatusUpdate() {
+    if (savingStatus || status === order.status) return;
+
+    const feedbackId = `order-status-${order.id}`;
     setSavingStatus(true);
+    actionFeedback.loading({
+      id: feedbackId,
+      title: "Updating order status…",
+      message: `Order #${order.number || order.id}`,
+    });
+
     try {
       const res = await fetch("/api/orders", {
         method: "PATCH",
@@ -425,27 +435,68 @@ export default function OrderDetailClient({ initialOrder }: Props) {
         }),
       });
       const j = await res.json().catch(() => ({}));
+
       if (!res.ok) {
-        alert(j?.error || "Failed to update status.");
-        return;
+        throw new Error(j?.error || "Failed to update status.");
       }
-      setOrder((prev: any) => ({ ...prev, status }));
-      alert("Order status updated.");
-    } catch (e) {
-      console.error(e);
-      alert("Something went wrong while updating status.");
+
+      setOrder((prev: typeof order) => ({
+        ...prev,
+        status,
+      }));
+
+      actionFeedback.success({
+        id: feedbackId,
+        title: "Order status updated",
+        message: orderStatusLabel(status),
+        durationMs: 2600,
+      });
+    } catch (error) {
+      actionFeedback.error({
+        id: feedbackId,
+        title: "Status update failed",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Please try again.",
+        durationMs: 4200,
+      });
     } finally {
       setSavingStatus(false);
     }
   }
 
   async function handleCreateInvoice() {
+    if (invoiceBusy) return;
+
+    const feedbackId = `order-invoice-${order.id}`;
+    setInvoiceBusy(true);
+    actionFeedback.loading({
+      id: feedbackId,
+      title: "Preparing invoice…",
+      message: `Order #${order.number || order.id}`,
+    });
+
     try {
       const mod = await import("../ui/InvoicePdfClient");
       await mod.default.generateForOrders([order.id]);
-    } catch (e) {
-      console.error(e);
-      alert("Failed to generate invoice PDF.");
+
+      actionFeedback.success({
+        id: feedbackId,
+        title: "Invoice ready",
+        message: "PDF download started.",
+        durationMs: 2600,
+      });
+    } catch (error) {
+      console.error(error);
+      actionFeedback.error({
+        id: feedbackId,
+        title: "Invoice generation failed",
+        message: "Please try again.",
+        durationMs: 4200,
+      });
+    } finally {
+      setInvoiceBusy(false);
     }
   }
 
@@ -550,7 +601,16 @@ export default function OrderDetailClient({ initialOrder }: Props) {
   }
 
   async function handleSaveOrder() {
+    if (savingOrder) return false;
+
+    const feedbackId = `order-save-${order.id}`;
     setSavingOrder(true);
+    actionFeedback.loading({
+      id: feedbackId,
+      title: "Saving order changes…",
+      message: `Order #${order.number || order.id}`,
+    });
+
     try {
       const res = await fetch(`/api/orders/${order.id}/edit`, {
         method: "PATCH",
@@ -564,8 +624,7 @@ export default function OrderDetailClient({ initialOrder }: Props) {
 
       const j = await res.json().catch(() => ({}));
       if (!res.ok) {
-        alert(j?.error || "Failed to save order.");
-        return;
+        throw new Error(j?.error || "Failed to save order.");
       }
 
       const currentMeta = j.meta_data || order.meta_data || [];
@@ -589,8 +648,9 @@ export default function OrderDetailClient({ initialOrder }: Props) {
 
       const updatedOrder = await metaRes.json().catch(() => ({}));
       if (!metaRes.ok) {
-        alert(updatedOrder?.error || "Failed to save shipment details.");
-        return;
+        throw new Error(
+          updatedOrder?.error || "Failed to save shipment details."
+        );
       }
 
       setOrder(updatedOrder);
@@ -629,10 +689,26 @@ export default function OrderDetailClient({ initialOrder }: Props) {
       setProductSearchQuery("");
       setProductSearchResults([]);
 
-      alert("Order updated successfully.");
-    } catch (e) {
-      console.error(e);
-      alert("Something went wrong while saving order.");
+      actionFeedback.success({
+        id: feedbackId,
+        title: "Order updated",
+        message: "Customer, items and shipment details were saved.",
+        durationMs: 3000,
+      });
+
+      return true;
+    } catch (error) {
+      console.error(error);
+      actionFeedback.error({
+        id: feedbackId,
+        title: "Could not save order",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Please try again.",
+        durationMs: 4200,
+      });
+      return false;
     } finally {
       setSavingOrder(false);
     }
@@ -671,104 +747,140 @@ export default function OrderDetailClient({ initialOrder }: Props) {
 
   return (
     <div className="space-y-4">
-      <div className="rounded-[30px] border border-white/80 bg-gradient-to-br from-white via-[#f7f8ff] to-[#eef7ff] p-4 shadow-[0_14px_40px_rgba(15,23,42,0.06)] md:p-5">
-        <div className="flex flex-col gap-4">
-          <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-            <div className="min-w-0">
-              <Link
-                href="/orders"
-                className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-slate-50"
-              >
-                <ArrowLeft className="h-3.5 w-3.5" />
-                Back to Orders
-              </Link>
+      <section className="overflow-hidden rounded-xl border border-border bg-card md:rounded-2xl">
+        <div className="hidden items-start justify-between gap-4 border-b border-border p-4 md:flex">
+          <div className="min-w-0">
+            <Link
+              href="/orders"
+              className="ls-focus-ring inline-flex min-h-10 items-center gap-2 rounded-xl border border-border bg-card px-3 text-xs font-bold text-foreground hover:bg-muted"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Back to Orders
+            </Link>
 
-              <div className="mt-3 text-xs uppercase tracking-[0.16em] text-slate-400">
-                Order
-              </div>
-
-              <div className="mt-1 flex flex-wrap items-center gap-2">
-                <h1 className="text-[28px] font-semibold tracking-tight text-slate-900 md:text-[34px]">
-                  #{order.number || order.id}
-                </h1>
-                <span className={statusPillClass(order.status)}>
-                  {order.status.replace("_", " ")}
-                </span>
-              </div>
-
-              <p className="mt-1 text-sm text-slate-500">
-                Placed on{" "}
-                <span className="font-medium text-slate-700">
-                  {formatNiceDate(order.date_created_gmt)}
-                </span>
-              </p>
-              <p className="mt-0.5 text-sm text-slate-500">
-                Payment method: {order.payment_method_title || "-"}
-              </p>
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <h1 className="text-2xl font-extrabold tracking-tight text-heading">
+                Order #{order.number || order.id}
+              </h1>
+              <OrderStatusBadge status={order.status} />
             </div>
 
-            <div className="flex flex-wrap gap-2">
-              <button
-                type="button"
-                onClick={handleCreateInvoice}
-                className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50"
-              >
-                <FileText className="h-4 w-4" />
-                Create Invoice
-              </button>
-
-              <button
-                type="button"
-                onClick={() => (editMode ? cancelEdit() : enterEditMode())}
-                className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50"
-              >
-                <Pencil className="h-4 w-4" />
-                {editMode ? "Cancel Edit" : "Edit Order"}
-              </button>
+            <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+              <span>Placed {formatNiceDate(order.date_created_gmt)}</span>
+              <span>{paymentMethodLabel(order)}</span>
             </div>
           </div>
 
-          <div className="grid gap-3 md:grid-cols-[1fr_auto] md:items-center">
-            <div className="grid gap-3 sm:grid-cols-3">
-              <div className="rounded-[22px] bg-white/85 px-4 py-3 shadow-sm">
-                <div className="text-[11px] uppercase tracking-wide text-slate-500">
-                  Customer
+          <div className="flex shrink-0 flex-wrap gap-2">
+            <AsyncButton
+              variant="outline"
+              loading={invoiceBusy}
+              loadingLabel="Preparing…"
+              onClick={handleCreateInvoice}
+            >
+              <FileText className="h-4 w-4" />
+              Invoice
+            </AsyncButton>
+
+            <Button
+              variant="outline"
+              onClick={() => (editMode ? cancelEdit() : enterEditMode())}
+            >
+              <Pencil className="h-4 w-4" />
+              {editMode ? "Cancel edit" : "Edit order"}
+            </Button>
+          </div>
+        </div>
+
+        <div className="p-3 md:p-4">
+          <div className="md:hidden">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
+                  <div className="text-lg font-extrabold text-heading">
+                    #{order.number || order.id}
+                  </div>
+                  <OrderStatusBadge status={order.status} />
                 </div>
-                <div className="mt-1 text-sm font-semibold text-slate-900">
-                  {`${order.billing?.first_name || ""} ${
-                    order.billing?.last_name || ""
-                  }`.trim() || "Guest customer"}
+
+                <div className="mt-1 truncate text-sm font-bold text-heading">
+                  {`${order.billing?.first_name || ""} ${order.billing?.last_name || ""}`.trim() ||
+                    "Guest customer"}
+                </div>
+                <div className="mt-1 text-[11px] text-muted-foreground">
+                  {formatNiceDate(order.date_created_gmt)}
                 </div>
               </div>
 
-              <div className="rounded-[22px] bg-white/85 px-4 py-3 shadow-sm">
-                <div className="text-[11px] uppercase tracking-wide text-slate-500">
-                  Items
-                </div>
-                <div className="mt-1 text-sm font-semibold text-slate-900">
-                  {itemCount} pcs
-                </div>
-              </div>
-
-              <div className="rounded-[22px] bg-white/85 px-4 py-3 shadow-sm">
-                <div className="text-[11px] uppercase tracking-wide text-slate-500">
-                  Total
-                </div>
-                <div className="mt-1 text-sm font-semibold text-slate-900">
+              <div className="shrink-0 text-right">
+                <div className="text-lg font-extrabold text-heading">
                   ₹{grandTotal.toFixed(2)}
+                </div>
+                <div className="mt-1 max-w-32 text-[10px] leading-4 text-muted-foreground">
+                  {paymentMethodLabel(order)}
                 </div>
               </div>
             </div>
 
-            <div className="flex flex-wrap items-center gap-2 rounded-[22px] border border-slate-200 bg-white px-3 py-2 shadow-sm">
-              <span className={statusPillClass(order.status)}>
-                {order.status.replace("_", " ")}
-              </span>
-              <span className="text-xs text-slate-400">→</span>
+            <div className="mt-3 grid grid-cols-3 overflow-hidden rounded-xl border border-border bg-surface-soft">
+              <div className="px-3 py-2.5">
+                <div className="text-[9px] font-bold uppercase tracking-wide text-muted-foreground">
+                  Items
+                </div>
+                <div className="mt-1 text-sm font-extrabold text-heading">
+                  {itemCount}
+                </div>
+              </div>
+              <div className="border-l border-border px-3 py-2.5">
+                <div className="text-[9px] font-bold uppercase tracking-wide text-muted-foreground">
+                  Shipping
+                </div>
+                <div className="mt-1 text-sm font-extrabold text-heading">
+                  ₹{shippingTotal.toFixed(2)}
+                </div>
+              </div>
+              <div className="border-l border-border px-3 py-2.5">
+                <div className="text-[9px] font-bold uppercase tracking-wide text-muted-foreground">
+                  Tax
+                </div>
+                <div className="mt-1 text-sm font-extrabold text-heading">
+                  ₹{taxTotal.toFixed(2)}
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              <AsyncButton
+                variant="outline"
+                size="sm"
+                loading={invoiceBusy}
+                loadingLabel="Preparing…"
+                onClick={handleCreateInvoice}
+              >
+                <FileText className="h-4 w-4" />
+                Invoice
+              </AsyncButton>
+
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => (editMode ? cancelEdit() : enterEditMode())}
+              >
+                <Pencil className="h-4 w-4" />
+                {editMode ? "Cancel" : "Edit"}
+              </Button>
+            </div>
+          </div>
+
+          <div className="mt-3 border-t border-border pt-3 md:mt-0 md:border-t-0 md:pt-0">
+            <div className="grid gap-2 md:grid-cols-[auto_minmax(180px,260px)_auto] md:items-center md:justify-end">
+              <div className="hidden md:block">
+                <OrderStatusBadge status={order.status} />
+              </div>
+
               <MobileSelect
-                className="h-10 min-w-[160px] border-none bg-transparent px-2 shadow-none focus:ring-0"
                 value={status}
-                onChange={(e) => setStatus(e.currentTarget.value)}
+                onChange={(event) => setStatus(event.currentTarget.value)}
               >
                 <option value="pending">Pending payment</option>
                 <option value="processing">Processing</option>
@@ -777,18 +889,19 @@ export default function OrderDetailClient({ initialOrder }: Props) {
                 <option value="cancelled">Cancelled</option>
                 <option value="failed">Failed</option>
               </MobileSelect>
-              <button
-                type="button"
+
+              <AsyncButton
+                loading={savingStatus}
+                loadingLabel="Updating…"
+                disabled={status === order.status}
                 onClick={handleStatusUpdate}
-                disabled={savingStatus}
-                className="inline-flex h-10 items-center justify-center rounded-full bg-blue-600 px-4 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60"
               >
-                {savingStatus ? "Updating…" : "Update"}
-              </button>
+                Update status
+              </AsyncButton>
             </div>
           </div>
         </div>
-      </div>
+      </section>
 
       <OrderPaymentInformation order={order} />
 
@@ -1353,22 +1466,21 @@ export default function OrderDetailClient({ initialOrder }: Props) {
               icon={Check}
             >
               <div className="flex flex-wrap items-center gap-3">
-                <button
-                  type="button"
+                <AsyncButton
+                  loading={savingOrder}
+                  loadingLabel="Saving…"
                   onClick={handleSaveOrder}
-                  disabled={savingOrder}
-                  className="inline-flex h-11 items-center justify-center rounded-2xl bg-emerald-600 px-5 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-60"
                 >
-                  {savingOrder ? "Saving…" : "Save order changes"}
-                </button>
+                  Save order changes
+                </AsyncButton>
 
-                <button
-                  type="button"
+                <Button
+                  variant="outline"
                   onClick={cancelEdit}
-                  className="inline-flex h-11 items-center justify-center rounded-2xl border border-slate-300 bg-white px-5 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                  disabled={savingOrder}
                 >
                   Cancel
-                </button>
+                </Button>
               </div>
             </SectionCard>
           )}
@@ -1432,21 +1544,21 @@ export default function OrderDetailClient({ initialOrder }: Props) {
         <div className="sticky bottom-3 z-40 -mx-1 md:hidden">
           <div className="rounded-[26px] border border-slate-200/90 bg-white/92 p-3 shadow-[0_20px_50px_rgba(15,23,42,0.12)] backdrop-blur">
             <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
+              <Button
+                variant="outline"
                 onClick={cancelEdit}
-                className="inline-flex h-11 items-center justify-center rounded-2xl border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700"
+                disabled={savingOrder}
               >
                 Cancel
-              </button>
-              <button
-                type="button"
+              </Button>
+
+              <AsyncButton
+                loading={savingOrder}
+                loadingLabel="Saving…"
                 onClick={handleSaveOrder}
-                disabled={savingOrder}
-                className="inline-flex h-11 items-center justify-center rounded-2xl bg-emerald-600 px-4 text-sm font-semibold text-white disabled:opacity-60"
               >
-                {savingOrder ? "Saving…" : "Save"}
-              </button>
+                Save
+              </AsyncButton>
             </div>
           </div>
         </div>
