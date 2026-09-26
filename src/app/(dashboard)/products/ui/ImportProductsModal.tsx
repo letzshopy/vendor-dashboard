@@ -3,6 +3,8 @@
 import React, { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
+import { actionFeedback } from "@/lib/actionFeedback";
+
 type Result = {
   ok: boolean;
   rows?: number;
@@ -36,11 +38,21 @@ export default function ImportProductsModal({
   async function runImport() {
     const f = fileRef.current?.files?.[0];
     if (!f) {
-      alert("Please choose a CSV file to upload.");
+      actionFeedback.warning({
+        id: "products-import-file",
+        title: "Choose a CSV file",
+        message: "Select a product CSV before starting the import.",
+        durationMs: 3200,
+      });
       return;
     }
     if (f.size > 4 * 1024 * 1024) {
-      alert("The CSV file must be 4 MB or smaller.");
+      actionFeedback.warning({
+        id: "products-import-size",
+        title: "CSV is too large",
+        message: "Use a file that is 4 MB or smaller.",
+        durationMs: 3200,
+      });
       return;
     }
     const fd = new FormData();
@@ -48,8 +60,17 @@ export default function ImportProductsModal({
     fd.append("updateExisting", String(updateExisting));
     fd.append("delimiter", ""); // autodetect
 
+    const feedbackId = "products-import";
+
     setUpdating(true);
     setResult(null);
+
+    actionFeedback.loading({
+      id: feedbackId,
+      title: "Importing products…",
+      message: selectedName || f.name,
+    });
+
     try {
       const res = await fetch("/api/import/products/run", {
         method: "POST",
@@ -57,10 +78,31 @@ export default function ImportProductsModal({
       });
       const data = (await res.json()) as Result;
       setResult(data);
+
+      if (!res.ok || !data.ok) {
+        throw new Error(data.error || "Product import failed.");
+      }
+
+      actionFeedback.success({
+        id: feedbackId,
+        title: "Product import complete",
+        message: `${data.summary?.created ?? 0} created · ${data.summary?.updated ?? 0} updated`,
+        durationMs: 3200,
+      });
     } catch (error: unknown) {
+      const message =
+        error instanceof Error ? error.message : "Import failed";
+
       setResult({
         ok: false,
-        error: error instanceof Error ? error.message : "Import failed",
+        error: message,
+      });
+
+      actionFeedback.error({
+        id: feedbackId,
+        title: "Product import failed",
+        message,
+        durationMs: 4200,
       });
     } finally {
       setUpdating(false);
@@ -68,8 +110,8 @@ export default function ImportProductsModal({
   }
 
   return createPortal(
-    <div className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-900/40 backdrop-blur-sm">
-      <div className="w-full max-w-3xl rounded-2xl bg-white shadow-xl ring-1 ring-slate-900/5">
+    <div className="fixed inset-0 z-[120] flex items-end justify-center bg-slate-900/45 backdrop-blur-sm md:items-center md:p-4">
+      <div className="max-h-[88dvh] w-full max-w-xl overflow-y-auto rounded-t-[28px] bg-white shadow-2xl ring-1 ring-slate-900/5 md:rounded-2xl">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-slate-100 px-5 py-3">
           <div>
@@ -107,7 +149,7 @@ export default function ImportProductsModal({
               <button
                 type="button"
                 onClick={triggerPick}
-                className="inline-flex items-center rounded-full border border-slate-200 bg-white px-4 py-1.5 text-xs font-medium text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-slate-50"
+                className="ls-focus-ring inline-flex min-h-11 items-center rounded-xl border border-border bg-card px-4 text-sm font-bold text-foreground hover:bg-muted"
               >
                 Choose file
               </button>
@@ -141,7 +183,7 @@ export default function ImportProductsModal({
             <button
               onClick={runImport}
               disabled={updating}
-              className="inline-flex items-center rounded-full bg-slate-900 px-4 py-1.5 text-xs font-medium text-white shadow-sm transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+              className="ls-focus-ring inline-flex min-h-11 items-center rounded-xl bg-primary px-4 text-sm font-bold text-primary-foreground disabled:cursor-not-allowed disabled:opacity-60"
             >
               {updating ? "Importing…" : "Run import"}
             </button>

@@ -64,11 +64,14 @@ type LocalPhoto = {
   id: string;
   name: string;
   url: string;
-  file: File;
+  file?: File;
+  mediaId?: number;
+  existing?: boolean;
 };
 
 type VariationRow = {
   id: string;
+  variationId?: number;
   option: string;
   price: string;
   quantity: string;
@@ -354,8 +357,13 @@ function screenMeta(
   }
 }
 
-export default function ProductCreationWizard() {
+export default function ProductCreationWizard({
+  editProductId,
+}: {
+  editProductId?: number;
+} = {}) {
   const router = useRouter();
+  const editMode = Number.isSafeInteger(editProductId) && Number(editProductId) > 0;
 
   const [step, setStep] = useState(1);
 
@@ -369,6 +377,7 @@ export default function ProductCreationWizard() {
 
   const [productName, setProductName] = useState("");
   const [sku, setSku] = useState("");
+  const [originalSku, setOriginalSku] = useState("");
   const [shortDescription, setShortDescription] = useState("");
   const [description, setDescription] = useState("");
 
@@ -436,6 +445,9 @@ export default function ProductCreationWizard() {
   const [categoryCreateError, setCategoryCreateError] =
     useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [editLoading, setEditLoading] = useState(editMode);
+  const [editLoadError, setEditLoadError] = useState<string | null>(null);
+  const [originalVariationIds, setOriginalVariationIds] = useState<number[]>([]);
   const [submitError, setSubmitError] =
     useState<string | null>(null);
   const [submitStage, setSubmitStage] =
@@ -450,13 +462,14 @@ export default function ProductCreationWizard() {
     }
 
     actionFeedback.loading({
-      id: "product-create",
-      title: "Creating product",
+      id: editMode ? "product-update" : "product-create",
+      title: editMode ? "Updating product" : "Creating product",
       message: submitStage,
     });
   }, [
     submitting,
     submitStage,
+    editMode,
   ]);
 
   const flow = useMemo(
@@ -519,6 +532,508 @@ export default function ProductCreationWizard() {
 
     return () => controller.abort();
   }, []);
+
+  useEffect(() => {
+    if (!editMode || !editProductId) {
+      setEditLoading(false);
+      return;
+    }
+
+    const controller = new AbortController();
+
+    async function loadProductForEdit() {
+      try {
+        setEditLoading(true);
+        setEditLoadError(null);
+
+        const productResponse = await fetch(
+          `/api/products/${editProductId}`,
+          {
+            method: "GET",
+            cache: "no-store",
+            signal: controller.signal,
+          }
+        );
+
+        const productJson: unknown =
+          await productResponse.json();
+
+        if (
+          !productResponse.ok ||
+          !isRecord(productJson)
+        ) {
+          throw new Error(
+            "Unable to load this product for editing."
+          );
+        }
+
+        const productType =
+          typeof productJson.type === "string"
+            ? productJson.type
+            : "";
+
+        if (
+          productType !== "simple" &&
+          productType !== "variable"
+        ) {
+          throw new Error(
+            "This product type cannot be edited in the product wizard yet."
+          );
+        }
+
+        const attributes =
+          Array.isArray(productJson.attributes)
+            ? productJson.attributes.filter(isRecord)
+            : [];
+
+        const colourAttribute =
+          attributes.find((attribute) => {
+            const name =
+              typeof attribute.name === "string"
+                ? attribute.name.trim().toLowerCase()
+                : "";
+            const slug =
+              typeof attribute.slug === "string"
+                ? attribute.slug.trim().toLowerCase()
+                : "";
+
+            return (
+              attribute.variation === true &&
+              (
+                name === "colour" ||
+                name === "color" ||
+                slug.includes("colour") ||
+                slug.includes("color")
+              )
+            );
+          });
+
+        const nextProductType: ProductType =
+          productType === "simple"
+            ? "simple"
+            : colourAttribute
+              ? "variable-colour"
+              : "variable-size";
+
+        const categoryIds =
+          Array.isArray(productJson.category_ids)
+            ? productJson.category_ids
+            : [];
+
+        const firstCategoryId =
+          Number(categoryIds[0] ?? 0);
+
+        setSelectedCategoryId(
+          Number.isSafeInteger(firstCategoryId) &&
+            firstCategoryId > 0
+            ? firstCategoryId
+            : null
+        );
+        setSelectedProductType(nextProductType);
+
+        setProductName(
+          typeof productJson.name === "string"
+            ? productJson.name
+            : ""
+        );
+
+        const loadedSku =
+          typeof productJson.sku === "string"
+            ? productJson.sku
+            : "";
+
+        setSku(loadedSku);
+        setOriginalSku(loadedSku);
+
+        setShortDescription(
+          typeof productJson.short_description === "string"
+            ? productJson.short_description
+            : ""
+        );
+        setDescription(
+          typeof productJson.description === "string"
+            ? productJson.description
+            : ""
+        );
+        setRegularPrice(
+          typeof productJson.regular_price === "string"
+            ? productJson.regular_price
+            : typeof productJson.price === "string"
+              ? productJson.price
+              : ""
+        );
+        setStockQuantity(
+          productJson.stock_quantity === null ||
+          productJson.stock_quantity === undefined
+            ? "0"
+            : String(productJson.stock_quantity)
+        );
+        setWeight(
+          typeof productJson.weight === "string"
+            ? productJson.weight
+            : ""
+        );
+
+        const dimensions =
+          isRecord(productJson.dimensions)
+            ? productJson.dimensions
+            : null;
+
+        const nextLength =
+          dimensions &&
+          typeof dimensions.length === "string"
+            ? dimensions.length
+            : "";
+        const nextWidth =
+          dimensions &&
+          typeof dimensions.width === "string"
+            ? dimensions.width
+            : "";
+        const nextHeight =
+          dimensions &&
+          typeof dimensions.height === "string"
+            ? dimensions.height
+            : "";
+
+        setLength(nextLength);
+        setWidth(nextWidth);
+        setHeight(nextHeight);
+        setDimensionsEnabled(
+          Boolean(
+            nextLength ||
+            nextWidth ||
+            nextHeight
+          )
+        );
+
+        setColor(
+          typeof productJson.color === "string"
+            ? productJson.color
+            : ""
+        );
+
+        setTags(
+          Array.isArray(productJson.tags)
+            ? productJson.tags.flatMap((item) => {
+                if (
+                  !isRecord(item) ||
+                  typeof item.name !== "string"
+                ) {
+                  return [];
+                }
+
+                const name =
+                  item.name.trim();
+
+                return name ? [name] : [];
+              })
+            : []
+        );
+
+        setStatus(
+          productJson.status === "publish"
+            ? "publish"
+            : "draft"
+        );
+        setVisibility(
+          productJson.catalog_visibility === "hidden"
+            ? "hidden"
+            : "visible"
+        );
+
+        const existingProductPhotos: LocalPhoto[] =
+          Array.isArray(productJson.image_objects)
+            ? productJson.image_objects.flatMap(
+                (item, index) => {
+                  if (!isRecord(item)) return [];
+
+                  const id = Number(item.id);
+                  const url =
+                    typeof item.src === "string"
+                      ? item.src
+                      : "";
+
+                  if (
+                    !Number.isSafeInteger(id) ||
+                    id <= 0 ||
+                    !url
+                  ) {
+                    return [];
+                  }
+
+                  return [{
+                    id: `existing-product-${id}-${index}`,
+                    name:
+                      typeof item.name === "string" &&
+                      item.name.trim()
+                        ? item.name
+                        : `Product image ${index + 1}`,
+                    url,
+                    mediaId: id,
+                    existing: true,
+                  }];
+                }
+              )
+            : [];
+
+        setLocalPhotos(existingProductPhotos);
+
+        if (nextProductType === "simple") {
+          setSizeRows([]);
+          setColourRows([]);
+          setOriginalVariationIds([]);
+          return;
+        }
+
+        const variationsResponse =
+          await fetch(
+            `/api/products/${editProductId}/variations`,
+            {
+              method: "GET",
+              cache: "no-store",
+              signal: controller.signal,
+            }
+          );
+
+        const variationsJson: unknown =
+          await variationsResponse.json();
+
+        if (
+          !variationsResponse.ok ||
+          !isRecord(variationsJson)
+        ) {
+          throw new Error(
+            "Unable to load product variations."
+          );
+        }
+
+        const rawVariations =
+          Array.isArray(variationsJson.variations)
+            ? variationsJson.variations.filter(isRecord)
+            : [];
+
+        const variationIds =
+          rawVariations.flatMap((variation) => {
+            const id = Number(variation.id);
+            return Number.isSafeInteger(id) && id > 0
+              ? [id]
+              : [];
+          });
+
+        setOriginalVariationIds(variationIds);
+
+        let galleryByVariation =
+          new Map<number, LocalPhoto[]>();
+
+        if (
+          nextProductType === "variable-colour" &&
+          variationIds.length > 0
+        ) {
+          try {
+            const galleriesResponse =
+              await fetch(
+                `/api/products/${editProductId}/variation-galleries`,
+                {
+                  method: "GET",
+                  cache: "no-store",
+                  signal: controller.signal,
+                }
+              );
+
+            const galleriesJson: unknown =
+              await galleriesResponse.json();
+
+            if (
+              galleriesResponse.ok &&
+              isRecord(galleriesJson) &&
+              Array.isArray(galleriesJson.galleries)
+            ) {
+              galleryByVariation =
+                new Map(
+                  galleriesJson.galleries.flatMap(
+                    (gallery) => {
+                      if (!isRecord(gallery)) {
+                        return [];
+                      }
+
+                      const variationId =
+                        Number(gallery.variation_id);
+
+                      if (
+                        !Number.isSafeInteger(variationId) ||
+                        variationId <= 0
+                      ) {
+                        return [];
+                      }
+
+                      const photos: LocalPhoto[] =
+                        Array.isArray(gallery.images)
+                          ? gallery.images.flatMap(
+                              (image, index) => {
+                                if (!isRecord(image)) {
+                                  return [];
+                                }
+
+                                const mediaId =
+                                  Number(image.id);
+                                const url =
+                                  typeof image.url === "string"
+                                    ? image.url
+                                    : "";
+
+                                if (
+                                  !Number.isSafeInteger(mediaId) ||
+                                  mediaId <= 0 ||
+                                  !url
+                                ) {
+                                  return [];
+                                }
+
+                                return [{
+                                  id: `existing-colour-${variationId}-${mediaId}-${index}`,
+                                  name:
+                                    typeof image.alt === "string" &&
+                                    image.alt.trim()
+                                      ? image.alt
+                                      : `Colour image ${index + 1}`,
+                                  url,
+                                  mediaId,
+                                  existing: true,
+                                }];
+                              }
+                            )
+                          : [];
+
+                      return [[variationId, photos] as const];
+                    }
+                  )
+                );
+            }
+          } catch {
+            galleryByVariation =
+              new Map<number, LocalPhoto[]>();
+          }
+        }
+
+        const mappedRows: VariationRow[] =
+          rawVariations.flatMap(
+            (variation, index) => {
+              const variationId =
+                Number(variation.id);
+
+              if (
+                !Number.isSafeInteger(variationId) ||
+                variationId <= 0
+              ) {
+                return [];
+              }
+
+              const variationAttributes =
+                Array.isArray(variation.attributes)
+                  ? variation.attributes.filter(isRecord)
+                  : [];
+
+              const optionEntry =
+                variationAttributes.find(
+                  (attribute) =>
+                    typeof attribute.option === "string" &&
+                    attribute.option.trim()
+                );
+
+              const option =
+                optionEntry &&
+                typeof optionEntry.option === "string"
+                  ? optionEntry.option.trim()
+                  : `Option ${index + 1}`;
+
+              let photos =
+                galleryByVariation.get(variationId) || [];
+
+              if (
+                nextProductType === "variable-colour" &&
+                photos.length === 0 &&
+                isRecord(variation.image)
+              ) {
+                const mediaId =
+                  Number(variation.image.id);
+                const url =
+                  typeof variation.image.src === "string"
+                    ? variation.image.src
+                    : "";
+
+                if (
+                  Number.isSafeInteger(mediaId) &&
+                  mediaId > 0 &&
+                  url
+                ) {
+                  photos = [{
+                    id: `existing-colour-main-${variationId}-${mediaId}`,
+                    name: option,
+                    url,
+                    mediaId,
+                    existing: true,
+                  }];
+                }
+              }
+
+              return [{
+                id: `edit-variation-${variationId}`,
+                variationId,
+                option,
+                price:
+                  typeof variation.regular_price === "string" &&
+                  variation.regular_price.trim()
+                    ? variation.regular_price
+                    : typeof variation.price === "string"
+                      ? variation.price
+                      : "",
+                quantity:
+                  variation.stock_quantity === null ||
+                  variation.stock_quantity === undefined
+                    ? "0"
+                    : String(variation.stock_quantity),
+                photos:
+                  nextProductType === "variable-colour"
+                    ? photos
+                    : [],
+              }];
+            }
+          );
+
+        if (nextProductType === "variable-colour") {
+          setColourRows(mappedRows);
+          setSizeRows([]);
+        } else {
+          setSizeRows(mappedRows);
+          setColourRows([]);
+        }
+      } catch (error: unknown) {
+        if (
+          error instanceof DOMException &&
+          error.name === "AbortError"
+        ) {
+          return;
+        }
+
+        setEditLoadError(
+          error instanceof Error
+            ? error.message
+            : "Unable to load this product for editing."
+        );
+      } finally {
+        if (!controller.signal.aborted) {
+          setEditLoading(false);
+        }
+      }
+    }
+
+    void loadProductForEdit();
+
+    return () => controller.abort();
+  }, [
+    editMode,
+    editProductId,
+  ]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -585,6 +1100,17 @@ export default function ProductCreationWizard() {
   useEffect(() => {
     const normalizedSku = sku.trim();
 
+    if (
+      editMode &&
+      normalizedSku &&
+      normalizedSku === originalSku.trim()
+    ) {
+      setSkuChecking(false);
+      setSkuTaken(false);
+      setSkuCheckError(null);
+      return;
+    }
+
     if (!normalizedSku) {
       setSkuChecking(false);
       setSkuTaken(false);
@@ -643,7 +1169,11 @@ export default function ProductCreationWizard() {
       window.clearTimeout(timer);
       controller.abort();
     };
-  }, [sku]);
+  }, [
+    sku,
+    editMode,
+    originalSku,
+  ]);
 
   useEffect(() => {
     return () => {
@@ -1023,7 +1553,7 @@ export default function ProductCreationWizard() {
       (photo) => photo.id === photoId
     );
 
-    if (selected) {
+    if (selected?.file) {
       URL.revokeObjectURL(selected.url);
       photoUrlsRef.current =
         photoUrlsRef.current.filter(
@@ -1219,7 +1749,7 @@ export default function ProductCreationWizard() {
       .find((row) => row.id === rowId)
       ?.photos.find((photo) => photo.id === photoId);
 
-    if (selectedPhoto) {
+    if (selectedPhoto?.file) {
       URL.revokeObjectURL(selectedPhoto.url);
       variationPhotoUrlsRef.current =
         variationPhotoUrlsRef.current.filter(
@@ -1446,6 +1976,19 @@ export default function ProductCreationWizard() {
   async function uploadSingleProductPhoto(
     photo: LocalPhoto
   ): Promise<number> {
+    if (
+      Number.isSafeInteger(photo.mediaId) &&
+      Number(photo.mediaId) > 0
+    ) {
+      return Number(photo.mediaId);
+    }
+
+    if (!photo.file) {
+      throw new Error(
+        `"${photo.name}" is missing its upload file.`
+      );
+    }
+
     let preparedFile: File;
 
     try {
@@ -1595,6 +2138,14 @@ export default function ProductCreationWizard() {
   }
   async function verifySkuBeforeUpload() {
     const normalizedSku = sku.trim();
+
+    if (
+      editMode &&
+      normalizedSku &&
+      normalizedSku === originalSku.trim()
+    ) {
+      return;
+    }
 
     if (!normalizedSku) return;
 
@@ -2206,6 +2757,450 @@ export default function ProductCreationWizard() {
           (item) => item.imageId
         ),
     }));
+  }
+
+  async function completeProductUpdate() {
+    const productId = Number(editProductId);
+
+    actionFeedback.success({
+      id: "product-update",
+      title: "Product updated",
+      message: `${productName.trim() || "Product"} · Opening product details…`,
+      durationMs: 3000,
+    });
+
+    setOriginalSku(sku.trim());
+
+    router.prefetch(
+      `/products/${productId}`
+    );
+
+    await new Promise<void>((resolve) => {
+      window.setTimeout(resolve, 350);
+    });
+
+    window.dispatchEvent(
+      new Event("letzshopy:navigation-start")
+    );
+
+    router.replace(
+      `/products/${productId}`
+    );
+  }
+
+  async function updateExistingProduct() {
+    if (
+      !editMode ||
+      !editProductId ||
+      submitting ||
+      !selectedProductType ||
+      !selectedCategory
+    ) {
+      return;
+    }
+
+    const productId = Number(editProductId);
+    const feedbackId = "product-update";
+
+    try {
+      setSubmitting(true);
+      setSubmitError(null);
+      setConfirmation(null);
+
+      setSubmitStage("Checking product details");
+      await verifySkuBeforeUpload();
+
+      const commonPayload: JsonRecord = {
+        name: productName.trim(),
+        sku: sku.trim(),
+        status,
+        catalog_visibility: visibility,
+        short_description: shortDescription.trim(),
+        description: description.trim(),
+        weight: weight.trim(),
+        categories: [
+          {
+            id: selectedCategory.id,
+          },
+        ],
+        tags: tags.map((name) => ({
+          name,
+        })),
+        dimensions: dimensionsEnabled
+          ? {
+              length: length.trim(),
+              width: width.trim(),
+              height: height.trim(),
+            }
+          : {
+              length: "",
+              width: "",
+              height: "",
+            },
+      };
+
+      if (color.trim()) {
+        commonPayload.color = color.trim();
+      } else {
+        commonPayload.color = "";
+      }
+
+      if (selectedProductType === "simple") {
+        setSubmitStage(
+          `Preparing product images`
+        );
+
+        const imageIds =
+          await uploadProductPhotos(
+            localPhotos,
+            (completed, total) => {
+              setSubmitStage(
+                `Preparing images ${completed} of ${total}`
+              );
+            }
+          );
+
+        const payload: JsonRecord = {
+          ...commonPayload,
+          type: "simple",
+          regular_price: regularPrice.trim(),
+          manage_stock: true,
+          stock_quantity: Number(stockQuantity),
+          stock_status:
+            Number(stockQuantity) > 0
+              ? "instock"
+              : "outofstock",
+          images: imageIds.map((id, position) => ({
+            id,
+            position,
+          })),
+        };
+
+        setSubmitStage("Saving product");
+
+        const response = await fetch(
+          `/api/products/${productId}/update`,
+          {
+            method: "PUT",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify(payload),
+          }
+        );
+
+        const json = await responseJson(response);
+
+        if (!response.ok) {
+          throw new Error(
+            typeof json.error === "string"
+              ? json.error
+              : "Unable to update the product."
+          );
+        }
+
+        await completeProductUpdate();
+        return;
+      }
+
+      const rows =
+        selectedProductType === "variable-colour"
+          ? colourRows
+          : sizeRows;
+
+      const attributeId =
+        selectedProductType === "variable-colour"
+          ? await ensureColourAttribute(
+              rows.map((row) => row.option)
+            )
+          : await ensureSizeAttribute(
+              rows.map((row) => row.option)
+            );
+
+      let parentImageIds: number[] = [];
+      let uploadedGalleries: UploadedColourGallery[] = [];
+
+      if (selectedProductType === "variable-colour") {
+        setSubmitStage("Preparing colour images");
+
+        uploadedGalleries =
+          await uploadColourGalleries(
+            colourRows,
+            (completed, total) => {
+              setSubmitStage(
+                `Preparing colour images ${completed} of ${total}`
+              );
+            }
+          );
+
+        parentImageIds =
+          Array.from(
+            new Set(
+              uploadedGalleries.flatMap(
+                (gallery) => gallery.imageIds
+              )
+            )
+          ).slice(0, 20);
+      } else {
+        setSubmitStage("Preparing shared images");
+
+        parentImageIds =
+          await uploadProductPhotosConcurrently(
+            localPhotos,
+            (completed, total) => {
+              setSubmitStage(
+                `Preparing images ${completed} of ${total}`
+              );
+            }
+          );
+      }
+
+      const variablePayload: JsonRecord = {
+        ...commonPayload,
+        type: "variable",
+        images: parentImageIds.map((id, position) => ({
+          id,
+          position,
+        })),
+        attributes: [
+          {
+            id: attributeId,
+            visible: true,
+            variation: true,
+            options: rows.map((row) => row.option),
+          },
+        ],
+      };
+
+      if (selectedProductType === "variable-colour") {
+        variablePayload.color = colourRows
+          .map((row) => row.option.trim())
+          .filter(Boolean)
+          .join(", ")
+          .slice(0, 100);
+      }
+
+      setSubmitStage("Saving product");
+
+      const parentResponse = await fetch(
+        `/api/products/${productId}/update`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(variablePayload),
+        }
+      );
+
+      const parentJson =
+        await responseJson(parentResponse);
+
+      if (!parentResponse.ok) {
+        throw new Error(
+          typeof parentJson.error === "string"
+            ? parentJson.error
+            : "Unable to update the product."
+        );
+      }
+
+      setSubmitStage("Saving variations");
+
+      const activeVariationIds =
+        rows.flatMap((row) =>
+          Number.isSafeInteger(row.variationId) &&
+          Number(row.variationId) > 0
+            ? [Number(row.variationId)]
+            : []
+        );
+
+      const deleteIds =
+        originalVariationIds.filter(
+          (id) => !activeVariationIds.includes(id)
+        );
+
+      const variationResponse = await fetch(
+        `/api/products/${productId}/variations`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            variations: rows.map((row) => {
+              const base: JsonRecord = {
+                sku: variationSku(
+                  sku,
+                  row.option
+                ),
+                regular_price: row.price.trim(),
+                manage_stock: true,
+                stock_quantity: Number(row.quantity),
+                stock_status:
+                  Number(row.quantity) > 0
+                    ? "instock"
+                    : "outofstock",
+                backorders: "no",
+                attributes: [
+                  {
+                    id: attributeId,
+                    option: row.option,
+                  },
+                ],
+              };
+
+              if (
+                Number.isSafeInteger(row.variationId) &&
+                Number(row.variationId) > 0
+              ) {
+                base.id = Number(row.variationId);
+              }
+
+              if (
+                selectedProductType === "variable-colour"
+              ) {
+                const gallery =
+                  uploadedGalleries.find(
+                    (item) =>
+                      item.rowId === row.id
+                  );
+
+                const mainImageId =
+                  gallery?.imageIds[0];
+
+                if (mainImageId) {
+                  base.image = {
+                    id: mainImageId,
+                  };
+                }
+              }
+
+              return base;
+            }),
+            delete_ids: deleteIds,
+          }),
+        }
+      );
+
+      const variationJson =
+        await responseJson(
+          variationResponse
+        );
+
+      if (!variationResponse.ok) {
+        throw new Error(
+          typeof variationJson.error === "string"
+            ? variationJson.error
+            : "Unable to save product variations."
+        );
+      }
+
+      const savedVariations =
+        Array.isArray(variationJson.variations)
+          ? variationJson.variations.filter(isRecord)
+          : [];
+
+      if (
+        selectedProductType === "variable-colour"
+      ) {
+        setSubmitStage("Saving colour galleries");
+
+        const galleries =
+          colourRows.map((row) => {
+            const saved =
+              savedVariations.find((variation) => {
+                if (!Array.isArray(variation.attributes)) {
+                  return false;
+                }
+
+                return variation.attributes.some(
+                  (attribute) =>
+                    isRecord(attribute) &&
+                    typeof attribute.option === "string" &&
+                    attribute.option.trim().toLowerCase() ===
+                      row.option.trim().toLowerCase()
+                );
+              });
+
+            const variationId =
+              Number(row.variationId) ||
+              Number(saved?.id);
+
+            if (
+              !Number.isSafeInteger(variationId) ||
+              variationId <= 0
+            ) {
+              throw new Error(
+                `Unable to match the saved variation for ${row.option}.`
+              );
+            }
+
+            const gallery =
+              uploadedGalleries.find(
+                (item) =>
+                  item.rowId === row.id
+              );
+
+            return {
+              variation_id: variationId,
+              image_ids:
+                gallery?.imageIds || [],
+            };
+          });
+
+        const galleryResponse = await fetch(
+          `/api/products/${productId}/variation-galleries`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              galleries,
+            }),
+          }
+        );
+
+        const galleryJson =
+          await responseJson(
+            galleryResponse
+          );
+
+        if (
+          !galleryResponse.ok ||
+          galleryJson.ok !== true
+        ) {
+          throw new Error(
+            typeof galleryJson.error === "string"
+              ? galleryJson.error
+              : "Unable to save colour galleries."
+          );
+        }
+      }
+
+      await completeProductUpdate();
+    } catch (error: unknown) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Product update failed.";
+
+      setSubmitError(message);
+
+      actionFeedback.error({
+        id: feedbackId,
+        title: "Product update failed",
+        message,
+        durationMs: 4200,
+      });
+
+      if (message === "SKU already taken") {
+        setSkuTaken(true);
+      }
+    } finally {
+      setSubmitStage(null);
+      setSubmitting(false);
+    }
   }
 
   async function completeProductCreate() {
@@ -3153,6 +4148,11 @@ export default function ProductCreationWizard() {
     }
 
     if (currentScreen === "publish") {
+      if (editMode) {
+        await updateExistingProduct();
+        return;
+      }
+
       if (
         selectedProductType === "simple"
       ) {
@@ -3195,8 +4195,48 @@ export default function ProductCreationWizard() {
 
   const actionLabel =
     currentScreen === "publish"
-      ? "Create Product"
+      ? editMode
+        ? "Update Product"
+        : "Create Product"
       : "Continue";
+
+  if (editLoading) {
+    return (
+      <main className="mx-auto flex min-h-[420px] w-full max-w-6xl items-center justify-center rounded-2xl border border-border bg-card">
+        <div className="flex flex-col items-center gap-3 px-6 py-10 text-center">
+          <Loader2 className="h-7 w-7 animate-spin text-primary" />
+          <div className="text-sm font-bold text-heading">
+            Loading product into the wizard…
+          </div>
+          <div className="text-xs text-muted-foreground">
+            Product details, variations and images are being prepared.
+          </div>
+        </div>
+      </main>
+    );
+  }
+
+  if (editLoadError) {
+    return (
+      <main className="mx-auto w-full max-w-3xl pb-28 md:pb-8">
+        <div className="rounded-xl border border-destructive/20 bg-destructive/5 p-4">
+          <div className="text-sm font-extrabold text-destructive">
+            Product could not be opened for editing
+          </div>
+          <div className="mt-1 text-sm text-destructive">
+            {editLoadError}
+          </div>
+          <button
+            type="button"
+            onClick={() => router.push("/products")}
+            className="mt-4 inline-flex min-h-10 items-center rounded-xl border border-border bg-card px-4 text-sm font-bold text-foreground"
+          >
+            Back to Products
+          </button>
+        </div>
+      </main>
+    );
+  }
 
   return (
     <main
@@ -3225,10 +4265,14 @@ export default function ProductCreationWizard() {
 
             <div className="min-w-0">
               <h1 className="truncate text-base font-bold tracking-tight md:text-lg">
-                {meta.title}
+                {editMode && currentScreen === "publish"
+                  ? "Review and update"
+                  : meta.title}
               </h1>
               <p className="hidden truncate text-xs text-white/65 sm:block">
-                {meta.subtitle}
+                {editMode && currentScreen === "type"
+                  ? "Product type is locked while editing"
+                  : meta.subtitle}
               </p>
             </div>
           </div>
@@ -3549,14 +4593,20 @@ export default function ProductCreationWizard() {
                   <button
                     key={productType.id}
                     type="button"
-                    onClick={() =>
-                      chooseProductType(productType.id)
-                    }
+                    disabled={editMode}
+                    onClick={() => {
+                      if (!editMode) {
+                        chooseProductType(productType.id);
+                      }
+                    }}
                     className={[
                       "relative flex min-h-[76px] flex-row items-center gap-3 rounded-2xl border p-3 pr-12 text-left transition active:scale-[0.985] sm:min-h-40 sm:flex-col sm:items-start sm:gap-0 sm:p-4 sm:pr-4",
                       selected
                         ? `${productType.selectedClass} shadow-[0_10px_24px_rgba(44,56,104,0.10)]`
                         : "border-[#DFE3ED] bg-white hover:border-[#BFC6D8]",
+                      editMode
+                        ? "cursor-default disabled:opacity-65"
+                        : "",
                     ].join(" ")}
                   >
                     <div

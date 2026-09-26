@@ -19,6 +19,9 @@ import {
   Wallet,
 } from "lucide-react";
 
+import { buttonClassName } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
+
 type ProductImage = {
   id?: number;
   src?: string;
@@ -221,26 +224,26 @@ function SectionCard({
   right?: React.ReactNode;
 }) {
   return (
-    <section className="overflow-hidden border-b border-[#E7EAF2] bg-white md:rounded-2xl md:border md:border-[#E1E5EF] md:shadow-[0_8px_24px_rgba(38,51,95,0.05)]">
-      <div className="border-b border-[#E8EBF2] bg-white px-3 py-3 md:bg-[#F8F9FC] md:px-5 md:py-4">
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex items-start gap-3">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#EEF1FA] text-[#2E3F7D] md:h-11 md:w-11 md:rounded-2xl">
-              <Icon className="h-5 w-5" />
-            </div>
-            <div>
-              <h2 className="text-[16px] font-bold tracking-tight text-[#26335F] md:text-[17px]">
-                {title}
-              </h2>
-              {hint ? (
-                <p className="mt-1 text-xs leading-5 text-slate-500">{hint}</p>
-              ) : null}
-            </div>
+    <section className="overflow-hidden rounded-xl border border-border bg-card md:rounded-2xl">
+      <div className="flex items-start justify-between gap-3 border-b border-border px-3 py-3 md:px-4">
+        <div className="flex min-w-0 items-start gap-2.5">
+          <div className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-secondary text-secondary-foreground">
+            <Icon className="h-4 w-4" />
           </div>
-          {right ? <div className="shrink-0">{right}</div> : null}
+          <div className="min-w-0">
+            <h2 className="text-sm font-extrabold text-heading md:text-base">
+              {title}
+            </h2>
+            {hint ? (
+              <p className="mt-0.5 text-xs leading-5 text-muted-foreground">
+                {hint}
+              </p>
+            ) : null}
+          </div>
         </div>
+        {right ? <div className="shrink-0">{right}</div> : null}
       </div>
-      <div className="px-3 py-3 md:p-5">{children}</div>
+      <div className="p-3 md:p-4">{children}</div>
     </section>
   );
 }
@@ -253,11 +256,11 @@ function StatField({
   value: React.ReactNode;
 }) {
   return (
-    <div className="border-b border-[#EEF0F5] bg-white py-2.5 last:border-b-0 md:rounded-xl md:border md:border-slate-200/80 md:bg-[#F8F9FC] md:p-3">
-      <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500">
+    <div className="rounded-xl border border-border bg-surface-soft p-3">
+      <div className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
         {label}
       </div>
-      <div className="mt-1.5 text-sm font-medium text-slate-900">{value}</div>
+      <div className="mt-1.5 text-sm font-bold text-heading">{value}</div>
     </div>
   );
 }
@@ -443,36 +446,48 @@ export default function ProductViewPage() {
 
   if (loading) {
     return (
-      <div className="p-4 md:p-6">
-        <div className="flex min-h-[50vh] items-center justify-center">
-          <div className="flex flex-col items-center gap-3 rounded-2xl border border-[#E1E5EF] bg-white px-6 py-6 shadow-sm">
-            <Loader2 className="h-8 w-8 animate-spin text-[#2E3F7D]" />
-            <div className="text-sm font-medium text-slate-600">
-              Loading product...
+      <main className="mx-auto w-full min-w-0 max-w-7xl pb-28 md:pb-8" role="status">
+        <div className="rounded-xl border border-border bg-card p-3 md:rounded-2xl md:p-4">
+          <div className="flex items-start justify-between gap-3">
+            <div className="space-y-2">
+              <Skeleton className="h-6 w-44" />
+              <Skeleton className="h-4 w-36" />
+              <Skeleton className="h-4 w-56" />
             </div>
+            <Skeleton className="h-10 w-28" />
           </div>
         </div>
-      </div>
+
+        <div className="mt-3 grid gap-3 md:mt-4 xl:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
+          <Skeleton className="h-[360px] w-full" />
+          <div className="space-y-3">
+            <Skeleton className="h-52 w-full" />
+            <Skeleton className="h-44 w-full" />
+          </div>
+        </div>
+
+        <span className="sr-only">Loading product…</span>
+      </main>
     );
   }
 
   if (loadErr || !product) {
     return (
-      <div className="p-4 md:p-6">
-        <div className="mx-auto max-w-3xl space-y-4">
+      <main className="mx-auto w-full min-w-0 max-w-3xl pb-28 md:pb-8">
+        <div className="space-y-4">
           <button
             onClick={() => router.push("/products")}
-            className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-50"
+            className="ls-focus-ring hidden min-h-10 items-center gap-2 rounded-xl border border-border bg-card px-3 text-xs font-bold text-foreground hover:bg-muted md:inline-flex"
           >
             <ArrowLeft className="h-3.5 w-3.5" />
             Products
           </button>
 
-          <div className="rounded-[24px] border border-rose-200 bg-rose-50 px-4 py-4 text-sm text-rose-800">
+          <div className="rounded-xl border border-destructive/20 bg-destructive/5 px-4 py-4 text-sm font-semibold text-destructive">
             {loadErr || "Product not found"}
           </div>
         </div>
-      </div>
+      </main>
     );
   }
 
@@ -481,14 +496,14 @@ export default function ProductViewPage() {
   const isGrouped = product.type === "grouped";
 
   return (
-    <main className="mx-auto w-full max-w-7xl overflow-x-hidden pb-28 pt-1 md:px-4 md:pb-8 md:pt-3">
-      <div className="border-b border-[#E2E7F1] bg-white px-3 py-3 md:rounded-2xl md:border md:p-5 md:shadow-[0_10px_30px_rgba(38,51,95,0.05)]">
+    <main className="mx-auto w-full min-w-0 max-w-7xl overflow-x-hidden pb-28 md:pb-8">
+      <div className="rounded-xl border border-border bg-card p-3 md:rounded-2xl md:p-4">
         <div className="flex flex-col gap-4">
           <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
             <div className="min-w-0">
               <button
                 onClick={() => router.push("/products")}
-                className="inline-flex min-h-9 items-center gap-2 rounded-xl border border-[#D9DEEC] bg-white px-3 text-xs font-bold text-[#2E3F7D] transition hover:bg-[#F7F8FC]"
+                className="ls-focus-ring hidden min-h-10 items-center gap-2 rounded-xl border border-border bg-card px-3 text-xs font-bold text-foreground hover:bg-muted md:inline-flex"
               >
                 <ArrowLeft className="h-3.5 w-3.5" />
                 Back to Products
@@ -536,7 +551,10 @@ export default function ProductViewPage() {
 
             <Link
               href={`/products/${product.id}/edit`}
-              className="hidden h-10 items-center justify-center gap-2 rounded-xl bg-[#E85D4A] px-4 text-sm font-bold text-white shadow-[0_8px_18px_rgba(232,93,74,0.2)] transition hover:bg-[#D94F3D] md:inline-flex"
+              className={buttonClassName({
+                variant: "primary",
+                className: "hidden md:inline-flex",
+              })}
             >
               <Pencil className="h-4 w-4" />
               Edit Product
@@ -1050,31 +1068,6 @@ export default function ProductViewPage() {
         </SectionCard>
       </div>
 
-      <div className="sticky bottom-0 z-40 mt-3 md:hidden">
-        <div
-          className="border-t border-[#E2E7F1] bg-white/95 p-3 shadow-[0_-10px_30px_rgba(38,51,95,0.08)] backdrop-blur"
-          style={{
-            paddingBottom:
-              "calc(0.75rem + env(safe-area-inset-bottom))",
-          }}
-        >
-          <div className="flex gap-2">
-            <button
-              onClick={() => router.push("/products")}
-              className="inline-flex min-h-11 flex-1 items-center justify-center rounded-xl border border-[#C9D0E8] bg-white px-4 text-sm font-bold text-[#2E3F7D]"
-            >
-              Back
-            </button>
-
-            <Link
-              href={`/products/${product.id}/edit`}
-              className="inline-flex min-h-11 flex-1 items-center justify-center rounded-xl bg-[#E85D4A] px-4 text-sm font-bold text-white shadow-[0_8px_18px_rgba(232,93,74,0.2)]"
-            >
-              Edit
-            </Link>
-          </div>
-        </div>
-      </div>
     </main>
   );
 }

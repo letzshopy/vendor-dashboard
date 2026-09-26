@@ -4,6 +4,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   ChevronLeft,
   ChevronRight,
@@ -16,6 +17,12 @@ import {
   Search,
   Trash2,
 } from "lucide-react";
+
+import { AsyncButton } from "@/components/ui/async-button";
+import { BottomSheet } from "@/components/ui/bottom-sheet";
+import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { actionFeedback } from "@/lib/actionFeedback";
 
 /** ---------- Types ---------- */
 type P = {
@@ -245,6 +252,7 @@ export default function ProductsClientTable({
   products: P[];
   categories?: Category[];
 }) {
+  const router = useRouter();
   const [query, setQuery] = useState("");
 
   const filteredProducts = useMemo(() => {
@@ -296,6 +304,9 @@ export default function ProductsClientTable({
   }
 
   const [bulk, setBulk] = useState("");
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const [bulkTrashOpen, setBulkTrashOpen] = useState(false);
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
   const [showCats, setShowCats] = useState(false);
   const [showTags, setShowTags] = useState(false);
   const [showPrice, setShowPrice] = useState(false);
@@ -321,26 +332,15 @@ export default function ProductsClientTable({
   const [priceValue, setPriceValue] = useState<string>("");
 
   async function applyBulk() {
-    if (!bulk || checked.length === 0) return;
+    if (!bulk || checked.length === 0 || bulkBusy) return;
 
     if (bulk === "trash") {
-      await Promise.all(
-        checked.map((id) =>
-          fetch(`/api/products/${id}/trash`, { method: "DELETE" })
-        )
-      );
-      location.reload();
+      setBulkTrashOpen(true);
       return;
     }
 
     if (bulk === "delete") {
-      if (!confirm("Permanently delete selected products?")) return;
-      await Promise.all(
-        checked.map((id) =>
-          fetch(`/api/products/${id}/delete`, { method: "DELETE" })
-        )
-      );
-      location.reload();
+      setBulkDeleteOpen(true);
       return;
     }
 
@@ -367,130 +367,285 @@ export default function ProductsClientTable({
     }
   }
 
+  async function performBulkRemoval(permanent: boolean) {
+    if (checked.length === 0 || bulkBusy) return;
+
+    const feedbackId = permanent
+      ? "products-bulk-delete"
+      : "products-bulk-trash";
+
+    setBulkBusy(true);
+
+    actionFeedback.loading({
+      id: feedbackId,
+      title: permanent
+        ? "Deleting products…"
+        : "Moving products to trash…",
+      message: `${checked.length} selected`,
+    });
+
+    try {
+      const responses = await Promise.all(
+        checked.map((id) =>
+          fetch(
+            permanent
+              ? `/api/products/${id}/delete`
+              : `/api/products/${id}/trash`,
+            { method: "DELETE" }
+          )
+        )
+      );
+
+      if (responses.some((response) => !response.ok)) {
+        throw new Error(
+          permanent
+            ? "One or more products could not be deleted."
+            : "One or more products could not be moved to trash."
+        );
+      }
+
+      actionFeedback.success({
+        id: feedbackId,
+        title: permanent
+          ? "Products deleted"
+          : "Products moved to trash",
+        message: `${checked.length} product${checked.length === 1 ? "" : "s"} updated.`,
+        durationMs: 2800,
+      });
+
+      setChecked([]);
+      setBulk("");
+      setBulkTrashOpen(false);
+      setBulkDeleteOpen(false);
+      router.refresh();
+    } catch (error) {
+      actionFeedback.error({
+        id: feedbackId,
+        title: permanent
+          ? "Delete failed"
+          : "Trash action failed",
+        message:
+          error instanceof Error ? error.message : "Please try again.",
+        durationMs: 4200,
+      });
+    } finally {
+      setBulkBusy(false);
+    }
+  }
+
+  async function finishBulkUpdate({
+    feedbackId,
+    loadingTitle,
+    successTitle,
+    work,
+    close,
+  }: {
+    feedbackId: string;
+    loadingTitle: string;
+    successTitle: string;
+    work: () => Promise<Response[]>;
+    close: () => void;
+  }) {
+    if (bulkBusy || checked.length === 0) return;
+
+    setBulkBusy(true);
+
+    actionFeedback.loading({
+      id: feedbackId,
+      title: loadingTitle,
+      message: `${checked.length} selected`,
+    });
+
+    try {
+      const responses = await work();
+
+      if (responses.some((response) => !response.ok)) {
+        throw new Error(
+          "One or more products could not be updated."
+        );
+      }
+
+      actionFeedback.success({
+        id: feedbackId,
+        title: successTitle,
+        message: `${checked.length} product${checked.length === 1 ? "" : "s"} updated.`,
+        durationMs: 2800,
+      });
+
+      close();
+      setChecked([]);
+      setBulk("");
+      router.refresh();
+    } catch (error) {
+      actionFeedback.error({
+        id: feedbackId,
+        title: "Bulk update failed",
+        message:
+          error instanceof Error ? error.message : "Please try again.",
+        durationMs: 4200,
+      });
+    } finally {
+      setBulkBusy(false);
+    }
+  }
+
   async function doBulkSetCategories() {
     if (selectedCatIds.length === 0) return;
 
-    await Promise.all(
-      checked.map((id) =>
-        fetch(`/api/products/${id}/update`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            categories: selectedCatIds.map((cid) => ({ id: cid })),
-          }),
-        })
-      )
-    );
-    location.reload();
+    await finishBulkUpdate({
+      feedbackId: "products-bulk-categories",
+      loadingTitle: "Updating categories…",
+      successTitle: "Categories updated",
+      close: () => setShowCats(false),
+      work: () =>
+        Promise.all(
+          checked.map((id) =>
+            fetch(`/api/products/${id}/update`, {
+              method: "PUT",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                categories: selectedCatIds.map((cid) => ({ id: cid })),
+              }),
+            })
+          )
+        ),
+    });
   }
 
   async function doBulkSetTags() {
     const names = tagsCSV
       .split(",")
-      .map((s) => s.trim())
+      .map((value) => value.trim())
       .filter(Boolean);
 
     if (names.length === 0) return;
 
-    await Promise.all(
-      checked.map((id) =>
-        fetch(`/api/products/${id}/update`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            tags: names.map((name) => ({ name })),
-          }),
-        })
-      )
-    );
-    location.reload();
+    await finishBulkUpdate({
+      feedbackId: "products-bulk-tags",
+      loadingTitle: "Updating tags…",
+      successTitle: "Tags updated",
+      close: () => setShowTags(false),
+      work: () =>
+        Promise.all(
+          checked.map((id) =>
+            fetch(`/api/products/${id}/update`, {
+              method: "PUT",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                tags: names.map((name) => ({ name })),
+              }),
+            })
+          )
+        ),
+    });
   }
 
   async function doBulkSetPrice() {
     if (!priceValue) return;
-    const val = Number(priceValue);
-    if (Number.isNaN(val)) return;
 
-    await Promise.all(
-      checked.map(async (id) => {
-        if (priceMode === "set") {
-          return fetch(`/api/products/${id}/update`, {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ regular_price: String(val) }),
-          });
-        }
+    const value = Number(priceValue);
 
-        const r = await fetch(`/api/products/${id}`);
-        const pj = await r.json();
-        const cur = Number(pj?.regular_price || 0) || 0;
-        let next = cur;
+    if (!Number.isFinite(value) || value < 0) {
+      actionFeedback.warning({
+        id: "products-bulk-price-value",
+        title: "Check the price value",
+        message: "Enter a valid non-negative number.",
+        durationMs: 3200,
+      });
+      return;
+    }
 
-        switch (priceMode) {
-          case "incpct":
-            next = cur * (1 + val / 100);
-            break;
-          case "decpct":
-            next = cur * (1 - val / 100);
-            break;
-          case "incval":
-            next = cur + val;
-            break;
-          case "decval":
-            next = Math.max(0, cur - val);
-            break;
-        }
+    await finishBulkUpdate({
+      feedbackId: "products-bulk-price",
+      loadingTitle: "Updating prices…",
+      successTitle: "Prices updated",
+      close: () => setShowPrice(false),
+      work: () =>
+        Promise.all(
+          checked.map(async (id) => {
+            let next = value;
 
-        return fetch(`/api/products/${id}/update`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ regular_price: String(Math.round(next)) }),
-        });
-      })
-    );
+            if (priceMode !== "set") {
+              const readResponse = await fetch(`/api/products/${id}`, {
+                cache: "no-store",
+              });
 
-    location.reload();
+              if (!readResponse.ok) {
+                return readResponse;
+              }
+
+              const product = await readResponse.json();
+              const current =
+                Number(product?.regular_price || product?.price || 0) || 0;
+
+              switch (priceMode) {
+                case "incpct":
+                  next = current * (1 + value / 100);
+                  break;
+                case "decpct":
+                  next = Math.max(0, current * (1 - value / 100));
+                  break;
+                case "incval":
+                  next = current + value;
+                  break;
+                case "decval":
+                  next = Math.max(0, current - value);
+                  break;
+              }
+            }
+
+            return fetch(`/api/products/${id}/update`, {
+              method: "PUT",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                regular_price: String(Math.round(next)),
+              }),
+            });
+          })
+        ),
+    });
   }
 
   async function doBulkSetStock() {
-    if (stockMode === "instock") {
-      const qtyNum = Number(stockQty);
-      if (!Number.isFinite(qtyNum) || qtyNum < 0) {
-        alert("Please enter a valid stock quantity (0 or more).");
-        return;
-      }
+    const quantity =
+      stockMode === "instock"
+        ? Number(stockQty)
+        : 0;
 
-      await Promise.all(
-        checked.map((id) =>
-          fetch(`/api/products/${id}/update`, {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              manage_stock: true,
-              stock_quantity: qtyNum,
-              stock_status: qtyNum > 0 ? "instock" : "outofstock",
-            }),
-          })
-        )
-      );
-    } else {
-      await Promise.all(
-        checked.map((id) =>
-          fetch(`/api/products/${id}/update`, {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              manage_stock: true,
-              stock_quantity: 0,
-              stock_status: "outofstock",
-            }),
-          })
-        )
-      );
+    if (
+      stockMode === "instock" &&
+      (!Number.isSafeInteger(quantity) || quantity < 0)
+    ) {
+      actionFeedback.warning({
+        id: "products-bulk-stock-value",
+        title: "Check stock quantity",
+        message: "Enter a whole number of 0 or more.",
+        durationMs: 3200,
+      });
+      return;
     }
 
-    setShowStockModal(false);
-    location.reload();
+    await finishBulkUpdate({
+      feedbackId: "products-bulk-stock",
+      loadingTitle: "Updating stock…",
+      successTitle: "Stock updated",
+      close: () => setShowStockModal(false),
+      work: () =>
+        Promise.all(
+          checked.map((id) =>
+            fetch(`/api/products/${id}/update`, {
+              method: "PUT",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                manage_stock: true,
+                stock_quantity: quantity,
+                stock_status:
+                  quantity > 0 ? "instock" : "outofstock",
+              }),
+            })
+          )
+        ),
+    });
   }
 
   function rowBulkClone(id: number) {
@@ -501,30 +656,67 @@ export default function ProductsClientTable({
 
   async function confirmBulkClone() {
     const count = Number(cloneCount || 0);
-    if (!cloneProductId || !count || count < 1) return;
+    if (!cloneProductId || !Number.isSafeInteger(count) || count < 1 || count > 50) {
+      actionFeedback.warning({
+        id: "products-bulk-clone-count",
+        title: "Check clone quantity",
+        message: "Choose between 1 and 50 clones.",
+        durationMs: 3200,
+      });
+      return;
+    }
+
     if (cloneBusyRef.current) return;
 
+    const feedbackId = "products-bulk-clone";
     cloneBusyRef.current = true;
     setCloneBusy(true);
 
-    try {
-      const r = await fetch(`/api/products/${cloneProductId}/bulk-clone`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ count }),
-      });
+    actionFeedback.loading({
+      id: feedbackId,
+      title: "Creating product clones…",
+      message: `${count} clone${count === 1 ? "" : "s"}`,
+    });
 
-      if (!r.ok) {
-        alert("Clone failed");
-        return;
+    try {
+      const response = await fetch(
+        `/api/products/${cloneProductId}/bulk-clone`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ count }),
+        }
+      );
+
+      const payload = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        throw new Error(
+          typeof payload?.error === "string"
+            ? payload.error
+            : "Bulk clone failed."
+        );
       }
+
+      actionFeedback.success({
+        id: feedbackId,
+        title: "Product clones created",
+        message: `${count} new product${count === 1 ? "" : "s"} added as drafts.`,
+        durationMs: 3000,
+      });
 
       setShowCloneModal(false);
       setCloneProductId(null);
       setCloneCount("1");
-      location.reload();
-    } catch {
-      alert("Clone failed");
+      router.refresh();
+    } catch (error) {
+      actionFeedback.error({
+        id: feedbackId,
+        title: "Bulk clone failed",
+        message:
+          error instanceof Error ? error.message : "Please try again.",
+        durationMs: 4200,
+      });
     } finally {
       cloneBusyRef.current = false;
       setCloneBusy(false);
@@ -532,14 +724,75 @@ export default function ProductsClientTable({
   }
 
   async function rowTrash(id: number) {
-    await fetch(`/api/products/${id}/trash`, { method: "DELETE" });
-    location.reload();
+    const feedbackId = `product-trash-${id}`;
+    actionFeedback.loading({
+      id: feedbackId,
+      title: "Moving product to trash…",
+    });
+
+    try {
+      const response = await fetch(`/api/products/${id}/trash`, {
+        method: "DELETE",
+      });
+
+      if (!response.ok) {
+        throw new Error("Could not move product to trash.");
+      }
+
+      actionFeedback.success({
+        id: feedbackId,
+        title: "Product moved to trash",
+        durationMs: 2600,
+      });
+      router.refresh();
+    } catch (error) {
+      actionFeedback.error({
+        id: feedbackId,
+        title: "Trash action failed",
+        message:
+          error instanceof Error ? error.message : "Please try again.",
+        durationMs: 4200,
+      });
+    }
   }
 
   async function rowDuplicate(id: number) {
-    const r = await fetch(`/api/products/${id}/duplicate`, { method: "POST" });
-    if (r.ok) location.reload();
-    else alert("Duplicate failed");
+    const feedbackId = `product-duplicate-${id}`;
+    actionFeedback.loading({
+      id: feedbackId,
+      title: "Duplicating product…",
+    });
+
+    try {
+      const response = await fetch(`/api/products/${id}/duplicate`, {
+        method: "POST",
+      });
+      const payload = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        throw new Error(
+          typeof payload?.error === "string"
+            ? payload.error
+            : "Duplicate failed."
+        );
+      }
+
+      actionFeedback.success({
+        id: feedbackId,
+        title: "Product duplicated",
+        message: "A new draft copy was created.",
+        durationMs: 2800,
+      });
+      router.refresh();
+    } catch (error) {
+      actionFeedback.error({
+        id: feedbackId,
+        title: "Duplicate failed",
+        message:
+          error instanceof Error ? error.message : "Please try again.",
+        durationMs: 4200,
+      });
+    }
   }
 
   function rowView(url?: string) {
@@ -631,14 +884,15 @@ export default function ProductsClientTable({
               <option value="set-price">Set price</option>
             </select>
 
-            <button
-              type="button"
+            <AsyncButton
+              size="sm"
+              loading={bulkBusy}
+              loadingLabel="Applying…"
               onClick={applyBulk}
               disabled={!bulk || checked.length === 0}
-              className="inline-flex h-9 shrink-0 items-center justify-center rounded-xl bg-[#5366B7] px-4 text-sm font-bold text-white disabled:cursor-not-allowed disabled:bg-slate-300"
             >
               Apply
-            </button>
+            </AsyncButton>
 
             <span className="col-span-2 text-xs font-semibold text-slate-500 sm:col-span-1">
               {checked.length} selected
@@ -1188,60 +1442,90 @@ export default function ProductsClientTable({
         </div>
       )}
 
-      {/* Clone Modal */}
-      {showCloneModal && (
-        <div className="fixed inset-0 z-[120] flex items-start justify-center bg-black/30 px-4 pt-24">
-          <div className="w-full max-w-[420px] rounded-2xl border border-slate-200 bg-white shadow-lg">
-            <div className="border-b px-4 py-3 text-sm font-semibold text-slate-800">
-              Bulk clone product
-            </div>
+      <ConfirmDialog
+        open={bulkTrashOpen}
+        onOpenChange={setBulkTrashOpen}
+        title="Move selected products to trash?"
+        description={`${checked.length} selected product${checked.length === 1 ? "" : "s"} will be removed from the active catalogue.`}
+        confirmLabel="Move to trash"
+        loading={bulkBusy}
+        loadingLabel="Moving…"
+        destructive
+        onConfirm={() => performBulkRemoval(false)}
+      />
 
-            <div className="space-y-3 px-4 py-4">
-              <p className="text-sm text-slate-600">
-                Enter how many clones you want to create.
-              </p>
+      <ConfirmDialog
+        open={bulkDeleteOpen}
+        onOpenChange={setBulkDeleteOpen}
+        title="Permanently delete selected products?"
+        description="This cannot be undone. Product data will be permanently removed."
+        confirmLabel="Delete permanently"
+        loading={bulkBusy}
+        loadingLabel="Deleting…"
+        destructive
+        onConfirm={() => performBulkRemoval(true)}
+      />
 
-              <div>
-                <label className="mb-1 block text-sm font-medium text-slate-700">
-                  Number of clones
-                </label>
-                <input
-                  type="number"
-                  min={1}
-                  value={cloneCount}
-                  disabled={cloneBusy}
-                  onChange={(e) => setCloneCount(e.target.value)}
-                  className="h-11 w-full rounded-xl border border-slate-200 px-3 text-sm text-slate-700 shadow-sm focus:border-[#5366B7] focus:outline-none focus:ring-2 focus:ring-[#E5E8F6] disabled:cursor-not-allowed disabled:opacity-60"
-                />
-              </div>
-            </div>
+      <BottomSheet
+        open={showCloneModal}
+        onOpenChange={(nextOpen) => {
+          if (!nextOpen && !cloneBusy) {
+            setShowCloneModal(false);
+            setCloneProductId(null);
+            setCloneCount("1");
+          }
+        }}
+        title="Bulk clone product"
+        description="Create multiple draft copies with new unique SKUs."
+        popupClassName="md:mx-auto md:max-w-md"
+      >
+        <div className="space-y-4">
+          <div className="rounded-xl border border-border bg-surface-soft p-3 text-xs leading-5 text-muted-foreground">
+            Product content and variations are copied. Bulk clones intentionally do not copy product images.
+          </div>
 
-            <div className="flex justify-end gap-2 border-t px-4 py-3">
-              <button
-                type="button"
-                disabled={cloneBusy}
-                className="rounded-xl border px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
-                onClick={() => {
-                  setShowCloneModal(false);
-                  setCloneProductId(null);
-                  setCloneCount("1");
-                }}
-              >
-                Cancel
-              </button>
+          <label className="block">
+            <span className="mb-1.5 block text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+              Number of clones
+            </span>
+            <input
+              type="number"
+              min={1}
+              max={50}
+              inputMode="numeric"
+              value={cloneCount}
+              disabled={cloneBusy}
+              onChange={(event) => setCloneCount(event.currentTarget.value)}
+              className="ls-focus-ring h-11 w-full rounded-xl border border-input bg-card px-3 text-sm font-bold text-heading disabled:cursor-not-allowed disabled:opacity-60"
+            />
+            <span className="mt-1.5 block text-[11px] text-muted-foreground">
+              Up to 50 copies per action.
+            </span>
+          </label>
 
-              <button
-                type="button"
-                disabled={cloneBusy}
-                className="rounded-xl bg-[#E85D4A] px-4 py-2 text-sm font-bold text-white hover:bg-[#D94F3D] disabled:cursor-not-allowed disabled:opacity-60"
-                onClick={confirmBulkClone}
-              >
-                {cloneBusy ? "Creating…" : "Create clones"}
-              </button>
-            </div>
+          <div className="grid grid-cols-2 gap-2">
+            <Button
+              variant="outline"
+              disabled={cloneBusy}
+              onClick={() => {
+                setShowCloneModal(false);
+                setCloneProductId(null);
+                setCloneCount("1");
+              }}
+            >
+              Cancel
+            </Button>
+
+            <AsyncButton
+              loading={cloneBusy}
+              loadingLabel="Creating…"
+              onClick={confirmBulkClone}
+            >
+              Create clones
+            </AsyncButton>
           </div>
         </div>
-      )}
+      </BottomSheet>
     </div>
   );
 }
