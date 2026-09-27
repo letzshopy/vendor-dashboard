@@ -972,21 +972,21 @@ export default function DashboardHomeApp() {
         </section>
       ) : null}
 
-      <header className="pb-4 pt-1 md:flex md:items-end md:justify-between md:gap-4 md:pb-5">
+      <header className="pb-3 pt-0.5 md:flex md:items-end md:justify-between md:gap-4 md:pb-5">
         <div>
           <div
             suppressHydrationWarning
-            className="inline-flex items-center gap-2 rounded-full bg-[#FDE9E5] px-2.5 py-1 text-[11px] font-extrabold text-[#D84F3E]"
+            className="inline-flex items-center gap-1.5 rounded-full bg-[#FDE9E5] px-2.5 py-1 text-[10px] font-extrabold text-[#D84F3E]"
           >
             <Sparkles className="h-3.5 w-3.5" />
             {greetingText()}
           </div>
 
-          <h1 className="mt-2 text-[25px] font-extrabold tracking-tight text-[#182451] md:text-[31px]">
+          <h1 className="mt-1.5 text-[22px] font-extrabold tracking-tight text-[#182451] md:mt-2 md:text-[31px]">
             Your store at a glance
           </h1>
 
-          <p className="mt-1 text-sm text-muted-foreground">
+          <p className="mt-0.5 text-[12px] leading-5 text-muted-foreground md:mt-1 md:text-sm">
             Sales, orders, stock and website activity in one place.
           </p>
         </div>
@@ -1004,7 +1004,7 @@ export default function DashboardHomeApp() {
 
       <section
         aria-label="Business summary"
-        className="mt-4 grid grid-cols-2 gap-2.5 md:grid-cols-4 md:gap-3"
+        className="mt-3 grid grid-cols-2 gap-2 md:mt-4 md:grid-cols-4 md:gap-3"
       >
         {summaryItems.map(
           (
@@ -1034,7 +1034,7 @@ export default function DashboardHomeApp() {
                   item.href
                 }
                 className={[
-                  "min-w-0 rounded-2xl border border-[#E1E6F0] border-t-4 bg-white p-3.5 shadow-[0_8px_22px_rgba(38,51,95,0.05)] transition hover:-translate-y-0.5 hover:shadow-[0_12px_28px_rgba(38,51,95,0.08)] md:p-4",
+                  "min-w-0 rounded-xl border border-[#E1E6F0] border-t-[3px] bg-white p-2.5 shadow-[0_6px_18px_rgba(38,51,95,0.05)] transition hover:-translate-y-0.5 hover:shadow-[0_12px_28px_rgba(38,51,95,0.08)] md:rounded-2xl md:border-t-4 md:p-4",
                   item.borderClass,
                 ].join(
                   " "
@@ -1048,7 +1048,7 @@ export default function DashboardHomeApp() {
                       }
                     </div>
 
-                    <div className="mt-2 truncate text-[20px] font-extrabold tracking-tight text-[#182451] md:text-[24px]">
+                    <div className="mt-1.5 truncate text-[18px] font-extrabold tracking-tight text-[#182451] md:mt-2 md:text-[24px]">
                       {loading
                         ? (
                           <Skeleton className="h-7 w-20" />
@@ -1061,7 +1061,7 @@ export default function DashboardHomeApp() {
 
                   <span
                     className={[
-                      "inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl shadow-sm",
+                      "inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg shadow-sm md:h-9 md:w-9 md:rounded-xl",
                       item.iconSurface,
                     ].join(
                       " "
@@ -1069,7 +1069,7 @@ export default function DashboardHomeApp() {
                   >
                     <Icon
                       className={[
-                        "h-4 w-4",
+                        "h-3.5 w-3.5 md:h-4 md:w-4",
                         item.iconClass,
                       ].join(
                         " "
@@ -1078,7 +1078,7 @@ export default function DashboardHomeApp() {
                   </span>
                 </div>
 
-                <div className="mt-2 truncate text-[11px] text-muted-foreground">
+                <div className="mt-1.5 hidden truncate text-[11px] text-muted-foreground md:block">
                   {item.note}
                 </div>
               </Link>

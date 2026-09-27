@@ -171,24 +171,68 @@ export default function DashboardHomeAnalyticsCards() {
   }, [loadMetrics]);
 
   return (
-    <section className="overflow-hidden rounded-2xl bg-[#26366E] text-white shadow-[0_14px_34px_rgba(38,54,110,0.18)]">
-      <div className="grid gap-4 p-4 md:grid-cols-[minmax(0,1fr)_minmax(360px,auto)] md:items-center md:p-5">
+    <section className="overflow-hidden rounded-2xl border border-[#E1E6F0] bg-white shadow-[0_8px_24px_rgba(38,51,95,0.06)]">
+      <div className="p-3 md:grid md:grid-cols-[minmax(0,1fr)_auto] md:items-center md:gap-5 md:p-4">
         <div className="min-w-0">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <div className="inline-flex items-center gap-2 rounded-full bg-[#314784] px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-[0.08em] text-indigo-100">
-                <span className="h-1.5 w-1.5 rounded-full bg-[#20B486]" />
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <div className="text-[10px] font-extrabold uppercase tracking-[0.08em] text-[#4059A7]">
                 Store traffic
               </div>
 
-              <h2 className="mt-3 text-lg font-extrabold tracking-tight">
+              <h2 className="mt-0.5 truncate text-[16px] font-extrabold tracking-tight text-[#182451] md:text-lg">
                 Website Activity
               </h2>
 
-              <p className="mt-1 max-w-xl text-xs leading-5 text-indigo-100/75">
+              <p className="mt-1 hidden text-xs text-muted-foreground md:block">
                 Live and today&apos;s visitors from Google Analytics.
               </p>
             </div>
+
+            <div className="flex shrink-0 items-center gap-1.5 md:hidden">
+              <Link
+                href="/reports?rt=website"
+                className="ls-focus-ring inline-flex h-9 items-center gap-1 rounded-lg px-2 text-[11px] font-extrabold text-[#4059A7]"
+              >
+                Report
+                <ArrowRight className="h-3.5 w-3.5" />
+              </Link>
+
+              <button
+                type="button"
+                onClick={() =>
+                  void loadMetrics(
+                    true
+                  )
+                }
+                disabled={
+                  refreshing
+                }
+                aria-label="Refresh website activity"
+                className="ls-focus-ring inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[#EEF1FA] text-[#4059A7]"
+              >
+                <RefreshCw
+                  className={[
+                    "h-4 w-4",
+                    refreshing
+                      ? "animate-spin"
+                      : "",
+                  ].join(
+                    " "
+                  )}
+                />
+              </button>
+            </div>
+          </div>
+
+          <div className="mt-3 hidden items-center gap-2 md:flex">
+            <Link
+              href="/reports?rt=website"
+              className="inline-flex min-h-9 items-center gap-1.5 rounded-xl bg-[#182451] px-3 text-xs font-extrabold text-white"
+            >
+              Open website report
+              <ArrowRight className="h-3.5 w-3.5" />
+            </Link>
 
             <button
               type="button"
@@ -201,7 +245,7 @@ export default function DashboardHomeAnalyticsCards() {
                 refreshing
               }
               aria-label="Refresh website activity"
-              className="ls-focus-ring inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#314784] text-white hover:bg-[#3A518F]"
+              className="ls-focus-ring inline-flex h-9 w-9 items-center justify-center rounded-xl bg-[#EEF1FA] text-[#4059A7]"
             >
               <RefreshCw
                 className={[
@@ -215,39 +259,31 @@ export default function DashboardHomeAnalyticsCards() {
               />
             </button>
           </div>
-
-          <Link
-            href="/reports?rt=website"
-            className="mt-4 inline-flex min-h-9 items-center gap-1.5 rounded-xl bg-white px-3 text-xs font-extrabold text-[#26366E]"
-          >
-            Open website report
-            <ArrowRight className="h-3.5 w-3.5" />
-          </Link>
         </div>
 
         {data?.ok ===
         false ? (
-          <div className="rounded-xl border border-rose-300/20 bg-rose-400/10 px-3 py-3 text-sm text-rose-100">
+          <div className="mt-3 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2.5 text-xs font-semibold text-rose-700 md:mt-0 md:max-w-sm">
             {data.error ||
               "Website activity is temporarily unavailable."}
           </div>
         ) : (
           <div
             aria-live="polite"
-            className="grid grid-cols-2 overflow-hidden rounded-xl bg-[#1F2C63]"
+            className="mt-3 grid grid-cols-2 gap-2 md:mt-0 md:min-w-[330px]"
           >
-            <div className="flex min-w-0 items-center gap-3 border-r border-white/10 px-3 py-3.5">
-              <span className="relative inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#20B486] text-white">
-                <Radio className="h-5 w-5" />
-                <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-white" />
+            <div className="flex min-w-0 items-center gap-2.5 rounded-xl bg-[#F1FBF7] px-3 py-2.5">
+              <span className="relative inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#20B486] text-white">
+                <Radio className="h-4 w-4" />
+                <span className="absolute right-1 top-1 h-1.5 w-1.5 rounded-full bg-white" />
               </span>
 
               <div className="min-w-0">
-                <div className="text-[10px] font-extrabold uppercase tracking-[0.07em] text-indigo-100/70">
+                <div className="text-[9px] font-extrabold uppercase tracking-[0.06em] text-emerald-700/70">
                   Live now
                 </div>
 
-                <div className="mt-0.5 text-2xl font-extrabold">
+                <div className="mt-0.5 text-xl font-extrabold text-[#182451]">
                   {loading
                     ? "…"
                     : formatNumber(
@@ -259,17 +295,17 @@ export default function DashboardHomeAnalyticsCards() {
               </div>
             </div>
 
-            <div className="flex min-w-0 items-center gap-3 px-3 py-3.5">
-              <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#F15E4A] text-white">
-                <Users className="h-5 w-5" />
+            <div className="flex min-w-0 items-center gap-2.5 rounded-xl bg-[#FFF3F0] px-3 py-2.5">
+              <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#F15E4A] text-white">
+                <Users className="h-4 w-4" />
               </span>
 
               <div className="min-w-0">
-                <div className="text-[10px] font-extrabold uppercase tracking-[0.07em] text-indigo-100/70">
+                <div className="text-[9px] font-extrabold uppercase tracking-[0.06em] text-[#C84A3B]/75">
                   Visitors today
                 </div>
 
-                <div className="mt-0.5 text-2xl font-extrabold">
+                <div className="mt-0.5 text-xl font-extrabold text-[#182451]">
                   {loading
                     ? "…"
                     : formatNumber(
