@@ -289,8 +289,8 @@ export default function SigninPage() {
                                 .value
                             )
                           }
-                          disabled={signingIn}
-                          className="ls-focus-ring h-12 w-full rounded-xl border border-[#CBD3E3] bg-white pl-10 pr-3 text-sm font-semibold text-[#182451] placeholder:text-slate-400 focus:border-[#5366B7] focus:ring-2 focus:ring-[#5366B7]/10 disabled:opacity-60"
+                          readOnly={signingIn}
+                          className="ls-focus-ring h-12 w-full rounded-xl border border-[#CBD3E3] bg-white pl-10 pr-3 text-sm font-semibold text-[#182451] placeholder:text-slate-400 focus:border-[#5366B7] focus:ring-2 focus:ring-[#5366B7]/10 read-only:bg-[#F8FAFD] read-only:opacity-80"
                           placeholder="you@example.com"
                         />
                       </div>
@@ -325,8 +325,8 @@ export default function SigninPage() {
                           }
                           autoComplete="current-password"
                           required
-                          disabled={signingIn}
-                          className="ls-focus-ring h-12 w-full rounded-xl border border-[#CBD3E3] bg-white pl-10 pr-12 text-sm font-semibold text-[#182451] placeholder:text-slate-400 focus:border-[#5366B7] focus:ring-2 focus:ring-[#5366B7]/10 disabled:opacity-60"
+                          readOnly={signingIn}
+                          className="ls-focus-ring h-12 w-full rounded-xl border border-[#CBD3E3] bg-white pl-10 pr-12 text-sm font-semibold text-[#182451] placeholder:text-slate-400 focus:border-[#5366B7] focus:ring-2 focus:ring-[#5366B7]/10 read-only:bg-[#F8FAFD] read-only:opacity-80"
                           placeholder="Enter password"
                         />
 
