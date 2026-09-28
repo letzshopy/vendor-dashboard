@@ -816,7 +816,7 @@ export default function PackSlipsClient({
       <section className="overflow-hidden rounded-2xl border border-[#E1E6F0] bg-white shadow-[0_8px_24px_rgba(38,51,95,0.05)]">
         <div className="bg-[#26366E] px-3 py-3 text-white md:px-4">
           <div className="flex items-center gap-3">
-            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#F15E4A]">
+            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#18A6C9]">
               <Printer className="h-5 w-5" />
             </span>
 
@@ -942,7 +942,7 @@ export default function PackSlipsClient({
                     "ls-focus-ring min-h-9 shrink-0 rounded-xl px-3 text-xs font-extrabold transition",
                     filter ===
                     item.value
-                      ? "bg-[#F15E4A] text-white"
+                      ? "bg-[#18A6C9] text-white"
                       : "bg-[#EEF1FA] text-[#34405F]",
                   ].join(
                     " "
@@ -967,7 +967,7 @@ export default function PackSlipsClient({
                 disabled={
                   !visibleEligibleIds.length
                 }
-                className="h-4 w-4 rounded border-[#BFC7D8] accent-[#F15E4A]"
+                className="h-4 w-4 rounded border-[#BFC7D8] accent-[#18A6C9]"
               />
               {allVisibleSelected
                 ? "Clear shown"
@@ -1044,7 +1044,7 @@ export default function PackSlipsClient({
                     className={[
                       "rounded-2xl border bg-white p-3 shadow-[0_6px_18px_rgba(38,51,95,0.05)]",
                       active
-                        ? "border-[#F15E4A] ring-2 ring-[#F15E4A]/10"
+                        ? "border-[#18A6C9] ring-2 ring-[#18A6C9]/10"
                         : "border-[#E1E6F0]",
                       canSelect
                         ? ""
@@ -1064,7 +1064,7 @@ export default function PackSlipsClient({
                           )
                         }
                         aria-label={`Select order #${order.number || order.id}`}
-                        className="mt-1 h-4 w-4 shrink-0 rounded border-[#BFC7D8] accent-[#F15E4A]"
+                        className="mt-1 h-4 w-4 shrink-0 rounded border-[#BFC7D8] accent-[#18A6C9]"
                       />
 
                       <div className="min-w-0 flex-1">
@@ -1151,7 +1151,7 @@ export default function PackSlipsClient({
                         toggleShown
                       }
                       aria-label="Select shown orders"
-                      className="h-4 w-4 rounded border-[#BFC7D8] accent-[#F15E4A]"
+                      className="h-4 w-4 rounded border-[#BFC7D8] accent-[#18A6C9]"
                     />
                   </th>
                   <th className="px-3 py-3">
@@ -1211,7 +1211,7 @@ export default function PackSlipsClient({
                               )
                             }
                             aria-label={`Select order #${order.number || order.id}`}
-                            className="h-4 w-4 rounded border-[#BFC7D8] accent-[#F15E4A]"
+                            className="h-4 w-4 rounded border-[#BFC7D8] accent-[#18A6C9]"
                           />
                         </td>
 
@@ -1314,7 +1314,7 @@ export default function PackSlipsClient({
                 onClick={
                   generatePdf
                 }
-                className="bg-[#F15E4A] text-white hover:bg-[#D84F3E]"
+                className="bg-[#18A6C9] text-white hover:bg-[#1283A1]"
               >
                 <FileDown className="h-4 w-4" />
                 Generate PDF
