@@ -53,6 +53,7 @@ type ProductTrashItem = {
   id: number;
   name: string;
   sku?: string;
+  image?: string;
   date?: string | null;
 };
 
@@ -1208,40 +1209,35 @@ export default function TrashHubClient() {
                       )}
                     >
                       <div className="flex items-start gap-3">
-                        <button
-                          type="button"
-                          onClick={() =>
+                        <input
+                          type="checkbox"
+                          checked={active}
+                          onChange={() =>
                             toggleOne(
                               "products",
                               item.id
                             )
                           }
-                          aria-pressed={
-                            active
-                          }
-                          aria-label={
-                            active
-                              ? "Unselect product"
-                              : "Select product"
-                          }
-                          className={[
-                            "ls-focus-ring grid h-9 w-9 shrink-0 place-items-center rounded-xl border",
-                            active
-                              ? "border-[#F15E4A] bg-[#F15E4A] text-white"
-                              : "border-[#D8DEEA] bg-[#F8FAFD] text-muted-foreground",
-                          ].join(
-                            " "
-                          )}
-                        >
-                          {active ? (
-                            <Check className="h-4 w-4" />
-                          ) : (
-                            <Box className="h-4 w-4" />
-                          )}
-                        </button>
+                          aria-label={`Select ${item.name || "product"}`}
+                          className="mt-5 h-4 w-4 shrink-0 rounded border-[#BFC7D8] accent-[#F15E4A]"
+                        />
 
-                        <div className="min-w-0 flex-1">
-                          <div className="truncate text-sm font-extrabold text-[#182451]">
+                        {item.image ? (
+                          // Remote WooCommerce product image.
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={item.image}
+                            alt=""
+                            className="h-16 w-16 shrink-0 rounded-xl border border-[#E1E6F0] object-cover bg-[#F8FAFD]"
+                          />
+                        ) : (
+                          <div className="grid h-16 w-16 shrink-0 place-items-center rounded-xl border border-dashed border-[#D8DEEA] bg-[#F8FAFD] text-muted-foreground">
+                            <ImageIcon className="h-5 w-5" />
+                          </div>
+                        )}
+
+                        <div className="min-w-0 flex-1 pt-0.5">
+                          <div className="line-clamp-2 text-sm font-extrabold leading-5 text-[#182451]">
                             {item.name ||
                               "(Untitled product)"}
                           </div>
@@ -1320,7 +1316,13 @@ export default function TrashHubClient() {
                 <thead className="bg-[#F4F6FB] text-left text-[11px] font-extrabold uppercase tracking-wide text-muted-foreground">
                   <tr>
                     <th className="w-14 px-4 py-3">
-                      Select
+                      <input
+                        type="checkbox"
+                        checked={allVisibleSelected}
+                        onChange={toggleAllVisible}
+                        aria-label="Select all shown products"
+                        className="h-4 w-4 rounded border-[#BFC7D8] accent-[#F15E4A]"
+                      />
                     </th>
                     <th className="px-3 py-3">
                       Product
@@ -1354,34 +1356,43 @@ export default function TrashHubClient() {
                           }
                         >
                           <td className="px-4 py-3">
-                            <button
-                              type="button"
-                              onClick={() =>
+                            <input
+                              type="checkbox"
+                              checked={active}
+                              onChange={() =>
                                 toggleOne(
                                   "products",
                                   item.id
                                 )
                               }
-                              className={[
-                                "ls-focus-ring grid h-9 w-9 place-items-center rounded-xl border",
-                                active
-                                  ? "border-[#F15E4A] bg-[#F15E4A] text-white"
-                                  : "border-[#D8DEEA] text-muted-foreground",
-                              ].join(
-                                " "
-                              )}
-                            >
-                              {active ? (
-                                <Check className="h-4 w-4" />
-                              ) : (
-                                <Box className="h-4 w-4" />
-                              )}
-                            </button>
+                              aria-label={`Select ${item.name || "product"}`}
+                              className="h-4 w-4 rounded border-[#BFC7D8] accent-[#F15E4A]"
+                            />
                           </td>
 
-                          <td className="px-3 py-3 font-bold text-[#182451]">
-                            {item.name ||
-                              "(Untitled product)"}
+                          <td className="px-3 py-3">
+                            <div className="flex min-w-0 items-center gap-3">
+                              {item.image ? (
+                                // Remote WooCommerce product image.
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img
+                                  src={item.image}
+                                  alt=""
+                                  className="h-12 w-12 shrink-0 rounded-xl border border-[#E1E6F0] object-cover bg-[#F8FAFD]"
+                                />
+                              ) : (
+                                <div className="grid h-12 w-12 shrink-0 place-items-center rounded-xl border border-dashed border-[#D8DEEA] bg-[#F8FAFD] text-muted-foreground">
+                                  <ImageIcon className="h-4 w-4" />
+                                </div>
+                              )}
+
+                              <div className="min-w-0 font-bold text-[#182451]">
+                                <div className="line-clamp-2">
+                                  {item.name ||
+                                    "(Untitled product)"}
+                                </div>
+                              </div>
+                            </div>
                           </td>
 
                           <td className="px-3 py-3 text-muted-foreground">
