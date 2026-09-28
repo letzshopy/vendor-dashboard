@@ -45,7 +45,7 @@ function cleanIds(
   ).slice(0, 100);
 }
 
-async function deleteCatalogMedia(
+async function trashCatalogMedia(
   base: string,
   ids: number[]
 ): Promise<{
@@ -53,7 +53,7 @@ async function deleteCatalogMedia(
   result: JsonRecord | null;
 }> {
   const response = await fetch(
-    `${base}/wp-json/letz/v1/media/delete-catalog`,
+    `${base}/wp-json/letz/v1/media/trash-catalog`,
     {
       method: "POST",
       headers: {
@@ -80,12 +80,12 @@ async function deleteCatalogMedia(
   };
 }
 
-function deletedFrom(
+function trashedFrom(
   result: JsonRecord | null
 ): unknown[] {
   return result &&
-    Array.isArray(result.deleted)
-    ? result.deleted
+    Array.isArray(result.trashed)
+    ? result.trashed
     : [];
 }
 
@@ -106,7 +106,7 @@ async function handleDelete(
   ).replace(/\/$/, "");
 
   const { response, result } =
-    await deleteCatalogMedia(
+    await trashCatalogMedia(
       base,
       ids
     );
@@ -116,7 +116,7 @@ async function handleDelete(
       {
         ok: false,
         error:
-          "Media deletion failed.",
+          "Could not move media to trash.",
       },
       {
         status:
@@ -136,9 +136,9 @@ async function handleDelete(
       {
         ok: false,
         error:
-          "Protected media cannot be deleted.",
-        deleted:
-          deletedFrom(result),
+          "Protected media cannot be moved to trash.",
+        trashed:
+          trashedFrom(result),
         skipped,
       },
       {
@@ -151,7 +151,7 @@ async function handleDelete(
   return NextResponse.json(
     {
       ok: true,
-      deleted: deletedFrom(result),
+      trashed: trashedFrom(result),
     },
     {
       status: 200,
@@ -190,7 +190,7 @@ export async function POST(
     return await handleDelete(ids);
   } catch (error: unknown) {
     console.error(
-      "Bulk media deletion failed:",
+      "Bulk media trash failed:",
       error instanceof Error
         ? error.message
         : "Unknown error"
@@ -200,7 +200,7 @@ export async function POST(
       {
         ok: false,
         error:
-          "Media deletion failed.",
+          "Could not move media to trash.",
       },
       {
         status: 500,
@@ -239,7 +239,7 @@ export async function DELETE(
     return await handleDelete([id]);
   } catch (error: unknown) {
     console.error(
-      "Media deletion failed:",
+      "Media trash failed:",
       error instanceof Error
         ? error.message
         : "Unknown error"
@@ -249,7 +249,7 @@ export async function DELETE(
       {
         ok: false,
         error:
-          "Media deletion failed.",
+          "Could not move media to trash.",
       },
       {
         status: 500,
