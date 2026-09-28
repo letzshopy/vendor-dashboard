@@ -4,7 +4,6 @@ import Link from "next/link";
 import {
   useEffect,
   useMemo,
-  useRef,
   useState,
 } from "react";
 import {
@@ -16,9 +15,6 @@ import {
   Settings2,
   ShoppingBag,
 } from "lucide-react";
-import {
-  useSearchParams,
-} from "next/navigation";
 
 import {
   AsyncButton,
@@ -49,6 +45,16 @@ type FilterKey =
   | "on-hold"
   | "completed";
 
+type PackSlipsClientProps = {
+  initialIds?: number[];
+};
+
+type OrdersResponse = {
+  ok?: boolean;
+  data?: WCOrder[];
+  error?: string;
+};
+
 type ProfileResponse = {
   business?: {
     name?: string;
@@ -56,16 +62,15 @@ type ProfileResponse = {
   };
 };
 
+type GeneralProducts = {
+  packslipReturnAddress?: string;
+  packslipShowReturn?: boolean;
+};
+
 type GeneralResponse = {
-  products?: {
-    packslipReturnAddress?: string;
-    packslipShowReturn?: boolean;
-  };
+  products?: GeneralProducts;
   general?: {
-    products?: {
-      packslipReturnAddress?: string;
-      packslipShowReturn?: boolean;
-    };
+    products?: GeneralProducts;
   };
 };
 
@@ -96,7 +101,7 @@ const FILTERS: Array<{
 ];
 
 const BLOCKED_STATUSES =
-  new Set([
+  new Set<string>([
     "cancelled",
     "refunded",
     "failed",
@@ -106,19 +111,17 @@ const BLOCKED_STATUSES =
 function customerName(
   order: WCOrder
 ): string {
-  const billing =
-    order.billing || {};
+  const first =
+    order.billing
+      ?.first_name || "";
+  const last =
+    order.billing
+      ?.last_name || "";
 
-  const value =
-    [
-      billing.first_name,
-      billing.last_name,
-    ]
-      .filter(Boolean)
-      .join(" ")
-      .trim();
-
-  return value || "Customer";
+  return (
+    `${first} ${last}`.trim() ||
+    "Customer"
+  );
 }
 
 function itemCount(
@@ -216,8 +219,7 @@ function statusClass(
   status: string
 ): string {
   switch (
-    String(status)
-      .toLowerCase()
+    status.toLowerCase()
   ) {
     case "processing":
       return "bg-sky-100 text-sky-800";
@@ -276,7 +278,7 @@ function matchesFilter(
     filter;
 }
 
-function readError(
+function errorMessage(
   value: unknown,
   fallback: string
 ): string {
@@ -285,28 +287,30 @@ function readError(
     typeof value ===
       "object" &&
     !Array.isArray(value) &&
-    "error" in value &&
-    typeof (
-      value as {
-        error?: unknown;
-      }
-    ).error ===
-      "string"
+    "error" in value
   ) {
-    return (
-      value as {
-        error: string;
-      }
-    ).error;
+    const error =
+      (
+        value as {
+          error?: unknown;
+        }
+      ).error;
+
+    if (
+      typeof error ===
+      "string" &&
+      error.trim()
+    ) {
+      return error;
+    }
   }
 
   return fallback;
 }
 
-export default function PackSlipsClient() {
-  const searchParams =
-    useSearchParams();
-
+export default function PackSlipsClient({
+  initialIds = [],
+}: PackSlipsClientProps) {
   const [
     orders,
     setOrders,
@@ -340,7 +344,9 @@ export default function PackSlipsClient() {
     setFilter,
   ] =
     useState<FilterKey>(
-      "ready"
+      initialIds.length
+        ? "all"
+        : "ready"
     );
 
   const [
@@ -348,7 +354,10 @@ export default function PackSlipsClient() {
     setSelected,
   ] =
     useState<Set<number>>(
-      new Set()
+      () =>
+        new Set<number>(
+          initialIds
+        )
     );
 
   const [
@@ -361,16 +370,15 @@ export default function PackSlipsClient() {
     storeName,
     setStoreName,
   ] =
-    useState("Your Store");
+    useState(
+      "Your Store"
+    );
 
   const [
     senderConfigured,
     setSenderConfigured,
   ] =
     useState(false);
-
-  const prefilledRef =
-    useRef(false);
 
   async function loadOrders() {
     setLoading(true);
@@ -387,22 +395,24 @@ export default function PackSlipsClient() {
         );
 
       const payload =
-        await response
-          .json()
-          .catch(
-            () => ({})
-          );
+        (
+          await response
+            .json()
+            .catch(
+              () => ({})
+            )
+        ) as OrdersResponse;
 
       if (!response.ok) {
         throw new Error(
-          readError(
+          errorMessage(
             payload,
             "Could not load orders."
           )
         );
       }
 
-      const rows =
+      const nextOrders =
         Array.isArray(
           payload.data
         )
@@ -410,26 +420,32 @@ export default function PackSlipsClient() {
           : [];
 
       setOrders(
-        rows.filter(
-          (
-            order
-          ): order is WCOrder =>
-            Boolean(
-              order &&
-              typeof order ===
-                "object" &&
-              Number.isSafeInteger(
-                Number(
-                  (
-                    order as {
-                      id?: unknown;
-                    }
-                  ).id
-                )
-              )
-            )
-        )
+        nextOrders
       );
+
+      if (
+        initialIds.length
+      ) {
+        const available =
+          new Set<number>(
+            nextOrders
+              .filter(
+                (order) =>
+                  initialIds.includes(
+                    order.id
+                  ) &&
+                  eligible(order)
+              )
+              .map(
+                (order) =>
+                  order.id
+              )
+          );
+
+        setSelected(
+          available
+        );
+      }
     } catch (
       loadError
     ) {
@@ -446,6 +462,8 @@ export default function PackSlipsClient() {
 
   useEffect(() => {
     void loadOrders();
+    // Initial IDs are intentionally fixed for the mounted route.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -501,7 +519,8 @@ export default function PackSlipsClient() {
           profile.business ||
           {};
 
-        const products =
+        const products:
+          GeneralProducts =
           general.products ||
           general.general
             ?.products ||
@@ -520,15 +539,6 @@ export default function PackSlipsClient() {
               ""
           ).trim();
 
-        const useCustom =
-          Boolean(
-            products
-              .packslipShowReturn
-          ) &&
-          Boolean(
-            customAddress
-          );
-
         setStoreName(
           String(
             business.name ||
@@ -538,10 +548,18 @@ export default function PackSlipsClient() {
         );
 
         setSenderConfigured(
-          useCustom ||
+          (
             Boolean(
-              profileAddress
+              products
+                .packslipShowReturn
+            ) &&
+            Boolean(
+              customAddress
             )
+          ) ||
+          Boolean(
+            profileAddress
+          )
         );
       } catch {
         if (
@@ -561,73 +579,6 @@ export default function PackSlipsClient() {
         true;
     };
   }, []);
-
-  useEffect(() => {
-    if (
-      loading ||
-      prefilledRef.current
-    ) {
-      return;
-    }
-
-    prefilledRef.current =
-      true;
-
-    const ids =
-      String(
-        searchParams.get(
-          "ids"
-        ) || ""
-      )
-        .split(",")
-        .map(
-          (value) =>
-            Number(
-              value.trim()
-            )
-        )
-        .filter(
-          (id) =>
-            Number.isSafeInteger(
-              id
-            ) &&
-            id > 0
-        );
-
-    if (!ids.length) {
-      return;
-    }
-
-    const allowed =
-      new Set(
-        orders
-          .filter(
-            (order) =>
-              ids.includes(
-                order.id
-              ) &&
-              eligible(order)
-          )
-          .map(
-            (order) =>
-              order.id
-          )
-      );
-
-    setSelected(
-      allowed
-    );
-
-    if (
-      allowed.size
-    ) {
-      setFilter("all");
-    }
-  }, [
-    loading,
-    orders,
-    searchParams,
-  ]);
 
   const readyCount =
     useMemo(
@@ -661,20 +612,19 @@ export default function PackSlipsClient() {
             return false;
           }
 
-          if (!normalized) {
+          if (
+            !normalized
+          ) {
             return true;
           }
-
-          const customer =
-            customerName(
-              order
-            );
 
           const searchable =
             [
               order.number,
               order.id,
-              customer,
+              customerName(
+                order
+              ),
               order.billing
                 ?.phone,
               order.billing
@@ -707,7 +657,9 @@ export default function PackSlipsClient() {
 
   const visibleEligibleIds =
     filtered
-      .filter(eligible)
+      .filter(
+        eligible
+      )
       .map(
         (order) =>
           order.id
@@ -733,7 +685,9 @@ export default function PackSlipsClient() {
     setSelected(
       (current) => {
         const next =
-          new Set(current);
+          new Set<number>(
+            current
+          );
 
         if (
           next.has(
@@ -756,8 +710,7 @@ export default function PackSlipsClient() {
 
   function toggleShown() {
     if (
-      visibleEligibleIds.length ===
-      0
+      !visibleEligibleIds.length
     ) {
       return;
     }
@@ -765,24 +718,24 @@ export default function PackSlipsClient() {
     setSelected(
       (current) => {
         const next =
-          new Set(current);
+          new Set<number>(
+            current
+          );
 
         if (
           allVisibleSelected
         ) {
-          for (
-            const id of
-            visibleEligibleIds
-          ) {
-            next.delete(id);
-          }
+          visibleEligibleIds.forEach(
+            (id) =>
+              next.delete(
+                id
+              )
+          );
         } else {
-          for (
-            const id of
-            visibleEligibleIds
-          ) {
-            next.add(id);
-          }
+          visibleEligibleIds.forEach(
+            (id) =>
+              next.add(id)
+          );
         }
 
         return next;
@@ -792,8 +745,7 @@ export default function PackSlipsClient() {
 
   async function generatePdf() {
     if (
-      selected.size ===
-        0 ||
+      !selected.size ||
       generating
     ) {
       return;
@@ -940,13 +892,9 @@ export default function PackSlipsClient() {
 
               <Input
                 value={query}
-                onChange={(
-                  event
-                ) =>
+                onChange={(event) =>
                   setQuery(
-                    event
-                      .target
-                      .value
+                    event.target.value
                   )
                 }
                 placeholder="Search order, customer, phone, SKU"
@@ -979,9 +927,7 @@ export default function PackSlipsClient() {
 
           <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
             {FILTERS.map(
-              (
-                item
-              ) => (
+              (item) => (
                 <button
                   key={
                     item.value
@@ -1002,9 +948,7 @@ export default function PackSlipsClient() {
                     " "
                   )}
                 >
-                  {
-                    item.label
-                  }
+                  {item.label}
                 </button>
               )
             )}
@@ -1021,8 +965,7 @@ export default function PackSlipsClient() {
                   toggleShown
                 }
                 disabled={
-                  visibleEligibleIds.length ===
-                  0
+                  !visibleEligibleIds.length
                 }
                 className="h-4 w-4 rounded border-[#BFC7D8] accent-[#F15E4A]"
               />
@@ -1085,9 +1028,7 @@ export default function PackSlipsClient() {
         <div className="mt-3 md:mt-4">
           <div className="space-y-2.5 md:hidden">
             {filtered.map(
-              (
-                order
-              ) => {
+              (order) => {
                 const active =
                   selected.has(
                     order.id
@@ -1116,9 +1057,7 @@ export default function PackSlipsClient() {
                       <input
                         type="checkbox"
                         checked={active}
-                        disabled={
-                          !canSelect
-                        }
+                        disabled={!canSelect}
                         onChange={() =>
                           toggleOne(
                             order
@@ -1238,9 +1177,7 @@ export default function PackSlipsClient() {
 
               <tbody className="divide-y divide-[#E9ECF3]">
                 {filtered.map(
-                  (
-                    order
-                  ) => {
+                  (order) => {
                     const active =
                       selected.has(
                         order.id
@@ -1360,12 +1297,10 @@ export default function PackSlipsClient() {
                 type="button"
                 variant="ghost"
                 size="sm"
-                disabled={
-                  generating
-                }
+                disabled={generating}
                 onClick={() =>
                   setSelected(
-                    new Set()
+                    new Set<number>()
                   )
                 }
               >
@@ -1374,9 +1309,7 @@ export default function PackSlipsClient() {
 
               <AsyncButton
                 size="sm"
-                loading={
-                  generating
-                }
+                loading={generating}
                 loadingLabel="Preparing…"
                 onClick={
                   generatePdf
