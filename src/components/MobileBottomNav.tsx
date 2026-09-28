@@ -371,8 +371,8 @@ export default function MobileBottomNav({
             className={[
               "flex h-11 w-11 -translate-y-1 items-center justify-center rounded-2xl bg-[#18A6C9] text-white ring-4 ring-[#182451] transition",
               addActive
-                ? "shadow-[0_8px_20px_rgba(241,94,74,0.38)]"
-                : "shadow-[0_6px_16px_rgba(241,94,74,0.28)]",
+                ? "shadow-[0_8px_20px_rgba(24,166,201,0.38)]"
+                : "shadow-[0_6px_16px_rgba(24,166,201,0.28)]",
             ].join(" ")}
           >
             <Plus className="h-5 w-5 stroke-[3]" />
