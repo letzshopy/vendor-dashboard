@@ -24,6 +24,7 @@ import {
   ReceiptIndianRupee,
   Settings2,
   ShoppingBag,
+  Trash2,
   Users,
   WalletCards,
   X,
@@ -112,7 +113,13 @@ const moreItems: NavItem[] = [
     icon: LifeBuoy,
     tileClass:
       "bg-[#20B486]",
-    wide: true,
+  },
+  {
+    href: "/trash",
+    label: "Trash Bin",
+    icon: Trash2,
+    tileClass:
+      "bg-[#D84F3E]",
   },
 ];
 

@@ -254,7 +254,7 @@ const ALL_GROUPS: Group[] = [
         ready: true,
       },
       {
-        href: "/products/trash",
+        href: "/trash",
         label: "Trash Bin",
         ready: true,
       },

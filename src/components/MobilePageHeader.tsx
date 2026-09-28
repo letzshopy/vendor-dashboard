@@ -125,6 +125,9 @@ const ROOT_HEADERS: Record<
   "/media": {
     title: "Media",
   },
+  "/trash": {
+    title: "Trash Bin",
+  },
   "/menu": {
     title: "Menu Layout",
   },
@@ -273,13 +276,6 @@ function resolveHeader(
   ) {
     return taskHeader(
       "Add Product",
-      "/products"
-    );
-  }
-
-  if (pathname === "/products/trash") {
-    return taskHeader(
-      "Trash Bin",
       "/products"
     );
   }

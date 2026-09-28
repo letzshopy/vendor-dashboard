@@ -187,10 +187,18 @@ export function trashedProductSummary(value: unknown): JsonRecord | null {
   const id = safeId(value.id);
   if (!id) return null;
 
+  const firstImage =
+    Array.isArray(value.images)
+      ? value.images[0]
+      : null;
+
   return {
     id,
     name: safeString(value.name, 200),
     sku: safeString(value.sku, 100),
+    image: isRecord(firstImage)
+      ? safeString(firstImage.src, 2_000)
+      : "",
     date: safeString(value.date_created, 50) ||
       safeString(value.date_modified, 50) ||
       null,
