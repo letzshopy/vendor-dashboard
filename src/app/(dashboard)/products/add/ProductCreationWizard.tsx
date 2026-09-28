@@ -149,7 +149,7 @@ const productTypes: {
     label: "Colour choices only",
     icon: Palette,
     iconClass: "bg-[#FFE0D9] text-[#B24737]",
-    selectedClass: "border-[#E85D4A] bg-[#FFF4F1]",
+    selectedClass: "border-[#18A6C9] bg-[#EAF8FC]",
   },
 ];
 
@@ -4259,7 +4259,7 @@ export default function ProductCreationWizard({
           </button>
 
           <div className="flex min-w-0 flex-1 items-center gap-3">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#E85D4A] md:h-10 md:w-10 md:rounded-xl">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#18A6C9] md:h-10 md:w-10 md:rounded-xl">
               <HeaderIcon className="h-5 w-5" />
             </div>
 
@@ -4472,7 +4472,7 @@ export default function ProductCreationWizard({
                 }
                 className="mb-0 flex w-full items-start gap-3 text-left md:mb-3 md:pointer-events-none"
               >
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#E85D4A] text-white">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#18A6C9] text-white">
                   <Plus className="h-5 w-5" />
                 </div>
 
@@ -4518,7 +4518,7 @@ export default function ProductCreationWizard({
                   setConfirmation(null);
                 }}
                 placeholder="Example: Handbags"
-                className="h-12 w-full rounded-xl border border-[#E3C7C0] bg-white px-3.5 text-sm font-semibold text-[#4D2B25] outline-none transition placeholder:font-normal placeholder:text-[#B18D86] focus:border-[#E85D4A] focus:ring-4 focus:ring-[#E85D4A]/10"
+                className="h-12 w-full rounded-xl border border-[#B8DDE8] bg-white px-3.5 text-sm font-semibold text-[#174A5A] outline-none transition placeholder:font-normal placeholder:text-[#7A9DA7] focus:border-[#18A6C9] focus:ring-4 focus:ring-[#18A6C9]/10"
               />
 
               <button
@@ -4530,7 +4530,7 @@ export default function ProductCreationWizard({
                 onClick={() =>
                   void createAndSelectCategory()
                 }
-                className="mt-3 flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#E85D4A] px-4 text-sm font-bold text-white shadow-[0_8px_18px_rgba(232,93,74,0.22)] transition active:scale-[0.985] disabled:cursor-not-allowed disabled:bg-[#D8C8C4] disabled:shadow-none"
+                className="mt-3 flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#18A6C9] px-4 text-sm font-bold text-white shadow-[0_8px_18px_rgba(24,166,201,0.22)] transition active:scale-[0.985] disabled:cursor-not-allowed disabled:bg-[#D8C8C4] disabled:shadow-none"
               >
                 {categoryCreating ? (
                   <>
@@ -4666,7 +4666,7 @@ export default function ProductCreationWizard({
                 className="mb-1.5 block text-[11px] font-bold uppercase tracking-[0.12em] text-[#66708C]"
               >
                 Product name
-                <span className="ml-1 text-[#E85D4A]">*</span>
+                <span className="ml-1 text-[#18A6C9]">*</span>
               </label>
 
               <input
@@ -4688,7 +4688,7 @@ export default function ProductCreationWizard({
                 >
                   SKU / Product code
                   {variableProduct && (
-                    <span className="ml-1 text-[#E85D4A]">
+                    <span className="ml-1 text-[#18A6C9]">
                       *
                     </span>
                   )}
@@ -4749,7 +4749,7 @@ export default function ProductCreationWizard({
 
             <div className="hidden lg:flex flex-col rounded-2xl bg-[#26356F] p-4 text-white shadow-[0_12px_28px_rgba(38,53,111,0.18)]">
               <div className="flex items-center gap-3">
-                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#E85D4A]">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#18A6C9]">
                   <Package2 className="h-5 w-5" />
                 </div>
                 <div className="min-w-0">
@@ -4840,7 +4840,7 @@ export default function ProductCreationWizard({
                 className="mb-1.5 block text-[11px] font-bold uppercase tracking-[0.12em] text-[#66708C]"
               >
                 Short selling summary
-                <span className="ml-1 text-[#E85D4A]">*</span>
+                <span className="ml-1 text-[#18A6C9]">*</span>
               </label>
               <textarea
                 id="short-description"
@@ -4882,7 +4882,7 @@ export default function ProductCreationWizard({
 
             <div className="hidden lg:flex min-w-0 flex-col rounded-2xl bg-[#26356F] p-4 text-white shadow-[0_12px_28px_rgba(38,53,111,0.18)]">
               <div className="flex items-start gap-3">
-                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#E85D4A]">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#18A6C9]">
                   <FileText className="h-5 w-5" />
                 </div>
                 <div className="min-w-0">
@@ -4976,7 +4976,7 @@ export default function ProductCreationWizard({
                       alt={localPhotos[0].name}
                       className="object-contain p-2"
                     />
-                    <span className="absolute left-2.5 top-2.5 rounded-lg bg-[#E85D4A] px-2.5 py-1.5 text-[9px] font-bold uppercase tracking-wide text-white">
+                    <span className="absolute left-2.5 top-2.5 rounded-lg bg-[#18A6C9] px-2.5 py-1.5 text-[9px] font-bold uppercase tracking-wide text-white">
                       Main photo
                     </span>
                   </div>
@@ -5050,7 +5050,7 @@ export default function ProductCreationWizard({
                           className={[
                             "relative h-full w-full cursor-grab touch-none overflow-hidden rounded-xl border-2 bg-white active:cursor-grabbing",
                             index === 0
-                              ? "border-[#E85D4A]"
+                              ? "border-[#18A6C9]"
                               : "border-[#DDE1EA]",
                           ].join(" ")}
                         >
@@ -5065,7 +5065,7 @@ export default function ProductCreationWizard({
                             <GripVertical className="h-3.5 w-3.5" />
                           </span>
                           {index === 0 && (
-                            <span className="pointer-events-none absolute right-1 top-1 rounded-md bg-[#E85D4A] px-1.5 py-0.5 text-[7px] font-bold uppercase text-white">
+                            <span className="pointer-events-none absolute right-1 top-1 rounded-md bg-[#18A6C9] px-1.5 py-0.5 text-[7px] font-bold uppercase text-white">
                               Main
                             </span>
                           )}
@@ -5116,7 +5116,7 @@ export default function ProductCreationWizard({
 
             <div className="hidden lg:flex min-w-0 flex-col rounded-2xl bg-[#26356F] p-4 text-white shadow-[0_12px_28px_rgba(38,53,111,0.18)]">
               <div className="flex items-start gap-3">
-                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#E85D4A]">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#18A6C9]">
                   <ImagePlus className="h-5 w-5" />
                 </div>
                 <div className="min-w-0">
@@ -5187,7 +5187,7 @@ export default function ProductCreationWizard({
                 className="mb-1.5 block text-[11px] font-bold uppercase tracking-[0.12em] text-[#66708C]"
               >
                 Regular price
-                <span className="ml-1 text-[#E85D4A]">*</span>
+                <span className="ml-1 text-[#18A6C9]">*</span>
               </label>
               <div className="relative">
                 <IndianRupee className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[#7C849B]" />
@@ -5212,7 +5212,7 @@ export default function ProductCreationWizard({
                 className="mb-1.5 mt-4 block text-[11px] font-bold uppercase tracking-[0.12em] text-[#66708C]"
               >
                 Stock quantity
-                <span className="ml-1 text-[#E85D4A]">*</span>
+                <span className="ml-1 text-[#18A6C9]">*</span>
               </label>
               <input
                 id="stock-quantity"
@@ -5236,7 +5236,7 @@ export default function ProductCreationWizard({
 
             <div className="hidden lg:flex min-w-0 flex-col rounded-2xl bg-[#26356F] p-4 text-white shadow-[0_12px_28px_rgba(38,53,111,0.18)]">
               <div className="flex items-start gap-3">
-                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#E85D4A]">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#18A6C9]">
                   <IndianRupee className="h-5 w-5" />
                 </div>
                 <div className="min-w-0">
@@ -5520,7 +5520,7 @@ export default function ProductCreationWizard({
 
             <div className="hidden lg:flex min-h-0 min-w-0 flex-col rounded-2xl bg-[#26356F] p-4 text-white">
               <div className="flex items-start gap-3">
-                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#E85D4A]">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#18A6C9]">
                   {currentScreen === "size-variations" ? (
                     <Ruler className="h-5 w-5" />
                   ) : (
@@ -5710,7 +5710,7 @@ export default function ProductCreationWizard({
                               className={[
                                 "relative h-full w-full cursor-grab touch-none overflow-hidden rounded-lg border-2 bg-[#F8F9FC] active:cursor-grabbing",
                                 photoIndex === 0
-                                  ? "border-[#E85D4A]"
+                                  ? "border-[#18A6C9]"
                                   : "border-[#DDE1EA]",
                               ].join(" ")}
                             >
@@ -5727,7 +5727,7 @@ export default function ProductCreationWizard({
                               </span>
 
                               {photoIndex === 0 && (
-                                <span className="pointer-events-none absolute right-1 top-1 rounded bg-[#E85D4A] px-1.5 py-0.5 text-[7px] font-bold uppercase text-white">
+                                <span className="pointer-events-none absolute right-1 top-1 rounded bg-[#18A6C9] px-1.5 py-0.5 text-[7px] font-bold uppercase text-white">
                                   Main
                                 </span>
                               )}
@@ -5789,7 +5789,7 @@ export default function ProductCreationWizard({
 
             <div className="hidden lg:flex min-w-0 flex-col rounded-2xl bg-[#26356F] p-4 text-white">
               <div className="flex items-start gap-3">
-                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#E85D4A]">
+                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#18A6C9]">
                   <Palette className="h-5 w-5" />
                 </div>
                 <div>
@@ -5862,7 +5862,7 @@ export default function ProductCreationWizard({
                     className="mb-1.5 block text-[11px] font-bold uppercase tracking-[0.12em] text-[#66708C]"
                   >
                     Shipping weight
-                    <span className="ml-1 text-[#E85D4A]">
+                    <span className="ml-1 text-[#18A6C9]">
                       *
                     </span>
                   </label>
@@ -5943,7 +5943,7 @@ export default function ProductCreationWizard({
                     className={[
                       "relative h-7 w-12 rounded-full transition",
                       dimensionsEnabled
-                        ? "bg-[#E85D4A]"
+                        ? "bg-[#18A6C9]"
                         : "bg-[#CCD1DE]",
                     ].join(" ")}
                   >
@@ -6083,7 +6083,7 @@ export default function ProductCreationWizard({
 
             <div className="hidden lg:flex min-w-0 flex-col rounded-2xl bg-[#26356F] p-4 text-white">
               <div className="flex items-start gap-3">
-                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#E85D4A]">
+                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#18A6C9]">
                   <Truck className="h-5 w-5" />
                 </div>
                 <div>
@@ -6260,7 +6260,7 @@ export default function ProductCreationWizard({
                         className={[
                           "flex items-center gap-3 rounded-xl border p-3 text-left",
                           selected
-                            ? "border-[#E85D4A] bg-[#FFF4F1]"
+                            ? "border-[#18A6C9] bg-[#EAF8FC]"
                             : "border-[#DCE0EA] bg-white",
                         ].join(" ")}
                       >
@@ -6268,7 +6268,7 @@ export default function ProductCreationWizard({
                           className={[
                             "flex h-10 w-10 items-center justify-center rounded-xl",
                             selected
-                              ? "bg-[#E85D4A] text-white"
+                              ? "bg-[#18A6C9] text-white"
                               : "bg-[#EEF0F5] text-[#6B748B]",
                           ].join(" ")}
                         >
@@ -6283,7 +6283,7 @@ export default function ProductCreationWizard({
                           </div>
                         </div>
                         {selected && (
-                          <Check className="h-4 w-4 text-[#E85D4A]" />
+                          <Check className="h-4 w-4 text-[#18A6C9]" />
                         )}
                       </button>
                     );
@@ -6294,7 +6294,7 @@ export default function ProductCreationWizard({
 
             <div className="hidden lg:flex min-w-0 flex-col rounded-2xl bg-[#26356F] p-4 text-white">
               <div className="flex items-start gap-3">
-                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#E85D4A]">
+                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#18A6C9]">
                   <Package2 className="h-5 w-5" />
                 </div>
                 <div className="min-w-0">
@@ -6444,7 +6444,7 @@ export default function ProductCreationWizard({
           onClick={() =>
             void continueWizard()
           }
-          className="flex h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-[#E85D4A] px-5 text-sm font-bold text-white shadow-[0_8px_18px_rgba(232,93,74,0.22)] transition active:scale-[0.99] disabled:cursor-not-allowed disabled:bg-[#C9CCD4] disabled:shadow-none"
+          className="flex h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-[#18A6C9] px-5 text-sm font-bold text-white shadow-[0_8px_18px_rgba(24,166,201,0.22)] transition active:scale-[0.99] disabled:cursor-not-allowed disabled:bg-[#C9CCD4] disabled:shadow-none"
         >
           {submitting ? (
             <>
