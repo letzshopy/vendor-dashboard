@@ -285,7 +285,7 @@ function MediaThumb({
 
 function MediaGridSkeleton() {
   return (
-    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-6">
+    <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 md:grid-cols-4 md:gap-3 xl:grid-cols-6">
       {Array.from({
         length: 12,
       }).map(
@@ -1019,7 +1019,7 @@ export default function MediaClient({
                       item.id
                     }
                     className={
-                      `group overflow-hidden rounded-2xl border bg-card transition ${active ? "border-primary ring-2 ring-primary/10" : "border-border hover:border-primary/30"}`
+                      `group overflow-hidden rounded-xl border bg-card shadow-[0_5px_16px_rgba(38,51,95,0.04)] transition md:rounded-2xl ${active ? "border-[#F15E4A] ring-2 ring-[#F15E4A]/10" : "border-border hover:border-[#4059A7]/35"}`
                     }
                   >
                     <div className="relative aspect-square overflow-hidden bg-muted">
@@ -1057,7 +1057,7 @@ export default function MediaClient({
                           active
                         }
                         className={
-                          `ls-focus-ring absolute left-2 top-2 grid h-8 w-8 place-items-center rounded-full border shadow-sm backdrop-blur ${active ? "border-primary bg-primary text-primary-foreground" : "border-white/80 bg-white/90 text-slate-500"}`
+                          `ls-focus-ring absolute left-2 top-2 grid h-8 w-8 place-items-center rounded-full border shadow-sm backdrop-blur ${active ? "border-[#F15E4A] bg-[#F15E4A] text-white" : "border-white/80 bg-white/90 text-slate-500"}`
                         }
                       >
                         {active ? (
@@ -1074,7 +1074,7 @@ export default function MediaClient({
                       </span>
                     </div>
 
-                    <div className="min-w-0 p-3">
+                    <div className="min-w-0 p-2.5 md:p-3">
                       <div
                         className="truncate text-sm font-bold text-heading"
                         title={
@@ -1087,7 +1087,7 @@ export default function MediaClient({
                           "(untitled)"}
                       </div>
 
-                      <div className="mt-0.5 truncate text-xs text-muted-foreground">
+                      <div className="mt-0.5 hidden truncate text-xs text-muted-foreground md:block">
                         {
                           item.filename
                         }
@@ -1110,7 +1110,7 @@ export default function MediaClient({
                               item.url
                             )
                           }
-                          className="ls-focus-ring inline-flex min-h-8 shrink-0 items-center gap-1 rounded-lg px-2 text-[11px] font-bold text-primary hover:bg-secondary"
+                          className="ls-focus-ring inline-flex min-h-8 shrink-0 items-center gap-1 rounded-lg px-2 text-[11px] font-extrabold text-[#4059A7] hover:bg-[#EEF1FA]"
                         >
                           <Clipboard className="h-3.5 w-3.5" />
                           {copiedId ===
