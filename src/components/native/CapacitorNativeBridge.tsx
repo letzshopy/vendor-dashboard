@@ -5,10 +5,10 @@ import {
 } from "react";
 import {
   App,
-  type PluginListenerHandle,
 } from "@capacitor/app";
 import {
   Capacitor,
+  type PluginListenerHandle,
 } from "@capacitor/core";
 
 import {
