@@ -8,7 +8,6 @@ import {
   useState,
 } from "react";
 import {
-  Check,
   FileDown,
   PackageCheck,
   Printer,
@@ -16,7 +15,6 @@ import {
   Search,
   Settings2,
   ShoppingBag,
-  Truck,
 } from "lucide-react";
 import {
   useSearchParams,
