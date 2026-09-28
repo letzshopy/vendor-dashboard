@@ -6,7 +6,6 @@ import {
   useState,
 } from "react";
 import {
-  AlertTriangle,
   ArchiveRestore,
   Box,
   Check,
@@ -1324,19 +1323,19 @@ export default function TrashHubClient() {
       {activeTab ===
         "media" &&
       !mediaAvailable ? (
-        <section className="mt-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 md:mt-4">
+        <section className="mt-3 rounded-2xl border border-[#DDE3EE] bg-[#F8FAFD] p-4 md:mt-4">
           <div className="flex items-start gap-3">
-            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-amber-100 text-amber-700">
-              <AlertTriangle className="h-5 w-5" />
+            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#EAF8FC] text-[#1283A1]">
+              <ImageIcon className="h-5 w-5" />
             </span>
 
             <div className="min-w-0">
-              <h2 className="text-sm font-extrabold text-amber-900">
-                Media Trash backend is not active on this store yet
+              <h2 className="text-sm font-extrabold text-[#182451]">
+                Media Trash is being enabled for this store
               </h2>
 
-              <p className="mt-1 text-xs leading-5 text-amber-800/80">
-                The dashboard UI is ready, but the WordPress media-trash runtime must be installed before media can be moved, restored or permanently deleted.
+              <p className="mt-1 text-xs leading-5 text-slate-500">
+                Product and order trash continue to work normally. Media restore and permanent delete will appear here once Media Trash is active.
               </p>
             </div>
           </div>
