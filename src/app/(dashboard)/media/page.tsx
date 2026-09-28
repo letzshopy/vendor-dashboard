@@ -12,7 +12,7 @@ export const dynamic =
 
 export default function MediaPage() {
   return (
-    <main className="ls-page mx-auto max-w-[1440px] pb-28 md:pb-8">
+    <main className="mx-auto w-full min-w-0 max-w-[1540px] pb-28 md:pb-8">
       <div className="hidden md:block">
         <PageHeader
           eyebrow="Catalog"

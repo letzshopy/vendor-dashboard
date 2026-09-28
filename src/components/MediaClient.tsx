@@ -1,9 +1,6 @@
 "use client";
 
 import {
-  Dialog,
-} from "@base-ui/react/dialog";
-import {
   Check,
   Clipboard,
   File,
@@ -13,7 +10,6 @@ import {
   RefreshCw,
   Search,
   Trash2,
-  X,
 } from "lucide-react";
 import {
   useEffect,
@@ -22,6 +18,9 @@ import {
 } from "react";
 
 import ImageUploader from "@/components/ImageUploader";
+import {
+  BottomSheet,
+} from "@/components/ui/bottom-sheet";
 import {
   Button,
 } from "@/components/ui/button";
@@ -286,7 +285,7 @@ function MediaThumb({
 
 function MediaGridSkeleton() {
   return (
-    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-6">
+    <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 md:grid-cols-4 md:gap-3 xl:grid-cols-6">
       {Array.from({
         length: 12,
       }).map(
@@ -558,6 +557,38 @@ export default function MediaClient({
   const selectedCount =
     selectedArray.length;
 
+  const imageCount =
+    useMemo(
+      () =>
+        items.filter(
+          (item) =>
+            item.mime.startsWith(
+              "image/"
+            )
+        ).length,
+      [items]
+    );
+
+  const videoCount =
+    useMemo(
+      () =>
+        items.filter(
+          (item) =>
+            item.mime.startsWith(
+              "video/"
+            )
+        ).length,
+      [items]
+    );
+
+  const documentCount =
+    Math.max(
+      0,
+      totalItems -
+        imageCount -
+        videoCount
+    );
+
   function reload() {
     setReloadKey(
       (value) =>
@@ -742,140 +773,193 @@ export default function MediaClient({
 
   return (
     <>
-      <div className="flex items-center justify-between gap-3 py-0.5">
-        <div className="min-w-0">
-          <span className="text-[21px] font-extrabold tracking-tight text-heading md:text-base">
-            {totalItems}
-          </span>
+      <section className="overflow-hidden rounded-2xl border border-[#E1E6F0] bg-white shadow-[0_8px_24px_rgba(38,51,95,0.05)]">
+        <div className="flex items-center justify-between gap-3 bg-[#26366E] px-3 py-3 text-white md:px-4">
+          <div className="min-w-0">
+            <div className="text-[10px] font-extrabold uppercase tracking-[0.08em] text-indigo-100/70">
+              Media library
+            </div>
 
-          <span className="ml-1.5 text-sm font-semibold text-muted-foreground">
-            file
-            {totalItems === 1
-              ? ""
-              : "s"}
-          </span>
-        </div>
-
-        <ImageUploader
-          purpose="media_library"
-          multiple
-          label="Upload media"
-          onUploaded={async () => {
-            reload();
-          }}
-        />
-      </div>
-
-      <div className="mt-3 flex min-w-0 flex-col gap-3 md:mt-4">
-        <div className="flex min-w-0 items-center gap-2">
-          <div className="relative min-w-0 flex-1">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-
-            <Input
-              value={query}
-              onChange={(
-                event
-              ) =>
-                setQuery(
-                  event.target.value
-                )
-              }
-              placeholder="Search media"
-              aria-label="Search media"
-              className="pl-10"
-            />
+            <div className="mt-0.5 flex items-baseline gap-1.5">
+              <span className="text-xl font-extrabold">
+                {totalItems}
+              </span>
+              <span className="text-xs font-semibold text-indigo-100/75">
+                file{totalItems === 1 ? "" : "s"}
+              </span>
+            </div>
           </div>
 
-          <Button
-            type="button"
-            variant="outline"
-            size="icon"
-            onClick={reload}
-            aria-label="Refresh media"
-            title="Refresh media"
-          >
-            <RefreshCw
-              className={
-                `h-4 w-4 ${loading ? "animate-spin" : ""}`
-              }
+          <div className="shrink-0">
+            <ImageUploader
+              purpose="media_library"
+              multiple
+              label="Upload"
+              onUploaded={async () => {
+                reload();
+              }}
             />
-          </Button>
-
-          <div className="hidden items-center rounded-xl border border-border bg-card p-1 md:flex">
-            <button
-              type="button"
-              onClick={() =>
-                setView(
-                  "grid"
-                )
-              }
-              aria-label="Grid view"
-              aria-pressed={
-                view === "grid"
-              }
-              className={
-                `ls-focus-ring grid h-9 w-9 place-items-center rounded-lg transition ${view === "grid" ? "bg-secondary text-secondary-foreground" : "text-muted-foreground hover:bg-muted"}`
-              }
-            >
-              <Grid2X2 className="h-4 w-4" />
-            </button>
-
-            <button
-              type="button"
-              onClick={() =>
-                setView(
-                  "list"
-                )
-              }
-              aria-label="List view"
-              aria-pressed={
-                view === "list"
-              }
-              className={
-                `ls-focus-ring grid h-9 w-9 place-items-center rounded-lg transition ${view === "list" ? "bg-secondary text-secondary-foreground" : "text-muted-foreground hover:bg-muted"}`
-              }
-            >
-              <List className="h-4 w-4" />
-            </button>
           </div>
         </div>
 
-        <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
-          {FILTERS.map(
-            (
-              filter
-            ) => (
-              <button
-                key={
-                  filter.value
-                }
-                type="button"
-                onClick={() =>
-                  setType(
-                    filter.value
+        <div className="grid grid-cols-3 divide-x divide-[#E8ECF3] border-b border-[#E8ECF3] bg-[#F8FAFD]">
+          <div className="px-3 py-2.5 text-center">
+            <div className="text-base font-extrabold text-[#182451]">
+              {imageCount}
+            </div>
+            <div className="mt-0.5 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
+              Images
+            </div>
+          </div>
+
+          <div className="px-3 py-2.5 text-center">
+            <div className="text-base font-extrabold text-[#4059A7]">
+              {videoCount}
+            </div>
+            <div className="mt-0.5 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
+              Videos
+            </div>
+          </div>
+
+          <div className="px-3 py-2.5 text-center">
+            <div className="text-base font-extrabold text-[#D88A16]">
+              {documentCount}
+            </div>
+            <div className="mt-0.5 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
+              Other
+            </div>
+          </div>
+        </div>
+
+        <div className="space-y-3 p-3 md:p-4">
+          <div className="flex min-w-0 items-center gap-2">
+            <div className="relative min-w-0 flex-1">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+
+              <Input
+                value={query}
+                onChange={(event) =>
+                  setQuery(
+                    event.target.value
                   )
                 }
-                className={
-                  `ls-focus-ring min-h-9 shrink-0 rounded-full px-3 text-xs font-bold transition ${type === filter.value ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground hover:brightness-95"}`
+                placeholder="Search file name"
+                aria-label="Search media"
+                className="pl-10"
+              />
+
+              {loading ? (
+                <RefreshCw className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-[#4059A7]" />
+              ) : null}
+            </div>
+
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              onClick={reload}
+              aria-label="Refresh media"
+              title="Refresh media"
+            >
+              <RefreshCw className="h-4 w-4" />
+            </Button>
+
+            <div className="hidden items-center rounded-xl border border-border bg-card p-1 md:flex">
+              <button
+                type="button"
+                onClick={() =>
+                  setView("grid")
+                }
+                aria-label="Grid view"
+                aria-pressed={view === "grid"}
+                className={`ls-focus-ring grid h-9 w-9 place-items-center rounded-lg transition ${
+                  view === "grid"
+                    ? "bg-[#26366E] text-white"
+                    : "text-muted-foreground hover:bg-muted"
+                }`}
+              >
+                <Grid2X2 className="h-4 w-4" />
+              </button>
+
+              <button
+                type="button"
+                onClick={() =>
+                  setView("list")
+                }
+                aria-label="List view"
+                aria-pressed={view === "list"}
+                className={`ls-focus-ring grid h-9 w-9 place-items-center rounded-lg transition ${
+                  view === "list"
+                    ? "bg-[#26366E] text-white"
+                    : "text-muted-foreground hover:bg-muted"
+                }`}
+              >
+                <List className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+
+          <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
+            {FILTERS.map((filter) => (
+              <button
+                key={filter.value}
+                type="button"
+                onClick={() =>
+                  setType(filter.value)
+                }
+                className={`ls-focus-ring min-h-9 shrink-0 rounded-xl px-3 text-xs font-extrabold transition ${
+                  type === filter.value
+                    ? "bg-[#F15E4A] text-white"
+                    : "bg-[#EEF1FA] text-[#34405F] hover:bg-[#E4E8F2]"
+                }`}
+              >
+                {filter.label}
+              </button>
+            ))}
+          </div>
+
+          {selectedCount > 0 ? (
+            <div className="hidden min-h-12 items-center justify-between gap-3 rounded-xl bg-[#EEF1FA] px-3 py-2 md:flex">
+              <button
+                type="button"
+                onClick={togglePage}
+                className="ls-focus-ring inline-flex min-h-10 items-center gap-2 rounded-xl px-2 text-sm font-extrabold text-[#26366E]"
+              >
+                <Check className="h-4 w-4" />
+                {selectedCount} selected
+              </button>
+
+              <Button
+                type="button"
+                variant="danger"
+                size="sm"
+                onClick={() =>
+                  setDeleteOpen(true)
                 }
               >
-                {
-                  filter.label
-                }
-              </button>
-            )
-          )}
-        </div>
-
-        {selectedCount >
-        0 ? (
-          <div className="flex min-h-12 items-center justify-between gap-3 rounded-2xl bg-secondary px-3 py-2">
+                <Trash2 className="h-4 w-4" />
+                Delete
+              </Button>
+            </div>
+          ) : totalItems > 0 ? (
             <button
               type="button"
-              onClick={
-                togglePage
-              }
-              className="ls-focus-ring inline-flex min-h-10 items-center gap-2 rounded-xl px-2 text-sm font-bold text-secondary-foreground"
+              onClick={togglePage}
+              className="ls-focus-ring self-start rounded-lg px-1 py-1 text-xs font-semibold text-muted-foreground hover:text-foreground"
+            >
+              Select page
+            </button>
+          ) : null}
+        </div>
+      </section>
+
+      {selectedCount > 0 ? (
+        <div className="fixed inset-x-0 bottom-[calc(4.5rem+var(--ls-safe-area-bottom))] z-50 border-t border-[#D8DEEA] bg-white/95 px-3 py-2.5 shadow-[0_-10px_30px_rgba(17,27,63,0.12)] backdrop-blur md:hidden">
+          <div className="mx-auto flex max-w-7xl items-center justify-between gap-3">
+            <button
+              type="button"
+              onClick={togglePage}
+              className="ls-focus-ring inline-flex min-h-10 items-center gap-2 rounded-xl px-2 text-sm font-extrabold text-[#26366E]"
             >
               <Check className="h-4 w-4" />
               {selectedCount} selected
@@ -886,28 +970,15 @@ export default function MediaClient({
               variant="danger"
               size="sm"
               onClick={() =>
-                setDeleteOpen(
-                  true
-                )
+                setDeleteOpen(true)
               }
             >
               <Trash2 className="h-4 w-4" />
               Delete
             </Button>
           </div>
-        ) : totalItems >
-          0 ? (
-          <button
-            type="button"
-            onClick={
-              togglePage
-            }
-            className="ls-focus-ring self-start rounded-xl px-1 py-1 text-xs font-semibold text-muted-foreground hover:text-foreground"
-          >
-            Select page
-          </button>
-        ) : null}
-      </div>
+        </div>
+      ) : null}
 
       {error ? (
         <div className="mt-4 rounded-xl bg-rose-50 px-3 py-2.5 text-sm font-semibold text-destructive">
@@ -948,7 +1019,7 @@ export default function MediaClient({
                       item.id
                     }
                     className={
-                      `group overflow-hidden rounded-2xl border bg-card transition ${active ? "border-primary ring-2 ring-primary/10" : "border-border hover:border-primary/30"}`
+                      `group overflow-hidden rounded-xl border bg-card shadow-[0_5px_16px_rgba(38,51,95,0.04)] transition md:rounded-2xl ${active ? "border-[#F15E4A] ring-2 ring-[#F15E4A]/10" : "border-border hover:border-[#4059A7]/35"}`
                     }
                   >
                     <div className="relative aspect-square overflow-hidden bg-muted">
@@ -986,7 +1057,7 @@ export default function MediaClient({
                           active
                         }
                         className={
-                          `ls-focus-ring absolute left-2 top-2 grid h-8 w-8 place-items-center rounded-full border shadow-sm backdrop-blur ${active ? "border-primary bg-primary text-primary-foreground" : "border-white/80 bg-white/90 text-slate-500"}`
+                          `ls-focus-ring absolute left-2 top-2 grid h-8 w-8 place-items-center rounded-full border shadow-sm backdrop-blur ${active ? "border-[#F15E4A] bg-[#F15E4A] text-white" : "border-white/80 bg-white/90 text-slate-500"}`
                         }
                       >
                         {active ? (
@@ -1003,7 +1074,7 @@ export default function MediaClient({
                       </span>
                     </div>
 
-                    <div className="min-w-0 p-3">
+                    <div className="min-w-0 p-2.5 md:p-3">
                       <div
                         className="truncate text-sm font-bold text-heading"
                         title={
@@ -1016,7 +1087,7 @@ export default function MediaClient({
                           "(untitled)"}
                       </div>
 
-                      <div className="mt-0.5 truncate text-xs text-muted-foreground">
+                      <div className="mt-0.5 hidden truncate text-xs text-muted-foreground md:block">
                         {
                           item.filename
                         }
@@ -1039,7 +1110,7 @@ export default function MediaClient({
                               item.url
                             )
                           }
-                          className="ls-focus-ring inline-flex min-h-8 shrink-0 items-center gap-1 rounded-lg px-2 text-[11px] font-bold text-primary hover:bg-secondary"
+                          className="ls-focus-ring inline-flex min-h-8 shrink-0 items-center gap-1 rounded-lg px-2 text-[11px] font-extrabold text-[#4059A7] hover:bg-[#EEF1FA]"
                         >
                           <Clipboard className="h-3.5 w-3.5" />
                           {copiedId ===
@@ -1354,131 +1425,104 @@ export default function MediaClient({
         }
       />
 
-      <Dialog.Root
-        open={
-          preview !== null
-        }
-        onOpenChange={(
-          open
-        ) => {
+      <BottomSheet
+        open={preview !== null}
+        onOpenChange={(open) => {
           if (!open) {
             setPreview(null);
           }
         }}
+        title={
+          preview?.title ||
+          preview?.filename ||
+          (preview
+            ? `Media #${preview.id}`
+            : "Media preview")
+        }
+        description={
+          preview?.filename
+        }
+        popupClassName="md:mx-auto md:max-w-3xl"
       >
-        <Dialog.Portal>
-          <Dialog.Backdrop className="ls-overlay" />
+        {preview ? (
+          <div className="space-y-4">
+            <div className="overflow-hidden rounded-2xl bg-[#F4F6FB] p-3">
+              {preview.mime.startsWith(
+                "image/"
+              ) ? (
+                // Remote WordPress media URL.
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={preview.url}
+                  alt={
+                    preview.title ||
+                    preview.filename
+                  }
+                  className="mx-auto max-h-[52dvh] w-auto max-w-full rounded-xl object-contain"
+                />
+              ) : (
+                <div className="grid min-h-56 place-items-center rounded-xl bg-muted text-sm text-muted-foreground">
+                  Preview unavailable for this file type.
+                </div>
+              )}
+            </div>
 
-          <Dialog.Viewport className="ls-dialog-viewport">
-            <Dialog.Popup className="ls-dialog-popup !w-[min(96vw,60rem)]">
-              {preview ? (
-                <div className="max-h-[88dvh] overflow-y-auto">
-                  <div className="sticky top-0 z-10 flex items-start gap-3 border-b border-border bg-card/95 px-4 py-3 backdrop-blur md:px-5">
-                    <div className="min-w-0 flex-1">
-                      <Dialog.Title className="truncate text-base font-bold text-heading">
-                        {preview.title ||
-                          preview.filename ||
-                          `Media #${preview.id}`}
-                      </Dialog.Title>
+            <div className="grid grid-cols-2 gap-2">
+              <div className="rounded-xl bg-[#EEF1FA] p-3">
+                <div className="text-[10px] font-extrabold uppercase tracking-wide text-muted-foreground">
+                  Type
+                </div>
+                <div className="mt-1 truncate text-sm font-extrabold text-[#182451]">
+                  {humanMime(
+                    preview.mime
+                  )}
+                </div>
+              </div>
 
-                      <Dialog.Description className="mt-0.5 truncate text-xs text-muted-foreground">
-                        {
-                          preview.filename
-                        }
-                      </Dialog.Description>
-                    </div>
+              <div className="rounded-xl bg-[#FFF3F0] p-3">
+                <div className="text-[10px] font-extrabold uppercase tracking-wide text-muted-foreground">
+                  Size
+                </div>
+                <div className="mt-1 truncate text-sm font-extrabold text-[#182451]">
+                  {preview.size_kb
+                    ? `${preview.size_kb} KB`
+                    : "—"}
+                </div>
+              </div>
 
-                    <Dialog.Close
-                      aria-label="Close preview"
-                      className="ls-focus-ring grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-muted text-muted-foreground hover:text-foreground"
-                    >
-                      <X className="h-5 w-5" />
-                    </Dialog.Close>
+              {preview.width &&
+              preview.height ? (
+                <div className="col-span-2 rounded-xl bg-[#F1FBF7] p-3">
+                  <div className="text-[10px] font-extrabold uppercase tracking-wide text-muted-foreground">
+                    Dimensions
                   </div>
-
-                  <div className="bg-slate-950/5 p-3 md:p-5">
-                    {preview.mime.startsWith(
-                      "image/"
-                    ) ? (
-                      // Remote WordPress media URL.
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={
-                          preview.url
-                        }
-                        alt={
-                          preview.title ||
-                          preview.filename
-                        }
-                        className="mx-auto max-h-[62dvh] w-auto max-w-full rounded-xl object-contain"
-                      />
-                    ) : (
-                      <div className="grid min-h-64 place-items-center rounded-xl bg-muted text-sm text-muted-foreground">
-                        Preview unavailable for this file type.
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="grid gap-3 px-4 py-4 text-xs text-muted-foreground md:grid-cols-2 md:px-5">
-                    <div>
-                      <span className="font-bold text-foreground">
-                        Type:
-                      </span>{" "}
-                      {preview.mime}
-                    </div>
-
-                    <div className="md:text-right">
-                      <span className="font-bold text-foreground">
-                        Size:
-                      </span>{" "}
-                      {preview.size_kb
-                        ? `${preview.size_kb} KB`
-                        : "—"}
-                    </div>
-
-                    {preview.width &&
-                    preview.height ? (
-                      <div>
-                        <span className="font-bold text-foreground">
-                          Dimensions:
-                        </span>{" "}
-                        {
-                          preview.width
-                        }{" "}
-                        ×{" "}
-                        {
-                          preview.height
-                        }{" "}
-                        px
-                      </div>
-                    ) : null}
-
-                    <div className="flex justify-start md:justify-end">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() =>
-                          void copyUrl(
-                            preview.id,
-                            preview.url
-                          )
-                        }
-                      >
-                        <Clipboard className="h-3.5 w-3.5" />
-                        {copiedId ===
-                        preview.id
-                          ? "Copied"
-                          : "Copy URL"}
-                      </Button>
-                    </div>
+                  <div className="mt-1 text-sm font-extrabold text-[#182451]">
+                    {preview.width} × {preview.height} px
                   </div>
                 </div>
               ) : null}
-            </Dialog.Popup>
-          </Dialog.Viewport>
-        </Dialog.Portal>
-      </Dialog.Root>
+            </div>
+
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full"
+              onClick={() =>
+                void copyUrl(
+                  preview.id,
+                  preview.url
+                )
+              }
+            >
+              <Clipboard className="h-4 w-4" />
+              {copiedId ===
+              preview.id
+                ? "Copied"
+                : "Copy media URL"}
+            </Button>
+          </div>
+        ) : null}
+      </BottomSheet>
     </>
   );
 }
