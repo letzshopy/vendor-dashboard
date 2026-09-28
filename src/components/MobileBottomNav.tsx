@@ -57,7 +57,7 @@ const moreItems: NavItem[] = [
     label: "Categories",
     icon: FolderTree,
     tileClass:
-      "bg-[#F15E4A]",
+      "bg-[#18A6C9]",
   },
   {
     href: "/customers",
@@ -113,7 +113,7 @@ const moreItems: NavItem[] = [
     label: "Settings",
     icon: Settings2,
     tileClass:
-      "bg-[#F15E4A]",
+      "bg-[#18A6C9]",
   },
   {
     href: "/support/tickets",
@@ -127,7 +127,7 @@ const moreItems: NavItem[] = [
     label: "Trash Bin",
     icon: Trash2,
     tileClass:
-      "bg-[#D84F3E]",
+      "bg-[#1283A1]",
   },
 ];
 
@@ -369,7 +369,7 @@ export default function MobileBottomNav({
         >
           <span
             className={[
-              "flex h-11 w-11 -translate-y-1 items-center justify-center rounded-2xl bg-[#F15E4A] text-white ring-4 ring-[#182451] transition",
+              "flex h-11 w-11 -translate-y-1 items-center justify-center rounded-2xl bg-[#18A6C9] text-white ring-4 ring-[#182451] transition",
               addActive
                 ? "shadow-[0_8px_20px_rgba(241,94,74,0.38)]"
                 : "shadow-[0_6px_16px_rgba(241,94,74,0.28)]",
