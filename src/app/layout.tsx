@@ -5,6 +5,7 @@ import { Suspense } from "react";
 
 import PwaRegister from "@/components/pwa/PwaRegister";
 import MobileViewportBridge from "@/components/navigation/MobileViewportBridge";
+import CapacitorNativeBridge from "@/components/native/CapacitorNativeBridge";
 
 export const metadata: Metadata = {
   title: "LetzShopy Vendor Dashboard",
@@ -61,6 +62,7 @@ export default function RootLayout({
       >
         <PwaRegister />
         <MobileViewportBridge />
+        <CapacitorNativeBridge />
 
         <Suspense
           fallback={
