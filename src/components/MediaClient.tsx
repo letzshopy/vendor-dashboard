@@ -1,9 +1,6 @@
 "use client";
 
 import {
-  Dialog,
-} from "@base-ui/react/dialog";
-import {
   Check,
   Clipboard,
   File,
@@ -13,7 +10,6 @@ import {
   RefreshCw,
   Search,
   Trash2,
-  X,
 } from "lucide-react";
 import {
   useEffect,
@@ -22,6 +18,9 @@ import {
 } from "react";
 
 import ImageUploader from "@/components/ImageUploader";
+import {
+  BottomSheet,
+} from "@/components/ui/bottom-sheet";
 import {
   Button,
 } from "@/components/ui/button";
@@ -558,6 +557,38 @@ export default function MediaClient({
   const selectedCount =
     selectedArray.length;
 
+  const imageCount =
+    useMemo(
+      () =>
+        items.filter(
+          (item) =>
+            item.mime.startsWith(
+              "image/"
+            )
+        ).length,
+      [items]
+    );
+
+  const videoCount =
+    useMemo(
+      () =>
+        items.filter(
+          (item) =>
+            item.mime.startsWith(
+              "video/"
+            )
+        ).length,
+      [items]
+    );
+
+  const documentCount =
+    Math.max(
+      0,
+      totalItems -
+        imageCount -
+        videoCount
+    );
+
   function reload() {
     setReloadKey(
       (value) =>
@@ -742,140 +773,193 @@ export default function MediaClient({
 
   return (
     <>
-      <div className="flex items-center justify-between gap-3 py-0.5">
-        <div className="min-w-0">
-          <span className="text-[21px] font-extrabold tracking-tight text-heading md:text-base">
-            {totalItems}
-          </span>
+      <section className="overflow-hidden rounded-2xl border border-[#E1E6F0] bg-white shadow-[0_8px_24px_rgba(38,51,95,0.05)]">
+        <div className="flex items-center justify-between gap-3 bg-[#26366E] px-3 py-3 text-white md:px-4">
+          <div className="min-w-0">
+            <div className="text-[10px] font-extrabold uppercase tracking-[0.08em] text-indigo-100/70">
+              Media library
+            </div>
 
-          <span className="ml-1.5 text-sm font-semibold text-muted-foreground">
-            file
-            {totalItems === 1
-              ? ""
-              : "s"}
-          </span>
-        </div>
-
-        <ImageUploader
-          purpose="media_library"
-          multiple
-          label="Upload media"
-          onUploaded={async () => {
-            reload();
-          }}
-        />
-      </div>
-
-      <div className="mt-3 flex min-w-0 flex-col gap-3 md:mt-4">
-        <div className="flex min-w-0 items-center gap-2">
-          <div className="relative min-w-0 flex-1">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-
-            <Input
-              value={query}
-              onChange={(
-                event
-              ) =>
-                setQuery(
-                  event.target.value
-                )
-              }
-              placeholder="Search media"
-              aria-label="Search media"
-              className="pl-10"
-            />
+            <div className="mt-0.5 flex items-baseline gap-1.5">
+              <span className="text-xl font-extrabold">
+                {totalItems}
+              </span>
+              <span className="text-xs font-semibold text-indigo-100/75">
+                file{totalItems === 1 ? "" : "s"}
+              </span>
+            </div>
           </div>
 
-          <Button
-            type="button"
-            variant="outline"
-            size="icon"
-            onClick={reload}
-            aria-label="Refresh media"
-            title="Refresh media"
-          >
-            <RefreshCw
-              className={
-                `h-4 w-4 ${loading ? "animate-spin" : ""}`
-              }
+          <div className="shrink-0">
+            <ImageUploader
+              purpose="media_library"
+              multiple
+              label="Upload"
+              onUploaded={async () => {
+                reload();
+              }}
             />
-          </Button>
-
-          <div className="hidden items-center rounded-xl border border-border bg-card p-1 md:flex">
-            <button
-              type="button"
-              onClick={() =>
-                setView(
-                  "grid"
-                )
-              }
-              aria-label="Grid view"
-              aria-pressed={
-                view === "grid"
-              }
-              className={
-                `ls-focus-ring grid h-9 w-9 place-items-center rounded-lg transition ${view === "grid" ? "bg-secondary text-secondary-foreground" : "text-muted-foreground hover:bg-muted"}`
-              }
-            >
-              <Grid2X2 className="h-4 w-4" />
-            </button>
-
-            <button
-              type="button"
-              onClick={() =>
-                setView(
-                  "list"
-                )
-              }
-              aria-label="List view"
-              aria-pressed={
-                view === "list"
-              }
-              className={
-                `ls-focus-ring grid h-9 w-9 place-items-center rounded-lg transition ${view === "list" ? "bg-secondary text-secondary-foreground" : "text-muted-foreground hover:bg-muted"}`
-              }
-            >
-              <List className="h-4 w-4" />
-            </button>
           </div>
         </div>
 
-        <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
-          {FILTERS.map(
-            (
-              filter
-            ) => (
-              <button
-                key={
-                  filter.value
-                }
-                type="button"
-                onClick={() =>
-                  setType(
-                    filter.value
+        <div className="grid grid-cols-3 divide-x divide-[#E8ECF3] border-b border-[#E8ECF3] bg-[#F8FAFD]">
+          <div className="px-3 py-2.5 text-center">
+            <div className="text-base font-extrabold text-[#182451]">
+              {imageCount}
+            </div>
+            <div className="mt-0.5 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
+              Images
+            </div>
+          </div>
+
+          <div className="px-3 py-2.5 text-center">
+            <div className="text-base font-extrabold text-[#4059A7]">
+              {videoCount}
+            </div>
+            <div className="mt-0.5 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
+              Videos
+            </div>
+          </div>
+
+          <div className="px-3 py-2.5 text-center">
+            <div className="text-base font-extrabold text-[#D88A16]">
+              {documentCount}
+            </div>
+            <div className="mt-0.5 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
+              Other
+            </div>
+          </div>
+        </div>
+
+        <div className="space-y-3 p-3 md:p-4">
+          <div className="flex min-w-0 items-center gap-2">
+            <div className="relative min-w-0 flex-1">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+
+              <Input
+                value={query}
+                onChange={(event) =>
+                  setQuery(
+                    event.target.value
                   )
                 }
-                className={
-                  `ls-focus-ring min-h-9 shrink-0 rounded-full px-3 text-xs font-bold transition ${type === filter.value ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground hover:brightness-95"}`
+                placeholder="Search file name"
+                aria-label="Search media"
+                className="pl-10"
+              />
+
+              {loading ? (
+                <RefreshCw className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-[#4059A7]" />
+              ) : null}
+            </div>
+
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              onClick={reload}
+              aria-label="Refresh media"
+              title="Refresh media"
+            >
+              <RefreshCw className="h-4 w-4" />
+            </Button>
+
+            <div className="hidden items-center rounded-xl border border-border bg-card p-1 md:flex">
+              <button
+                type="button"
+                onClick={() =>
+                  setView("grid")
+                }
+                aria-label="Grid view"
+                aria-pressed={view === "grid"}
+                className={`ls-focus-ring grid h-9 w-9 place-items-center rounded-lg transition ${
+                  view === "grid"
+                    ? "bg-[#26366E] text-white"
+                    : "text-muted-foreground hover:bg-muted"
+                }`}
+              >
+                <Grid2X2 className="h-4 w-4" />
+              </button>
+
+              <button
+                type="button"
+                onClick={() =>
+                  setView("list")
+                }
+                aria-label="List view"
+                aria-pressed={view === "list"}
+                className={`ls-focus-ring grid h-9 w-9 place-items-center rounded-lg transition ${
+                  view === "list"
+                    ? "bg-[#26366E] text-white"
+                    : "text-muted-foreground hover:bg-muted"
+                }`}
+              >
+                <List className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+
+          <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
+            {FILTERS.map((filter) => (
+              <button
+                key={filter.value}
+                type="button"
+                onClick={() =>
+                  setType(filter.value)
+                }
+                className={`ls-focus-ring min-h-9 shrink-0 rounded-xl px-3 text-xs font-extrabold transition ${
+                  type === filter.value
+                    ? "bg-[#F15E4A] text-white"
+                    : "bg-[#EEF1FA] text-[#34405F] hover:bg-[#E4E8F2]"
+                }`}
+              >
+                {filter.label}
+              </button>
+            ))}
+          </div>
+
+          {selectedCount > 0 ? (
+            <div className="hidden min-h-12 items-center justify-between gap-3 rounded-xl bg-[#EEF1FA] px-3 py-2 md:flex">
+              <button
+                type="button"
+                onClick={togglePage}
+                className="ls-focus-ring inline-flex min-h-10 items-center gap-2 rounded-xl px-2 text-sm font-extrabold text-[#26366E]"
+              >
+                <Check className="h-4 w-4" />
+                {selectedCount} selected
+              </button>
+
+              <Button
+                type="button"
+                variant="danger"
+                size="sm"
+                onClick={() =>
+                  setDeleteOpen(true)
                 }
               >
-                {
-                  filter.label
-                }
-              </button>
-            )
-          )}
-        </div>
-
-        {selectedCount >
-        0 ? (
-          <div className="flex min-h-12 items-center justify-between gap-3 rounded-2xl bg-secondary px-3 py-2">
+                <Trash2 className="h-4 w-4" />
+                Delete
+              </Button>
+            </div>
+          ) : totalItems > 0 ? (
             <button
               type="button"
-              onClick={
-                togglePage
-              }
-              className="ls-focus-ring inline-flex min-h-10 items-center gap-2 rounded-xl px-2 text-sm font-bold text-secondary-foreground"
+              onClick={togglePage}
+              className="ls-focus-ring self-start rounded-lg px-1 py-1 text-xs font-semibold text-muted-foreground hover:text-foreground"
+            >
+              Select page
+            </button>
+          ) : null}
+        </div>
+      </section>
+
+      {selectedCount > 0 ? (
+        <div className="fixed inset-x-0 bottom-[calc(4.5rem+var(--ls-safe-area-bottom))] z-50 border-t border-[#D8DEEA] bg-white/95 px-3 py-2.5 shadow-[0_-10px_30px_rgba(17,27,63,0.12)] backdrop-blur md:hidden">
+          <div className="mx-auto flex max-w-7xl items-center justify-between gap-3">
+            <button
+              type="button"
+              onClick={togglePage}
+              className="ls-focus-ring inline-flex min-h-10 items-center gap-2 rounded-xl px-2 text-sm font-extrabold text-[#26366E]"
             >
               <Check className="h-4 w-4" />
               {selectedCount} selected
@@ -886,28 +970,15 @@ export default function MediaClient({
               variant="danger"
               size="sm"
               onClick={() =>
-                setDeleteOpen(
-                  true
-                )
+                setDeleteOpen(true)
               }
             >
               <Trash2 className="h-4 w-4" />
               Delete
             </Button>
           </div>
-        ) : totalItems >
-          0 ? (
-          <button
-            type="button"
-            onClick={
-              togglePage
-            }
-            className="ls-focus-ring self-start rounded-xl px-1 py-1 text-xs font-semibold text-muted-foreground hover:text-foreground"
-          >
-            Select page
-          </button>
-        ) : null}
-      </div>
+        </div>
+      ) : null}
 
       {error ? (
         <div className="mt-4 rounded-xl bg-rose-50 px-3 py-2.5 text-sm font-semibold text-destructive">
