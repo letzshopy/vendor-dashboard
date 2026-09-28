@@ -22,6 +22,20 @@ if ($NodeMajor -lt 22) {
   throw "Capacitor 8 requires Node.js 22 or newer. Install Node 22 LTS, reopen PowerShell, then run this script again."
 }
 
+Write-Step "Checking Java for Android Gradle"
+$JavaVersionOutput = & java -version 2>&1 | Out-String
+
+if ($LASTEXITCODE -ne 0) {
+  throw "Java was not found. Install JDK 21 and set JAVA_HOME before running this script."
+}
+
+if ($JavaVersionOutput -notmatch 'version "21[\.]') {
+  Write-Host $JavaVersionOutput
+  throw "This Capacitor 8 Android project must run Gradle with JDK 21. Android Studio may bundle a newer JBR that is not compatible with Gradle 8.14.3. Set JAVA_HOME to a JDK 21 installation and run the script again."
+}
+
+Write-Host "JDK 21 detected"
+
 Write-Step "Installing dashboard + Capacitor dependencies"
 npm.cmd install
 
