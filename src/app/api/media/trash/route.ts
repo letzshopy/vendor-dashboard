@@ -134,6 +134,24 @@ export async function GET(
         );
 
     if (
+      response.status ===
+      404
+    ) {
+      return NextResponse.json(
+        {
+          ok: true,
+          available: false,
+          items: [],
+        },
+        {
+          status: 200,
+          headers:
+            PRIVATE_HEADERS,
+        }
+      );
+    }
+
+    if (
       !response.ok ||
       !isRecord(parsed)
     ) {
@@ -159,6 +177,7 @@ export async function GET(
 
     return NextResponse.json(
       {
+        available: true,
         items:
           Array.isArray(
             parsed.items
