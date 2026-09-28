@@ -10,7 +10,6 @@ import {
   ArchiveRestore,
   Box,
   Check,
-  Clock3,
   Image as ImageIcon,
   RefreshCw,
   Search,
@@ -69,10 +68,20 @@ type OrderTrashItem = {
   previousStatus?: string;
 };
 
+type MediaTrashItem = {
+  id: number;
+  url: string;
+  title: string;
+  filename: string;
+  mime: string;
+  size_kb?: number;
+  uploaded?: string;
+  thumbnail?: string;
+  trashed_at?: string;
+};
+
 type PendingDelete = {
-  type:
-    | "products"
-    | "orders";
+  type: TrashTab;
   ids: number[];
 } | null;
 
@@ -106,7 +115,14 @@ function formatDate(
   }
 
   const date =
-    new Date(value);
+    new Date(
+      value.includes(" ")
+        ? value.replace(
+            " ",
+            "T"
+          )
+        : value
+    );
 
   if (
     Number.isNaN(
@@ -213,6 +229,14 @@ export default function TrashHubClient() {
     >([]);
 
   const [
+    media,
+    setMedia,
+  ] =
+    useState<
+      MediaTrashItem[]
+    >([]);
+
+  const [
     productsLoading,
     setProductsLoading,
   ] =
@@ -221,6 +245,12 @@ export default function TrashHubClient() {
   const [
     ordersLoading,
     setOrdersLoading,
+  ] =
+    useState(true);
+
+  const [
+    mediaLoading,
+    setMediaLoading,
   ] =
     useState(true);
 
@@ -235,6 +265,14 @@ export default function TrashHubClient() {
   const [
     ordersError,
     setOrdersError,
+  ] =
+    useState<string | null>(
+      null
+    );
+
+  const [
+    mediaError,
+    setMediaError,
   ] =
     useState<string | null>(
       null
@@ -257,6 +295,14 @@ export default function TrashHubClient() {
   const [
     selectedOrders,
     setSelectedOrders,
+  ] =
+    useState<Set<number>>(
+      new Set()
+    );
+
+  const [
+    selectedMedia,
+    setSelectedMedia,
   ] =
     useState<Set<number>>(
       new Set()
@@ -390,10 +436,61 @@ export default function TrashHubClient() {
     }
   }
 
+  async function loadMedia() {
+    setMediaLoading(true);
+    setMediaError(null);
+
+    try {
+      const response =
+        await fetch(
+          "/api/media/trash",
+          {
+            cache:
+              "no-store",
+          }
+        );
+
+      const payload =
+        await response
+          .json()
+          .catch(
+            () => ({})
+          );
+
+      if (!response.ok) {
+        throw new Error(
+          readError(
+            payload,
+            "Could not load media trash."
+          )
+        );
+      }
+
+      setMedia(
+        Array.isArray(
+          payload.items
+        )
+          ? payload.items
+          : []
+      );
+    } catch (
+      error
+    ) {
+      setMediaError(
+        error instanceof Error
+          ? error.message
+          : "Could not load media trash."
+      );
+    } finally {
+      setMediaLoading(false);
+    }
+  }
+
   useEffect(() => {
     void Promise.all([
       loadProducts(),
       loadOrders(),
+      loadMedia(),
     ]);
   }, []);
 
@@ -471,6 +568,48 @@ export default function TrashHubClient() {
       query,
     ]);
 
+  const filteredMedia =
+    useMemo(() => {
+      const normalized =
+        query
+          .trim()
+          .toLowerCase();
+
+      if (!normalized) {
+        return media;
+      }
+
+      return media.filter(
+        (item) =>
+          String(
+            item.title ||
+              item.filename ||
+              ""
+          )
+            .toLowerCase()
+            .includes(
+              normalized
+            ) ||
+          String(
+            item.filename || ""
+          )
+            .toLowerCase()
+            .includes(
+              normalized
+            ) ||
+          String(
+            item.mime || ""
+          )
+            .toLowerCase()
+            .includes(
+              normalized
+            )
+      );
+    }, [
+      media,
+      query,
+    ]);
+
   const selected =
     activeTab ===
     "products"
@@ -478,7 +617,7 @@ export default function TrashHubClient() {
       : activeTab ===
           "orders"
         ? selectedOrders
-        : new Set<number>();
+        : selectedMedia;
 
   const visibleIds =
     activeTab ===
@@ -493,7 +632,10 @@ export default function TrashHubClient() {
             (item) =>
               item.id
           )
-        : [];
+        : filteredMedia.map(
+            (item) =>
+              item.id
+          );
 
   const allVisibleSelected =
     visibleIds.length >
@@ -527,9 +669,7 @@ export default function TrashHubClient() {
   }
 
   function setSelection(
-    type:
-      | "products"
-      | "orders",
+    type: TrashTab,
     next: Set<number>
   ) {
     if (
@@ -539,24 +679,32 @@ export default function TrashHubClient() {
       setSelectedProducts(
         next
       );
-    } else {
+    } else if (
+      type ===
+      "orders"
+    ) {
       setSelectedOrders(
+        next
+      );
+    } else {
+      setSelectedMedia(
         next
       );
     }
   }
 
   function toggleOne(
-    type:
-      | "products"
-      | "orders",
+    type: TrashTab,
     id: number
   ) {
     const source =
       type ===
       "products"
         ? selectedProducts
-        : selectedOrders;
+        : type ===
+            "orders"
+          ? selectedOrders
+          : selectedMedia;
 
     const next =
       new Set(source);
@@ -574,13 +722,6 @@ export default function TrashHubClient() {
   }
 
   function toggleAllVisible() {
-    if (
-      activeTab ===
-      "media"
-    ) {
-      return;
-    }
-
     const next =
       new Set(selected);
 
@@ -609,9 +750,7 @@ export default function TrashHubClient() {
   }
 
   async function restore(
-    type:
-      | "products"
-      | "orders",
+    type: TrashTab,
     ids: number[]
   ) {
     if (
@@ -634,18 +773,27 @@ export default function TrashHubClient() {
         type ===
         "products"
           ? "Restoring products…"
-          : "Restoring orders…",
+          : type ===
+              "orders"
+            ? "Restoring orders…"
+            : "Restoring media…",
       message:
         `${ids.length} selected`,
     });
 
     try {
+      const endpoint =
+        type ===
+        "products"
+          ? "/api/products/bulk-restore"
+          : type ===
+              "orders"
+            ? "/api/trash/orders"
+            : "/api/media/trash";
+
       const response =
         await fetch(
-          type ===
-            "products"
-            ? "/api/products/bulk-restore"
-            : "/api/trash/orders",
+          endpoint,
           {
             method:
               "POST",
@@ -702,7 +850,10 @@ export default function TrashHubClient() {
         setSelectedProducts(
           new Set()
         );
-      } else {
+      } else if (
+        type ===
+        "orders"
+      ) {
         setOrders(
           (current) =>
             current.filter(
@@ -716,6 +867,20 @@ export default function TrashHubClient() {
         setSelectedOrders(
           new Set()
         );
+      } else {
+        setMedia(
+          (current) =>
+            current.filter(
+              (item) =>
+                !ids.includes(
+                  item.id
+                )
+            )
+        );
+
+        setSelectedMedia(
+          new Set()
+        );
       }
 
       actionFeedback.success({
@@ -724,12 +889,18 @@ export default function TrashHubClient() {
           type ===
           "products"
             ? "Products restored"
-            : "Orders restored",
+            : type ===
+                "orders"
+              ? "Orders restored"
+              : "Media restored",
         message:
           type ===
           "orders"
             ? "Restored orders return to their previous status when available."
-            : undefined,
+            : type ===
+                "media"
+              ? "Media returned to the Media Library."
+              : undefined,
         durationMs: 3000,
       });
     } catch (
@@ -781,12 +952,18 @@ export default function TrashHubClient() {
     });
 
     try {
+      const endpoint =
+        type ===
+        "products"
+          ? "/api/products/bulk-delete"
+          : type ===
+              "orders"
+            ? "/api/trash/orders"
+            : "/api/media/trash";
+
       const response =
         await fetch(
-          type ===
-            "products"
-            ? "/api/products/bulk-delete"
-            : "/api/trash/orders",
+          endpoint,
           {
             method:
               "POST",
@@ -843,7 +1020,10 @@ export default function TrashHubClient() {
         setSelectedProducts(
           new Set()
         );
-      } else {
+      } else if (
+        type ===
+        "orders"
+      ) {
         setOrders(
           (current) =>
             current.filter(
@@ -855,6 +1035,20 @@ export default function TrashHubClient() {
         );
 
         setSelectedOrders(
+          new Set()
+        );
+      } else {
+        setMedia(
+          (current) =>
+            current.filter(
+              (item) =>
+                !ids.includes(
+                  item.id
+                )
+            )
+        );
+
+        setSelectedMedia(
           new Set()
         );
       }
@@ -897,7 +1091,7 @@ export default function TrashHubClient() {
       : activeTab ===
           "orders"
         ? ordersLoading
-        : false;
+        : mediaLoading;
 
   const activeError =
     activeTab ===
@@ -906,7 +1100,7 @@ export default function TrashHubClient() {
       : activeTab ===
           "orders"
         ? ordersError
-        : null;
+        : mediaError;
 
   const activeCount =
     activeTab ===
@@ -915,7 +1109,7 @@ export default function TrashHubClient() {
       : activeTab ===
           "orders"
         ? orders.length
-        : 0;
+        : media.length;
 
   const activeVisibleCount =
     activeTab ===
@@ -924,7 +1118,7 @@ export default function TrashHubClient() {
       : activeTab ===
           "orders"
         ? filteredOrders.length
-        : 0;
+        : filteredMedia.length;
 
   const selectedCount =
     selected.size;
@@ -969,7 +1163,7 @@ export default function TrashHubClient() {
                   : tab.value ===
                       "orders"
                     ? orders.length
-                    : 0;
+                    : media.length;
 
               const active =
                 activeTab ===
@@ -1017,10 +1211,7 @@ export default function TrashHubClient() {
                       " "
                     )}
                   >
-                    {tab.value ===
-                    "media"
-                      ? "—"
-                      : count}
+                    {count}
                   </span>
 
                   {active ? (
@@ -1032,96 +1223,84 @@ export default function TrashHubClient() {
           )}
         </div>
 
-        {activeTab !==
-        "media" ? (
-          <div className="space-y-3 p-3 md:p-4">
-            <div className="flex items-center gap-2">
-              <div className="relative min-w-0 flex-1">
-                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        <div className="space-y-3 p-3 md:p-4">
+          <div className="flex items-center gap-2">
+            <div className="relative min-w-0 flex-1">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
 
-                <Input
-                  value={
-                    query
-                  }
-                  onChange={(
-                    event
-                  ) =>
-                    setQuery(
-                      event
-                        .target
-                        .value
-                    )
-                  }
-                  placeholder={
-                    activeTab ===
-                    "products"
-                      ? "Search title or SKU"
-                      : "Search order, customer or email"
-                  }
-                  className="pl-10"
-                />
-              </div>
-
-              <Button
-                type="button"
-                variant="outline"
-                size="icon"
-                aria-label="Refresh trash"
-                title="Refresh trash"
-                disabled={
-                  isLoading
-                }
-                onClick={() =>
-                  void (
-                    activeTab ===
-                    "products"
-                      ? loadProducts()
-                      : loadOrders()
+              <Input
+                value={query}
+                onChange={(event) =>
+                  setQuery(
+                    event.target.value
                   )
                 }
-              >
-                <RefreshCw
-                  className={[
-                    "h-4 w-4",
-                    isLoading
-                      ? "animate-spin"
-                      : "",
-                  ].join(
-                    " "
-                  )}
-                />
-              </Button>
+                placeholder={
+                  activeTab ===
+                  "products"
+                    ? "Search title or SKU"
+                    : activeTab ===
+                        "orders"
+                      ? "Search order, customer or email"
+                      : "Search media title or file"
+                }
+                className="pl-10"
+              />
             </div>
 
-            <div className="flex min-h-10 items-center justify-between gap-3">
-              <button
-                type="button"
-                onClick={
-                  toggleAllVisible
-                }
-                disabled={
-                  activeVisibleCount ===
-                  0
-                }
-                className="ls-focus-ring inline-flex min-h-9 items-center gap-2 rounded-lg px-1 text-xs font-bold text-muted-foreground disabled:opacity-40"
-              >
-                <Check className="h-4 w-4" />
-                {allVisibleSelected
-                  ? "Clear shown"
-                  : "Select shown"}
-              </button>
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              aria-label="Refresh trash"
+              title="Refresh trash"
+              disabled={isLoading}
+              onClick={() =>
+                void (
+                  activeTab ===
+                  "products"
+                    ? loadProducts()
+                    : activeTab ===
+                        "orders"
+                      ? loadOrders()
+                      : loadMedia()
+                )
+              }
+            >
+              <RefreshCw
+                className={[
+                  "h-4 w-4",
+                  isLoading
+                    ? "animate-spin"
+                    : "",
+                ].join(" ")}
+              />
+            </Button>
+          </div>
 
-              <div className="text-xs font-semibold text-muted-foreground">
-                {selectedCount >
-                0
-                  ? `${selectedCount} selected`
-                  : query
-                    ? `${activeVisibleCount} shown`
-                    : `${activeCount} in trash`}
-              </div>
+          <div className="flex min-h-10 items-center justify-between gap-3">
+            <label className="inline-flex min-h-9 items-center gap-2 text-xs font-bold text-muted-foreground">
+              <input
+                type="checkbox"
+                checked={allVisibleSelected}
+                onChange={toggleAllVisible}
+                disabled={activeVisibleCount === 0}
+                className="h-4 w-4 rounded border-[#BFC7D8] accent-[#F15E4A]"
+              />
+              {allVisibleSelected
+                ? "Clear shown"
+                : "Select shown"}
+            </label>
+
+            <div className="text-xs font-semibold text-muted-foreground">
+              {selectedCount > 0
+                ? `${selectedCount} selected`
+                : query
+                  ? `${activeVisibleCount} shown`
+                  : `${activeCount} in trash`}
             </div>
           </div>
-        ) : null}
+        </div>
       </section>
 
       {activeError ? (
@@ -1131,34 +1310,338 @@ export default function TrashHubClient() {
         </div>
       ) : null}
 
-      {activeTab ===
-      "media" ? (
-        <section className="mt-3 overflow-hidden rounded-2xl border border-[#E1E6F0] bg-white p-4 shadow-[0_8px_24px_rgba(38,51,95,0.05)] md:mt-4 md:p-6">
-          <div className="mx-auto max-w-2xl text-center">
-            <span className="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-[#FFF3F0] text-[#F15E4A]">
-              <ImageIcon className="h-6 w-6" />
-            </span>
-
-            <h2 className="mt-4 text-lg font-extrabold text-[#182451]">
-              Media trash requires restore support
-            </h2>
-
-            <p className="mt-2 text-sm leading-6 text-muted-foreground">
-              Product and order trash are fully restorable. Media deletion currently uses the existing permanent WordPress media-delete endpoint, so Media is intentionally not routed into Trash until a safe restore backend is available.
-            </p>
-
-            <div className="mt-4 inline-flex items-center gap-2 rounded-xl bg-[#EEF1FA] px-3 py-2 text-xs font-bold text-[#4059A7]">
-              <Clock3 className="h-4 w-4" />
-              Media tab reserved — no data is being hidden or faked
-            </div>
-          </div>
-        </section>
-      ) : isLoading ? (
+      {isLoading ? (
         <div className="mt-3 space-y-2.5 md:mt-4">
           <Skeleton className="h-28 w-full rounded-2xl" />
           <Skeleton className="h-28 w-full rounded-2xl" />
           <Skeleton className="h-28 w-full rounded-2xl" />
         </div>
+      ) : activeTab ===
+          "media" ? (
+        filteredMedia.length ===
+        0 ? (
+          <div className="mt-3 md:mt-4">
+            <EmptyState
+              icon={ImageIcon}
+              title={
+                media.length === 0
+                  ? "Media trash is empty"
+                  : "No matching media"
+              }
+              description={
+                media.length === 0
+                  ? "Media moved to Trash Bin will appear here."
+                  : "Try a different search term."
+              }
+            />
+          </div>
+        ) : (
+          <div className="mt-3 md:mt-4">
+            <div className="space-y-2.5 md:hidden">
+              {filteredMedia.map(
+                (item) => {
+                  const active =
+                    selectedMedia.has(
+                      item.id
+                    );
+
+                  const title =
+                    item.title ||
+                    item.filename ||
+                    `Media #${item.id}`;
+
+                  return (
+                    <article
+                      key={item.id}
+                      className={[
+                        "rounded-2xl border bg-white p-3 shadow-[0_6px_18px_rgba(38,51,95,0.05)]",
+                        active
+                          ? "border-[#F15E4A] ring-2 ring-[#F15E4A]/10"
+                          : "border-[#E1E6F0]",
+                      ].join(" ")}
+                    >
+                      <div className="flex items-start gap-3">
+                        <input
+                          type="checkbox"
+                          checked={active}
+                          onChange={() =>
+                            toggleOne(
+                              "media",
+                              item.id
+                            )
+                          }
+                          aria-label={`Select ${title}`}
+                          className="mt-5 h-4 w-4 shrink-0 rounded border-[#BFC7D8] accent-[#F15E4A]"
+                        />
+
+                        {item.mime?.startsWith(
+                          "image/"
+                        ) &&
+                        (
+                          item.thumbnail ||
+                          item.url
+                        ) ? (
+                          // Remote WordPress media image.
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={
+                              item.thumbnail ||
+                              item.url
+                            }
+                            alt=""
+                            className="h-16 w-16 shrink-0 rounded-xl border border-[#E1E6F0] bg-[#F8FAFD] object-cover"
+                          />
+                        ) : (
+                          <div className="grid h-16 w-16 shrink-0 place-items-center rounded-xl border border-dashed border-[#D8DEEA] bg-[#F8FAFD] text-[#4059A7]">
+                            <ImageIcon className="h-5 w-5" />
+                          </div>
+                        )}
+
+                        <div className="min-w-0 flex-1 pt-0.5">
+                          <div className="line-clamp-2 text-sm font-extrabold leading-5 text-[#182451]">
+                            {title}
+                          </div>
+
+                          <div className="mt-1 truncate text-[11px] text-muted-foreground">
+                            {item.filename ||
+                              item.mime ||
+                              "Media file"}
+                          </div>
+
+                          <div className="mt-2 flex flex-wrap gap-1.5">
+                            <span className="rounded-full bg-[#EEF1FA] px-2 py-1 text-[9px] font-extrabold text-[#4059A7]">
+                              {item.mime?.startsWith(
+                                "image/"
+                              )
+                                ? "Image"
+                                : item.mime?.startsWith(
+                                      "video/"
+                                    )
+                                  ? "Video"
+                                  : "File"}
+                            </span>
+
+                            {item.size_kb ? (
+                              <span className="rounded-full bg-[#F4F6FB] px-2 py-1 text-[9px] font-bold text-muted-foreground">
+                                {item.size_kb} KB
+                              </span>
+                            ) : null}
+
+                            <span className="rounded-full bg-[#FFF3F0] px-2 py-1 text-[9px] font-bold text-muted-foreground">
+                              {formatDate(
+                                item.trashed_at ||
+                                  item.uploaded
+                              )}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="mt-3 grid grid-cols-2 gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          disabled={Boolean(
+                            busyKey
+                          )}
+                          onClick={() =>
+                            void restore(
+                              "media",
+                              [item.id]
+                            )
+                          }
+                        >
+                          <ArchiveRestore className="h-4 w-4" />
+                          Restore
+                        </Button>
+
+                        <Button
+                          type="button"
+                          variant="danger"
+                          size="sm"
+                          disabled={Boolean(
+                            busyKey
+                          )}
+                          onClick={() =>
+                            setPendingDelete({
+                              type: "media",
+                              ids: [item.id],
+                            })
+                          }
+                        >
+                          <Trash2 className="h-4 w-4" />
+                          Delete
+                        </Button>
+                      </div>
+                    </article>
+                  );
+                }
+              )}
+            </div>
+
+            <div className="hidden overflow-hidden rounded-2xl border border-[#E1E6F0] bg-white md:block">
+              <table className="w-full text-sm">
+                <thead className="bg-[#F4F6FB] text-left text-[11px] font-extrabold uppercase tracking-wide text-muted-foreground">
+                  <tr>
+                    <th className="w-14 px-4 py-3">
+                      <input
+                        type="checkbox"
+                        checked={allVisibleSelected}
+                        onChange={toggleAllVisible}
+                        aria-label="Select all shown media"
+                        className="h-4 w-4 rounded border-[#BFC7D8] accent-[#F15E4A]"
+                      />
+                    </th>
+                    <th className="px-3 py-3">
+                      Media
+                    </th>
+                    <th className="px-3 py-3">
+                      Type
+                    </th>
+                    <th className="px-3 py-3">
+                      Size
+                    </th>
+                    <th className="px-3 py-3">
+                      Deleted
+                    </th>
+                    <th className="px-4 py-3 text-right">
+                      Actions
+                    </th>
+                  </tr>
+                </thead>
+
+                <tbody className="divide-y divide-[#E9ECF3]">
+                  {filteredMedia.map(
+                    (item) => {
+                      const active =
+                        selectedMedia.has(
+                          item.id
+                        );
+
+                      const title =
+                        item.title ||
+                        item.filename ||
+                        `Media #${item.id}`;
+
+                      return (
+                        <tr key={item.id}>
+                          <td className="px-4 py-3">
+                            <input
+                              type="checkbox"
+                              checked={active}
+                              onChange={() =>
+                                toggleOne(
+                                  "media",
+                                  item.id
+                                )
+                              }
+                              aria-label={`Select ${title}`}
+                              className="h-4 w-4 rounded border-[#BFC7D8] accent-[#F15E4A]"
+                            />
+                          </td>
+
+                          <td className="px-3 py-3">
+                            <div className="flex min-w-0 items-center gap-3">
+                              {item.mime?.startsWith(
+                                "image/"
+                              ) &&
+                              (
+                                item.thumbnail ||
+                                item.url
+                              ) ? (
+                                // Remote WordPress media image.
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img
+                                  src={
+                                    item.thumbnail ||
+                                    item.url
+                                  }
+                                  alt=""
+                                  className="h-12 w-12 shrink-0 rounded-xl border border-[#E1E6F0] bg-[#F8FAFD] object-cover"
+                                />
+                              ) : (
+                                <div className="grid h-12 w-12 shrink-0 place-items-center rounded-xl border border-dashed border-[#D8DEEA] bg-[#F8FAFD] text-[#4059A7]">
+                                  <ImageIcon className="h-4 w-4" />
+                                </div>
+                              )}
+
+                              <div className="min-w-0">
+                                <div className="max-w-[24rem] truncate font-extrabold text-[#182451]">
+                                  {title}
+                                </div>
+                                <div className="mt-0.5 max-w-[24rem] truncate text-xs text-muted-foreground">
+                                  {item.filename ||
+                                    "—"}
+                                </div>
+                              </div>
+                            </div>
+                          </td>
+
+                          <td className="px-3 py-3 text-muted-foreground">
+                            {item.mime ||
+                              "—"}
+                          </td>
+
+                          <td className="px-3 py-3 text-muted-foreground">
+                            {item.size_kb
+                              ? `${item.size_kb} KB`
+                              : "—"}
+                          </td>
+
+                          <td className="px-3 py-3 text-muted-foreground">
+                            {formatDate(
+                              item.trashed_at ||
+                                item.uploaded
+                            )}
+                          </td>
+
+                          <td className="px-4 py-3">
+                            <div className="flex justify-end gap-2">
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                disabled={Boolean(
+                                  busyKey
+                                )}
+                                onClick={() =>
+                                  void restore(
+                                    "media",
+                                    [item.id]
+                                  )
+                                }
+                              >
+                                Restore
+                              </Button>
+
+                              <Button
+                                type="button"
+                                variant="danger"
+                                size="sm"
+                                disabled={Boolean(
+                                  busyKey
+                                )}
+                                onClick={() =>
+                                  setPendingDelete({
+                                    type: "media",
+                                    ids: [item.id],
+                                  })
+                                }
+                              >
+                                Delete permanently
+                              </Button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    }
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )
       ) : activeTab ===
           "products" ? (
         filteredProducts.length ===
@@ -1771,9 +2254,7 @@ export default function TrashHubClient() {
         </div>
       )}
 
-      {activeTab !==
-        "media" &&
-      selectedCount >
+      {selectedCount >
         0 ? (
         <div className="fixed inset-x-0 bottom-[calc(4.5rem+var(--ls-safe-area-bottom))] z-50 border-t border-[#D8DEEA] bg-white/95 px-3 py-2.5 shadow-[0_-10px_30px_rgba(17,27,63,0.12)] backdrop-blur md:static md:mt-4 md:rounded-2xl md:border md:px-4 md:shadow-none">
           <div className="mx-auto flex max-w-7xl items-center justify-between gap-3">
