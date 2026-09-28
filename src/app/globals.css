@@ -14,7 +14,7 @@
   --secondary-foreground: #2e3f7d;
   --muted: #f3f5f9;
   --muted-foreground: #6f7891;
-  --accent: #e85d4a;
+  --accent: #18a6c9;
   --accent-foreground: #ffffff;
   --destructive: #b42318;
   --destructive-foreground: #ffffff;
@@ -339,7 +339,7 @@ select:active {
   --ls-safe-area-bottom: env(safe-area-inset-bottom, 0px);
   --ls-safe-area-left: env(safe-area-inset-left, 0px);
   --ls-app-navy: #2e3f7d;
-  --ls-app-coral: #e85d4a;
+  --ls-app-coral: #18a6c9;
   --ls-app-indigo: #5366b7;
   --ls-app-background: #f8f9fc;
   --ls-app-border: #d9deec;
