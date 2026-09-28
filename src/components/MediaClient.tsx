@@ -938,7 +938,7 @@ export default function MediaClient({
                 }
               >
                 <Trash2 className="h-4 w-4" />
-                Delete
+                Move to trash
               </Button>
             </div>
           ) : totalItems > 0 ? (
@@ -974,7 +974,7 @@ export default function MediaClient({
               }
             >
               <Trash2 className="h-4 w-4" />
-              Delete
+              Move to trash
             </Button>
           </div>
         </div>
