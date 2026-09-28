@@ -909,7 +909,7 @@ export default function MediaClient({
                 }
                 className={`ls-focus-ring min-h-9 shrink-0 rounded-xl px-3 text-xs font-extrabold transition ${
                   type === filter.value
-                    ? "bg-[#F15E4A] text-white"
+                    ? "bg-[#18A6C9] text-white"
                     : "bg-[#EEF1FA] text-[#34405F] hover:bg-[#E4E8F2]"
                 }`}
               >
@@ -1019,7 +1019,7 @@ export default function MediaClient({
                       item.id
                     }
                     className={
-                      `group overflow-hidden rounded-xl border bg-card shadow-[0_5px_16px_rgba(38,51,95,0.04)] transition md:rounded-2xl ${active ? "border-[#F15E4A] ring-2 ring-[#F15E4A]/10" : "border-border hover:border-[#4059A7]/35"}`
+                      `group overflow-hidden rounded-xl border bg-card shadow-[0_5px_16px_rgba(38,51,95,0.04)] transition md:rounded-2xl ${active ? "border-[#18A6C9] ring-2 ring-[#18A6C9]/10" : "border-border hover:border-[#4059A7]/35"}`
                     }
                   >
                     <div className="relative aspect-square overflow-hidden bg-muted">
@@ -1057,7 +1057,7 @@ export default function MediaClient({
                           active
                         }
                         className={
-                          `ls-focus-ring absolute left-2 top-2 grid h-8 w-8 place-items-center rounded-full border shadow-sm backdrop-blur ${active ? "border-[#F15E4A] bg-[#F15E4A] text-white" : "border-white/80 bg-white/90 text-slate-500"}`
+                          `ls-focus-ring absolute left-2 top-2 grid h-8 w-8 place-items-center rounded-full border shadow-sm backdrop-blur ${active ? "border-[#18A6C9] bg-[#18A6C9] text-white" : "border-white/80 bg-white/90 text-slate-500"}`
                         }
                       >
                         {active ? (
