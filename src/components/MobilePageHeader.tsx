@@ -342,7 +342,7 @@ function resolveHeader(
 
   if (pathname === "/orders/packslips") {
     return taskHeader(
-      "Pack Slips",
+      "Packing Slips",
       "/orders"
     );
   }
