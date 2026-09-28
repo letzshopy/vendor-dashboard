@@ -407,7 +407,7 @@ export default function DashboardAccountMenu({
 
       {open && (
         <div className="absolute right-0 top-full mt-2 w-[19rem] max-w-[calc(100vw-1rem)] overflow-hidden rounded-2xl border border-border bg-card text-sm text-heading shadow-[0_20px_60px_rgba(25,35,75,0.18)]">
-          <div className="border-b border-[#C84A3B] bg-[#F15E4A] px-4 py-4 text-white">
+          <div className="border-b border-[#11748C] bg-[#18A6C9] px-4 py-4 text-white">
             <div className="flex items-start gap-3">
               <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#182451] text-sm font-bold text-white shadow-sm">
                 {initials}
