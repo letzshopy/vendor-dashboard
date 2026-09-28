@@ -18,7 +18,7 @@ export default function TrashPage() {
           eyebrow="Store tools"
           icon={Trash2}
           title="Trash Bin"
-          description="Restore deleted products and orders, or remove them permanently."
+          description="Restore deleted products, orders and media, or remove them permanently."
         />
       </div>
 
