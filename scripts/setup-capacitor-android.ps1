@@ -36,6 +36,39 @@ if ($JavaVersionOutput -notmatch 'version "21[\.]') {
 
 Write-Host "JDK 21 detected"
 
+Write-Step "Checking Android SDK"
+$SdkPath =
+  if ($env:ANDROID_HOME) {
+    $env:ANDROID_HOME
+  } elseif ($env:ANDROID_SDK_ROOT) {
+    $env:ANDROID_SDK_ROOT
+  } else {
+    Join-Path $env:LOCALAPPDATA "Android\Sdk"
+  }
+
+if (-not (Test-Path $SdkPath)) {
+  throw "Android SDK was not found at '$SdkPath'. Open Android Studio Setup Wizard and install the Android SDK first."
+}
+
+$env:ANDROID_HOME = $SdkPath
+$env:ANDROID_SDK_ROOT = $SdkPath
+$env:Path = "$SdkPath\platform-tools;$env:Path"
+
+$AndroidDir = Join-Path $RepoRoot "android"
+
+if (Test-Path $AndroidDir) {
+  $LocalProperties =
+    Join-Path $AndroidDir "local.properties"
+
+  $NormalizedSdkPath =
+    $SdkPath.Replace("\", "/")
+
+  Set-Content     -Path $LocalProperties     -Value "sdk.dir=$NormalizedSdkPath"     -Encoding ASCII
+
+  Write-Host "Android SDK: $SdkPath"
+  Write-Host "Wrote android/local.properties"
+}
+
 Write-Step "Installing dashboard + Capacitor dependencies"
 npm.cmd install
 
@@ -48,6 +81,15 @@ if (-not (Test-Path (Join-Path $RepoRoot "android"))) {
 } else {
   Write-Step "Android native project already exists"
 }
+
+$AndroidDir = Join-Path $RepoRoot "android"
+$LocalProperties =
+  Join-Path $AndroidDir "local.properties"
+
+$NormalizedSdkPath =
+  $SdkPath.Replace("\", "/")
+
+Set-Content   -Path $LocalProperties   -Value "sdk.dir=$NormalizedSdkPath"   -Encoding ASCII
 
 Write-Step "Syncing plugins and Capacitor configuration"
 npx.cmd cap sync android
