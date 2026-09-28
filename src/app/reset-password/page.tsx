@@ -218,7 +218,7 @@ export default function ResetPasswordPage() {
                 />
               </div>
 
-              <div className="mt-10 h-1 w-12 rounded-full bg-[#F15E4A]" />
+              <div className="mt-10 h-1 w-12 rounded-full bg-[#18A6C9]" />
 
               <h1 className="mt-5 max-w-md text-[34px] font-extrabold leading-[1.12] tracking-tight">
                 Set a new password.
@@ -258,7 +258,7 @@ export default function ResetPasswordPage() {
               </Link>
 
               <div className="mt-4">
-                <div className="text-[11px] font-extrabold uppercase tracking-[0.12em] text-[#F15E4A]">
+                <div className="text-[11px] font-extrabold uppercase tracking-[0.12em] text-[#18A6C9]">
                   Password reset
                 </div>
 
