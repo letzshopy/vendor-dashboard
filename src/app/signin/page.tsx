@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import {
   useMemo,
   useState,
@@ -97,15 +98,6 @@ export default function SigninPage() {
         return error;
       }
     }, [error]);
-
-  function openForgot() {
-    setForgotEmail(
-      email
-    );
-    setForgotDone(false);
-    setForgotError("");
-    setShowForgot(true);
-  }
 
   async function handleForgotPassword(
     event: React.FormEvent
@@ -302,14 +294,22 @@ export default function SigninPage() {
                           Password
                         </span>
 
-                        <button
-                          type="button"
-                          onClick={openForgot}
-                          disabled={signingIn}
-                          className="ls-focus-ring rounded-lg px-1 py-1 text-xs font-extrabold text-[#4059A7] hover:text-[#26366E]"
+                        <Link
+                          href={
+                            email.trim()
+                              ? `/forgot-password?email=${encodeURIComponent(email.trim())}`
+                              : "/forgot-password"
+                          }
+                          aria-disabled={signingIn}
+                          className={[
+                            "ls-focus-ring rounded-lg px-1 py-1 text-xs font-extrabold text-[#4059A7] hover:text-[#26366E]",
+                            signingIn
+                              ? "pointer-events-none opacity-60"
+                              : "",
+                          ].join(" ")}
                         >
                           Forgot password?
-                        </button>
+                        </Link>
                       </span>
 
                       <div className="relative">
