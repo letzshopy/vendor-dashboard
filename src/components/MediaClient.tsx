@@ -174,7 +174,7 @@ async function deleteMany(
 
   if (!response.ok) {
     let message =
-      `Delete failed (${response.status})`;
+      `Move to trash failed (${response.status})`;
 
     try {
       const payload =
@@ -685,7 +685,7 @@ export default function MediaClient({
     actionFeedback.loading({
       id: feedbackId,
       title:
-        "Deleting media…",
+        "Moving media to trash…",
       message:
         `${selectedCount} file${selectedCount === 1 ? "" : "s"}`,
     });
@@ -706,7 +706,7 @@ export default function MediaClient({
       actionFeedback.success({
         id: feedbackId,
         title:
-          "Media deleted",
+          "Media moved to trash",
         durationMs: 2200,
       });
     } catch (
@@ -715,12 +715,12 @@ export default function MediaClient({
       actionFeedback.error({
         id: feedbackId,
         title:
-          "Could not delete media",
+          "Could not move media to trash",
         message:
           caught instanceof
             Error
             ? caught.message
-            : "Delete failed.",
+            : "Move to trash failed.",
         durationMs: 4200,
       });
     } finally {
@@ -1409,17 +1409,16 @@ export default function MediaClient({
             );
           }
         }}
-        title="Delete selected media?"
+        title="Move selected media to trash?"
         description={
           selectedCount >
           0
-            ? `Delete ${selectedCount} selected file${selectedCount === 1 ? "" : "s"}? This cannot be undone.`
+            ? `Move ${selectedCount} selected file${selectedCount === 1 ? "" : "s"} to Trash Bin? You can restore them later.`
             : undefined
         }
-        confirmLabel="Delete media"
+        confirmLabel="Move to trash"
         loading={deleting}
-        loadingLabel="Deleting…"
-        destructive
+        loadingLabel="Moving…"
         onConfirm={
           bulkDelete
         }
