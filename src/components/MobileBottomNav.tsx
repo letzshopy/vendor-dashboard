@@ -35,6 +35,9 @@ import {
   useState,
   type ComponentType,
 } from "react";
+import {
+  LETZSHOPY_NATIVE_BACK_EVENT,
+} from "@/lib/nativeNavigation";
 
 type MobileBottomNavProps = {
   locked?: boolean;
@@ -277,6 +280,30 @@ export default function MobileBottomNav({
       document.body.style.overflow =
         previousOverflow;
     };
+  }, [moreOpen]);
+
+  useEffect(() => {
+    if (!moreOpen) {
+      return;
+    }
+
+    function closeOnNativeBack(
+      event: Event
+    ) {
+      event.preventDefault();
+      setMoreOpen(false);
+    }
+
+    window.addEventListener(
+      LETZSHOPY_NATIVE_BACK_EVENT,
+      closeOnNativeBack
+    );
+
+    return () =>
+      window.removeEventListener(
+        LETZSHOPY_NATIVE_BACK_EVENT,
+        closeOnNativeBack
+      );
   }, [moreOpen]);
 
   if (locked) {
