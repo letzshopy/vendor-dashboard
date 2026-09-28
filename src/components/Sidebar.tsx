@@ -282,6 +282,12 @@ const ALL_GROUPS: Group[] = [
         ready: true,
       },
       {
+        href:
+          "/orders/packslips",
+        label: "Packing Slips",
+        ready: true,
+      },
+      {
         href: "/customers",
         label: "Customers",
         ready: true,
