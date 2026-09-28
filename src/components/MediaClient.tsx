@@ -1425,131 +1425,104 @@ export default function MediaClient({
         }
       />
 
-      <Dialog.Root
-        open={
-          preview !== null
-        }
-        onOpenChange={(
-          open
-        ) => {
+      <BottomSheet
+        open={preview !== null}
+        onOpenChange={(open) => {
           if (!open) {
             setPreview(null);
           }
         }}
+        title={
+          preview?.title ||
+          preview?.filename ||
+          (preview
+            ? `Media #${preview.id}`
+            : "Media preview")
+        }
+        description={
+          preview?.filename
+        }
+        popupClassName="md:mx-auto md:max-w-3xl"
       >
-        <Dialog.Portal>
-          <Dialog.Backdrop className="ls-overlay" />
+        {preview ? (
+          <div className="space-y-4">
+            <div className="overflow-hidden rounded-2xl bg-[#F4F6FB] p-3">
+              {preview.mime.startsWith(
+                "image/"
+              ) ? (
+                // Remote WordPress media URL.
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={preview.url}
+                  alt={
+                    preview.title ||
+                    preview.filename
+                  }
+                  className="mx-auto max-h-[52dvh] w-auto max-w-full rounded-xl object-contain"
+                />
+              ) : (
+                <div className="grid min-h-56 place-items-center rounded-xl bg-muted text-sm text-muted-foreground">
+                  Preview unavailable for this file type.
+                </div>
+              )}
+            </div>
 
-          <Dialog.Viewport className="ls-dialog-viewport">
-            <Dialog.Popup className="ls-dialog-popup !w-[min(96vw,60rem)]">
-              {preview ? (
-                <div className="max-h-[88dvh] overflow-y-auto">
-                  <div className="sticky top-0 z-10 flex items-start gap-3 border-b border-border bg-card/95 px-4 py-3 backdrop-blur md:px-5">
-                    <div className="min-w-0 flex-1">
-                      <Dialog.Title className="truncate text-base font-bold text-heading">
-                        {preview.title ||
-                          preview.filename ||
-                          `Media #${preview.id}`}
-                      </Dialog.Title>
+            <div className="grid grid-cols-2 gap-2">
+              <div className="rounded-xl bg-[#EEF1FA] p-3">
+                <div className="text-[10px] font-extrabold uppercase tracking-wide text-muted-foreground">
+                  Type
+                </div>
+                <div className="mt-1 truncate text-sm font-extrabold text-[#182451]">
+                  {humanMime(
+                    preview.mime
+                  )}
+                </div>
+              </div>
 
-                      <Dialog.Description className="mt-0.5 truncate text-xs text-muted-foreground">
-                        {
-                          preview.filename
-                        }
-                      </Dialog.Description>
-                    </div>
+              <div className="rounded-xl bg-[#FFF3F0] p-3">
+                <div className="text-[10px] font-extrabold uppercase tracking-wide text-muted-foreground">
+                  Size
+                </div>
+                <div className="mt-1 truncate text-sm font-extrabold text-[#182451]">
+                  {preview.size_kb
+                    ? `${preview.size_kb} KB`
+                    : "—"}
+                </div>
+              </div>
 
-                    <Dialog.Close
-                      aria-label="Close preview"
-                      className="ls-focus-ring grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-muted text-muted-foreground hover:text-foreground"
-                    >
-                      <X className="h-5 w-5" />
-                    </Dialog.Close>
+              {preview.width &&
+              preview.height ? (
+                <div className="col-span-2 rounded-xl bg-[#F1FBF7] p-3">
+                  <div className="text-[10px] font-extrabold uppercase tracking-wide text-muted-foreground">
+                    Dimensions
                   </div>
-
-                  <div className="bg-slate-950/5 p-3 md:p-5">
-                    {preview.mime.startsWith(
-                      "image/"
-                    ) ? (
-                      // Remote WordPress media URL.
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={
-                          preview.url
-                        }
-                        alt={
-                          preview.title ||
-                          preview.filename
-                        }
-                        className="mx-auto max-h-[62dvh] w-auto max-w-full rounded-xl object-contain"
-                      />
-                    ) : (
-                      <div className="grid min-h-64 place-items-center rounded-xl bg-muted text-sm text-muted-foreground">
-                        Preview unavailable for this file type.
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="grid gap-3 px-4 py-4 text-xs text-muted-foreground md:grid-cols-2 md:px-5">
-                    <div>
-                      <span className="font-bold text-foreground">
-                        Type:
-                      </span>{" "}
-                      {preview.mime}
-                    </div>
-
-                    <div className="md:text-right">
-                      <span className="font-bold text-foreground">
-                        Size:
-                      </span>{" "}
-                      {preview.size_kb
-                        ? `${preview.size_kb} KB`
-                        : "—"}
-                    </div>
-
-                    {preview.width &&
-                    preview.height ? (
-                      <div>
-                        <span className="font-bold text-foreground">
-                          Dimensions:
-                        </span>{" "}
-                        {
-                          preview.width
-                        }{" "}
-                        ×{" "}
-                        {
-                          preview.height
-                        }{" "}
-                        px
-                      </div>
-                    ) : null}
-
-                    <div className="flex justify-start md:justify-end">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() =>
-                          void copyUrl(
-                            preview.id,
-                            preview.url
-                          )
-                        }
-                      >
-                        <Clipboard className="h-3.5 w-3.5" />
-                        {copiedId ===
-                        preview.id
-                          ? "Copied"
-                          : "Copy URL"}
-                      </Button>
-                    </div>
+                  <div className="mt-1 text-sm font-extrabold text-[#182451]">
+                    {preview.width} × {preview.height} px
                   </div>
                 </div>
               ) : null}
-            </Dialog.Popup>
-          </Dialog.Viewport>
-        </Dialog.Portal>
-      </Dialog.Root>
+            </div>
+
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full"
+              onClick={() =>
+                void copyUrl(
+                  preview.id,
+                  preview.url
+                )
+              }
+            >
+              <Clipboard className="h-4 w-4" />
+              {copiedId ===
+              preview.id
+                ? "Copied"
+                : "Copy media URL"}
+            </Button>
+          </div>
+        ) : null}
+      </BottomSheet>
     </>
   );
 }
