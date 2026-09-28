@@ -18,7 +18,7 @@ async function getAllTrashedProducts(woo: AxiosInstance): Promise<unknown[]> {
         page,
         orderby: "date",
         order: "desc",
-        _fields: "id,name,sku,date_created,date_modified",
+        _fields: "id,name,sku,images,date_created,date_modified",
       },
     });
 
