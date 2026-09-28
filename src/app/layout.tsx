@@ -4,6 +4,7 @@ import "./globals.css";
 import { Suspense } from "react";
 
 import PwaRegister from "@/components/pwa/PwaRegister";
+import MobileViewportBridge from "@/components/navigation/MobileViewportBridge";
 
 export const metadata: Metadata = {
   title: "LetzShopy Vendor Dashboard",
@@ -59,7 +60,7 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} bg-background text-foreground antialiased`}
       >
         <PwaRegister />
-
+        <MobileViewportBridge />
 
         <Suspense
           fallback={
