@@ -21,6 +21,7 @@ import {
   MoreHorizontal,
   Package,
   Plus,
+  Printer,
   ReceiptIndianRupee,
   Settings2,
   ShoppingBag,
@@ -71,6 +72,13 @@ const moreItems: NavItem[] = [
     icon: WalletCards,
     tileClass:
       "bg-[#4059A7]",
+  },
+  {
+    href: "/orders/packslips",
+    label: "Packing Slips",
+    icon: Printer,
+    tileClass:
+      "bg-[#D88A16]",
   },
   {
     href: "/media",
