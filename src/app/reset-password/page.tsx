@@ -450,5 +450,4 @@ export default function ResetPasswordPage() {
       </div>
     </main>
   );
-  );
 }
