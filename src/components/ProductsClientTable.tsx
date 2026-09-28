@@ -1292,7 +1292,7 @@ export default function ProductsClientTable({
                 Cancel
               </button>
               <button
-                className="rounded-xl bg-[#E85D4A] px-3 py-2 text-sm font-bold text-white hover:bg-[#D94F3D]"
+                className="rounded-xl bg-[#18A6C9] px-3 py-2 text-sm font-bold text-white hover:bg-[#1283A1]"
                 onClick={doBulkSetCategories}
               >
                 Apply to {checked.length} products
@@ -1328,7 +1328,7 @@ export default function ProductsClientTable({
                 Cancel
               </button>
               <button
-                className="rounded-xl bg-[#E85D4A] px-3 py-2 text-sm font-bold text-white hover:bg-[#D94F3D]"
+                className="rounded-xl bg-[#18A6C9] px-3 py-2 text-sm font-bold text-white hover:bg-[#1283A1]"
                 onClick={doBulkSetTags}
               >
                 Apply to {checked.length} products
@@ -1376,7 +1376,7 @@ export default function ProductsClientTable({
                 Cancel
               </button>
               <button
-                className="rounded-xl bg-[#E85D4A] px-3 py-2 text-sm font-bold text-white hover:bg-[#D94F3D]"
+                className="rounded-xl bg-[#18A6C9] px-3 py-2 text-sm font-bold text-white hover:bg-[#1283A1]"
                 onClick={doBulkSetPrice}
               >
                 Apply to {checked.length} products
@@ -1432,7 +1432,7 @@ export default function ProductsClientTable({
                 Cancel
               </button>
               <button
-                className="rounded-xl bg-[#E85D4A] px-3 py-2 text-sm font-bold text-white hover:bg-[#D94F3D]"
+                className="rounded-xl bg-[#18A6C9] px-3 py-2 text-sm font-bold text-white hover:bg-[#1283A1]"
                 onClick={doBulkSetStock}
               >
                 Apply to {checked.length} products

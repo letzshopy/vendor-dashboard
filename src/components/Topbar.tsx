@@ -499,7 +499,7 @@ export default function Topbar({
                   <span className="truncate text-sm font-extrabold text-white">
                     Vendor Dashboard
                   </span>
-                  <span className="inline-flex items-center gap-1 rounded-full bg-[#F15E4A] px-2 py-0.5 text-[10px] font-extrabold text-white">
+                  <span className="inline-flex items-center gap-1 rounded-full bg-[#18A6C9] px-2 py-0.5 text-[10px] font-extrabold text-white">
                     <Sparkles className="h-3 w-3 text-accent" />
                     Live
                   </span>

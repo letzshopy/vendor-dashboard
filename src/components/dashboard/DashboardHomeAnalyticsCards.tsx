@@ -296,12 +296,12 @@ export default function DashboardHomeAnalyticsCards() {
             </div>
 
             <div className="flex min-w-0 items-center gap-2.5 rounded-xl bg-[#FFF3F0] px-3 py-2.5">
-              <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#F15E4A] text-white">
+              <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#18A6C9] text-white">
                 <Users className="h-4 w-4" />
               </span>
 
               <div className="min-w-0">
-                <div className="text-[9px] font-extrabold uppercase tracking-[0.06em] text-[#C84A3B]/75">
+                <div className="text-[9px] font-extrabold uppercase tracking-[0.06em] text-[#11748C]/75">
                   Visitors today
                 </div>
 

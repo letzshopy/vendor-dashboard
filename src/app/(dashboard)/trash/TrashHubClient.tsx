@@ -1139,7 +1139,7 @@ export default function TrashHubClient() {
       <section className="overflow-hidden rounded-2xl border border-[#E1E6F0] bg-white shadow-[0_8px_24px_rgba(38,51,95,0.05)]">
         <div className="bg-[#26366E] px-3 py-3 text-white md:px-4">
           <div className="flex items-center gap-3">
-            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#F15E4A]">
+            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#18A6C9]">
               <Trash2 className="h-5 w-5" />
             </span>
 
@@ -1216,7 +1216,7 @@ export default function TrashHubClient() {
                     className={[
                       "inline-flex min-w-5 items-center justify-center rounded-full px-1.5 py-0.5 text-[9px] font-extrabold",
                       active
-                        ? "bg-[#FDE9E5] text-[#D84F3E]"
+                        ? "bg-[#FDE9E5] text-[#1283A1]"
                         : "bg-[#E8ECF7] text-[#536079]",
                     ].join(
                       " "
@@ -1226,7 +1226,7 @@ export default function TrashHubClient() {
                   </span>
 
                   {active ? (
-                    <span className="absolute inset-x-4 bottom-0 h-[3px] rounded-t-full bg-[#F15E4A]" />
+                    <span className="absolute inset-x-4 bottom-0 h-[3px] rounded-t-full bg-[#18A6C9]" />
                   ) : null}
                 </button>
               );
@@ -1296,7 +1296,7 @@ export default function TrashHubClient() {
                 checked={allVisibleSelected}
                 onChange={toggleAllVisible}
                 disabled={activeVisibleCount === 0}
-                className="h-4 w-4 rounded border-[#BFC7D8] accent-[#F15E4A]"
+                className="h-4 w-4 rounded border-[#BFC7D8] accent-[#18A6C9]"
               />
               {allVisibleSelected
                 ? "Clear shown"
@@ -1324,19 +1324,19 @@ export default function TrashHubClient() {
       {activeTab ===
         "media" &&
       !mediaAvailable ? (
-        <section className="mt-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 md:mt-4">
+        <section className="mt-3 rounded-2xl border border-[#DDE3EE] bg-[#F8FAFD] p-4 md:mt-4">
           <div className="flex items-start gap-3">
-            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-amber-100 text-amber-700">
-              <AlertTriangle className="h-5 w-5" />
+            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#EAF8FC] text-[#1283A1]">
+              <ImageIcon className="h-5 w-5" />
             </span>
 
             <div className="min-w-0">
-              <h2 className="text-sm font-extrabold text-amber-900">
-                Media Trash backend is not active on this store yet
+              <h2 className="text-sm font-extrabold text-[#182451]">
+                Media Trash is being enabled for this store
               </h2>
 
-              <p className="mt-1 text-xs leading-5 text-amber-800/80">
-                The dashboard UI is ready, but the WordPress media-trash runtime must be installed before media can be moved, restored or permanently deleted.
+              <p className="mt-1 text-xs leading-5 text-slate-500">
+                Product and order trash continue to work normally. Media restore and permanent delete will appear here once Media Trash is active.
               </p>
             </div>
           </div>
@@ -1387,7 +1387,7 @@ export default function TrashHubClient() {
                       className={[
                         "rounded-2xl border bg-white p-3 shadow-[0_6px_18px_rgba(38,51,95,0.05)]",
                         active
-                          ? "border-[#F15E4A] ring-2 ring-[#F15E4A]/10"
+                          ? "border-[#18A6C9] ring-2 ring-[#18A6C9]/10"
                           : "border-[#E1E6F0]",
                       ].join(" ")}
                     >
@@ -1402,7 +1402,7 @@ export default function TrashHubClient() {
                             )
                           }
                           aria-label={`Select ${title}`}
-                          className="mt-5 h-4 w-4 shrink-0 rounded border-[#BFC7D8] accent-[#F15E4A]"
+                          className="mt-5 h-4 w-4 shrink-0 rounded border-[#BFC7D8] accent-[#18A6C9]"
                         />
 
                         {item.mime?.startsWith(
@@ -1521,7 +1521,7 @@ export default function TrashHubClient() {
                         checked={allVisibleSelected}
                         onChange={toggleAllVisible}
                         aria-label="Select all shown media"
-                        className="h-4 w-4 rounded border-[#BFC7D8] accent-[#F15E4A]"
+                        className="h-4 w-4 rounded border-[#BFC7D8] accent-[#18A6C9]"
                       />
                     </th>
                     <th className="px-3 py-3">
@@ -1568,7 +1568,7 @@ export default function TrashHubClient() {
                                 )
                               }
                               aria-label={`Select ${title}`}
-                              className="h-4 w-4 rounded border-[#BFC7D8] accent-[#F15E4A]"
+                              className="h-4 w-4 rounded border-[#BFC7D8] accent-[#18A6C9]"
                             />
                           </td>
 
@@ -1716,7 +1716,7 @@ export default function TrashHubClient() {
                       className={[
                         "rounded-2xl border bg-white p-3 shadow-[0_6px_18px_rgba(38,51,95,0.05)]",
                         active
-                          ? "border-[#F15E4A] ring-2 ring-[#F15E4A]/10"
+                          ? "border-[#18A6C9] ring-2 ring-[#18A6C9]/10"
                           : "border-[#E1E6F0]",
                       ].join(
                         " "
@@ -1733,7 +1733,7 @@ export default function TrashHubClient() {
                             )
                           }
                           aria-label={`Select ${item.name || "product"}`}
-                          className="mt-5 h-4 w-4 shrink-0 rounded border-[#BFC7D8] accent-[#F15E4A]"
+                          className="mt-5 h-4 w-4 shrink-0 rounded border-[#BFC7D8] accent-[#18A6C9]"
                         />
 
                         {item.image ? (
@@ -1835,7 +1835,7 @@ export default function TrashHubClient() {
                         checked={allVisibleSelected}
                         onChange={toggleAllVisible}
                         aria-label="Select all shown products"
-                        className="h-4 w-4 rounded border-[#BFC7D8] accent-[#F15E4A]"
+                        className="h-4 w-4 rounded border-[#BFC7D8] accent-[#18A6C9]"
                       />
                     </th>
                     <th className="px-3 py-3">
@@ -1880,7 +1880,7 @@ export default function TrashHubClient() {
                                 )
                               }
                               aria-label={`Select ${item.name || "product"}`}
-                              className="h-4 w-4 rounded border-[#BFC7D8] accent-[#F15E4A]"
+                              className="h-4 w-4 rounded border-[#BFC7D8] accent-[#18A6C9]"
                             />
                           </td>
 
@@ -2004,7 +2004,7 @@ export default function TrashHubClient() {
                     className={[
                       "rounded-2xl border bg-white p-3 shadow-[0_6px_18px_rgba(38,51,95,0.05)]",
                       active
-                        ? "border-[#F15E4A] ring-2 ring-[#F15E4A]/10"
+                        ? "border-[#18A6C9] ring-2 ring-[#18A6C9]/10"
                         : "border-[#E1E6F0]",
                     ].join(
                       " "
@@ -2022,7 +2022,7 @@ export default function TrashHubClient() {
                         className={[
                           "ls-focus-ring grid h-9 w-9 shrink-0 place-items-center rounded-xl border",
                           active
-                            ? "border-[#F15E4A] bg-[#F15E4A] text-white"
+                            ? "border-[#18A6C9] bg-[#18A6C9] text-white"
                             : "border-[#D8DEEA] bg-[#F8FAFD] text-muted-foreground",
                         ].join(
                           " "
@@ -2191,7 +2191,7 @@ export default function TrashHubClient() {
                             className={[
                               "ls-focus-ring grid h-9 w-9 place-items-center rounded-xl border",
                               active
-                                ? "border-[#F15E4A] bg-[#F15E4A] text-white"
+                                ? "border-[#18A6C9] bg-[#18A6C9] text-white"
                                 : "border-[#D8DEEA] text-muted-foreground",
                             ].join(
                               " "

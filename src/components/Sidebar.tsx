@@ -609,7 +609,7 @@ export default function Sidebar({
                     className={[
                       "flex min-h-10 items-center gap-2.5 rounded-xl px-3 py-2 text-[13px] font-semibold transition",
                       active
-                        ? "bg-[#F15E4A] text-white shadow-sm"
+                        ? "bg-[#18A6C9] text-white shadow-sm"
                         : "text-indigo-100 hover:bg-[#314784] hover:text-white",
                     ].join(" ")}
                   >
@@ -639,7 +639,7 @@ export default function Sidebar({
     return (
       <div className="flex h-full min-h-0 flex-col">
         <div
-          className="flex items-center justify-between border-b border-[#B94336] bg-[#F15E4A] px-3 pb-3 md:hidden"
+          className="flex items-center justify-between border-b border-[#11748C] bg-[#18A6C9] px-3 pb-3 md:hidden"
           style={{
             paddingTop:
               "calc(0.75rem + var(--ls-safe-area-top))",
@@ -667,7 +667,7 @@ export default function Sidebar({
             type="button"
             onClick={onClose}
             aria-label="Close navigation"
-            className="ls-focus-ring inline-flex h-10 w-10 items-center justify-center rounded-xl bg-[#D84F3E] text-white"
+            className="ls-focus-ring inline-flex h-10 w-10 items-center justify-center rounded-xl bg-[#1283A1] text-white"
           >
             <X className="h-5 w-5" />
           </button>
@@ -744,7 +744,7 @@ export default function Sidebar({
                   className={[
                     "ls-focus-ring flex min-h-11 w-full items-center justify-between gap-3 rounded-xl px-2.5 py-1.5 text-left transition",
                     groupActive
-                      ? "bg-[#F15E4A] text-white shadow-[0_10px_24px_rgba(10,18,50,0.26)]"
+                      ? "bg-[#18A6C9] text-white shadow-[0_10px_24px_rgba(10,18,50,0.26)]"
                       : "text-indigo-50 hover:bg-[#314784]",
                   ].join(" ")}
                 >
@@ -753,7 +753,7 @@ export default function Sidebar({
                       className={[
                         "inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl transition",
                         groupActive
-                          ? "bg-white text-[#F15E4A] shadow-sm"
+                          ? "bg-white text-[#18A6C9] shadow-sm"
                           : "bg-[#314784] text-white shadow-sm",
                       ].join(" ")}
                     >
@@ -826,7 +826,7 @@ export default function Sidebar({
                               className={[
                                 "h-1.5 w-1.5 shrink-0 rounded-full",
                                 active
-                                  ? "bg-[#F15E4A]"
+                                  ? "bg-[#18A6C9]"
                                   : "bg-white/25",
                               ].join(" ")}
                             />

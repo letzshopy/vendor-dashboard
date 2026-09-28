@@ -306,7 +306,7 @@ export default function SelectStorePage() {
               />
             </div>
 
-            <div className="mt-10 h-1 w-12 rounded-full bg-[#F15E4A]" />
+            <div className="mt-10 h-1 w-12 rounded-full bg-[#18A6C9]" />
 
             <div className="mt-5 inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1.5 text-[10px] font-extrabold uppercase tracking-[0.08em] text-indigo-100">
               <ShieldCheck className="h-3.5 w-3.5 text-[#20B486]" />
@@ -376,7 +376,7 @@ export default function SelectStorePage() {
 
           <div className="mt-5 flex flex-col gap-3 sm:mt-7 sm:flex-row sm:items-end sm:justify-between">
             <div className="min-w-0">
-              <div className="text-[10px] font-extrabold uppercase tracking-[0.1em] text-[#F15E4A]">
+              <div className="text-[10px] font-extrabold uppercase tracking-[0.1em] text-[#18A6C9]">
                 Vendor Dashboard
               </div>
 
@@ -479,7 +479,7 @@ export default function SelectStorePage() {
                       className={[
                         "overflow-hidden rounded-2xl border bg-white shadow-[0_7px_20px_rgba(38,51,95,0.05)] transition",
                         selecting
-                          ? "border-[#F15E4A] ring-2 ring-[#F15E4A]/10"
+                          ? "border-[#18A6C9] ring-2 ring-[#18A6C9]/10"
                           : "border-[#DDE3EE] hover:border-[#BFC7D8] hover:shadow-[0_10px_24px_rgba(38,51,95,0.08)]",
                         disabled
                           ? "opacity-55"
@@ -494,7 +494,7 @@ export default function SelectStorePage() {
                           index %
                             3 ===
                           0
-                            ? "bg-[#F15E4A]"
+                            ? "bg-[#18A6C9]"
                             : index %
                                 3 ===
                                 1

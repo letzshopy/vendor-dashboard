@@ -115,7 +115,7 @@ const QUICK_ACTIONS = [
     href: "/products/add",
     icon: PackagePlus,
     className:
-      "bg-[#F15E4A] text-white",
+      "bg-[#18A6C9] text-white",
   },
   {
     label: "Create Order",
@@ -370,7 +370,7 @@ function SectionHeader({
 }) {
   const toneClass =
     tone === "coral"
-      ? "bg-[#F15E4A] text-white"
+      ? "bg-[#18A6C9] text-white"
       : tone === "green"
         ? "bg-[#20B486] text-white"
         : tone === "plain"
@@ -737,9 +737,9 @@ export default function DashboardHomeApp() {
         iconClass:
           "text-white",
         iconSurface:
-          "bg-[#F15E4A]",
+          "bg-[#18A6C9]",
         borderClass:
-          "border-t-[#F15E4A]",
+          "border-t-[#18A6C9]",
       },
       {
         label:
@@ -846,7 +846,7 @@ export default function DashboardHomeApp() {
         icon:
           AlertTriangle,
         iconClass:
-          "text-[#D84F3E]",
+          "text-[#1283A1]",
         countClass:
           "bg-rose-100 text-rose-700",
         loading:
@@ -976,7 +976,7 @@ export default function DashboardHomeApp() {
         <div>
           <div
             suppressHydrationWarning
-            className="inline-flex items-center gap-1.5 rounded-full bg-[#FDE9E5] px-2.5 py-1 text-[10px] font-extrabold text-[#D84F3E]"
+            className="inline-flex items-center gap-1.5 rounded-full bg-[#FDE9E5] px-2.5 py-1 text-[10px] font-extrabold text-[#1283A1]"
           >
             <Sparkles className="h-3.5 w-3.5" />
             {greetingText()}
@@ -993,7 +993,7 @@ export default function DashboardHomeApp() {
 
         <Link
           href="/products/add"
-          className="mt-3 hidden min-h-10 items-center gap-2 rounded-xl bg-[#F15E4A] px-4 text-sm font-extrabold text-white shadow-[0_8px_18px_rgba(241,94,74,0.18)] hover:bg-[#D84F3E] md:inline-flex"
+          className="mt-3 hidden min-h-10 items-center gap-2 rounded-xl bg-[#18A6C9] px-4 text-sm font-extrabold text-white shadow-[0_8px_18px_rgba(24,166,201,0.18)] hover:bg-[#1283A1] md:inline-flex"
         >
           <PackagePlus className="h-4 w-4" />
           Add Product
@@ -1163,7 +1163,7 @@ export default function DashboardHomeApp() {
                           index ===
                           revenue.length -
                             1
-                            ? "bg-[#F15E4A]"
+                            ? "bg-[#18A6C9]"
                             : "bg-[#4059A7]";
 
                         return (
@@ -1482,7 +1482,7 @@ export default function DashboardHomeApp() {
                     href="/products?stock=outofstock"
                     className="pl-3"
                   >
-                    <div className="text-xl font-extrabold text-[#D84F3E]">
+                    <div className="text-xl font-extrabold text-[#1283A1]">
                       {
                         outOfStock
                       }
