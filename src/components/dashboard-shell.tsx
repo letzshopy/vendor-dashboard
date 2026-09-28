@@ -17,6 +17,9 @@ import Sidebar from "@/components/Sidebar";
 import Topbar from "@/components/Topbar";
 import Footer from "@/components/layout/Footer";
 import SubscriptionAccessNotice from "@/components/subscription/SubscriptionAccessNotice";
+import {
+  LETZSHOPY_NATIVE_BACK_EVENT,
+} from "@/lib/nativeNavigation";
 
 export default function DashboardShell({
   children,
@@ -69,6 +72,30 @@ export default function DashboardShell({
       document.body.style.overflow =
         previousOverflow;
     };
+  }, [sidebarOpen]);
+
+  useEffect(() => {
+    if (!sidebarOpen) {
+      return;
+    }
+
+    function closeOnNativeBack(
+      event: Event
+    ) {
+      event.preventDefault();
+      setSidebarOpen(false);
+    }
+
+    window.addEventListener(
+      LETZSHOPY_NATIVE_BACK_EVENT,
+      closeOnNativeBack
+    );
+
+    return () =>
+      window.removeEventListener(
+        LETZSHOPY_NATIVE_BACK_EVENT,
+        closeOnNativeBack
+      );
   }, [sidebarOpen]);
 
   return (
