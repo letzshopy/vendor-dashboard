@@ -11,25 +11,25 @@ public class MainActivity extends BridgeActivity {
     }
 
     @Override
-    protected void onResume() {
+    public void onResume() {
         CookieManager.getInstance().setAcceptCookie(true);
         super.onResume();
     }
 
     @Override
-    protected void onPause() {
+    public void onPause() {
         persistWebViewCookies();
         super.onPause();
     }
 
     @Override
-    protected void onStop() {
+    public void onStop() {
         persistWebViewCookies();
         super.onStop();
     }
 
     @Override
-    protected void onDestroy() {
+    public void onDestroy() {
         persistWebViewCookies();
         super.onDestroy();
     }
