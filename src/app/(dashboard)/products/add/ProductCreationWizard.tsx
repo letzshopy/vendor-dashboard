@@ -3266,13 +3266,8 @@ export default function ProductCreationWizard({
       status: effectiveStatus,
     });
 
-    actionFeedback.success({
-      id: "product-update",
-      title: "Product updated successfully",
-      message:
-        productName.trim() || "Product",
-      durationMs: 2600,
-    });
+    // Success is shown only in the modal.
+
   }
 
   async function updateExistingProduct() {
@@ -3718,15 +3713,46 @@ export default function ProductCreationWizard({
       status: effectiveStatus,
     });
 
-    actionFeedback.success({
-      id: "product-create",
-      title:
-        effectiveStatus === "publish"
-          ? "Product created successfully"
-          : "Product saved as draft",
-      message: createdName,
-      durationMs: 2600,
-    });
+    // Success is shown only in the modal.
+
+  }
+
+  function isDuplicateSkuMessage(
+    message: string
+  ) {
+    const normalized =
+      message.toLowerCase();
+
+    return (
+      normalized.includes("sku") &&
+      (
+        normalized.includes(
+          "already present"
+        ) ||
+        normalized.includes(
+          "already taken"
+        ) ||
+        normalized.includes(
+          "already exists"
+        ) ||
+        normalized.includes(
+          "duplicate"
+        ) ||
+        normalized.includes(
+          "lookup table"
+        )
+      )
+    );
+  }
+
+  function cleanProductErrorMessage(
+    message: string
+  ) {
+    return isDuplicateSkuMessage(
+      message
+    )
+      ? "SKU already in use. Choose a different SKU."
+      : message;
   }
 
   function notifyProductCreateError(
@@ -3989,21 +4015,29 @@ export default function ProductCreationWizard({
         error instanceof Error
           ? error.message
           : "Size product creation failed.";
+      const duplicateSku =
+        isDuplicateSkuMessage(
+          rawMessage
+        );
+      const cleanedMessage =
+        cleanProductErrorMessage(
+          rawMessage
+        );
 
       const message =
-        productId > 0
-          ? `${rawMessage} Product #${productId} was created, but its size variations were not completed.`
-          : rawMessage;
+        productId > 0 &&
+        !duplicateSku
+          ? `${cleanedMessage} Product #${productId} was created, but its size variations were not completed.`
+          : cleanedMessage;
 
       setSubmitError(message);
       notifyProductCreateError(
         message
       );
 
-      if (
-        rawMessage === "SKU already taken"
-      ) {
+      if (duplicateSku) {
         setSkuTaken(true);
+        unlockAndOpen("info");
       }
     } finally {
       setSubmitStage(null);
@@ -4414,21 +4448,29 @@ export default function ProductCreationWizard({
         error instanceof Error
           ? error.message
           : "Colour product creation failed.";
+      const duplicateSku =
+        isDuplicateSkuMessage(
+          rawMessage
+        );
+      const cleanedMessage =
+        cleanProductErrorMessage(
+          rawMessage
+        );
 
       const message =
-        productId > 0
-          ? `${rawMessage} Product #${productId} was created, but its colour setup was not completed.`
-          : rawMessage;
+        productId > 0 &&
+        !duplicateSku
+          ? `${cleanedMessage} Product #${productId} was created, but its colour setup was not completed.`
+          : cleanedMessage;
 
       setSubmitError(message);
       notifyProductCreateError(
         message
       );
 
-      if (
-        rawMessage === "SKU already taken"
-      ) {
+      if (duplicateSku) {
         setSkuTaken(true);
+        unlockAndOpen("info");
       }
     } finally {
       setSubmitStage(null);
@@ -4451,171 +4493,27 @@ export default function ProductCreationWizard({
       !selectedCategory ||
       selectedCategory.id <= 0
     ) {
-      const message =
-        "Select a saved product category.";
-
-      setSubmitError(message);
-      notifyProductCreateError(
-        message
-      );
-      return;
-    }
-
-    let uploadedIds: number[] = [];
-
-    try {
-      setSubmitting(true);
-      setSubmitError(null);
-      setConfirmation(null);
-
-      setSubmitStage("Checking SKU");
-
-      await verifySkuBeforeUpload();
-
-      setSubmitStage(
-        `Preparing and uploading 0 of ${localPhotos.length} images`
-      );
-
-      uploadedIds =
-        await uploadProductPhotos(
-          localPhotos,
-          (completed, total) => {
-            setSubmitStage(
-              `Preparing and uploading ${completed} of ${total} images`
-            );
-          }
-        );
-
-      setSubmitStage("Creating product");
-
-      const payload: JsonRecord = {
-        type: "simple",
-        name: productName.trim(),
-        status: effectiveStatus,
-        catalog_visibility: visibility,
-        short_description:
-          shortDescription.trim(),
-        description: description.trim(),
-        regular_price:
-          regularPrice.trim(),
-        manage_stock: true,
-        stock_quantity: Number(
-          stockQuantity
-        ),
-        weight: weight.trim(),
-        categories: [
-          {
-            id: selectedCategory.id,
-          },
-        ],
-        tags: tags.map((name) => ({
-          name,
-        })),
-        images: uploadedIds.map(
-          (id, position) => ({
-            id,
-            position,
-          })
-        ),
-      };
-
-      if (sku.trim()) {
-        payload.sku = sku.trim();
-      }
-
-      if (dimensionsEnabled) {
-        payload.dimensions = {
-          length: length.trim(),
-          width: width.trim(),
-          height: height.trim(),
-        };
-      }
-
-      if (color.trim()) {
-        payload.color = color.trim();
-      }
-
-      const response = await fetch(
-        "/api/products/create",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type":
-              "application/json",
-          },
-          body: JSON.stringify(payload),
-        }
-      );
-
-      const json: unknown =
-        await response.json();
-
-      if (!response.ok) {
-        const message =
-          isRecord(json) &&
-          typeof json.error === "string"
-            ? json.error
-            : "Product creation failed.";
-
-        throw new Error(message);
-      }
-
-      const productId =
-        isRecord(json)
-          ? Number(json.id)
-          : 0;
-
-      if (
-        !Number.isSafeInteger(productId) ||
-        productId <= 0
-      ) {
-        throw new Error(
-          "Product creation returned an invalid response."
-        );
-      }
-
-      await completeProductCreate(productId);
-    } catch (error: unknown) {
-      const partialIds =
-        error instanceof Error &&
-        "uploadedIds" in error &&
-        Array.isArray(
-          (
-            error as Error & {
-              uploadedIds?: unknown;
-            }
-          ).uploadedIds
-        )
-          ? (
-              error as Error & {
-                uploadedIds: number[];
-              }
-            ).uploadedIds
-          : [];
-
-      const cleanupIds =
-        uploadedIds.length > 0
-          ? uploadedIds
-          : partialIds;
-
-      await deleteUploadedMedia(
-        cleanupIds
-      );
-
-      const message =
+      const rawMessage =
         error instanceof Error
           ? error.message
           : "Product creation failed.";
+      const duplicateSku =
+        isDuplicateSkuMessage(
+          rawMessage
+        );
+      const message =
+        cleanProductErrorMessage(
+          rawMessage
+        );
 
       setSubmitError(message);
       notifyProductCreateError(
         message
       );
 
-      if (
-        message === "SKU already taken"
-      ) {
+      if (duplicateSku) {
         setSkuTaken(true);
+        unlockAndOpen("info");
       }
     } finally {
       setSubmitStage(null);
@@ -5601,7 +5499,7 @@ export default function ProductCreationWizard({
                       </p>
                     ) : skuTaken ? (
                       <p className="mt-1 text-[11px] font-semibold text-rose-600">
-                        SKU already taken.
+                        SKU already in use. Choose a different SKU.
                       </p>
                     ) : skuCheckError ? (
                       <p className="mt-1 text-[11px] font-semibold text-amber-700">
