@@ -1273,18 +1273,20 @@ export default function OrdersClient({
           "./ui/PackingSlipPdfClient"
         );
 
-      await mod.default.generateForOrders(
-        selected,
-        storeName
-      );
+      const fileResult =
+        await mod.default.generateForOrders(
+          selected,
+          storeName
+        );
 
       actionFeedback.success({
         id: feedbackId,
         title:
           "Packing slips ready",
         message:
-          "PDF download started.",
-        durationMs: 2600,
+          fileResult?.message ||
+          "PDF ready.",
+        durationMs: 3200,
       });
     } catch (
       error

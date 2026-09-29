@@ -1,6 +1,10 @@
 "use client";
 
 import jsPDF from "jspdf";
+
+import {
+  saveClientFile,
+} from "@/lib/clientFileSave";
 import autoTable from "jspdf-autotable";
 
 /** -----------------------------
@@ -326,13 +330,24 @@ async function buildPdfFor(ids: number[]) {
   }
 
   const name = ids.length === 1 ? `invoice-${ids[0]}.pdf` : `invoices-${ids[0]}-and-${ids.length - 1}-more.pdf`;
-  doc.save(name);
+
+  return saveClientFile(
+    doc.output("blob"),
+    name,
+    {
+      shareNative: true,
+      shareTitle:
+        "LetzShopy Invoice",
+      shareDialogTitle:
+        "Open, print or share invoice",
+    }
+  );
 }
 
 const InvoicePdfClient = {
   async generateForOrders(ids: number[]) {
     if (!ids || ids.length === 0) return;
-    await buildPdfFor(ids);
+    return buildPdfFor(ids);
   },
 };
 
