@@ -1542,7 +1542,7 @@ export default function OrdersClient({
         <div className="p-2.5 md:p-3 lg:hidden">
           {paginatedOrders.length >
           0 ? (
-            <div className="grid gap-2.5 md:grid-cols-2">
+            <div className="grid gap-3 md:grid-cols-2">
               {paginatedOrders.map(
                 (
                   order
@@ -1598,86 +1598,61 @@ export default function OrdersClient({
                         order.id
                       }
                       className={[
-                        "overflow-hidden rounded-xl border border-border bg-card transition",
+                        "overflow-hidden rounded-2xl border border-border bg-card shadow-[0_8px_24px_rgba(38,51,95,0.07)] transition",
                         selected.includes(
                           order.id
                         )
-                          ? "ring-2 ring-primary/10"
+                          ? "ring-2 ring-primary/15"
                           : "",
                       ].join(
                         " "
                       )}
                     >
-                      <div className="p-3">
-                        <div className="flex items-start gap-2.5">
-                          <input
-                            type="checkbox"
-                            aria-label={
-                              isCancelled
-                                ? `Cancelled order ${order.number || order.id} cannot be selected for processing`
-                                : `Select order ${order.number || order.id}`
-                            }
-                            checked={
-                              selected.includes(
-                                order.id
-                              )
-                            }
-                            disabled={
-                              isCancelled
-                            }
-                            onChange={(
+                      <header className="flex min-w-0 items-center gap-2 border-b border-border bg-surface-soft px-3 py-2.5">
+                        <input
+                          type="checkbox"
+                          aria-label={
+                            isCancelled
+                              ? `Cancelled order ${order.number || order.id} cannot be selected for processing`
+                              : `Select order ${order.number || order.id}`
+                          }
+                          checked={
+                            selected.includes(
+                              order.id
+                            )
+                          }
+                          disabled={
+                            isCancelled
+                          }
+                          onChange={(
+                            event
+                          ) =>
+                            toggleOne(
+                              order.id,
                               event
-                            ) =>
-                              toggleOne(
-                                order.id,
-                                event
-                                  .currentTarget
-                                  .checked
-                              )
+                                .currentTarget
+                                .checked
+                            )
+                          }
+                          className="h-4 w-4 shrink-0 accent-[var(--primary)] disabled:cursor-not-allowed disabled:opacity-35"
+                        />
+
+                        <Link
+                          href={`/orders/${order.id}`}
+                          className="min-w-0 flex-1 truncate text-sm font-extrabold text-primary hover:underline"
+                        >
+                          Order #
+                          {order.number ||
+                            order.id}
+                        </Link>
+
+                        <div className="flex shrink-0 items-center gap-1">
+                          <OrderStatus
+                            status={
+                              order.status
                             }
-                            className="mt-1 h-4 w-4 shrink-0 accent-[var(--primary)] disabled:cursor-not-allowed disabled:opacity-35"
+                            compact
                           />
-
-                          <div className="min-w-0 flex-1">
-                            <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-                              <Link
-                                href={`/orders/${order.id}`}
-                                className="text-xs font-extrabold text-primary hover:underline"
-                              >
-                                #
-                                {order.number ||
-                                  order.id}
-                              </Link>
-
-                              <OrderStatus
-                                status={
-                                  order.status
-                                }
-                                compact
-                              />
-                            </div>
-
-                            <div className="mt-1 truncate text-sm font-extrabold text-heading">
-                              {
-                                customerName
-                              }
-                            </div>
-
-
-                          </div>
-
-                          <div className="shrink-0 text-right">
-                            <div className="text-sm font-extrabold text-heading">
-                              {formatMoney(
-                                order.total
-                              )}
-                            </div>
-                            <div className="mt-0.5 text-[10px] text-muted-foreground">
-                              {formatShortDate(
-                                order.date_created_gmt
-                              )}
-                            </div>
-                          </div>
 
                           <OrderActionSheet
                             order={
@@ -1691,17 +1666,41 @@ export default function OrdersClient({
                             }
                           />
                         </div>
+                      </header>
+
+                      <div className="p-3">
+                        <div className="flex min-w-0 items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <div className="truncate text-sm font-extrabold text-heading">
+                              {
+                                customerName
+                              }
+                            </div>
+
+                            <div className="mt-1 text-[11px] text-muted-foreground">
+                              {formatShortDate(
+                                order.date_created_gmt
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="shrink-0 text-right text-base font-extrabold text-heading">
+                            {formatMoney(
+                              order.total
+                            )}
+                          </div>
+                        </div>
 
                         {isCancelled ? (
                           <div className="mt-3 flex items-center gap-2 rounded-xl border border-rose-200 bg-rose-100/80 px-3 py-2 text-xs font-extrabold text-rose-800">
                             <X className="h-4 w-4 shrink-0" />
                             <span>
-                              Cancelled order — do not process or dispatch.
+                              Cancelled — do not process or dispatch.
                             </span>
                           </div>
                         ) : null}
 
-                        <div className="mt-3 flex gap-3">
+                        <div className="mt-3 flex min-w-0 gap-3 rounded-xl border border-border/70 bg-white p-2.5">
                           {image ? (
                             <button
                               type="button"
@@ -1714,7 +1713,7 @@ export default function OrdersClient({
                                     `Order ${order.number || order.id} product`,
                                 })
                               }
-                              className="ls-focus-ring h-16 w-16 shrink-0 overflow-hidden rounded-xl border border-border bg-muted"
+                              className="ls-focus-ring h-14 w-14 shrink-0 overflow-hidden rounded-xl border border-border bg-muted"
                             >
                               <img
                                 src={
@@ -1725,26 +1724,17 @@ export default function OrdersClient({
                               />
                             </button>
                           ) : (
-                            <div className="grid h-16 w-16 shrink-0 place-items-center rounded-xl border border-dashed border-border bg-muted text-muted-foreground">
+                            <div className="grid h-14 w-14 shrink-0 place-items-center rounded-xl border border-dashed border-border bg-muted text-muted-foreground">
                               <Package2 className="h-5 w-5" />
                             </div>
                           )}
 
-                          <div className="min-w-0 flex-1">
+                          <div className="min-w-0 flex-1 self-center">
                             <div className="line-clamp-2 text-sm font-bold leading-5 text-foreground">
                               {first
                                 ? `${Number((first as any).quantity || 1)} × ${first.name}`
                                 : "No product"}
                             </div>
-
-                            {first?.sku ? (
-                              <div className="mt-1 truncate text-[11px] text-muted-foreground">
-                                SKU{" "}
-                                {
-                                  first.sku
-                                }
-                              </div>
-                            ) : null}
 
                             {extraItemCount >
                             0 ? (
@@ -1763,8 +1753,8 @@ export default function OrdersClient({
                           </div>
                         </div>
 
-                        <div className="mt-3 grid grid-cols-2 overflow-hidden rounded-xl border border-border bg-surface-soft text-xs">
-                          <div className="min-w-0 p-2.5">
+                        <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
+                          <div className="min-w-0 rounded-xl bg-surface-soft p-2.5">
                             <div className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
                               Payment
                             </div>
@@ -1775,7 +1765,7 @@ export default function OrdersClient({
                             </div>
                           </div>
 
-                          <div className="min-w-0 border-l border-border p-2.5">
+                          <div className="min-w-0 rounded-xl bg-surface-soft p-2.5">
                             <div className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
                               Shipment
                             </div>
@@ -1799,16 +1789,10 @@ export default function OrdersClient({
 
                         <Link
                           href={`/orders/${order.id}`}
-                          className={buttonClassName({
-                            variant:
-                              "outline",
-                            size: "md",
-                            className:
-                              "mt-3 w-full",
-                          })}
+                          className="mt-3 flex min-h-10 w-full items-center justify-between rounded-xl bg-primary/5 px-3 text-sm font-extrabold text-primary"
                         >
-                          <Eye className="h-4 w-4" />
-                          View order
+                          <span>View order</span>
+                          <ChevronRight className="h-4 w-4" />
                         </Link>
                       </div>
 

@@ -538,7 +538,7 @@ export default function MobilePageHeader({
   ) {
     return (
       <header
-        className="sticky top-0 z-40 border-b border-[#111B3F] bg-[#182451] shadow-[0_8px_24px_rgba(17,27,63,0.24)] md:hidden"
+        className="fixed inset-x-0 top-0 z-50 border-b border-[#111B3F] bg-[#182451] shadow-[0_8px_24px_rgba(17,27,63,0.24)] md:hidden"
         style={{
           paddingTop:
             "var(--ls-safe-area-top)",
@@ -576,7 +576,7 @@ export default function MobilePageHeader({
 
   return (
     <header
-      className="sticky top-0 z-40 border-b border-[#111B3F] bg-[#182451] shadow-[0_8px_24px_rgba(17,27,63,0.24)] md:hidden"
+      className="fixed inset-x-0 top-0 z-50 border-b border-[#111B3F] bg-[#182451] shadow-[0_8px_24px_rgba(17,27,63,0.24)] md:hidden"
       style={{
         paddingTop:
           "var(--ls-safe-area-top)",

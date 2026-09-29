@@ -121,6 +121,15 @@ export default function DashboardShell({
         }
       />
 
+      <div
+        aria-hidden="true"
+        className="md:hidden"
+        style={{
+          height:
+            "calc(60px + var(--ls-safe-area-top))",
+        }}
+      />
+
       {locked && (
         <div className="sticky top-16 z-30 border-b border-amber-200 bg-amber-50/95 px-3 py-3 text-sm text-amber-800 backdrop-blur md:top-[68px] md:px-5">
           <div className="w-full">

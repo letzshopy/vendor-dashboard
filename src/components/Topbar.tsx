@@ -456,7 +456,7 @@ export default function Topbar({
           "var(--ls-safe-area-top)",
       }}
       className={[
-        "sticky top-0 z-40 w-full border-b border-[#111B3F] bg-[#182451] shadow-[0_8px_28px_rgba(17,27,63,0.24)]",
+        "fixed inset-x-0 top-0 z-50 w-full border-b border-[#111B3F] bg-[#182451] shadow-[0_8px_28px_rgba(17,27,63,0.24)] md:sticky md:inset-x-auto md:z-40",
         showMobileDashboardTopbar
           ? "block"
           : "hidden",

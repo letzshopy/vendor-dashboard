@@ -352,7 +352,7 @@ select:active {
   width: 100%;
   min-width: 0;
   max-width: 100%;
-  overflow-x: hidden;
+  overflow-x: clip;
   background: var(--ls-app-background);
 }
 
@@ -378,6 +378,12 @@ select:active {
     max(0.25rem, var(--ls-safe-area-left));
   box-shadow:
     0 -8px 28px rgba(38, 51, 95, 0.1);
+}
+
+.dashboard-mobile-sticky-actions {
+  bottom:
+    calc(4.5rem + var(--ls-safe-area-bottom));
+  padding-bottom: 0.75rem;
 }
 
 .dashboard-mobile-more-sheet {
@@ -428,6 +434,10 @@ select:active {
     pointer-events: none;
     opacity: 0;
     transform: translateY(120%);
+  }
+
+  body.ls-keyboard-open .dashboard-mobile-sticky-actions {
+    bottom: 0;
   }
 
   body.ls-keyboard-open input:focus,

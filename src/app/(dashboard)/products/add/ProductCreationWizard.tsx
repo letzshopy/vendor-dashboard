@@ -6420,11 +6420,7 @@ export default function ProductCreationWizard({
       )}
 
       <footer
-        className="sticky bottom-0 z-30 flex shrink-0 items-center gap-3 border-t border-[#E5E8F0] bg-white/95 px-3 py-3 backdrop-blur md:static md:rounded-b-2xl md:bg-[#F8F9FC] md:px-5"
-        style={{
-          paddingBottom:
-            "calc(0.75rem + env(safe-area-inset-bottom))",
-        }}
+        className="dashboard-mobile-sticky-actions sticky z-30 flex shrink-0 items-center gap-3 border-t border-[#E5E8F0] bg-white/95 px-3 py-3 backdrop-blur md:static md:rounded-b-2xl md:bg-[#F8F9FC] md:px-5"
       >
         <button
           type="button"
