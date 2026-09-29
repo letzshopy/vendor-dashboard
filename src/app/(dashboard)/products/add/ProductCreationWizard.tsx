@@ -868,7 +868,7 @@ export default function ProductCreationWizard({
                     existing: true,
                   }];
                 }
-              )
+              ).slice(0, 5)
             : [];
 
         setLocalPhotos(existingProductPhotos);
@@ -996,7 +996,7 @@ export default function ProductCreationWizard({
                                   existing: true,
                                 }];
                               }
-                            )
+                            ).slice(0, 3)
                           : [];
 
                       return [[variationId, photos] as const];
