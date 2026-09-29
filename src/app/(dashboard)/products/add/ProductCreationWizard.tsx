@@ -4493,6 +4493,157 @@ export default function ProductCreationWizard({
       !selectedCategory ||
       selectedCategory.id <= 0
     ) {
+      const message =
+        "Select a saved product category.";
+
+      setSubmitError(message);
+      notifyProductCreateError(
+        message
+      );
+      return;
+    }
+
+    let uploadedIds: number[] = [];
+
+    try {
+      setSubmitting(true);
+      setSubmitError(null);
+      setConfirmation(null);
+
+      setSubmitStage("Checking SKU");
+
+      await verifySkuBeforeUpload();
+
+      setSubmitStage(
+        `Preparing and uploading 0 of ${localPhotos.length} images`
+      );
+
+      uploadedIds =
+        await uploadProductPhotos(
+          localPhotos,
+          (completed, total) => {
+            setSubmitStage(
+              `Preparing and uploading ${completed} of ${total} images`
+            );
+          }
+        );
+
+      setSubmitStage("Creating product");
+
+      const payload: JsonRecord = {
+        type: "simple",
+        name: productName.trim(),
+        status: effectiveStatus,
+        catalog_visibility: visibility,
+        short_description:
+          shortDescription.trim(),
+        description: description.trim(),
+        regular_price:
+          regularPrice.trim(),
+        manage_stock: true,
+        stock_quantity: Number(
+          stockQuantity
+        ),
+        weight: weight.trim(),
+        categories: [
+          {
+            id: selectedCategory.id,
+          },
+        ],
+        tags: tags.map((name) => ({
+          name,
+        })),
+        images: uploadedIds.map(
+          (id, position) => ({
+            id,
+            position,
+          })
+        ),
+      };
+
+      if (sku.trim()) {
+        payload.sku = sku.trim();
+      }
+
+      if (dimensionsEnabled) {
+        payload.dimensions = {
+          length: length.trim(),
+          width: width.trim(),
+          height: height.trim(),
+        };
+      }
+
+      if (color.trim()) {
+        payload.color = color.trim();
+      }
+
+      const response = await fetch(
+        "/api/products/create",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type":
+              "application/json",
+          },
+          body: JSON.stringify(payload),
+        }
+      );
+
+      const json: unknown =
+        await response.json();
+
+      if (!response.ok) {
+        const message =
+          isRecord(json) &&
+          typeof json.error === "string"
+            ? json.error
+            : "Product creation failed.";
+
+        throw new Error(message);
+      }
+
+      const productId =
+        isRecord(json)
+          ? Number(json.id)
+          : 0;
+
+      if (
+        !Number.isSafeInteger(productId) ||
+        productId <= 0
+      ) {
+        throw new Error(
+          "Product creation returned an invalid response."
+        );
+      }
+
+      await completeProductCreate(productId);
+    } catch (error: unknown) {
+      const partialIds =
+        error instanceof Error &&
+        "uploadedIds" in error &&
+        Array.isArray(
+          (
+            error as Error & {
+              uploadedIds?: unknown;
+            }
+          ).uploadedIds
+        )
+          ? (
+              error as Error & {
+                uploadedIds: number[];
+              }
+            ).uploadedIds
+          : [];
+
+      const cleanupIds =
+        uploadedIds.length > 0
+          ? uploadedIds
+          : partialIds;
+
+      await deleteUploadedMedia(
+        cleanupIds
+      );
+
       const rawMessage =
         error instanceof Error
           ? error.message
