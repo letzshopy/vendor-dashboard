@@ -4936,6 +4936,18 @@ export default function ProductCreationWizard({
     }
   };
 
+  const optionalDetailsFilled =
+    Boolean(weight.trim()) ||
+    tags.length > 0 ||
+    (
+      dimensionsEnabled &&
+      Boolean(
+        length.trim() ||
+        width.trim() ||
+        height.trim()
+      )
+    );
+
   const isSectionComplete = (
     section: GuidedSection
   ) => {
@@ -5001,7 +5013,12 @@ export default function ProductCreationWizard({
             <span className="truncate text-sm font-extrabold text-[#17233C]">
               {title}
             </span>
-            {complete && !expanded ? (
+            {complete &&
+            !expanded &&
+            (
+              section !== "extra" ||
+              optionalDetailsFilled
+            ) ? (
               <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-emerald-50 px-2 py-1 text-[10px] font-extrabold text-emerald-700">
                 <Check className="h-3 w-3" />
                 Completed
