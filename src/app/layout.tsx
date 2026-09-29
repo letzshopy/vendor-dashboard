@@ -6,6 +6,7 @@ import { Suspense } from "react";
 import PwaRegister from "@/components/pwa/PwaRegister";
 import MobileViewportBridge from "@/components/navigation/MobileViewportBridge";
 import CapacitorNativeBridge from "@/components/native/CapacitorNativeBridge";
+import NativeBrandSplash from "@/components/native/NativeBrandSplash";
 
 export const metadata: Metadata = {
   title: "LetzShopy Vendor Dashboard",
@@ -61,6 +62,7 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} bg-background text-foreground antialiased`}
       >
         <PwaRegister />
+        <NativeBrandSplash />
         <MobileViewportBridge />
         <CapacitorNativeBridge />
 

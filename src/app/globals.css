@@ -697,3 +697,110 @@ select:active {
     animation-duration: 1.8s;
   }
 }
+
+
+/* LetzShopy native launch branding: shown only inside Capacitor. */
+.ls-native-brand-splash {
+  position: fixed;
+  inset: 0;
+  z-index: 500;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  background: #f8fafc;
+  opacity: 1;
+  pointer-events: none;
+  transition: opacity 220ms ease;
+}
+
+.ls-native-brand-splash.is-leaving {
+  opacity: 0;
+}
+
+.ls-native-brand-lockup {
+  display: flex;
+  width: min(84vw, 23rem);
+  align-items: center;
+  justify-content: center;
+  gap: clamp(0.65rem, 2.6vw, 0.95rem);
+}
+
+.ls-native-brand-bag {
+  width: clamp(4rem, 20vw, 5.35rem);
+  height: auto;
+  flex: 0 0 auto;
+  opacity: 0;
+  transform: translateY(0.35rem) scale(0.86);
+  animation:
+    ls-native-brand-bag-in
+    520ms
+    cubic-bezier(0.2, 0.85, 0.25, 1)
+    40ms
+    forwards;
+}
+
+.ls-native-brand-copy {
+  min-width: 0;
+  padding-top: 0.15rem;
+}
+
+.ls-native-brand-wordmark {
+  color: #1f63d8;
+  font-size: clamp(1.85rem, 9.6vw, 2.65rem);
+  font-weight: 720;
+  line-height: 0.92;
+  letter-spacing: -0.055em;
+  opacity: 0;
+  transform: translateY(0.3rem);
+  animation:
+    ls-native-brand-copy-in
+    480ms
+    cubic-bezier(0.2, 0.8, 0.2, 1)
+    150ms
+    forwards;
+}
+
+.ls-native-brand-tagline {
+  margin-top: 0.48rem;
+  color: #566176;
+  font-size: clamp(0.43rem, 2vw, 0.58rem);
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: 0.19em;
+  white-space: nowrap;
+  opacity: 0;
+  transform: translateY(0.25rem);
+  animation:
+    ls-native-brand-copy-in
+    440ms
+    ease
+    280ms
+    forwards;
+}
+
+@keyframes ls-native-brand-bag-in {
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes ls-native-brand-copy-in {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ls-native-brand-bag,
+  .ls-native-brand-wordmark,
+  .ls-native-brand-tagline {
+    animation-duration: 0.01ms !important;
+    animation-delay: 0ms !important;
+  }
+
+  .ls-native-brand-splash {
+    transition-duration: 0.01ms !important;
+  }
+}
