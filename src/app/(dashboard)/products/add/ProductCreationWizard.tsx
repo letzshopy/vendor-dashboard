@@ -4865,26 +4865,50 @@ export default function ProductCreationWizard({
   }
 
   if (successResult) {
+    const successTitle =
+      successResult.kind === "updated"
+        ? "Product updated"
+        : successResult.status === "publish"
+          ? "Product created"
+          : "Draft saved";
+
+    const successMessage =
+      successResult.kind === "updated"
+        ? "Your product changes are live."
+        : successResult.status === "publish"
+          ? "Your product was created successfully."
+          : "Your product is saved and ready to finish later.";
+
     return (
-      <main className="mx-auto w-full max-w-3xl pb-6 md:pb-10">
-        <section className="overflow-hidden rounded-3xl border border-emerald-200 bg-white shadow-[0_14px_40px_rgba(23,35,60,0.08)]">
-          <div className="bg-emerald-600 px-5 py-8 text-center text-white md:px-8 md:py-10">
-            <span className="mx-auto grid h-16 w-16 place-items-center rounded-full bg-white/16">
-              <CheckCircle2 className="h-9 w-9" />
+      <div className="fixed inset-0 z-[100] flex items-center justify-center bg-[#17233C]/28 px-5 py-6 backdrop-blur-[2px]">
+        <section
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="product-success-title"
+          className="w-full max-w-[390px] overflow-hidden rounded-[28px] border border-white/80 bg-white shadow-[0_24px_80px_rgba(23,35,60,0.28)]"
+        >
+          <div className="px-6 pb-3 pt-7 text-center">
+            <span className="mx-auto grid h-16 w-16 place-items-center rounded-full bg-emerald-50 text-emerald-600 ring-8 ring-emerald-50/55">
+              <CheckCircle2 className="h-8 w-8" />
             </span>
-            <h1 className="mt-4 text-2xl font-extrabold tracking-tight">
-              {successResult.kind === "updated"
-                ? "Product Updated Successfully"
-                : successResult.status === "publish"
-                  ? "Product Created Successfully"
-                  : "Product Saved as Draft"}
+
+            <h1
+              id="product-success-title"
+              className="mt-5 text-[22px] font-extrabold tracking-tight text-[#17233C]"
+            >
+              {successTitle}
             </h1>
-            <p className="mt-2 text-sm font-semibold text-emerald-50">
+
+            <p className="mt-1.5 truncate text-sm font-extrabold text-[#34405F]">
               {successResult.productName}
+            </p>
+
+            <p className="mx-auto mt-2 max-w-[280px] text-[13px] leading-5 text-[#6B748A]">
+              {successMessage}
             </p>
           </div>
 
-          <div className="space-y-3 p-5 md:p-7">
+          <div className="space-y-2.5 px-5 pb-5 pt-3">
             <button
               type="button"
               onClick={() =>
@@ -4892,7 +4916,7 @@ export default function ProductCreationWizard({
                   `/products/${successResult.productId}`
                 )
               }
-              className="ls-focus-ring flex min-h-12 w-full items-center justify-center rounded-xl bg-[#1F63D8] px-4 text-sm font-extrabold text-white shadow-sm"
+              className="ls-focus-ring flex min-h-12 w-full items-center justify-center rounded-2xl bg-[#1F63D8] px-4 text-sm font-extrabold text-white shadow-[0_8px_18px_rgba(31,99,216,0.22)]"
             >
               View Product
             </button>
@@ -4906,7 +4930,7 @@ export default function ProductCreationWizard({
                     "/products/add"
                   );
                 }}
-                className="ls-focus-ring flex min-h-12 w-full items-center justify-center rounded-xl border border-[#C8D4E2] bg-white px-4 text-sm font-extrabold text-[#1F63D8]"
+                className="ls-focus-ring flex min-h-12 w-full items-center justify-center rounded-2xl border border-[#C8D4E2] bg-white px-4 text-sm font-extrabold text-[#1F63D8]"
               >
                 Add Another Product
               </button>
@@ -4917,13 +4941,13 @@ export default function ProductCreationWizard({
               onClick={() =>
                 router.push("/products")
               }
-              className="ls-focus-ring flex min-h-11 w-full items-center justify-center rounded-xl px-4 text-sm font-bold text-[#64748B]"
+              className="ls-focus-ring flex min-h-10 w-full items-center justify-center rounded-xl px-4 text-sm font-bold text-[#64748B]"
             >
               Back to Products
             </button>
           </div>
         </section>
-      </main>
+      </div>
     );
   }
 
