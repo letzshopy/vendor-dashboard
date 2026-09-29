@@ -444,20 +444,6 @@ export default function ProductViewPage() {
     }
   }, [galleryImages, activeImgId]);
 
-  useEffect(() => {
-    if (
-      variations.length > 0 &&
-      selectedVariationId === null
-    ) {
-      setSelectedVariationId(
-        variations[0].id
-      );
-    }
-  }, [
-    variations,
-    selectedVariationId,
-  ]);
-
   const mainImage: ProductImage | undefined =
     galleryImages.find((img) => img.id === activeImgId) ?? galleryImages[0];
 
@@ -545,16 +531,20 @@ export default function ProductViewPage() {
         : "variation";
 
   const selectedVariation =
-    variations.find(
-      (variation) =>
-        variation.id ===
-        selectedVariationId
-    ) || variations[0];
+    selectedVariationId === null
+      ? undefined
+      : variations.find(
+          (variation) =>
+            variation.id ===
+            selectedVariationId
+        );
 
   const selectedVariationImage =
-    getImageSrcSafe(
-      selectedVariation?.image
-    );
+    variationKind === "colour"
+      ? getImageSrcSafe(
+          selectedVariation?.image
+        )
+      : null;
 
   const heroImage =
     selectedVariationImage ||
@@ -940,7 +930,7 @@ export default function ProductViewPage() {
                 {variations.map(
                   (variation) => {
                     const selected =
-                      selectedVariation?.id ===
+                      selectedVariationId ===
                       variation.id;
                     const option =
                       variationOption(
