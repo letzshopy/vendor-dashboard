@@ -202,8 +202,8 @@ function BottomNavLink({
         className={[
           "flex h-8 w-8 items-center justify-center rounded-xl transition",
           active
-            ? "bg-white text-[#182451] shadow-[0_5px_14px_rgba(0,0,0,0.16)]"
-            : "bg-[#26366E] text-indigo-100",
+            ? "bg-[#EAF2FF] text-[#1F63D8]"
+            : "bg-transparent text-[#64748B]",
         ].join(" ")}
       >
         <Icon className="h-[18px] w-[18px] stroke-[2.6]" />
@@ -213,8 +213,8 @@ function BottomNavLink({
         className={[
           "max-w-full truncate",
           active
-            ? "font-extrabold text-white"
-            : "text-indigo-100/70",
+            ? "font-extrabold text-[#1F63D8]"
+            : "text-[#7A8497]",
         ].join(" ")}
       >
         {item.label}
@@ -310,7 +310,7 @@ export default function MobileBottomNav({
     return (
       <nav
         aria-label="Restricted dashboard navigation"
-        className="dashboard-mobile-bottom-nav fixed inset-x-0 bottom-0 z-[60] flex items-start justify-around rounded-t-[24px] border-t border-[#26366E] bg-[#182451] px-3 shadow-[0_-14px_34px_rgba(17,27,63,0.24)] md:hidden"
+        className="dashboard-mobile-bottom-nav fixed inset-x-0 bottom-0 z-[60] flex items-start justify-around rounded-t-[22px] border-t border-[#E3E9F2] bg-white px-3 shadow-[0_-8px_24px_rgba(23,35,60,0.08)] md:hidden"
       >
         {visibleLockedItems.map(
           (item) => (
@@ -361,7 +361,7 @@ export default function MobileBottomNav({
     <>
       <nav
         aria-label="Dashboard navigation"
-        className="dashboard-mobile-bottom-nav fixed inset-x-0 bottom-0 z-[60] grid grid-cols-5 items-start rounded-t-[24px] border-t border-[#26366E] bg-[#182451] px-1 shadow-[0_-14px_34px_rgba(17,27,63,0.24)] md:hidden"
+        className="dashboard-mobile-bottom-nav fixed inset-x-0 bottom-0 z-[60] grid grid-cols-5 items-start rounded-t-[22px] border-t border-[#E3E9F2] bg-white px-1 shadow-[0_-8px_24px_rgba(23,35,60,0.08)] md:hidden"
       >
         <BottomNavLink
           pathname={
@@ -396,7 +396,7 @@ export default function MobileBottomNav({
         >
           <span
             className={[
-              "flex h-11 w-11 -translate-y-1 items-center justify-center rounded-2xl bg-[#18A6C9] text-white ring-4 ring-[#182451] transition",
+              "flex h-11 w-11 -translate-y-1 items-center justify-center rounded-2xl bg-[#1F63D8] text-white ring-4 ring-white transition",
               addActive
                 ? "shadow-[0_8px_20px_rgba(24,166,201,0.38)]"
                 : "shadow-[0_6px_16px_rgba(24,166,201,0.28)]",
@@ -405,7 +405,7 @@ export default function MobileBottomNav({
             <Plus className="h-5 w-5 stroke-[3]" />
           </span>
 
-          <span className="truncate font-extrabold text-white">
+          <span className="truncate font-extrabold text-[#1F63D8]">
             Add
           </span>
         </Link>
@@ -423,8 +423,8 @@ export default function MobileBottomNav({
             className={[
               "flex h-8 w-8 items-center justify-center rounded-xl transition",
               productsActive
-                ? "bg-white text-[#182451] shadow-[0_5px_14px_rgba(0,0,0,0.16)]"
-                : "bg-[#26366E] text-indigo-100",
+                ? "bg-[#EAF2FF] text-[#1F63D8]"
+                : "bg-transparent text-[#64748B]",
             ].join(" ")}
           >
             <ShoppingBag className="h-[18px] w-[18px] stroke-[2.6]" />
@@ -434,8 +434,8 @@ export default function MobileBottomNav({
             className={[
               "max-w-full truncate",
               productsActive
-                ? "font-extrabold text-white"
-                : "text-indigo-100/70",
+                ? "font-extrabold text-[#1F63D8]"
+                : "text-[#7A8497]",
             ].join(" ")}
           >
             Products
@@ -459,8 +459,8 @@ export default function MobileBottomNav({
               "flex h-8 w-8 items-center justify-center rounded-xl transition",
               moreActive ||
               moreOpen
-                ? "bg-white text-[#182451] shadow-[0_5px_14px_rgba(0,0,0,0.16)]"
-                : "bg-[#26366E] text-indigo-100",
+                ? "bg-[#EAF2FF] text-[#1F63D8]"
+                : "bg-transparent text-[#64748B]",
             ].join(" ")}
           >
             <MoreHorizontal className="h-[18px] w-[18px] stroke-[2.8]" />
@@ -470,8 +470,8 @@ export default function MobileBottomNav({
             className={[
               moreActive ||
               moreOpen
-                ? "font-extrabold text-white"
-                : "text-indigo-100/70",
+                ? "font-extrabold text-[#1F63D8]"
+                : "text-[#7A8497]",
             ].join(" ")}
           >
             More
@@ -497,8 +497,8 @@ export default function MobileBottomNav({
             className="absolute inset-0 h-full w-full bg-[#10172F]/75 backdrop-blur-[3px]"
           />
 
-          <section className="dashboard-mobile-more-sheet absolute inset-x-0 bottom-0 max-h-[82dvh] overflow-y-auto rounded-t-[30px] bg-[#F4F6FB] shadow-[0_-24px_60px_rgba(17,27,63,0.34)]">
-            <div className="sticky top-0 z-10 rounded-t-[30px] bg-[#182451] px-4 pb-4 pt-3 text-white">
+          <section className="dashboard-mobile-more-sheet absolute inset-x-0 bottom-0 max-h-[82dvh] overflow-y-auto rounded-t-[30px] bg-[#F7F9FC] shadow-[0_-20px_50px_rgba(23,35,60,0.18)]">
+            <div className="sticky top-0 z-10 rounded-t-[30px] border-b border-[#E3E9F2] bg-white px-4 pb-4 pt-3 text-[#17233C]">
               <div className="mx-auto mb-3 h-1.5 w-12 rounded-full bg-white/25" />
 
               <div className="flex items-center justify-between gap-3">
@@ -506,7 +506,7 @@ export default function MobileBottomNav({
                   <h2 className="text-lg font-extrabold">
                     More
                   </h2>
-                  <p className="mt-0.5 text-xs text-indigo-100/70">
+                  <p className="mt-0.5 text-xs text-[#7A8497]">
                     Manage your store
                   </p>
                 </div>
@@ -519,7 +519,7 @@ export default function MobileBottomNav({
                       false
                     )
                   }
-                  className="ls-focus-ring flex h-10 w-10 items-center justify-center rounded-xl bg-[#26366E] text-white"
+                  className="ls-focus-ring flex h-10 w-10 items-center justify-center rounded-xl bg-[#EEF5FF] text-[#1F63D8]"
                 >
                   <X className="h-5 w-5" />
                 </button>
@@ -547,18 +547,16 @@ export default function MobileBottomNav({
                         item.href
                       }
                       className={[
-                        "flex min-h-[92px] min-w-0 flex-col justify-between rounded-2xl p-3 text-white shadow-[0_8px_20px_rgba(25,35,75,0.12)] transition active:scale-[0.98]",
-                        item.tileClass ||
-                          "bg-[#26366E]",
+                        "flex min-h-[82px] min-w-0 flex-col justify-between rounded-2xl border border-[#E3E9F2] bg-white p-3 text-[#17233C] shadow-[0_5px_16px_rgba(23,35,60,0.05)] transition active:scale-[0.98]",
                         item.wide
                           ? "col-span-2"
                           : "",
                         active
-                          ? "ring-[3px] ring-white/80 ring-offset-2 ring-offset-[#F4F6FB]"
+                          ? "ring-2 ring-[#1F63D8]/30 ring-offset-2 ring-offset-[#F7F9FC]"
                           : "",
                       ].join(" ")}
                     >
-                      <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/15">
+                      <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#EEF5FF] text-[#1F63D8]">
                         <Icon className="h-5 w-5" />
                       </span>
 
