@@ -1671,6 +1671,21 @@ export default function ProductCreationWizard({
     productType: ProductType
   ) {
     if (
+      editMode &&
+      selectedProductType &&
+      selectedProductType !== productType
+    ) {
+      actionFeedback.info({
+        id: "product-type-locked",
+        title: "Product type is locked",
+        message:
+          "Create a new product if you need a different product type.",
+        durationMs: 3200,
+      });
+      return;
+    }
+
+    if (
       selectedProductType !== productType
     ) {
       chooseProductType(productType);
@@ -5110,7 +5125,9 @@ export default function ProductCreationWizard({
             {openSection === "type" ? (
               <div className="border-t border-[#E3E9F2] p-4">
                 <p className="mb-3 text-xs font-semibold text-[#6B748A]">
-                  Choose how this product will be sold.
+                  {editMode
+                    ? "Product type is locked while editing. You can update the product details below."
+                    : "Choose how this product will be sold."}
                 </p>
 
                 <div className="grid gap-2 sm:grid-cols-3">
@@ -5135,7 +5152,9 @@ export default function ProductCreationWizard({
                             "ls-focus-ring flex min-h-20 items-center gap-3 rounded-2xl border px-3 py-3 text-left transition",
                             selected
                               ? "border-[#1F63D8] bg-[#EEF5FF] shadow-sm"
-                              : "border-[#D7E0EA] bg-white hover:bg-[#F8FAFC]",
+                              : editMode
+                                ? "cursor-not-allowed border-[#E2E8F0] bg-[#F8FAFC] opacity-45"
+                                : "border-[#D7E0EA] bg-white hover:bg-[#F8FAFC]",
                           ].join(" ")}
                         >
                           <span
