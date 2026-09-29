@@ -1314,6 +1314,7 @@ export default function CategoriesClient({
 
           <ImageUploader
             purpose="category_image"
+            accept="image/*"
             label={
               image
                 ? "Replace image"

@@ -793,6 +793,7 @@ export default function MediaClient({
           <div className="shrink-0">
             <ImageUploader
               purpose="media_library"
+              accept="image/*"
               multiple
               label="Upload"
               onUploaded={async () => {
