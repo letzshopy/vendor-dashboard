@@ -78,7 +78,7 @@ export default function CapacitorNativeBridge() {
       ) {
         try {
           await StatusBar.setStyle({
-            style: Style.Dark,
+            style: Style.Light,
           });
           await StatusBar.setBackgroundColor({
             color: "#F8FAFC",
