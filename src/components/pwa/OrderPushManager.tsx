@@ -8,6 +8,9 @@ import {
   X,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  Capacitor,
+} from "@capacitor/core";
 
 type PushConfigResponse = {
   ok?: boolean;
@@ -174,6 +177,20 @@ export default function OrderPushManager() {
       return;
     }
 
+    /*
+     * Capacitor Android uses a native notification path.
+     * Do not initialize the browser Service Worker / Web Push
+     * manager inside the native WebView.
+     */
+    if (Capacitor.isNativePlatform()) {
+      setSupported(false);
+      setConfigured(false);
+      setEnabled(false);
+      setError("");
+      setChecking(false);
+      return;
+    }
+
     const hasSupport =
       "Notification" in window &&
       "serviceWorker" in navigator &&
@@ -182,6 +199,14 @@ export default function OrderPushManager() {
     setSupported(hasSupport);
 
     let cancelled = false;
+
+    if (!hasSupport) {
+      setError(
+        "This browser cannot receive background order notifications. Open LetzShopy in Chrome and install it as an app."
+      );
+      setChecking(false);
+      return;
+    }
 
     async function bootstrap() {
       try {
@@ -213,15 +238,6 @@ export default function OrderPushManager() {
         }
 
         setConfigured(true);
-
-        if (!hasSupport) {
-          if (!cancelled) {
-            setError(
-              "This browser cannot receive background order notifications. Open LetzShopy in Chrome and install it as an app."
-            );
-          }
-          return;
-        }
 
         const registration =
           await getPushRegistration();
@@ -276,14 +292,17 @@ export default function OrderPushManager() {
       );
     };
 
-    navigator.serviceWorker.addEventListener(
+    const serviceWorker =
+      navigator.serviceWorker;
+
+    serviceWorker.addEventListener(
       "message",
       onWorkerMessage
     );
 
     return () => {
       cancelled = true;
-      navigator.serviceWorker.removeEventListener(
+      serviceWorker.removeEventListener(
         "message",
         onWorkerMessage
       );
