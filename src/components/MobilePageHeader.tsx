@@ -538,7 +538,7 @@ export default function MobilePageHeader({
   ) {
     return (
       <header
-        className="fixed inset-x-0 top-0 z-50 border-b border-[#111B3F] bg-[#182451] shadow-[0_8px_24px_rgba(17,27,63,0.24)] md:hidden"
+        className="fixed inset-x-0 top-0 z-50 border-b border-[#E3E9F2] bg-white shadow-[0_4px_18px_rgba(23,35,60,0.06)] md:hidden"
         style={{
           paddingTop:
             "var(--ls-safe-area-top)",
@@ -548,13 +548,13 @@ export default function MobilePageHeader({
           <Link
             href={config.backHref}
             aria-label="Go back"
-            className="ls-focus-ring inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#2A3A74] text-white"
+            className="ls-focus-ring inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[#E3E9F2] bg-[#F2F6FC] text-[#1F63D8]"
           >
             <ArrowLeft className="h-5 w-5" />
           </Link>
 
           <div className="min-w-0 flex-1 px-1">
-            <h1 className="truncate text-[17px] font-extrabold tracking-tight text-white">
+            <h1 className="truncate text-[17px] font-extrabold tracking-tight text-[#17233C]">
               {config.title}
             </h1>
           </div>
@@ -564,7 +564,7 @@ export default function MobilePageHeader({
               href={action.href}
               aria-label={action.label}
               title={action.label}
-              className="ls-focus-ring inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#F15E4A] text-white shadow-sm"
+              className="ls-focus-ring inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#1F63D8] text-white shadow-sm"
             >
               <ActionIcon className="h-5 w-5" />
             </Link>
@@ -576,7 +576,7 @@ export default function MobilePageHeader({
 
   return (
     <header
-      className="fixed inset-x-0 top-0 z-50 border-b border-[#111B3F] bg-[#182451] shadow-[0_8px_24px_rgba(17,27,63,0.24)] md:hidden"
+      className="fixed inset-x-0 top-0 z-50 border-b border-[#E3E9F2] bg-white shadow-[0_4px_18px_rgba(23,35,60,0.06)] md:hidden"
       style={{
         paddingTop:
           "var(--ls-safe-area-top)",
@@ -587,13 +587,13 @@ export default function MobilePageHeader({
           type="button"
           onClick={onToggleSidebar}
           aria-label="Open navigation"
-          className="ls-focus-ring inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#2A3A74] text-white"
+          className="ls-focus-ring inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[#E3E9F2] bg-[#F2F6FC] text-[#1F63D8]"
         >
           <Menu className="h-5 w-5" />
         </button>
 
         <div className="min-w-0 flex-1 px-1">
-          <h1 className="truncate text-[17px] font-extrabold tracking-tight text-white">
+          <h1 className="truncate text-[17px] font-extrabold tracking-tight text-[#17233C]">
             {config.title}
           </h1>
         </div>
@@ -603,7 +603,7 @@ export default function MobilePageHeader({
             href={action.href}
             aria-label={action.label}
             title={action.label}
-            className="ls-focus-ring inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#F15E4A] text-white shadow-sm"
+            className="ls-focus-ring inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#1F63D8] text-white shadow-sm"
           >
             <ActionIcon className="h-5 w-5" />
           </Link>

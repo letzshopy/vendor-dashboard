@@ -32,7 +32,7 @@ const config: CapacitorConfig = {
     allowMixedContent:
       false,
     backgroundColor:
-      "#F8F9FC",
+      "#F8FAFC",
   },
   plugins: {
     SplashScreen: {
@@ -41,15 +41,15 @@ const config: CapacitorConfig = {
       launchAutoHide:
         true,
       backgroundColor:
-        "#182451",
+        "#F8FAFC",
       showSpinner:
         false,
     },
     StatusBar: {
       style:
-        "LIGHT",
+        "DARK",
       backgroundColor:
-        "#182451",
+        "#F8FAFC",
     },
     Keyboard: {
       resize:

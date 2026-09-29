@@ -10,6 +10,10 @@ import {
   Capacitor,
   type PluginListenerHandle,
 } from "@capacitor/core";
+import {
+  StatusBar,
+  Style,
+} from "@capacitor/status-bar";
 
 import {
   LETZSHOPY_NATIVE_BACK_EVENT,
@@ -68,6 +72,22 @@ export default function CapacitorNativeBridge() {
       [];
 
     void (async () => {
+      if (
+        Capacitor.getPlatform() ===
+        "android"
+      ) {
+        try {
+          await StatusBar.setStyle({
+            style: Style.Dark,
+          });
+          await StatusBar.setBackgroundColor({
+            color: "#F8FAFC",
+          });
+        } catch {
+          // Keep navigation usable if a device ignores status-bar styling.
+        }
+      }
+
       const backHandle =
         await App.addListener(
           "backButton",

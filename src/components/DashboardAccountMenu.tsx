@@ -380,16 +380,16 @@ export default function DashboardAccountMenu({
         className={[
           "inline-flex shrink-0 items-center gap-1.5 border shadow-sm transition active:scale-95",
           dashboardTrigger
-            ? "h-10 rounded-xl border-[#40518F] bg-[#2A3A74] px-1.5 text-white hover:bg-[#344785] md:rounded-xl"
-            : "h-10 rounded-xl border-[#40518F] bg-[#2A3A74] px-1.5 text-white hover:bg-[#344785]",
+            ? "h-10 rounded-xl border-[#E3E9F2] bg-[#F2F6FC] px-1.5 text-[#334155] hover:bg-[#EAF1FA] md:rounded-xl md:border-[#40518F] md:bg-[#2A3A74] md:text-white md:hover:bg-[#344785]"
+            : "h-10 rounded-xl border-[#E3E9F2] bg-[#F2F6FC] px-1.5 text-[#334155] hover:bg-[#EAF1FA]",
         ].join(" ")}
       >
         <span
           className={[
             "inline-flex items-center justify-center rounded-full text-[11px] font-bold",
             dashboardTrigger
-              ? "h-7 w-7 bg-[#40518F] text-white"
-              : "h-7 w-7 bg-[#40518F] text-white",
+              ? "h-7 w-7 bg-[#E6F0FF] text-[#1F63D8] md:bg-[#40518F] md:text-white"
+              : "h-7 w-7 bg-[#E6F0FF] text-[#1F63D8]",
           ].join(" ")}
         >
           {initials}
