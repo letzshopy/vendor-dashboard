@@ -12,6 +12,7 @@ import {
   Layers3,
   Loader2,
   Package2,
+  Palette,
   Pencil,
   Ruler,
   Tag,
