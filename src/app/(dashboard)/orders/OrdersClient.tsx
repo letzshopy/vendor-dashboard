@@ -601,12 +601,14 @@ function OrderActionSheet({
   order,
   storeName,
   onRequestTrash,
+  triggerClassName,
 }: {
   order: WCOrder;
   storeName: string;
   onRequestTrash: (
     order: WCOrder
   ) => void;
+  triggerClassName?: string;
 }) {
   const [
     open,
@@ -645,7 +647,13 @@ function OrderActionSheet({
         onClick={() =>
           setOpen(true)
         }
-        className="h-10 w-10"
+        className={[
+          "h-10 w-10",
+          triggerClassName ||
+            "",
+        ]
+          .filter(Boolean)
+          .join(" ")}
       >
         <MoreHorizontal className="h-5 w-5" />
       </Button>
@@ -814,7 +822,7 @@ function OrderStatus({
       }
       className={
         compact
-          ? "min-h-6 whitespace-nowrap px-2.5 py-1 text-[10px] font-extrabold shadow-sm"
+          ? "min-h-7 whitespace-nowrap px-3 py-1 text-[11px] font-extrabold shadow-sm"
           : "min-h-7 whitespace-nowrap px-3 py-1.5 text-xs font-extrabold shadow-sm"
       }
     />
@@ -1608,7 +1616,7 @@ export default function OrdersClient({
                         " "
                       )}
                     >
-                      <header className="flex min-w-0 items-center gap-2 border-b border-border bg-surface-soft px-3 py-2.5">
+                      <header className="flex min-w-0 items-center gap-2.5 border-b border-[#263765] bg-[#182451] px-3 py-3 shadow-[inset_0_-2px_0_rgba(24,166,201,0.18)]">
                         <input
                           type="checkbox"
                           aria-label={
@@ -1634,12 +1642,12 @@ export default function OrdersClient({
                                 .checked
                             )
                           }
-                          className="h-4 w-4 shrink-0 accent-[var(--primary)] disabled:cursor-not-allowed disabled:opacity-35"
+                          className="h-4 w-4 shrink-0 accent-[#18A6C9] disabled:cursor-not-allowed disabled:opacity-35"
                         />
 
                         <Link
                           href={`/orders/${order.id}`}
-                          className="min-w-0 flex-1 truncate text-sm font-extrabold text-primary hover:underline"
+                          className="min-w-0 flex-1 truncate text-[15px] font-black tracking-[-0.01em] text-white hover:text-white hover:underline"
                         >
                           Order #
                           {order.number ||
@@ -1664,6 +1672,7 @@ export default function OrdersClient({
                             onRequestTrash={
                               setTrashTarget
                             }
+                            triggerClassName="text-white hover:bg-white/10 hover:text-white"
                           />
                         </div>
                       </header>
