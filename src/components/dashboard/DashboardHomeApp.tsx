@@ -737,7 +737,7 @@ export default function DashboardHomeApp() {
         iconClass:
           "text-[#1F63D8]",
         iconSurface:
-          "bg-[#18A6C9]",
+          "bg-[#EEF5FF]",
         borderClass:
           "md:border-t-[#1F63D8]",
       },
@@ -758,7 +758,7 @@ export default function DashboardHomeApp() {
         iconClass:
           "text-[#1F63D8]",
         iconSurface:
-          "bg-[#4059A7]",
+          "bg-[#EEF5FF]",
         borderClass:
           "md:border-t-[#1F63D8]",
       },
@@ -779,7 +779,7 @@ export default function DashboardHomeApp() {
         iconClass:
           "text-[#1F63D8]",
         iconSurface:
-          "bg-[#20B486]",
+          "bg-[#EEF5FF]",
         borderClass:
           "md:border-t-[#1F63D8]",
       },
@@ -797,7 +797,7 @@ export default function DashboardHomeApp() {
         iconClass:
           "text-[#1F63D8]",
         iconSurface:
-          "bg-[#D88A16]",
+          "bg-[#EEF5FF]",
         borderClass:
           "md:border-t-[#1F63D8]",
       },
