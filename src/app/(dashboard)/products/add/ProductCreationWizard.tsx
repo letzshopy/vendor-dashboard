@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { optimizeContentImageForUpload } from "@/lib/clientImageOptimizer";
+import { productContentText } from "@/lib/productContentText";
 import { actionFeedback } from "@/lib/actionFeedback";
 import {
   ArrowLeft,
@@ -380,6 +381,10 @@ export default function ProductCreationWizard({
   const [originalSku, setOriginalSku] = useState("");
   const [shortDescription, setShortDescription] = useState("");
   const [description, setDescription] = useState("");
+  const [originalShortDescription, setOriginalShortDescription] = useState("");
+  const [originalDescription, setOriginalDescription] = useState("");
+  const [shortDescriptionEdited, setShortDescriptionEdited] = useState(false);
+  const [descriptionEdited, setDescriptionEdited] = useState(false);
 
   const [regularPrice, setRegularPrice] = useState("");
   const [stockQuantity, setStockQuantity] = useState("");
@@ -645,16 +650,21 @@ export default function ProductCreationWizard({
         setSku(loadedSku);
         setOriginalSku(loadedSku);
 
-        setShortDescription(
+        const loadedShortDescription =
           typeof productJson.short_description === "string"
             ? productJson.short_description
-            : ""
-        );
-        setDescription(
+            : "";
+        const loadedDescription =
           typeof productJson.description === "string"
             ? productJson.description
-            : ""
-        );
+            : "";
+
+        setOriginalShortDescription(loadedShortDescription);
+        setOriginalDescription(loadedDescription);
+        setShortDescription(productContentText(loadedShortDescription));
+        setDescription(productContentText(loadedDescription));
+        setShortDescriptionEdited(false);
+        setDescriptionEdited(false);
         setRegularPrice(
           typeof productJson.regular_price === "string"
             ? productJson.regular_price
@@ -2815,8 +2825,14 @@ export default function ProductCreationWizard({
         sku: sku.trim(),
         status,
         catalog_visibility: visibility,
-        short_description: shortDescription.trim(),
-        description: description.trim(),
+        short_description:
+          editMode && !shortDescriptionEdited
+            ? originalShortDescription.trim()
+            : shortDescription.trim(),
+        description:
+          editMode && !descriptionEdited
+            ? originalDescription.trim()
+            : description.trim(),
         weight: weight.trim(),
         categories: [
           {
@@ -4848,6 +4864,7 @@ export default function ProductCreationWizard({
                 rows={3}
                 onChange={(event) => {
                   setShortDescription(event.target.value);
+                  setShortDescriptionEdited(true);
                   setConfirmation(null);
                 }}
                 placeholder="Example: Premium cotton handbag with spacious compartments and a comfortable shoulder strap."
@@ -4872,6 +4889,7 @@ export default function ProductCreationWizard({
                   rows={5}
                   onChange={(event) => {
                     setDescription(event.target.value);
+                    setDescriptionEdited(true);
                     setConfirmation(null);
                   }}
                   placeholder="Add material, design, size, usage, care instructions or other important product details."

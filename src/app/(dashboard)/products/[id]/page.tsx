@@ -21,6 +21,7 @@ import {
 
 import { buttonClassName } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { productContentText } from "@/lib/productContentText";
 
 type ProductImage = {
   id?: number;
@@ -491,7 +492,10 @@ export default function ProductViewPage() {
     );
   }
 
-  const shortDesc = product.short_description || product.shortDescription || "";
+  const shortDesc = productContentText(
+    product.short_description || product.shortDescription || ""
+  );
+  const fullDesc = productContentText(product.description || "");
   const isVariable = product.type === "variable";
   const isGrouped = product.type === "grouped";
 
@@ -1015,7 +1019,7 @@ export default function ProductViewPage() {
         >
           <div className="prose prose-sm max-w-none text-slate-700">
             {shortDesc ? (
-              <div dangerouslySetInnerHTML={{ __html: shortDesc }} />
+              <p className="whitespace-pre-line">{shortDesc}</p>
             ) : (
               <span className="text-slate-400">No short description added.</span>
             )}
@@ -1028,8 +1032,8 @@ export default function ProductViewPage() {
           hint="Detailed product content and long-form information."
         >
           <div className="prose prose-sm max-w-none text-slate-700">
-            {product.description ? (
-              <div dangerouslySetInnerHTML={{ __html: product.description }} />
+            {fullDesc ? (
+              <p className="whitespace-pre-line">{fullDesc}</p>
             ) : (
               <span className="text-slate-400">
                 No detailed description added.
