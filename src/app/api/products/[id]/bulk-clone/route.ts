@@ -84,6 +84,12 @@ export async function POST(
       );
     }
 
+    if (source.type !== "simple") {
+      throw new RangeError(
+        "Bulk Clone is available only for Simple products."
+      );
+    }
+
     const sourceVariations =
       source.type === "variable"
         ? await getAllVariations(

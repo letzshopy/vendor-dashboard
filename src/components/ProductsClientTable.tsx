@@ -179,20 +179,33 @@ function ActionMenu({
             <span>Edit</span>
           </Link>
 
-          <button
-            type="button"
-            onClick={() => {
-              setOpen(false);
-              onBulkClone(product.id);
-            }}
-            className={`${itemClass} text-slate-700 hover:bg-slate-50`}
-          >
-            <Layers
-              className="h-4 w-4 shrink-0 text-[#5366B7]"
-              aria-hidden="true"
-            />
-            <span>Bulk clone</span>
-          </button>
+          {product.type === "simple" ? (
+            <button
+              type="button"
+              onClick={() => {
+                setOpen(false);
+                onBulkClone(product.id);
+              }}
+              className={`${itemClass} text-slate-700 hover:bg-slate-50`}
+            >
+              <Layers
+                className="h-4 w-4 shrink-0 text-[#5366B7]"
+                aria-hidden="true"
+              />
+              <span>Bulk clone</span>
+            </button>
+          ) : (
+            <div
+              className={`${itemClass} cursor-not-allowed text-slate-400`}
+              title="Bulk Clone is available only for Simple products."
+            >
+              <Layers
+                className="h-4 w-4 shrink-0 text-slate-300"
+                aria-hidden="true"
+              />
+              <span>Bulk clone · Simple only</span>
+            </div>
+          )}
 
           <button
             type="button"
@@ -649,6 +662,18 @@ export default function ProductsClientTable({
   }
 
   function rowBulkClone(id: number) {
+    const product = products.find((item) => item.id === id);
+
+    if (!product || product.type !== "simple") {
+      actionFeedback.info({
+        id: "products-bulk-clone-simple-only",
+        title: "Simple products only",
+        message: "Bulk Clone is available only for Simple products.",
+        durationMs: 3200,
+      });
+      return;
+    }
+
     setCloneProductId(id);
     setCloneCount("1");
     setShowCloneModal(true);

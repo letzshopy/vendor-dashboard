@@ -230,6 +230,11 @@ export default function MobileBottomNav({
   const pathname =
     usePathname() || "/";
 
+  const productEditorOpen =
+    pathname === "/products/add" ||
+    pathname === "/products/new" ||
+    /^\/products\/[^/]+\/edit$/.test(pathname);
+
   const visibleMoreItems =
     storeType ===
     "standalone"
@@ -305,6 +310,10 @@ export default function MobileBottomNav({
         closeOnNativeBack
       );
   }, [moreOpen]);
+
+  if (productEditorOpen) {
+    return null;
+  }
 
   if (locked) {
     return (
