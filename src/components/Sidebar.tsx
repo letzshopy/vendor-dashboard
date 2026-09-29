@@ -639,7 +639,7 @@ export default function Sidebar({
     return (
       <div className="flex h-full min-h-0 flex-col">
         <div
-          className="flex items-center justify-between border-b border-[#E3E9F2] bg-white px-3 pb-3 md:hidden"
+          className="flex items-center justify-between border-b border-[#DCE2EA] bg-[#F2F4F7] px-3 pb-3 md:hidden"
           style={{
             paddingTop:
               "calc(0.75rem + var(--ls-safe-area-top))",
@@ -667,7 +667,7 @@ export default function Sidebar({
             type="button"
             onClick={onClose}
             aria-label="Close navigation"
-            className="ls-focus-ring inline-flex h-10 w-10 items-center justify-center rounded-xl bg-[#EEF5FF] text-[#1F63D8]"
+            className="ls-focus-ring inline-flex h-10 w-10 items-center justify-center rounded-xl bg-white text-[#1F63D8]"
           >
             <X className="h-5 w-5" />
           </button>
@@ -676,7 +676,7 @@ export default function Sidebar({
         <nav
           ref={navigationRef}
           aria-label="Dashboard navigation"
-          className="min-h-0 flex-1 touch-pan-y space-y-1.5 overflow-y-auto overscroll-contain bg-white px-3 pb-[calc(1.5rem+var(--ls-safe-area-bottom))] pt-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:bg-[#26366E] md:pb-6 md:pt-4"
+          className="min-h-0 flex-1 touch-pan-y space-y-1.5 overflow-y-auto overscroll-contain bg-[#F2F4F7] px-3 pb-[calc(1.5rem+var(--ls-safe-area-bottom))] pt-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:bg-[#26366E] md:pb-6 md:pt-4"
         >
           {locked && (
             <div className="mb-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-3 text-[13px] leading-5 text-amber-800">
@@ -744,7 +744,7 @@ export default function Sidebar({
                   className={[
                     "ls-focus-ring flex min-h-11 w-full items-center justify-between gap-3 rounded-xl px-2.5 py-1.5 text-left transition",
                     groupActive
-                      ? "bg-[#EEF5FF] text-[#1F63D8] shadow-none md:bg-[#18A6C9] md:text-white md:shadow-[0_10px_24px_rgba(10,18,50,0.26)]"
+                      ? "bg-white text-[#1F63D8] shadow-none md:bg-[#18A6C9] md:text-white md:shadow-[0_10px_24px_rgba(10,18,50,0.26)]"
                       : "text-[#334155] hover:bg-[#F2F6FC] md:text-indigo-50 md:hover:bg-[#314784]",
                   ].join(" ")}
                 >
@@ -893,7 +893,7 @@ export default function Sidebar({
         <aside
           aria-label="Mobile dashboard navigation"
           className={[
-            "absolute left-0 top-0 h-[100dvh] max-h-[100dvh] w-[84vw] max-w-[296px] overflow-hidden border-r border-[#E3E9F2] bg-white text-foreground shadow-[18px_0_50px_rgba(23,35,60,0.16)] transition-transform duration-200 ease-out",
+            "absolute left-0 top-0 h-[100dvh] max-h-[100dvh] w-[84vw] max-w-[296px] overflow-hidden border-r border-[#DCE2EA] bg-[#F2F4F7] text-foreground shadow-[18px_0_50px_rgba(23,35,60,0.14)] transition-transform duration-200 ease-out",
             open
               ? "translate-x-0"
               : "-translate-x-full",

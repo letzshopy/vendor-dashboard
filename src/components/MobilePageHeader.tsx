@@ -538,7 +538,7 @@ export default function MobilePageHeader({
   ) {
     return (
       <header
-        className="fixed inset-x-0 top-0 z-50 border-b border-[#E3E9F2] bg-white shadow-[0_4px_18px_rgba(23,35,60,0.06)] md:hidden"
+        className="fixed inset-x-0 top-0 z-50 border-b border-[#DCE2EA] bg-[#F2F4F7] shadow-[0_4px_16px_rgba(23,35,60,0.05)] md:hidden"
         style={{
           paddingTop:
             "var(--ls-safe-area-top)",
@@ -548,7 +548,7 @@ export default function MobilePageHeader({
           <Link
             href={config.backHref}
             aria-label="Go back"
-            className="ls-focus-ring inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[#E3E9F2] bg-[#F2F6FC] text-[#1F63D8]"
+            className="ls-focus-ring inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[#DCE2EA] bg-white text-[#1F63D8]"
           >
             <ArrowLeft className="h-5 w-5" />
           </Link>
@@ -576,7 +576,7 @@ export default function MobilePageHeader({
 
   return (
     <header
-      className="fixed inset-x-0 top-0 z-50 border-b border-[#E3E9F2] bg-white shadow-[0_4px_18px_rgba(23,35,60,0.06)] md:hidden"
+      className="fixed inset-x-0 top-0 z-50 border-b border-[#DCE2EA] bg-[#F2F4F7] shadow-[0_4px_16px_rgba(23,35,60,0.05)] md:hidden"
       style={{
         paddingTop:
           "var(--ls-safe-area-top)",
@@ -587,7 +587,7 @@ export default function MobilePageHeader({
           type="button"
           onClick={onToggleSidebar}
           aria-label="Open navigation"
-          className="ls-focus-ring inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[#E3E9F2] bg-[#F2F6FC] text-[#1F63D8]"
+          className="ls-focus-ring inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[#DCE2EA] bg-white text-[#1F63D8]"
         >
           <Menu className="h-5 w-5" />
         </button>

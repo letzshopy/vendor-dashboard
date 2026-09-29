@@ -202,7 +202,7 @@ function BottomNavLink({
         className={[
           "flex h-8 w-8 items-center justify-center rounded-xl transition",
           active
-            ? "bg-[#EAF2FF] text-[#1F63D8]"
+            ? "bg-white text-[#1F63D8] shadow-sm"
             : "bg-transparent text-[#64748B]",
         ].join(" ")}
       >
@@ -310,7 +310,7 @@ export default function MobileBottomNav({
     return (
       <nav
         aria-label="Restricted dashboard navigation"
-        className="dashboard-mobile-bottom-nav fixed inset-x-0 bottom-0 z-[60] flex items-start justify-around rounded-t-[22px] border-t border-[#E3E9F2] bg-white px-3 shadow-[0_-8px_24px_rgba(23,35,60,0.08)] md:hidden"
+        className="dashboard-mobile-bottom-nav fixed inset-x-0 bottom-0 z-[60] flex items-start justify-around rounded-t-[22px] border-t border-[#DCE2EA] bg-[#F2F4F7] px-3 shadow-[0_-8px_24px_rgba(23,35,60,0.08)] md:hidden"
       >
         {visibleLockedItems.map(
           (item) => (
@@ -361,7 +361,7 @@ export default function MobileBottomNav({
     <>
       <nav
         aria-label="Dashboard navigation"
-        className="dashboard-mobile-bottom-nav fixed inset-x-0 bottom-0 z-[60] grid grid-cols-5 items-start rounded-t-[22px] border-t border-[#E3E9F2] bg-white px-1 shadow-[0_-8px_24px_rgba(23,35,60,0.08)] md:hidden"
+        className="dashboard-mobile-bottom-nav fixed inset-x-0 bottom-0 z-[60] grid grid-cols-5 items-start rounded-t-[22px] border-t border-[#DCE2EA] bg-[#F2F4F7] px-1 shadow-[0_-8px_24px_rgba(23,35,60,0.08)] md:hidden"
       >
         <BottomNavLink
           pathname={
@@ -423,7 +423,7 @@ export default function MobileBottomNav({
             className={[
               "flex h-8 w-8 items-center justify-center rounded-xl transition",
               productsActive
-                ? "bg-[#EAF2FF] text-[#1F63D8]"
+                ? "bg-white text-[#1F63D8] shadow-sm"
                 : "bg-transparent text-[#64748B]",
             ].join(" ")}
           >
@@ -459,7 +459,7 @@ export default function MobileBottomNav({
               "flex h-8 w-8 items-center justify-center rounded-xl transition",
               moreActive ||
               moreOpen
-                ? "bg-[#EAF2FF] text-[#1F63D8]"
+                ? "bg-white text-[#1F63D8] shadow-sm"
                 : "bg-transparent text-[#64748B]",
             ].join(" ")}
           >
@@ -498,7 +498,7 @@ export default function MobileBottomNav({
           />
 
           <section className="dashboard-mobile-more-sheet absolute inset-x-0 bottom-0 max-h-[82dvh] overflow-y-auto rounded-t-[30px] bg-[#F7F9FC] shadow-[0_-20px_50px_rgba(23,35,60,0.18)]">
-            <div className="sticky top-0 z-10 rounded-t-[30px] border-b border-[#E3E9F2] bg-white px-4 pb-4 pt-3 text-[#17233C]">
+            <div className="sticky top-0 z-10 rounded-t-[30px] border-b border-[#DCE2EA] bg-[#F2F4F7] px-4 pb-4 pt-3 text-[#17233C]">
               <div className="mx-auto mb-3 h-1.5 w-12 rounded-full bg-white/25" />
 
               <div className="flex items-center justify-between gap-3">
@@ -547,7 +547,7 @@ export default function MobileBottomNav({
                         item.href
                       }
                       className={[
-                        "flex min-h-[82px] min-w-0 flex-col justify-between rounded-2xl border border-[#E3E9F2] bg-white p-3 text-[#17233C] shadow-[0_5px_16px_rgba(23,35,60,0.05)] transition active:scale-[0.98]",
+                        "flex min-h-[82px] min-w-0 flex-col justify-between rounded-2xl border border-[#DCE2EA] bg-white p-3 text-[#17233C] shadow-[0_5px_16px_rgba(23,35,60,0.05)] transition active:scale-[0.98]",
                         item.wide
                           ? "col-span-2"
                           : "",
