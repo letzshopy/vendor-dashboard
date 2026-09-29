@@ -340,7 +340,7 @@ function SectionSurface({
   return (
     <section
       className={[
-        "overflow-hidden rounded-2xl border border-[#E1E6F0] bg-white shadow-[0_8px_24px_rgba(38,51,95,0.06)]",
+        "overflow-hidden rounded-2xl border border-[#E3E9F2] bg-white shadow-[0_5px_18px_rgba(23,35,60,0.05)]",
         className,
       ].join(
         " "
@@ -370,17 +370,17 @@ function SectionHeader({
 }) {
   const toneClass =
     tone === "coral"
-      ? "bg-[#18A6C9] text-white"
+      ? "border-b border-[#E3E9F2] bg-white text-[#17233C] md:border-0 md:bg-[#18A6C9] md:text-white"
       : tone === "green"
-        ? "bg-[#20B486] text-white"
+        ? "border-b border-[#E3E9F2] bg-white text-[#17233C] md:border-0 md:bg-[#20B486] md:text-white"
         : tone === "plain"
-          ? "border-b border-[#E5E9F2] bg-white text-[#26335F]"
-          : "bg-[#26366E] text-white";
+          ? "border-b border-[#E3E9F2] bg-white text-[#17233C]"
+          : "border-b border-[#E3E9F2] bg-white text-[#17233C] md:border-0 md:bg-[#26366E] md:text-white";
 
   const secondaryText =
     tone === "plain"
       ? "text-slate-500"
-      : "text-white/70";
+      : "text-slate-500 md:text-white/70";
 
   return (
     <div
@@ -399,7 +399,7 @@ function SectionHeader({
         {subtitle ? (
           <p
             className={[
-              "mt-0.5 text-xs leading-5",
+              "mt-0.5 hidden text-xs leading-5 md:block",
               secondaryText,
             ].join(
               " "
@@ -735,11 +735,11 @@ export default function DashboardHomeApp() {
         href: "/orders",
         icon: Wallet,
         iconClass:
-          "text-white",
+          "text-[#1F63D8]",
         iconSurface:
           "bg-[#18A6C9]",
         borderClass:
-          "border-t-[#18A6C9]",
+          "md:border-t-[#1F63D8]",
       },
       {
         label:
@@ -756,11 +756,11 @@ export default function DashboardHomeApp() {
         icon:
           IndianRupee,
         iconClass:
-          "text-white",
+          "text-[#1F63D8]",
         iconSurface:
           "bg-[#4059A7]",
         borderClass:
-          "border-t-[#4059A7]",
+          "md:border-t-[#1F63D8]",
       },
       {
         label:
@@ -777,11 +777,11 @@ export default function DashboardHomeApp() {
         icon:
           ShoppingBag,
         iconClass:
-          "text-white",
+          "text-[#1F63D8]",
         iconSurface:
           "bg-[#20B486]",
         borderClass:
-          "border-t-[#20B486]",
+          "md:border-t-[#1F63D8]",
       },
       {
         label:
@@ -795,11 +795,11 @@ export default function DashboardHomeApp() {
         href: "/products",
         icon: Boxes,
         iconClass:
-          "text-white",
+          "text-[#1F63D8]",
         iconSurface:
           "bg-[#D88A16]",
         borderClass:
-          "border-t-[#D88A16]",
+          "md:border-t-[#1F63D8]",
       },
     ];
 
@@ -929,7 +929,7 @@ export default function DashboardHomeApp() {
     );
 
   return (
-    <main className="mx-auto min-w-0 max-w-[1540px] pb-24 md:pb-8">
+    <main className="mx-auto flex min-w-0 max-w-[1540px] flex-col pb-24 md:pb-8">
       {subscription ? (
         <RenewalNotice
           status={
@@ -972,21 +972,22 @@ export default function DashboardHomeApp() {
         </section>
       ) : null}
 
-      <header className="pb-3 pt-0.5 md:flex md:items-end md:justify-between md:gap-4 md:pb-5">
+      <header className="order-1 pb-2 pt-0.5 md:flex md:items-end md:justify-between md:gap-4 md:pb-5">
         <div>
           <div
             suppressHydrationWarning
-            className="inline-flex items-center gap-1.5 rounded-full bg-[#FDE9E5] px-2.5 py-1 text-[10px] font-extrabold text-[#1283A1]"
+            className="hidden items-center gap-1.5 rounded-full bg-[#EEF5FF] px-2.5 py-1 text-[10px] font-extrabold text-[#1F63D8] md:inline-flex"
           >
             <Sparkles className="h-3.5 w-3.5" />
             {greetingText()}
           </div>
 
-          <h1 className="mt-1.5 text-[22px] font-extrabold tracking-tight text-[#182451] md:mt-2 md:text-[31px]">
-            Your store at a glance
+          <h1 className="text-[22px] font-extrabold tracking-tight text-[#17233C] md:mt-2 md:text-[31px]">
+            <span className="md:hidden">Store Overview</span>
+            <span className="hidden md:inline">Your store at a glance</span>
           </h1>
 
-          <p className="mt-0.5 text-[12px] leading-5 text-muted-foreground md:mt-1 md:text-sm">
+          <p className="mt-0.5 hidden text-[12px] leading-5 text-muted-foreground md:mt-1 md:block md:text-sm">
             Sales, orders, stock and website activity in one place.
           </p>
         </div>
@@ -1000,11 +1001,13 @@ export default function DashboardHomeApp() {
         </Link>
       </header>
 
-      <DashboardHomeAnalyticsCards />
+      <div className="order-4 md:order-2">
+        <DashboardHomeAnalyticsCards />
+      </div>
 
       <section
         aria-label="Business summary"
-        className="mt-3 grid grid-cols-2 gap-2 md:mt-4 md:grid-cols-4 md:gap-3"
+        className="order-2 mt-1 grid grid-cols-2 gap-2 md:order-3 md:mt-4 md:grid-cols-4 md:gap-3"
       >
         {summaryItems.map(
           (
@@ -1034,7 +1037,7 @@ export default function DashboardHomeApp() {
                   item.href
                 }
                 className={[
-                  "min-w-0 rounded-xl border border-[#E1E6F0] border-t-[3px] bg-white p-2.5 shadow-[0_6px_18px_rgba(38,51,95,0.05)] transition hover:-translate-y-0.5 hover:shadow-[0_12px_28px_rgba(38,51,95,0.08)] md:rounded-2xl md:border-t-4 md:p-4",
+                  "min-w-0 rounded-xl border border-[#E3E9F2] bg-white p-3 shadow-[0_4px_14px_rgba(23,35,60,0.04)] transition hover:-translate-y-0.5 hover:shadow-[0_10px_24px_rgba(23,35,60,0.07)] md:rounded-2xl md:border-t-4 md:p-4",
                   item.borderClass,
                 ].join(
                   " "
@@ -1048,7 +1051,7 @@ export default function DashboardHomeApp() {
                       }
                     </div>
 
-                    <div className="mt-1.5 truncate text-[18px] font-extrabold tracking-tight text-[#182451] md:mt-2 md:text-[24px]">
+                    <div className="mt-1.5 truncate text-[18px] font-extrabold tracking-tight text-[#17233C] md:mt-2 md:text-[24px]">
                       {loading
                         ? (
                           <Skeleton className="h-7 w-20" />
@@ -1087,7 +1090,7 @@ export default function DashboardHomeApp() {
         )}
       </section>
 
-      <div className="mt-4 flex min-w-0 flex-col gap-4 xl:grid xl:grid-cols-[minmax(0,2fr)_minmax(320px,1fr)] xl:items-start xl:gap-5">
+      <div className="order-3 mt-3 flex min-w-0 flex-col gap-3 md:order-4 md:mt-4 md:gap-4 xl:grid xl:grid-cols-[minmax(0,2fr)_minmax(320px,1fr)] xl:items-start xl:gap-5">
         <div className="contents xl:block xl:space-y-5">
           <SectionSurface className="order-4 xl:order-none">
             <SectionHeader
@@ -1120,7 +1123,7 @@ export default function DashboardHomeApp() {
                         Four-week revenue
                       </div>
 
-                      <div className="mt-1 text-2xl font-extrabold text-[#182451]">
+                      <div className="mt-1 text-2xl font-extrabold text-[#17233C]">
                         {formatMoney(
                           fourWeekRevenue
                         )}
@@ -1194,7 +1197,7 @@ export default function DashboardHomeApp() {
                               }
                             </div>
 
-                            <div className="mt-0.5 truncate text-[10px] font-extrabold text-[#182451]">
+                            <div className="mt-0.5 truncate text-[10px] font-extrabold text-[#17233C]">
                               {formatShortMoney(
                                 week.total
                               )}
@@ -1253,7 +1256,7 @@ export default function DashboardHomeApp() {
 
                       <span className="min-w-0 flex-1">
                         <span className="flex min-w-0 items-center gap-2">
-                          <span className="truncate text-sm font-extrabold text-[#182451]">
+                          <span className="truncate text-sm font-extrabold text-[#17233C]">
                             #
                             {
                               order.number
@@ -1274,7 +1277,7 @@ export default function DashboardHomeApp() {
                       </span>
 
                       <span className="shrink-0 text-right">
-                        <span className="block text-sm font-extrabold text-[#182451]">
+                        <span className="block text-sm font-extrabold text-[#17233C]">
                           {formatMoney(
                             order.total
                           )}
@@ -1387,7 +1390,7 @@ export default function DashboardHomeApp() {
             )}
           </SectionSurface>
 
-          <SectionSurface className="order-2 xl:order-none">
+          <SectionSurface className="order-2 hidden md:block xl:order-none">
             <SectionHeader
               title="Quick Actions"
               subtitle="Start common store tasks."
@@ -1431,7 +1434,7 @@ export default function DashboardHomeApp() {
             </div>
           </SectionSurface>
 
-          <SectionSurface className="order-5 xl:order-none">
+          <SectionSurface className="order-5 hidden md:block xl:order-none">
             <SectionHeader
               title="Products & Stock"
               subtitle="Current catalogue availability."
@@ -1454,7 +1457,7 @@ export default function DashboardHomeApp() {
               <div className="p-4">
                 <div className="grid grid-cols-3 divide-x divide-[#E5E9F2]">
                   <div className="pr-3">
-                    <div className="text-xl font-extrabold text-[#182451]">
+                    <div className="text-xl font-extrabold text-[#17233C]">
                       {
                         totalProducts
                       }
@@ -1499,7 +1502,7 @@ export default function DashboardHomeApp() {
                       Stock availability
                     </span>
 
-                    <span className="font-extrabold text-[#182451]">
+                    <span className="font-extrabold text-[#17233C]">
                       {
                         inStockPercentage
                       }
@@ -1522,8 +1525,8 @@ export default function DashboardHomeApp() {
           </SectionSurface>
 
           <details className="group order-6 overflow-hidden rounded-2xl border border-[#E1E6F0] bg-white shadow-[0_8px_24px_rgba(38,51,95,0.05)] xl:order-none">
-            <summary className="flex min-h-16 cursor-pointer list-none items-center gap-3 bg-[#26366E] px-4 text-white">
-              <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#4059A7]">
+            <summary className="flex min-h-14 cursor-pointer list-none items-center gap-3 bg-white px-4 text-[#17233C] md:min-h-16 md:bg-[#26366E] md:text-white">
+              <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#EEF5FF] text-[#1F63D8] md:bg-[#4059A7] md:text-white">
                 <Settings2 className="h-4 w-4" />
               </span>
 
@@ -1532,12 +1535,12 @@ export default function DashboardHomeApp() {
                   Store Setup Guide
                 </span>
 
-                <span className="mt-0.5 block text-xs text-indigo-100/70">
+                <span className="mt-0.5 hidden text-xs text-[#7A8497] md:block md:text-indigo-100/70">
                   Open when you need setup help.
                 </span>
               </span>
 
-              <ChevronDown className="h-5 w-5 shrink-0 text-indigo-100 transition-transform group-open:rotate-180" />
+              <ChevronDown className="h-5 w-5 shrink-0 text-[#94A3B8] transition-transform group-open:rotate-180 md:text-indigo-100" />
             </summary>
 
             <div className="divide-y divide-[#E9ECF3] px-4">
@@ -1569,7 +1572,7 @@ export default function DashboardHomeApp() {
         </aside>
       </div>
 
-      <div className="pt-5">
+      <div className="order-5 pt-4 md:pt-5">
         <InstallAppCard />
       </div>
     </main>
