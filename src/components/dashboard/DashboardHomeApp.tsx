@@ -340,7 +340,7 @@ function SectionSurface({
   return (
     <section
       className={[
-        "overflow-hidden rounded-2xl border border-[#E3E9F2] bg-white shadow-[0_5px_18px_rgba(23,35,60,0.05)]",
+        "overflow-hidden rounded-2xl border border-[#D7E0EA] bg-white shadow-[0_5px_18px_rgba(23,35,60,0.05)]",
         className,
       ].join(
         " "
@@ -370,12 +370,12 @@ function SectionHeader({
 }) {
   const toneClass =
     tone === "coral"
-      ? "border-b border-[#E3E9F2] bg-white text-[#17233C] md:border-0 md:bg-[#18A6C9] md:text-white"
+      ? "border-b border-[#D7E0EA] bg-[#E8EFF8] text-[#17233C] md:border-0 md:bg-[#18A6C9] md:text-white"
       : tone === "green"
-        ? "border-b border-[#E3E9F2] bg-white text-[#17233C] md:border-0 md:bg-[#20B486] md:text-white"
+        ? "border-b border-[#D7E0EA] bg-[#E8EFF8] text-[#17233C] md:border-0 md:bg-[#20B486] md:text-white"
         : tone === "plain"
-          ? "border-b border-[#E3E9F2] bg-white text-[#17233C]"
-          : "border-b border-[#E3E9F2] bg-white text-[#17233C] md:border-0 md:bg-[#26366E] md:text-white";
+          ? "border-b border-[#D7E0EA] bg-[#E8EFF8] text-[#17233C] md:bg-white"
+          : "border-b border-[#D7E0EA] bg-[#E8EFF8] text-[#17233C] md:border-0 md:bg-[#26366E] md:text-white";
 
   const secondaryText =
     tone === "plain"
@@ -1037,7 +1037,7 @@ export default function DashboardHomeApp() {
                   item.href
                 }
                 className={[
-                  "min-w-0 rounded-xl border border-[#E3E9F2] bg-white p-3 shadow-[0_4px_14px_rgba(23,35,60,0.04)] transition hover:-translate-y-0.5 hover:shadow-[0_10px_24px_rgba(23,35,60,0.07)] md:rounded-2xl md:border-t-4 md:p-4",
+                  "min-w-0 rounded-xl border border-[#D7E0EA] bg-white p-3 shadow-[0_4px_14px_rgba(23,35,60,0.04)] transition hover:-translate-y-0.5 hover:shadow-[0_10px_24px_rgba(23,35,60,0.07)] md:rounded-2xl md:border-t-4 md:p-4",
                   item.borderClass,
                 ].join(
                   " "

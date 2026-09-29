@@ -310,7 +310,7 @@ export default function MobileBottomNav({
     return (
       <nav
         aria-label="Restricted dashboard navigation"
-        className="dashboard-mobile-bottom-nav fixed inset-x-0 bottom-0 z-[60] flex items-start justify-around rounded-t-[22px] border-t border-[#DCE2EA] bg-[#F2F4F7] px-3 shadow-[0_-8px_24px_rgba(23,35,60,0.08)] md:hidden"
+        className="dashboard-mobile-bottom-nav fixed inset-x-0 bottom-0 z-[60] flex items-start justify-around rounded-t-[22px] border-t border-[#C8D4E2] bg-[#DCE6F2] px-3 shadow-[0_-8px_24px_rgba(23,35,60,0.08)] md:hidden"
       >
         {visibleLockedItems.map(
           (item) => (
@@ -361,7 +361,7 @@ export default function MobileBottomNav({
     <>
       <nav
         aria-label="Dashboard navigation"
-        className="dashboard-mobile-bottom-nav fixed inset-x-0 bottom-0 z-[60] grid grid-cols-5 items-start rounded-t-[22px] border-t border-[#DCE2EA] bg-[#F2F4F7] px-1 shadow-[0_-8px_24px_rgba(23,35,60,0.08)] md:hidden"
+        className="dashboard-mobile-bottom-nav fixed inset-x-0 bottom-0 z-[60] grid grid-cols-5 items-start rounded-t-[22px] border-t border-[#C8D4E2] bg-[#DCE6F2] px-1 shadow-[0_-8px_24px_rgba(23,35,60,0.08)] md:hidden"
       >
         <BottomNavLink
           pathname={
@@ -396,7 +396,7 @@ export default function MobileBottomNav({
         >
           <span
             className={[
-              "flex h-11 w-11 -translate-y-1 items-center justify-center rounded-2xl bg-[#1F63D8] text-white ring-4 ring-white transition",
+              "flex h-11 w-11 -translate-y-1 items-center justify-center rounded-2xl bg-[#1F63D8] text-white ring-4 ring-[#DCE6F2] transition",
               addActive
                 ? "shadow-[0_8px_20px_rgba(24,166,201,0.38)]"
                 : "shadow-[0_6px_16px_rgba(24,166,201,0.28)]",
@@ -498,7 +498,7 @@ export default function MobileBottomNav({
           />
 
           <section className="dashboard-mobile-more-sheet absolute inset-x-0 bottom-0 max-h-[82dvh] overflow-y-auto rounded-t-[30px] bg-[#F7F9FC] shadow-[0_-20px_50px_rgba(23,35,60,0.18)]">
-            <div className="sticky top-0 z-10 rounded-t-[30px] border-b border-[#DCE2EA] bg-[#F2F4F7] px-4 pb-4 pt-3 text-[#17233C]">
+            <div className="sticky top-0 z-10 rounded-t-[30px] border-b border-[#C8D4E2] bg-[#DCE6F2] px-4 pb-4 pt-3 text-[#17233C]">
               <div className="mx-auto mb-3 h-1.5 w-12 rounded-full bg-white/25" />
 
               <div className="flex items-center justify-between gap-3">

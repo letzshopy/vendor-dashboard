@@ -456,7 +456,7 @@ export default function Topbar({
           "var(--ls-safe-area-top)",
       }}
       className={[
-        "fixed inset-x-0 top-0 z-50 w-full border-b border-[#DCE2EA] bg-[#F2F4F7] shadow-[0_4px_16px_rgba(23,35,60,0.05)] md:sticky md:inset-x-auto md:z-40 md:border-[#111B3F] md:bg-[#182451] md:shadow-[0_8px_28px_rgba(17,27,63,0.24)]",
+        "fixed inset-x-0 top-0 z-50 w-full bg-[#F7F9FC] md:sticky md:inset-x-auto md:z-40 md:border-b md:border-[#111B3F] md:bg-[#182451] md:shadow-[0_8px_28px_rgba(17,27,63,0.24)]",
         showMobileDashboardTopbar
           ? "block"
           : "hidden",
@@ -464,12 +464,12 @@ export default function Topbar({
       ].join(" ")}
     >
       <div className="w-full">
-        <div className="flex min-h-[60px] items-center justify-between gap-2 px-3 sm:px-4 md:min-h-[68px] md:px-5 xl:px-6">
+        <div className="flex min-h-[60px] items-center justify-between gap-2 border-b border-[#CBD6E3] bg-[#DCE6F2] px-3 shadow-[0_4px_14px_rgba(23,35,60,0.06)] sm:px-4 md:min-h-[68px] md:border-0 md:bg-transparent md:px-5 md:shadow-none xl:px-6">
           <div className="flex min-w-0 items-center gap-2 sm:gap-3 md:gap-4">
             <button
               type="button"
               onClick={onToggleSidebar}
-              className="ls-focus-ring inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[#DCE2EA] bg-white text-[#1F63D8] md:hidden"
+              className="ls-focus-ring inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[#C8D4E2] bg-white text-[#1F63D8] md:hidden"
             >
               <Menu className="h-5 w-5" />
             </button>
@@ -598,13 +598,13 @@ export default function Topbar({
               }}
               aria-label="Open dashboard search"
               aria-expanded={mobileSearchOpen}
-              className="ls-focus-ring inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[#DCE2EA] bg-white text-[#334155] md:border-[#40518F] md:bg-[#2A3A74] md:text-white md:hidden"
+              className="ls-focus-ring inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[#C8D4E2] bg-white text-[#334155] md:border-[#40518F] md:bg-[#2A3A74] md:text-white md:hidden"
             >
               <SearchIcon className="h-5 w-5" />
             </button>
             <Link
   href="/settings"
-  className="ls-focus-ring hidden h-10 w-10 items-center justify-center rounded-xl border border-[#DCE2EA] bg-white text-[#334155] md:border-[#40518F] md:bg-[#2A3A74] md:text-white hover:bg-[#344785] md:inline-flex"
+  className="ls-focus-ring hidden h-10 w-10 items-center justify-center rounded-xl border border-[#C8D4E2] bg-white text-[#334155] md:border-[#40518F] md:bg-[#2A3A74] md:text-white hover:bg-[#344785] md:inline-flex"
   aria-label="Settings"
   title="Settings"
 >
@@ -614,7 +614,7 @@ export default function Topbar({
               <button
                 type="button"
                 onClick={toggleNotifications}
-                className="ls-focus-ring relative inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[#DCE2EA] bg-white text-[#334155] md:border-[#40518F] md:bg-[#2A3A74] md:text-white hover:bg-[#344785]"
+                className="ls-focus-ring relative inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[#C8D4E2] bg-white text-[#334155] md:border-[#40518F] md:bg-[#2A3A74] md:text-white hover:bg-[#344785]"
               >
                 <Bell className="h-4 w-4" />
                 {unreadCount > 0 && (

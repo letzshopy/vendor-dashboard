@@ -639,7 +639,7 @@ export default function Sidebar({
     return (
       <div className="flex h-full min-h-0 flex-col">
         <div
-          className="flex items-center justify-between border-b border-[#DCE2EA] bg-[#F2F4F7] px-3 pb-3 md:hidden"
+          className="flex items-center justify-between border-b border-[#C8D4E2] bg-[#DCE6F2] px-3 pb-3 md:hidden"
           style={{
             paddingTop:
               "calc(0.75rem + var(--ls-safe-area-top))",
@@ -676,7 +676,7 @@ export default function Sidebar({
         <nav
           ref={navigationRef}
           aria-label="Dashboard navigation"
-          className="min-h-0 flex-1 touch-pan-y space-y-1.5 overflow-y-auto overscroll-contain bg-[#F2F4F7] px-3 pb-[calc(1.5rem+var(--ls-safe-area-bottom))] pt-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:bg-[#26366E] md:pb-6 md:pt-4"
+          className="min-h-0 flex-1 touch-pan-y space-y-1.5 overflow-y-auto overscroll-contain bg-[#E7EDF5] px-3 pb-[calc(1.5rem+var(--ls-safe-area-bottom))] pt-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:bg-[#26366E] md:pb-6 md:pt-4"
         >
           {locked && (
             <div className="mb-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-3 text-[13px] leading-5 text-amber-800">
@@ -744,8 +744,8 @@ export default function Sidebar({
                   className={[
                     "ls-focus-ring flex min-h-11 w-full items-center justify-between gap-3 rounded-xl px-2.5 py-1.5 text-left transition",
                     groupActive
-                      ? "bg-white text-[#1F63D8] shadow-none md:bg-[#18A6C9] md:text-white md:shadow-[0_10px_24px_rgba(10,18,50,0.26)]"
-                      : "text-[#334155] hover:bg-[#F2F6FC] md:text-indigo-50 md:hover:bg-[#314784]",
+                      ? "bg-[#1F63D8] text-white shadow-[0_6px_16px_rgba(31,99,216,0.20)] md:bg-[#18A6C9] md:text-white md:shadow-[0_10px_24px_rgba(10,18,50,0.26)]"
+                      : "text-[#334155] hover:bg-white/70 md:text-indigo-50 md:hover:bg-[#314784]",
                   ].join(" ")}
                 >
                   <span className="flex min-w-0 items-center gap-3">
@@ -754,7 +754,7 @@ export default function Sidebar({
                         "inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl transition",
                         groupActive
                           ? "bg-white text-[#1F63D8] shadow-sm md:text-[#18A6C9]"
-                          : "bg-[#F2F6FC] text-[#64748B] shadow-none md:bg-[#314784] md:text-white md:shadow-sm",
+                          : "bg-white/75 text-[#64748B] shadow-none md:bg-[#314784] md:text-white md:shadow-sm",
                       ].join(" ")}
                     >
                       <Icon className="h-[18px] w-[18px]" />
@@ -768,7 +768,7 @@ export default function Sidebar({
                   <ChevronDown
                     className={[
                       "h-4 w-4 shrink-0 transition-transform duration-200",
-                      groupActive ? "text-[#1F63D8] md:text-white" : "text-[#94A3B8] md:text-indigo-200/80",
+                      groupActive ? "text-white" : "text-[#94A3B8] md:text-indigo-200/80",
                       expanded
                         ? "rotate-180"
                         : "",
@@ -893,7 +893,7 @@ export default function Sidebar({
         <aside
           aria-label="Mobile dashboard navigation"
           className={[
-            "absolute left-0 top-0 h-[100dvh] max-h-[100dvh] w-[84vw] max-w-[296px] overflow-hidden border-r border-[#DCE2EA] bg-[#F2F4F7] text-foreground shadow-[18px_0_50px_rgba(23,35,60,0.14)] transition-transform duration-200 ease-out",
+            "absolute left-0 top-0 h-[100dvh] max-h-[100dvh] w-[84vw] max-w-[296px] overflow-hidden border-r border-[#C8D4E2] bg-[#E7EDF5] text-foreground shadow-[18px_0_50px_rgba(23,35,60,0.16)] transition-transform duration-200 ease-out",
             open
               ? "translate-x-0"
               : "-translate-x-full",

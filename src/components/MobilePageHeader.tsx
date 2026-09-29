@@ -538,17 +538,17 @@ export default function MobilePageHeader({
   ) {
     return (
       <header
-        className="fixed inset-x-0 top-0 z-50 border-b border-[#DCE2EA] bg-[#F2F4F7] shadow-[0_4px_16px_rgba(23,35,60,0.05)] md:hidden"
+        className="fixed inset-x-0 top-0 z-50 bg-[#F7F9FC] md:hidden"
         style={{
           paddingTop:
             "var(--ls-safe-area-top)",
         }}
       >
-        <div className="flex min-h-[60px] items-center gap-2 px-3">
+        <div className="flex min-h-[60px] items-center gap-2 border-b border-[#CBD6E3] bg-[#DCE6F2] px-3 shadow-[0_4px_14px_rgba(23,35,60,0.06)]">
           <Link
             href={config.backHref}
             aria-label="Go back"
-            className="ls-focus-ring inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[#DCE2EA] bg-white text-[#1F63D8]"
+            className="ls-focus-ring inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[#C8D4E2] bg-white text-[#1F63D8]"
           >
             <ArrowLeft className="h-5 w-5" />
           </Link>
@@ -576,18 +576,18 @@ export default function MobilePageHeader({
 
   return (
     <header
-      className="fixed inset-x-0 top-0 z-50 border-b border-[#DCE2EA] bg-[#F2F4F7] shadow-[0_4px_16px_rgba(23,35,60,0.05)] md:hidden"
+      className="fixed inset-x-0 top-0 z-50 bg-[#F7F9FC] md:hidden"
       style={{
         paddingTop:
           "var(--ls-safe-area-top)",
       }}
     >
-      <div className="flex min-h-[60px] items-center gap-2 px-3">
+      <div className="flex min-h-[60px] items-center gap-2 border-b border-[#CBD6E3] bg-[#DCE6F2] px-3 shadow-[0_4px_14px_rgba(23,35,60,0.06)]">
         <button
           type="button"
           onClick={onToggleSidebar}
           aria-label="Open navigation"
-          className="ls-focus-ring inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[#DCE2EA] bg-white text-[#1F63D8]"
+          className="ls-focus-ring inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[#C8D4E2] bg-white text-[#1F63D8]"
         >
           <Menu className="h-5 w-5" />
         </button>
