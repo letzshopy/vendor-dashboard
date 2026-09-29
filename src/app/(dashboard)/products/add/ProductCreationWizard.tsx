@@ -2464,31 +2464,65 @@ export default function ProductCreationWizard({
       );
     }
 
-    const form = new FormData();
+    const rawBytes =
+      await preparedFile.arrayBuffer();
 
-    form.append(
-      "file",
-      preparedFile,
-      preparedFile.name
-    );
-    form.append(
-      "purpose",
-      "product_image"
-    );
+    let response: Response | null = null;
+    let lastNetworkError: unknown = null;
 
-    let response: Response;
+    for (
+      let attempt = 0;
+      attempt < 2;
+      attempt += 1
+    ) {
+      try {
+        response = await fetch(
+          "/api/media/upload",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type":
+                preparedFile.type ||
+                "application/octet-stream",
+              "X-LetzShopy-Upload-Mode":
+                "raw",
+              "X-LetzShopy-Filename":
+                encodeURIComponent(
+                  preparedFile.name
+                ),
+              "X-LetzShopy-Purpose":
+                "product_image",
+            },
+            body: rawBytes.slice(0),
+            cache: "no-store",
+            credentials: "same-origin",
+          }
+        );
 
-    try {
-      response = await fetch(
-        "/api/media/upload",
-        {
-          method: "POST",
-          body: form,
+        break;
+      } catch (error: unknown) {
+        lastNetworkError = error;
+
+        if (attempt === 0) {
+          await new Promise<void>(
+            (resolve) =>
+              window.setTimeout(
+                resolve,
+                350
+              )
+          );
         }
+      }
+    }
+
+    if (!response) {
+      console.error(
+        "Product image upload network failure",
+        lastNetworkError
       );
-    } catch {
+
       throw new Error(
-        `"${photo.name}" could not be uploaded because the connection was interrupted.`
+        `"${photo.name}" could not be uploaded after reconnecting. Please check the app connection and try again.`
       );
     }
 
@@ -2546,7 +2580,7 @@ export default function ProductCreationWizard({
     }
 
     const workerCount = Math.min(
-      4,
+      1,
       photos.length
     );
 
@@ -6004,6 +6038,13 @@ export default function ProductCreationWizard({
                             </span>
                           </div>
 
+                          {activeColourRow.photos.length > 1 ? (
+                            <div className="mb-2 flex items-center gap-1.5 text-[11px] font-semibold text-[#64748B]">
+                              <GripVertical className="h-3.5 w-3.5" />
+                              Drag to reorder. First photo is the main colour image.
+                            </div>
+                          ) : null}
+
                           <div className="grid grid-cols-3 gap-2">
                             {activeColourRow.photos.map(
                               (
@@ -6014,30 +6055,142 @@ export default function ProductCreationWizard({
                                   key={
                                     photo.id
                                   }
-                                  className="relative aspect-square overflow-hidden rounded-xl border border-[#D7E0EA] bg-white"
+                                  data-variation-row-id={
+                                    activeColourRow.id
+                                  }
+                                  data-variation-photo-id={
+                                    photo.id
+                                  }
+                                  className={[
+                                    "relative aspect-square overflow-visible rounded-xl",
+                                    draggedVariationPhoto?.rowId ===
+                                      activeColourRow.id &&
+                                    draggedVariationPhoto.photoId ===
+                                      photo.id
+                                      ? "opacity-60"
+                                      : "",
+                                  ].join(" ")}
                                 >
-                                  <img
-                                    src={
-                                      photo.url
-                                    }
-                                    alt=""
-                                    className="h-full w-full object-cover"
-                                  />
-                                  {index ===
-                                  0 ? (
-                                    <span className="absolute left-1.5 top-1.5 rounded-full bg-[#17233C]/85 px-2 py-0.5 text-[9px] font-bold text-white">
-                                      Main
-                                    </span>
-                                  ) : null}
                                   <button
                                     type="button"
+                                    draggable
+                                    aria-label={`${activeColourRow.option} image ${index + 1}. Drag to reorder.`}
+                                    onDragStart={(
+                                      event
+                                    ) => {
+                                      event.dataTransfer.effectAllowed =
+                                        "move";
+                                      event.dataTransfer.setData(
+                                        "text/plain",
+                                        photo.id
+                                      );
+                                      beginVariationPhotoDrag(
+                                        activeColourRow.id,
+                                        photo.id
+                                      );
+                                    }}
+                                    onDragOver={(
+                                      event
+                                    ) => {
+                                      event.preventDefault();
+                                      event.dataTransfer.dropEffect =
+                                        "move";
+                                    }}
+                                    onDrop={(
+                                      event
+                                    ) => {
+                                      event.preventDefault();
+
+                                      const sourcePhotoId =
+                                        event.dataTransfer.getData(
+                                          "text/plain"
+                                        ) ||
+                                        draggedVariationPhotoRef.current
+                                          ?.photoId;
+
+                                      if (
+                                        sourcePhotoId
+                                      ) {
+                                        moveVariationPhoto(
+                                          activeColourRow.id,
+                                          sourcePhotoId,
+                                          photo.id
+                                        );
+                                      }
+
+                                      finishVariationPhotoDrag();
+                                    }}
+                                    onDragEnd={
+                                      finishVariationPhotoDrag
+                                    }
+                                    onTouchStart={() =>
+                                      beginVariationPhotoDrag(
+                                        activeColourRow.id,
+                                        photo.id
+                                      )
+                                    }
+                                    onTouchMove={(
+                                      event
+                                    ) => {
+                                      event.preventDefault();
+                                      const touch =
+                                        event
+                                          .touches[0];
+
+                                      if (touch) {
+                                        moveDraggedVariationPhotoAtPoint(
+                                          activeColourRow.id,
+                                          touch.clientX,
+                                          touch.clientY
+                                        );
+                                      }
+                                    }}
+                                    onTouchEnd={
+                                      finishVariationPhotoDrag
+                                    }
+                                    onTouchCancel={
+                                      finishVariationPhotoDrag
+                                    }
+                                    className={[
+                                      "relative h-full w-full cursor-grab touch-none overflow-hidden rounded-xl border-2 bg-white active:cursor-grabbing",
+                                      index === 0
+                                        ? "border-[#1F63D8]"
+                                        : "border-[#D7E0EA]",
+                                    ].join(" ")}
+                                  >
+                                    <img
+                                      src={
+                                        photo.url
+                                      }
+                                      alt={`${activeColourRow.option} image ${index + 1}`}
+                                      className="pointer-events-none h-full w-full object-cover"
+                                    />
+                                    <span className="pointer-events-none absolute bottom-1.5 left-1.5 grid h-6 w-6 place-items-center rounded-lg bg-black/55 text-white">
+                                      <GripVertical className="h-4 w-4" />
+                                    </span>
+                                    {index ===
+                                    0 ? (
+                                      <span className="pointer-events-none absolute left-1.5 top-1.5 rounded-full bg-[#17233C]/85 px-2 py-0.5 text-[9px] font-bold text-white">
+                                        Main
+                                      </span>
+                                    ) : null}
+                                  </button>
+
+                                  <button
+                                    type="button"
+                                    aria-label={`Remove ${activeColourRow.option} image ${index + 1}`}
+                                    onPointerDown={(
+                                      event
+                                    ) =>
+                                      event.stopPropagation()
+                                    }
                                     onClick={() =>
                                       removeVariationPhoto(
                                         activeColourRow.id,
                                         photo.id
                                       )
                                     }
-                                    className="absolute right-1.5 top-1.5 grid h-7 w-7 place-items-center rounded-full bg-white/95 text-rose-600 shadow-sm"
+                                    className="absolute -right-1.5 -top-1.5 z-10 grid h-7 w-7 place-items-center rounded-full border border-[#E3E9F2] bg-white text-rose-600 shadow-sm"
                                   >
                                     <X className="h-3.5 w-3.5" />
                                   </button>
@@ -6098,6 +6251,13 @@ export default function ProductCreationWizard({
                         </span>
                       </div>
 
+                      {localPhotos.length > 1 ? (
+                        <div className="flex items-center gap-1.5 text-[11px] font-semibold text-[#64748B]">
+                          <GripVertical className="h-3.5 w-3.5" />
+                          Drag photos to reorder. The first photo is the main image.
+                        </div>
+                      ) : null}
+
                       <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
                         {localPhotos.map(
                           (
@@ -6106,26 +6266,135 @@ export default function ProductCreationWizard({
                           ) => (
                             <div
                               key={photo.id}
-                              className="relative aspect-square overflow-hidden rounded-xl border border-[#D7E0EA] bg-white"
+                              data-photo-id={
+                                photo.id
+                              }
+                              className={[
+                                "relative aspect-square overflow-visible rounded-xl",
+                                draggedPhotoId ===
+                                photo.id
+                                  ? "opacity-60"
+                                  : "",
+                              ].join(" ")}
                             >
-                              <img
-                                src={photo.url}
-                                alt=""
-                                className="h-full w-full object-cover"
-                              />
-                              {index === 0 ? (
-                                <span className="absolute left-1.5 top-1.5 rounded-full bg-[#17233C]/85 px-2 py-0.5 text-[9px] font-bold text-white">
-                                  Main
-                                </span>
-                              ) : null}
                               <button
                                 type="button"
+                                draggable
+                                aria-label={
+                                  index === 0
+                                    ? "Main photo. Drag to reorder."
+                                    : "Drag photo to reorder."
+                                }
+                                onDragStart={(
+                                  event
+                                ) => {
+                                  event.dataTransfer.effectAllowed =
+                                    "move";
+                                  event.dataTransfer.setData(
+                                    "text/plain",
+                                    photo.id
+                                  );
+                                  beginPhotoDrag(
+                                    photo.id
+                                  );
+                                }}
+                                onDragOver={(
+                                  event
+                                ) => {
+                                  event.preventDefault();
+                                  event.dataTransfer.dropEffect =
+                                    "move";
+                                }}
+                                onDrop={(
+                                  event
+                                ) => {
+                                  event.preventDefault();
+                                  const sourcePhotoId =
+                                    event.dataTransfer.getData(
+                                      "text/plain"
+                                    ) ||
+                                    draggedPhotoIdRef.current;
+
+                                  if (
+                                    sourcePhotoId
+                                  ) {
+                                    movePhoto(
+                                      sourcePhotoId,
+                                      photo.id
+                                    );
+                                  }
+
+                                  finishPhotoDrag();
+                                }}
+                                onDragEnd={
+                                  finishPhotoDrag
+                                }
+                                onTouchStart={() =>
+                                  beginPhotoDrag(
+                                    photo.id
+                                  )
+                                }
+                                onTouchMove={(
+                                  event
+                                ) => {
+                                  event.preventDefault();
+                                  const touch =
+                                    event
+                                      .touches[0];
+
+                                  if (touch) {
+                                    moveDraggedPhotoAtPoint(
+                                      touch.clientX,
+                                      touch.clientY
+                                    );
+                                  }
+                                }}
+                                onTouchEnd={
+                                  finishPhotoDrag
+                                }
+                                onTouchCancel={
+                                  finishPhotoDrag
+                                }
+                                className={[
+                                  "relative h-full w-full cursor-grab touch-none overflow-hidden rounded-xl border-2 bg-white active:cursor-grabbing",
+                                  index === 0
+                                    ? "border-[#1F63D8]"
+                                    : "border-[#D7E0EA]",
+                                ].join(" ")}
+                              >
+                                <img
+                                  src={
+                                    photo.url
+                                  }
+                                  alt={
+                                    photo.name
+                                  }
+                                  className="pointer-events-none h-full w-full object-cover"
+                                />
+                                <span className="pointer-events-none absolute bottom-1.5 left-1.5 grid h-6 w-6 place-items-center rounded-lg bg-black/55 text-white">
+                                  <GripVertical className="h-4 w-4" />
+                                </span>
+                                {index === 0 ? (
+                                  <span className="pointer-events-none absolute left-1.5 top-1.5 rounded-full bg-[#17233C]/85 px-2 py-0.5 text-[9px] font-bold text-white">
+                                    Main
+                                  </span>
+                                ) : null}
+                              </button>
+
+                              <button
+                                type="button"
+                                aria-label="Remove photo"
+                                onPointerDown={(
+                                  event
+                                ) =>
+                                  event.stopPropagation()
+                                }
                                 onClick={() =>
                                   removePhoto(
                                     photo.id
                                   )
                                 }
-                                className="absolute right-1.5 top-1.5 grid h-7 w-7 place-items-center rounded-full bg-white/95 text-rose-600 shadow-sm"
+                                className="absolute -right-1.5 -top-1.5 z-10 grid h-7 w-7 place-items-center rounded-full border border-[#E3E9F2] bg-white text-rose-600 shadow-sm"
                               >
                                 <X className="h-3.5 w-3.5" />
                               </button>
