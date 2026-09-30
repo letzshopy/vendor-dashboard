@@ -10,6 +10,10 @@ import {
   type WebPushPayload,
   type WebPushSubscription,
 } from "@/lib/webPush";
+import {
+  normalizeFcmToken,
+  sendFirebasePush,
+} from "@/lib/firebasePush";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -220,12 +224,37 @@ export async function POST(request: Request) {
           Boolean(value)
       );
 
-  if (subscriptions.length === 0) {
+  const nativeTokens =
+    (
+      Array.isArray(
+        raw.native_tokens
+      )
+        ? raw.native_tokens
+        : []
+    )
+      .slice(0, 20)
+      .map((value) =>
+        normalizeFcmToken(
+          value
+        )
+      )
+      .filter(
+        (
+          value
+        ): value is string =>
+          Boolean(value)
+      );
+
+  if (
+    subscriptions.length === 0 &&
+    nativeTokens.length === 0
+  ) {
     return privateJson({
       ok: true,
       delivered: 0,
       failed: 0,
       expired_endpoints: [],
+      expired_native_tokens: [],
     });
   }
 
@@ -247,33 +276,103 @@ export async function POST(request: Request) {
   };
 
   try {
-    const results = await sendWithLimit(
-      subscriptions,
-      payload
-    );
+    const [
+      webResults,
+      nativeResults,
+    ] = await Promise.all([
+      subscriptions.length > 0
+        ? sendWithLimit(
+            subscriptions,
+            payload
+          )
+        : Promise.resolve([]),
+      nativeTokens.length > 0
+        ? Promise.all(
+            nativeTokens.map(
+              async (token) => ({
+                token,
+                ...(await sendFirebasePush(
+                  token,
+                  payload
+                )),
+              })
+            )
+          )
+        : Promise.resolve([]),
+    ]);
 
-    const expiredEndpoints = results
-      .filter((result) => result.expired)
-      .map(
+    const expiredEndpoints =
+      webResults
+        .filter(
+          (result) =>
+            result.expired
+        )
+        .map(
+          (result) =>
+            result
+              .subscription
+              .endpoint
+        );
+
+    const expiredNativeTokens =
+      nativeResults
+        .filter(
+          (result) =>
+            result.expired
+        )
+        .map(
+          (result) =>
+            result.token
+        );
+
+    const webDelivered =
+      webResults.filter(
         (result) =>
-          result.subscription.endpoint
-      );
+          result.ok
+      ).length;
+
+    const nativeDelivered =
+      nativeResults.filter(
+        (result) =>
+          result.ok
+      ).length;
+
+    const webFailed =
+      webResults.filter(
+        (result) =>
+          !result.ok &&
+          !result.expired
+      ).length;
+
+    const nativeFailed =
+      nativeResults.filter(
+        (result) =>
+          !result.ok &&
+          !result.expired
+      ).length;
 
     return privateJson({
       ok: true,
-      delivered: results.filter(
-        (result) => result.ok
-      ).length,
-      failed: results.filter(
-        (result) =>
-          !result.ok && !result.expired
-      ).length,
-      expired_endpoints: expiredEndpoints,
+      delivered:
+        webDelivered +
+        nativeDelivered,
+      failed:
+        webFailed +
+        nativeFailed,
+      web_delivered:
+        webDelivered,
+      native_delivered:
+        nativeDelivered,
+      expired_endpoints:
+        expiredEndpoints,
+      expired_native_tokens:
+        expiredNativeTokens,
     });
   } catch {
     return privateJson(
       {
-        error: "Push delivery is unavailable.",
+        error:
+          "Push delivery is unavailable.",
       },
       503
     );
