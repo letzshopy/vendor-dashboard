@@ -132,11 +132,13 @@ export default function NativePushManager() {
     useRef(false);
 
   const registerDevice =
-    useCallback(async () => {
+    useCallback(async (
+      userInitiated = false
+    ) => {
       setBusy(true);
       setError("");
       userInitiatedRef.current =
-        true;
+        userInitiated;
 
       try {
         await PushNotifications.register();
@@ -357,9 +359,9 @@ export default function NativePushManager() {
           current.receive ===
           "granted"
         ) {
-          userInitiatedRef.current =
-            false;
-          await registerDevice();
+          await registerDevice(
+            false
+          );
         }
       } catch (
         bootstrapError
@@ -427,7 +429,9 @@ export default function NativePushManager() {
           return;
         }
 
-        await registerDevice();
+        await registerDevice(
+          true
+        );
       } catch (
         permissionError
       ) {
