@@ -30,6 +30,8 @@ const TOKEN_STORAGE_KEY =
   "ls_native_push_token";
 const PROMPT_DISMISSED_KEY =
   "ls_native_push_prompt_dismissed";
+const PROMPT_SNOOZE_MS =
+  7 * 24 * 60 * 60 * 1000;
 
 function safeInternalPath(
   value: unknown
@@ -115,6 +117,8 @@ export default function NativePushManager() {
     >("prompt");
   const [busy, setBusy] =
     useState(false);
+  const [checking, setChecking] =
+    useState(true);
   const [dismissed, setDismissed] =
     useState(false);
   const [error, setError] =
@@ -124,11 +128,15 @@ export default function NativePushManager() {
     useRef<
       PluginListenerHandle[]
     >([]);
+  const userInitiatedRef =
+    useRef(false);
 
   const registerDevice =
     useCallback(async () => {
       setBusy(true);
       setError("");
+      userInitiatedRef.current =
+        true;
 
       try {
         await PushNotifications.register();
@@ -156,10 +164,19 @@ export default function NativePushManager() {
     setSupported(true);
 
     try {
+      const snoozedUntil =
+        Number(
+          window.localStorage.getItem(
+            PROMPT_DISMISSED_KEY
+          ) || "0"
+        );
+
       setDismissed(
-        window.localStorage.getItem(
-          PROMPT_DISMISSED_KEY
-        ) === "1"
+        Number.isFinite(
+          snoozedUntil
+        ) &&
+          snoozedUntil >
+            Date.now()
       );
     } catch {
       // Ignore local storage failures.
@@ -191,16 +208,23 @@ export default function NativePushManager() {
                     );
                     setError("");
 
-                    actionFeedback.success({
-                      id:
-                        "native-push-enabled",
-                      title:
-                        "Order alerts enabled",
-                      message:
-                        "This phone can now receive LetzShopy notifications.",
-                      durationMs:
-                        3000,
-                    });
+                    if (
+                      userInitiatedRef.current
+                    ) {
+                      actionFeedback.success({
+                        id:
+                          "native-push-enabled",
+                        title:
+                          "Order alerts enabled",
+                        message:
+                          "This phone can now receive LetzShopy notifications.",
+                        durationMs:
+                          3000,
+                      });
+                    }
+
+                    userInitiatedRef.current =
+                      false;
                   }
                 } catch (
                   saveError
@@ -327,11 +351,14 @@ export default function NativePushManager() {
         setPermission(
           current.receive
         );
+        setChecking(false);
 
         if (
           current.receive ===
           "granted"
         ) {
+          userInitiatedRef.current =
+            false;
           await registerDevice();
         }
       } catch (
@@ -339,6 +366,7 @@ export default function NativePushManager() {
       ) {
         if (!cancelled) {
           setBusy(false);
+          setChecking(false);
           setError(
             bootstrapError
               instanceof Error
@@ -388,6 +416,8 @@ export default function NativePushManager() {
           "granted"
         ) {
           setBusy(false);
+          userInitiatedRef.current =
+            false;
           setError(
             result.receive ===
               "denied"
@@ -402,6 +432,8 @@ export default function NativePushManager() {
         permissionError
       ) {
         setBusy(false);
+        userInitiatedRef.current =
+          false;
         setError(
           permissionError
             instanceof Error
@@ -422,7 +454,10 @@ export default function NativePushManager() {
       try {
         window.localStorage.setItem(
           PROMPT_DISMISSED_KEY,
-          "1"
+          String(
+            Date.now() +
+              PROMPT_SNOOZE_MS
+          )
         );
       } catch {
         // Ignore local storage failures.
@@ -431,8 +466,13 @@ export default function NativePushManager() {
 
   const showPrompt =
     supported &&
+    !checking &&
     !dismissed &&
-    permission !== "granted";
+    (
+      permission === "prompt" ||
+      permission ===
+        "prompt-with-rationale"
+    );
 
   if (!showPrompt) {
     return null;
