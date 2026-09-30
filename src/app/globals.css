@@ -707,95 +707,307 @@ select:active {
   display: grid;
   place-items: center;
   overflow: hidden;
-  background: #f8fafc;
+  background:
+    radial-gradient(
+      circle at 50% 43%,
+      rgba(31, 111, 229, 0.085),
+      transparent 28%
+    ),
+    linear-gradient(
+      180deg,
+      #fbfdff 0%,
+      #f5f9ff 100%
+    );
   opacity: 1;
   pointer-events: none;
-  transition: opacity 220ms ease;
+  transition:
+    opacity 240ms ease,
+    filter 240ms ease;
 }
 
 .ls-native-brand-splash.is-leaving {
   opacity: 0;
+  filter: blur(1.5px);
 }
 
-.ls-native-brand-lockup {
-  display: flex;
-  width: min(84vw, 23rem);
-  align-items: center;
-  justify-content: center;
-  gap: clamp(0.65rem, 2.6vw, 0.95rem);
-}
-
-.ls-native-brand-bag {
-  width: clamp(4rem, 20vw, 5.35rem);
-  height: auto;
-  flex: 0 0 auto;
+.ls-native-brand-orb {
+  position: absolute;
+  border-radius: 999px;
+  background:
+    radial-gradient(
+      circle at 36% 30%,
+      rgba(255, 255, 255, 0.88),
+      rgba(95, 171, 255, 0.15) 58%,
+      rgba(31, 99, 216, 0.02) 74%,
+      transparent 76%
+    );
   opacity: 0;
-  transform: translateY(0.35rem) scale(0.86);
   animation:
-    ls-native-brand-bag-in
-    520ms
-    cubic-bezier(0.2, 0.85, 0.25, 1)
-    40ms
+    ls-native-brand-orb-in
+    850ms
+    ease-out
     forwards;
 }
 
+.ls-native-brand-orb-a {
+  width: min(48vw, 13rem);
+  aspect-ratio: 1;
+  right: -10vw;
+  top: 5.5rem;
+  animation-delay: 100ms;
+}
+
+.ls-native-brand-orb-b {
+  width: min(58vw, 16rem);
+  aspect-ratio: 1;
+  left: -18vw;
+  bottom: 3.5rem;
+  animation-delay: 180ms;
+}
+
+.ls-native-brand-stage {
+  position: relative;
+  display: flex;
+  width: min(88vw, 22.5rem);
+  min-height: 7.2rem;
+  align-items: center;
+  justify-content: center;
+}
+
+.ls-native-brand-mark-shell {
+  position: absolute;
+  left: 50%;
+  display: grid;
+  width: clamp(4.8rem, 22vw, 5.8rem);
+  aspect-ratio: 1 / 1.08;
+  place-items: center;
+  transform:
+    translateX(-50%)
+    scale(0.78);
+  opacity: 0;
+  animation:
+    ls-native-brand-mark-reveal
+      430ms
+      cubic-bezier(0.16, 1, 0.3, 1)
+      60ms
+      forwards,
+    ls-native-brand-mark-shift
+      520ms
+      cubic-bezier(0.2, 0.8, 0.2, 1)
+      470ms
+      forwards;
+}
+
+.ls-native-brand-mark-shell::before {
+  content: "";
+  position: absolute;
+  inset: -18%;
+  z-index: -1;
+  border-radius: 999px;
+  background:
+    radial-gradient(
+      circle,
+      rgba(31, 99, 216, 0.13),
+      rgba(31, 99, 216, 0.03) 52%,
+      transparent 72%
+    );
+  opacity: 0;
+  transform: scale(0.7);
+  animation:
+    ls-native-brand-glow
+    620ms
+    ease-out
+    80ms
+    forwards;
+}
+
+.ls-native-brand-mark {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
 .ls-native-brand-copy {
+  position: absolute;
+  left: clamp(6.4rem, 27vw, 7.35rem);
+  right: 0;
+  top: 50%;
   min-width: 0;
-  padding-top: 0.15rem;
+  transform: translateY(-47%);
 }
 
 .ls-native-brand-wordmark {
-  color: #1f63d8;
-  font-size: clamp(1.85rem, 9.6vw, 2.65rem);
+  color: #1469df;
+  font-family:
+    var(--font-geist-sans),
+    Arial,
+    Helvetica,
+    sans-serif;
+  font-size: clamp(2rem, 10vw, 2.8rem);
   font-weight: 720;
-  line-height: 0.92;
-  letter-spacing: -0.055em;
+  line-height: 0.95;
+  letter-spacing: -0.058em;
   opacity: 0;
-  transform: translateY(0.3rem);
+  clip-path: inset(0 100% 0 0);
+  transform: translateY(0.45rem);
   animation:
-    ls-native-brand-copy-in
-    480ms
-    cubic-bezier(0.2, 0.8, 0.2, 1)
-    150ms
+    ls-native-brand-wordmark-in
+    530ms
+    cubic-bezier(0.16, 1, 0.3, 1)
+    540ms
     forwards;
 }
 
 .ls-native-brand-tagline {
-  margin-top: 0.48rem;
-  color: #566176;
-  font-size: clamp(0.43rem, 2vw, 0.58rem);
-  font-weight: 600;
+  margin-top: 0.58rem;
+  color: #596579;
+  font-family:
+    var(--font-geist-sans),
+    Arial,
+    Helvetica,
+    sans-serif;
+  font-size: clamp(0.43rem, 1.95vw, 0.58rem);
+  font-weight: 560;
   line-height: 1;
   letter-spacing: 0.19em;
   white-space: nowrap;
   opacity: 0;
-  transform: translateY(0.25rem);
+  transform:
+    translateY(0.35rem)
+    scale(0.985);
   animation:
-    ls-native-brand-copy-in
-    440ms
+    ls-native-brand-tagline-in
+    430ms
     ease
-    280ms
+    920ms
     forwards;
 }
 
-@keyframes ls-native-brand-bag-in {
-  to {
+@keyframes ls-native-brand-mark-reveal {
+  0% {
+    opacity: 0;
+    transform:
+      translateX(-50%)
+      translateY(0.45rem)
+      scale(0.78);
+  }
+
+  68% {
     opacity: 1;
-    transform: translateY(0) scale(1);
+    transform:
+      translateX(-50%)
+      translateY(-0.05rem)
+      scale(1.035);
+  }
+
+  100% {
+    opacity: 1;
+    transform:
+      translateX(-50%)
+      translateY(0)
+      scale(1);
   }
 }
 
-@keyframes ls-native-brand-copy-in {
+@keyframes ls-native-brand-mark-shift {
+  from {
+    left: 50%;
+    transform:
+      translateX(-50%)
+      scale(1);
+  }
+
+  to {
+    left: 0;
+    transform:
+      translateX(0)
+      scale(0.94);
+  }
+}
+
+@keyframes ls-native-brand-glow {
+  0% {
+    opacity: 0;
+    transform: scale(0.7);
+  }
+
+  45% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 0.42;
+    transform: scale(1.08);
+  }
+}
+
+@keyframes ls-native-brand-wordmark-in {
+  from {
+    opacity: 0;
+    clip-path: inset(0 100% 0 0);
+    transform: translateY(0.45rem);
+  }
+
   to {
     opacity: 1;
+    clip-path: inset(0 0 0 0);
     transform: translateY(0);
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .ls-native-brand-bag,
-  .ls-native-brand-wordmark,
+@keyframes ls-native-brand-tagline-in {
+  from {
+    opacity: 0;
+    transform:
+      translateY(0.35rem)
+      scale(0.985);
+  }
+
+  to {
+    opacity: 1;
+    transform:
+      translateY(0)
+      scale(1);
+  }
+}
+
+@keyframes ls-native-brand-orb-in {
+  from {
+    opacity: 0;
+    transform: scale(0.88);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@media (max-width: 359px) {
+  .ls-native-brand-stage {
+    width: min(90vw, 20rem);
+  }
+
+  .ls-native-brand-copy {
+    left: 5.8rem;
+  }
+
+  .ls-native-brand-wordmark {
+    font-size: 2rem;
+  }
+
   .ls-native-brand-tagline {
+    font-size: 0.4rem;
+    letter-spacing: 0.15em;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ls-native-brand-mark-shell,
+  .ls-native-brand-mark-shell::before,
+  .ls-native-brand-wordmark,
+  .ls-native-brand-tagline,
+  .ls-native-brand-orb {
     animation-duration: 0.01ms !important;
     animation-delay: 0ms !important;
   }
@@ -804,3 +1016,4 @@ select:active {
     transition-duration: 0.01ms !important;
   }
 }
+
