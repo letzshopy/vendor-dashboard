@@ -18,6 +18,9 @@ import {
 import {
   useDashboardSubscription,
 } from "@/components/subscription/SubscriptionContext";
+import {
+  unregisterNativePushBeforeLogout,
+} from "@/lib/nativePushClient";
 
 const FALLBACK_STORE_URL =
   process.env.NEXT_PUBLIC_SITE_URL || "#";
@@ -538,6 +541,8 @@ export default function DashboardAccountMenu({
                 onOpenChange(false);
 
                 try {
+                  await unregisterNativePushBeforeLogout();
+
                   await fetch(
                     "/api/auth/logout",
                     {
