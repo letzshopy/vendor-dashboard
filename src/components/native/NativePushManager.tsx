@@ -25,9 +25,9 @@ import {
 import {
   actionFeedback,
 } from "@/lib/actionFeedback";
-
-const TOKEN_STORAGE_KEY =
-  "ls_native_push_token";
+import {
+  NATIVE_PUSH_NATIVE_PUSH_TOKEN_STORAGE_KEY,
+} from "@/lib/nativePushClient";
 const PROMPT_DISMISSED_KEY =
   "ls_native_push_prompt_dismissed";
 const PROMPT_SNOOZE_MS =
@@ -97,7 +97,7 @@ async function saveNativeToken(
 
   try {
     window.localStorage.setItem(
-      TOKEN_STORAGE_KEY,
+      NATIVE_PUSH_TOKEN_STORAGE_KEY,
       token
     );
   } catch {
