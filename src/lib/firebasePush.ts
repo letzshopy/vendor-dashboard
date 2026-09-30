@@ -1,10 +1,5 @@
 import "server-only";
 
-import {
-  createPrivateKey,
-  sign as cryptoSign,
-} from "node:crypto";
-
 export type FirebasePushPayload = {
   type: "new_order" | "test";
   title: string;
@@ -23,27 +18,30 @@ export type FirebasePushResult = {
 
 type FirebaseConfig = {
   projectId: string;
-  clientEmail: string;
-  privateKey: string;
+  workloadProjectNumber: string;
+  workloadPoolId: string;
+  workloadProviderId: string;
+  serviceAccountEmail: string;
 };
 
-let cachedAccessToken:
-  | {
-      token: string;
-      expiresAt: number;
-    }
-  | null = null;
+type CachedToken = {
+  token: string;
+  expiresAt: number;
+};
 
-function base64Url(
-  value: string
-): string {
-  return Buffer.from(
-    value,
-    "utf8"
-  ).toString(
-    "base64url"
-  );
-}
+const DEFAULT_FIREBASE_PROJECT_ID =
+  "letzshopy-vendor-app";
+const DEFAULT_GCP_PROJECT_NUMBER =
+  "144687785901";
+const DEFAULT_WIF_POOL_ID =
+  "vercel";
+const DEFAULT_WIF_PROVIDER_ID =
+  "vercel";
+const DEFAULT_SERVICE_ACCOUNT_EMAIL =
+  "letzshopy-fcm-sender@letzshopy-vendor-app.iam.gserviceaccount.com";
+
+let cachedFirebaseAccessToken:
+  CachedToken | null = null;
 
 function readFirebaseConfig():
   FirebaseConfig {
@@ -51,43 +49,289 @@ function readFirebaseConfig():
     String(
       process.env
         .FIREBASE_PROJECT_ID ||
-        ""
+        DEFAULT_FIREBASE_PROJECT_ID
     ).trim();
 
-  const clientEmail =
+  const workloadProjectNumber =
     String(
       process.env
-        .FIREBASE_CLIENT_EMAIL ||
-        ""
+        .GCP_WIF_PROJECT_NUMBER ||
+        DEFAULT_GCP_PROJECT_NUMBER
     ).trim();
 
-  const privateKey =
+  const workloadPoolId =
     String(
       process.env
-        .FIREBASE_PRIVATE_KEY ||
-        ""
-    )
-      .replace(
-        /\\n/g,
-        "\n"
-      )
-      .trim();
+        .GCP_WIF_POOL_ID ||
+        DEFAULT_WIF_POOL_ID
+    ).trim();
+
+  const workloadProviderId =
+    String(
+      process.env
+        .GCP_WIF_PROVIDER_ID ||
+        DEFAULT_WIF_PROVIDER_ID
+    ).trim();
+
+  const serviceAccountEmail =
+    String(
+      process.env
+        .GCP_FCM_SERVICE_ACCOUNT ||
+        DEFAULT_SERVICE_ACCOUNT_EMAIL
+    ).trim();
 
   if (
     !projectId ||
-    !clientEmail ||
-    !privateKey
+    !workloadProjectNumber ||
+    !workloadPoolId ||
+    !workloadProviderId ||
+    !serviceAccountEmail
   ) {
     throw new Error(
-      "Firebase Cloud Messaging is not configured"
+      "Firebase Cloud Messaging federation is not configured"
     );
   }
 
   return {
     projectId,
-    clientEmail,
-    privateKey,
+    workloadProjectNumber,
+    workloadPoolId,
+    workloadProviderId,
+    serviceAccountEmail,
   };
+}
+
+function providerAudience(
+  config: FirebaseConfig
+): string {
+  return [
+    "//iam.googleapis.com/projects",
+    config.workloadProjectNumber,
+    "locations/global/workloadIdentityPools",
+    config.workloadPoolId,
+    "providers",
+    config.workloadProviderId,
+  ].join("/");
+}
+
+function vercelOidcToken():
+  string {
+  const token =
+    String(
+      process.env
+        .VERCEL_OIDC_TOKEN ||
+        ""
+    ).trim();
+
+  if (!token) {
+    throw new Error(
+      "Vercel OIDC token is unavailable"
+    );
+  }
+
+  return token;
+}
+
+function isRecord(
+  value: unknown
+): value is Record<
+  string,
+  unknown
+> {
+  return Boolean(
+    value &&
+      typeof value === "object" &&
+      !Array.isArray(value)
+  );
+}
+
+async function exchangeVercelToken(
+  config: FirebaseConfig
+): Promise<string> {
+  const response =
+    await fetch(
+      "https://sts.googleapis.com/v1/token",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type":
+            "application/x-www-form-urlencoded",
+        },
+        body:
+          new URLSearchParams({
+            audience:
+              providerAudience(
+                config
+              ),
+            grant_type:
+              "urn:ietf:params:oauth:grant-type:token-exchange",
+            requested_token_type:
+              "urn:ietf:params:oauth:token-type:access_token",
+            scope:
+              "https://www.googleapis.com/auth/cloud-platform",
+            subject_token_type:
+              "urn:ietf:params:oauth:token-type:jwt",
+            subject_token:
+              vercelOidcToken(),
+          }),
+        cache: "no-store",
+      }
+    );
+
+  const body: unknown =
+    await response
+      .json()
+      .catch(() => null);
+
+  if (
+    !response.ok ||
+    !isRecord(body)
+  ) {
+    throw new Error(
+      `Google STS token exchange failed (${response.status})`
+    );
+  }
+
+  const accessToken =
+    typeof body
+      .access_token ===
+    "string"
+      ? body
+          .access_token
+          .trim()
+      : "";
+
+  if (!accessToken) {
+    throw new Error(
+      "Google STS access token is missing"
+    );
+  }
+
+  return accessToken;
+}
+
+async function impersonateFcmSender(
+  config: FirebaseConfig,
+  federatedToken: string
+): Promise<CachedToken> {
+  const response =
+    await fetch(
+      `https://iamcredentials.googleapis.com/v1/projects/-/serviceAccounts/${encodeURIComponent(
+        config
+          .serviceAccountEmail
+      )}:generateAccessToken`,
+      {
+        method: "POST",
+        headers: {
+          Authorization:
+            `Bearer ${federatedToken}`,
+          "Content-Type":
+            "application/json",
+        },
+        body:
+          JSON.stringify({
+            scope: [
+              "https://www.googleapis.com/auth/firebase.messaging",
+            ],
+            lifetime:
+              "3600s",
+          }),
+        cache: "no-store",
+      }
+    );
+
+  const body: unknown =
+    await response
+      .json()
+      .catch(() => null);
+
+  if (
+    !response.ok ||
+    !isRecord(body)
+  ) {
+    throw new Error(
+      `Google service-account impersonation failed (${response.status})`
+    );
+  }
+
+  const accessToken =
+    typeof body.accessToken ===
+    "string"
+      ? body
+          .accessToken
+          .trim()
+      : "";
+
+  const expireTime =
+    typeof body.expireTime ===
+    "string"
+      ? Date.parse(
+          body.expireTime
+        )
+      : Number.NaN;
+
+  if (!accessToken) {
+    throw new Error(
+      "Impersonated FCM access token is missing"
+    );
+  }
+
+  const fallbackExpiresAt =
+    Math.floor(
+      Date.now() / 1000
+    ) +
+    3300;
+
+  return {
+    token: accessToken,
+    expiresAt:
+      Number.isFinite(
+        expireTime
+      )
+        ? Math.floor(
+            expireTime / 1000
+          )
+        : fallbackExpiresAt,
+  };
+}
+
+async function getAccessToken():
+  Promise<string> {
+  const now =
+    Math.floor(
+      Date.now() / 1000
+    );
+
+  if (
+    cachedFirebaseAccessToken &&
+    cachedFirebaseAccessToken
+      .expiresAt >
+      now + 90
+  ) {
+    return (
+      cachedFirebaseAccessToken
+        .token
+    );
+  }
+
+  const config =
+    readFirebaseConfig();
+
+  const federatedToken =
+    await exchangeVercelToken(
+      config
+    );
+
+  cachedFirebaseAccessToken =
+    await impersonateFcmSender(
+      config,
+      federatedToken
+    );
+
+  return (
+    cachedFirebaseAccessToken
+      .token
+  );
 }
 
 export function normalizeFcmToken(
@@ -113,151 +357,6 @@ export function normalizeFcmToken(
   }
 
   return token;
-}
-
-async function getAccessToken():
-  Promise<string> {
-  const now =
-    Math.floor(
-      Date.now() / 1000
-    );
-
-  if (
-    cachedAccessToken &&
-    cachedAccessToken
-      .expiresAt >
-      now + 90
-  ) {
-    return cachedAccessToken
-      .token;
-  }
-
-  const config =
-    readFirebaseConfig();
-
-  const header =
-    base64Url(
-      JSON.stringify({
-        alg: "RS256",
-        typ: "JWT",
-      })
-    );
-
-  const claims =
-    base64Url(
-      JSON.stringify({
-        iss:
-          config.clientEmail,
-        scope:
-          "https://www.googleapis.com/auth/firebase.messaging",
-        aud:
-          "https://oauth2.googleapis.com/token",
-        iat: now,
-        exp:
-          now + 3600,
-      })
-    );
-
-  const unsigned =
-    `${header}.${claims}`;
-
-  const signature =
-    cryptoSign(
-      "RSA-SHA256",
-      Buffer.from(
-        unsigned,
-        "utf8"
-      ),
-      createPrivateKey(
-        config.privateKey
-      )
-    ).toString(
-      "base64url"
-    );
-
-  const assertion =
-    `${unsigned}.${signature}`;
-
-  const response =
-    await fetch(
-      "https://oauth2.googleapis.com/token",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type":
-            "application/x-www-form-urlencoded",
-        },
-        body:
-          new URLSearchParams({
-            grant_type:
-              "urn:ietf:params:oauth:grant-type:jwt-bearer",
-            assertion,
-          }),
-        cache: "no-store",
-      }
-    );
-
-  const body: unknown =
-    await response
-      .json()
-      .catch(() => null);
-
-  if (
-    !response.ok ||
-    !body ||
-    typeof body !==
-      "object" ||
-    Array.isArray(body)
-  ) {
-    throw new Error(
-      "Unable to obtain Firebase messaging access token"
-    );
-  }
-
-  const record =
-    body as Record<
-      string,
-      unknown
-    >;
-
-  const accessToken =
-    typeof record
-      .access_token ===
-    "string"
-      ? record
-          .access_token
-          .trim()
-      : "";
-
-  const expiresIn =
-    Number(
-      record.expires_in ||
-        3600
-    );
-
-  if (!accessToken) {
-    throw new Error(
-      "Firebase messaging access token is missing"
-    );
-  }
-
-  cachedAccessToken = {
-    token: accessToken,
-    expiresAt:
-      now +
-      (
-        Number.isFinite(
-          expiresIn
-        )
-          ? Math.max(
-              300,
-              expiresIn
-            )
-          : 3600
-      ),
-  };
-
-  return accessToken;
 }
 
 function stringData(
@@ -382,13 +481,30 @@ export async function sendFirebasePush(
         responseText
       );
 
+    if (!expired) {
+      console.error(
+        "[FCM] Delivery failed",
+        {
+          status:
+            response.status,
+        }
+      );
+    }
+
     return {
       ok: false,
       expired,
       status:
         response.status,
     };
-  } catch {
+  } catch (error) {
+    console.error(
+      "[FCM] Authentication or delivery failed",
+      error instanceof Error
+        ? error.message
+        : "Unknown error"
+    );
+
     return {
       ok: false,
       expired: false,
