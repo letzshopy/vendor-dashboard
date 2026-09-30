@@ -26,7 +26,7 @@ import {
   actionFeedback,
 } from "@/lib/actionFeedback";
 import {
-  NATIVE_PUSH_NATIVE_PUSH_TOKEN_STORAGE_KEY,
+  NATIVE_PUSH_TOKEN_STORAGE_KEY,
 } from "@/lib/nativePushClient";
 const PROMPT_DISMISSED_KEY =
   "ls_native_push_prompt_dismissed";
