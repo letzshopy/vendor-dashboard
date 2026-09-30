@@ -8,6 +8,9 @@ import {
   X,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  Capacitor,
+} from "@capacitor/core";
 
 type PushConfigResponse = {
   ok?: boolean;
@@ -171,6 +174,15 @@ export default function OrderPushManager() {
 
   useEffect(() => {
     if (typeof window === "undefined") {
+      return;
+    }
+
+    if (Capacitor.isNativePlatform()) {
+      setSupported(false);
+      setConfigured(false);
+      setEnabled(false);
+      setError("");
+      setChecking(false);
       return;
     }
 

@@ -9,6 +9,8 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@capacitor/core": "^8.0.0",
+    "@capacitor/push-notifications": "^8.1.2",
     "@google-analytics/data": "^6.1.0",
     "axios": "^1.12.2",
     "jspdf": "^3.0.4",
