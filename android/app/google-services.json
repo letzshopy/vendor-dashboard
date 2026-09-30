@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "144687785901",
+    "project_id": "letzshopy-vendor-app",
+    "storage_bucket": "letzshopy-vendor-app.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:144687785901:android:6adef82c8f429b682c2324",
+        "android_client_info": {
+          "package_name": "in.letzshopy.vendor"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyACYxW8TrNKx-ECOspG6AmTiUsNzazDc2A"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

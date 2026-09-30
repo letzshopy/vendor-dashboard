@@ -29,6 +29,9 @@ import {
 import {
   actionFeedback,
 } from "@/lib/actionFeedback";
+import {
+  unregisterNativePushBeforeLogout,
+} from "@/lib/nativePushClient";
 
 const BRAND_LOGO_URL =
   process.env
@@ -268,6 +271,8 @@ export default function SelectStorePage() {
 
   async function signOut() {
     try {
+      await unregisterNativePushBeforeLogout();
+
       await fetch(
         "/api/auth/logout",
         {

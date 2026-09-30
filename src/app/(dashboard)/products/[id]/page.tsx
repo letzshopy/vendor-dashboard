@@ -12,6 +12,7 @@ import {
   Layers3,
   Loader2,
   Package2,
+  Palette,
   Pencil,
   Ruler,
   Tag,
@@ -21,6 +22,7 @@ import {
 
 import { buttonClassName } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { productContentText } from "@/lib/productContentText";
 
 type ProductImage = {
   id?: number;
@@ -276,6 +278,8 @@ export default function ProductViewPage() {
   const [loading, setLoading] = useState(true);
   const [loadErr, setLoadErr] = useState<string | null>(null);
   const [activeImgId, setActiveImgId] = useState<number | null>(null);
+  const [selectedVariationId, setSelectedVariationId] =
+    useState<number | null>(null);
   const [extraLoading, setExtraLoading] = useState(false);
 
   useEffect(() => {
@@ -491,583 +495,725 @@ export default function ProductViewPage() {
     );
   }
 
-  const shortDesc = product.short_description || product.shortDescription || "";
+  const shortDesc = productContentText(
+    product.short_description || product.shortDescription || ""
+  );
+  const fullDesc = productContentText(product.description || "");
   const isVariable = product.type === "variable";
   const isGrouped = product.type === "grouped";
 
+  const variationAttributeNames =
+    (product.attributes || [])
+      .filter(
+        (attribute) =>
+          attribute.variation === true
+      )
+      .map((attribute) =>
+        (attribute.name || "")
+          .trim()
+          .toLowerCase()
+      );
+
+  const variationKind:
+    | "size"
+    | "colour"
+    | "variation" =
+    variationAttributeNames.some(
+      (name) =>
+        name.includes("colour") ||
+        name.includes("color")
+    )
+      ? "colour"
+      : variationAttributeNames.some(
+            (name) =>
+              name.includes("size")
+          )
+        ? "size"
+        : "variation";
+
+  const selectedVariation =
+    selectedVariationId === null
+      ? undefined
+      : variations.find(
+          (variation) =>
+            variation.id ===
+            selectedVariationId
+        );
+
+  const selectedVariationImage =
+    variationKind === "colour"
+      ? getImageSrcSafe(
+          selectedVariation?.image
+        )
+      : null;
+
+  const heroImage =
+    selectedVariationImage ||
+    getImageSrcSafe(mainImage);
+
+  const variationOption = (
+    variation: Variation
+  ) =>
+    (variation.attributes || [])
+      .map(
+        (attribute) =>
+          attribute.option?.trim() ||
+          ""
+      )
+      .filter(Boolean)
+      .join(" / ") ||
+    "Variation";
+
+  const variationPrices =
+    variations
+      .map((variation) =>
+        Number(
+          variation.price ||
+            variation.regular_price ||
+            0
+        )
+      )
+      .filter(
+        (value) =>
+          Number.isFinite(value) &&
+          value > 0
+      );
+
+  const variablePriceLabel =
+    variationPrices.length > 0
+      ? (() => {
+          const minimum = Math.min(
+            ...variationPrices
+          );
+          const maximum = Math.max(
+            ...variationPrices
+          );
+
+          return minimum === maximum
+            ? `₹${minimum.toLocaleString("en-IN")}`
+            : `₹${minimum.toLocaleString("en-IN")} – ₹${maximum.toLocaleString("en-IN")}`;
+        })()
+      : "Price not set";
+
+  const variableQuantity =
+    variations.reduce(
+      (total, variation) =>
+        total +
+        (
+          typeof variation.stock_quantity ===
+          "number"
+            ? variation.stock_quantity
+            : 0
+        ),
+      0
+    );
+
+  const productPriceLabel =
+    isVariable
+      ? variablePriceLabel
+      : formatPrice(
+          product.price ||
+            product.regular_price
+        );
+
+  const productQuantityLabel =
+    isVariable
+      ? `${variableQuantity} total`
+      : typeof product.stock_quantity ===
+          "number"
+        ? `${product.stock_quantity} available`
+        : product.stock_status ===
+            "outofstock"
+          ? "Out of stock"
+          : "In stock";
+
+  const statusLabel =
+    product.status === "publish"
+      ? "Published"
+      : product.status
+        ? product.status
+            .charAt(0)
+            .toUpperCase() +
+          product.status.slice(1)
+        : "Draft";
+
+  const dimensionLabel =
+    product.dimensions &&
+    (
+      product.dimensions.length ||
+      product.dimensions.width ||
+      product.dimensions.height
+    )
+      ? [
+          fmt(
+            product.dimensions.length,
+            "–"
+          ),
+          fmt(
+            product.dimensions.width,
+            "–"
+          ),
+          fmt(
+            product.dimensions.height,
+            "–"
+          ),
+        ].join(" × ")
+      : "Not set";
+
   return (
-    <main className="mx-auto w-full min-w-0 max-w-7xl overflow-x-hidden pb-28 md:pb-8">
-      <div className="rounded-xl border border-border bg-card p-3 md:rounded-2xl md:p-4">
-        <div className="flex flex-col gap-4">
-          <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-            <div className="min-w-0">
-              <button
-                onClick={() => router.push("/products")}
-                className="ls-focus-ring hidden min-h-10 items-center gap-2 rounded-xl border border-border bg-card px-3 text-xs font-bold text-foreground hover:bg-muted md:inline-flex"
-              >
-                <ArrowLeft className="h-3.5 w-3.5" />
-                Back to Products
-              </button>
+    <main className="mx-auto w-full min-w-0 max-w-6xl overflow-x-hidden pb-28 md:pb-10">
+      <div className="mb-4 hidden items-center justify-between gap-3 md:flex">
+        <button
+          type="button"
+          onClick={() =>
+            router.push("/products")
+          }
+          className="ls-focus-ring inline-flex min-h-10 items-center gap-2 rounded-xl border border-[#D7E0EA] bg-white px-4 text-sm font-bold text-[#475569]"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Products
+        </button>
 
-              <div className="mt-3 flex flex-wrap items-center gap-2">
-                {product.status && (
-                  <span className={pillClass("slate")}>
-                    {product.status === "publish"
-                      ? "Published"
-                      : product.status.charAt(0).toUpperCase() +
-                        product.status.slice(1)}
-                  </span>
-                )}
-
-                {product.type && (
-                  <span className={pillClass("violet")}>
-                    {product.type.charAt(0).toUpperCase() + product.type.slice(1)}
-                  </span>
-                )}
-
-                {stockBadge(product.stock_status)}
-              </div>
-
-              <h1 className="mt-2 break-words text-[24px] font-extrabold tracking-tight text-[#26335F] md:mt-3 md:text-[32px]">
-                {product.name || "Untitled product"}
-              </h1>
-
-              <p className="mt-1 text-xs leading-5 text-slate-500 md:text-sm md:leading-6">
-                SKU: {fmt(product.sku, "—")}
-                {product.color ? ` • Color: ${product.color}` : ""}
-              </p>
-
-              {product.permalink && (
-                <a
-                  href={product.permalink}
-                  target="_blank"
-                  className="mt-2 inline-flex items-center gap-1.5 text-xs font-bold text-[#2E3F7D] hover:underline"
-                >
-                  <Eye className="h-3.5 w-3.5" />
-                  View on storefront
-                </a>
-              )}
-            </div>
-
-            <Link
-              href={`/products/${product.id}/edit`}
-              className={buttonClassName({
-                variant: "primary",
-                className: "hidden md:inline-flex",
-              })}
+        <div className="flex items-center gap-2">
+          {product.permalink ? (
+            <a
+              href={product.permalink}
+              target="_blank"
+              rel="noreferrer"
+              className="ls-focus-ring inline-flex min-h-10 items-center gap-2 rounded-xl border border-[#D7E0EA] bg-white px-4 text-sm font-bold text-[#475569]"
             >
-              <Pencil className="h-4 w-4" />
-              Edit Product
-            </Link>
-          </div>
+              <Eye className="h-4 w-4" />
+              View Storefront
+            </a>
+          ) : null}
+
+          <Link
+            href={`/products/${product.id}/edit`}
+            className="ls-focus-ring inline-flex min-h-10 items-center gap-2 rounded-xl bg-[#1F63D8] px-4 text-sm font-extrabold text-white shadow-sm"
+          >
+            <Pencil className="h-4 w-4" />
+            Edit Product
+          </Link>
         </div>
       </div>
 
-      <div className="mt-2 grid gap-2 md:mt-4 md:gap-4 xl:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
-        <SectionCard
-          title="Product gallery"
-          icon={ImageIcon}
-          hint="Preview uploaded product images. First image is treated as main display image."
-          right={
-            galleryImages.length > 0 ? (
-              <div className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">
-                {galleryImages.length} image{galleryImages.length > 1 ? "s" : ""}
-              </div>
-            ) : null
-          }
-        >
-          {galleryImages.length > 0 ? (
-            <div className="space-y-4">
-              <div className="flex min-h-[220px] items-center justify-center border border-slate-200 bg-[#F8F9FC] p-2 md:min-h-[420px] md:rounded-2xl md:p-3">
-                {getImageSrcSafe(mainImage) ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={getImageSrcSafe(mainImage)!}
-                    alt={mainImage?.name || product.name}
-                    className="max-h-[460px] w-auto rounded-2xl object-contain"
-                  />
-                ) : (
-                  <span className="text-xs text-slate-400">
-                    Image URL missing from API.
+      <article className="overflow-hidden rounded-3xl border border-[#D7E0EA] bg-white shadow-[0_10px_34px_rgba(23,35,60,0.07)]">
+        <div className="grid md:grid-cols-[minmax(0,1.08fr)_minmax(320px,0.92fr)]">
+          <div className="border-b border-[#E5EAF1] bg-[#F5F7FA] md:border-b-0 md:border-r">
+            <div className="flex min-h-[330px] items-center justify-center p-3 sm:min-h-[420px] md:min-h-[520px] md:p-5">
+              {heroImage ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={heroImage}
+                  alt={product.name}
+                  className="max-h-[520px] w-auto max-w-full rounded-2xl object-contain"
+                />
+              ) : (
+                <div className="flex min-h-[260px] w-full flex-col items-center justify-center rounded-2xl border-2 border-dashed border-[#D7E0EA] bg-white text-[#94A3B8]">
+                  <ImageIcon className="h-8 w-8" />
+                  <span className="mt-2 text-xs font-semibold">
+                    No product image
                   </span>
-                )}
-              </div>
+                </div>
+              )}
+            </div>
 
-              {galleryImages.length > 1 && (
-                <div className="grid grid-cols-4 gap-2 sm:grid-cols-5 md:grid-cols-6 xl:grid-cols-7">
-                  {galleryImages.map((img, idx) => {
-                    const thumbSrc = getImageSrcSafe(img);
-                    const selectedId = activeImgId ?? galleryImages[0].id ?? 0;
-                    const thisId = img.id ?? idx;
+            {galleryImages.length > 1 ? (
+              <div className="flex gap-2 overflow-x-auto border-t border-[#E5EAF1] bg-white px-3 py-3 md:px-5">
+                {galleryImages.map(
+                  (image, index) => {
+                    const src =
+                      getImageSrcSafe(image);
+                    const imageId =
+                      image.id ?? index;
+                    const selected =
+                      !selectedVariationImage &&
+                      (
+                        activeImgId ??
+                        galleryImages[0].id ??
+                        0
+                      ) === imageId;
 
                     return (
                       <button
-                        key={`${img.id ?? "img"}-${idx}`}
+                        key={`${imageId}-${index}`}
                         type="button"
-                        onClick={() => setActiveImgId(thisId)}
-                        className={`overflow-hidden rounded-2xl border bg-slate-50 ${
-                          selectedId === thisId
-                            ? "border-[#E85D4A] ring-2 ring-[#FFE1DC]"
-                            : "border-slate-200 hover:border-[#5366B7]"
-                        }`}
+                        onClick={() => {
+                          setSelectedVariationId(
+                            null
+                          );
+                          setActiveImgId(
+                            imageId
+                          );
+                        }}
+                        className={[
+                          "h-16 w-16 shrink-0 overflow-hidden rounded-xl border bg-[#F8FAFC] transition md:h-20 md:w-20",
+                          selected
+                            ? "border-[#1F63D8] ring-2 ring-[#DCE9FF]"
+                            : "border-[#D7E0EA]",
+                        ].join(" ")}
                       >
-                        <div className="aspect-square">
-                          {thumbSrc ? (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img
-                              src={thumbSrc}
-                              alt={img.name || product.name}
-                              className="h-full w-full object-cover"
-                            />
-                          ) : (
-                            <div className="flex h-full items-center justify-center px-1 text-center text-[10px] text-slate-400">
-                              No URL
-                            </div>
-                          )}
-                        </div>
+                        {src ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={src}
+                            alt=""
+                            className="h-full w-full object-cover"
+                          />
+                        ) : null}
                       </button>
                     );
-                  })}
-                </div>
-              )}
-            </div>
-          ) : (
-            <div className="flex h-64 items-center justify-center rounded-[24px] border border-dashed border-slate-200 bg-slate-50 text-sm text-slate-400">
-              No images uploaded
-            </div>
-          )}
-        </SectionCard>
-
-        <div className="space-y-4">
-          <SectionCard
-            title="Pricing & stock"
-            icon={Wallet}
-            hint="Main commercial details and stock visibility."
-          >
-            <div className="grid gap-3 sm:grid-cols-2">
-              <StatField label="SKU" value={fmt(product.sku, "—")} />
-              <StatField label="Color" value={fmt(product.color, "—")} />
-
-              <StatField
-                label="Price"
-                value={
-                  isVariable ? (
-                    "See variations"
-                  ) : (
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span>{formatPrice(product.price || product.regular_price)}</span>
-                      {!isVariable &&
-                        product.sale_price &&
-                        String(product.sale_price) !== String(product.price) && (
-                          <span className="text-xs font-medium text-emerald-600">
-                            Sale: {formatPrice(product.sale_price)}
-                          </span>
-                        )}
-                    </div>
-                  )
-                }
-              />
-
-              <StatField
-                label="Stock"
-                value={
-                  isVariable
-                    ? "Managed by variations"
-                    : product.manage_stock &&
-                      typeof product.stock_quantity === "number"
-                    ? `${product.stock_quantity} units`
-                    : "Not managed"
-                }
-              />
-
-              <StatField
-                label="Visibility"
-                value={fmt(product.catalog_visibility, "Catalog & search")}
-              />
-              <StatField
-                label="Status"
-                value={fmt(product.status, "—")}
-              />
-            </div>
-          </SectionCard>
-
-          <SectionCard
-            title="Categories & tags"
-            icon={Tag}
-            hint="Classification used for catalog browsing and search."
-          >
-            <div className="space-y-4">
-              <div>
-                <div className="mb-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500">
-                  Categories
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {product.categories && product.categories.length > 0 ? (
-                    product.categories.map((c, idx) => (
-                      <span
-                        key={`${c.id ?? "cat"}-${idx}`}
-                        className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-700"
-                      >
-                        {c.name}
-                      </span>
-                    ))
-                  ) : (
-                    <span className="text-sm text-slate-400">None</span>
-                  )}
-                </div>
+                  }
+                )}
               </div>
-
-              <div>
-                <div className="mb-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500">
-                  Tags
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {product.tags && product.tags.length > 0 ? (
-                    product.tags.map((t, idx) => (
-                      <span
-                        key={`${t.id ?? "tag"}-${idx}`}
-                        className="rounded-full bg-[#EEF1FA] px-3 py-1 text-xs font-bold text-[#2E3F7D]"
-                      >
-                        {t.name}
-                      </span>
-                    ))
-                  ) : (
-                    <span className="text-sm text-slate-400">None</span>
-                  )}
-                </div>
-              </div>
-            </div>
-          </SectionCard>
-
-          <SectionCard
-            title="Shipping & logistics"
-            icon={Truck}
-            hint="Physical product shipment details."
-          >
-            <div className="grid gap-3 sm:grid-cols-2">
-              <StatField label="Weight" value={fmt(product.weight)} />
-              <StatField
-                label="Dimensions"
-                value={
-                  product.dimensions ? (
-                    <>
-                      {fmt(product.dimensions.length, "–")} ×{" "}
-                      {fmt(product.dimensions.width, "–")} ×{" "}
-                      {fmt(product.dimensions.height, "–")}
-                    </>
-                  ) : (
-                    "Not set"
-                  )
-                }
-              />
-              <StatField
-                label="Shipping class"
-                value={fmt(product.shipping_class, "None")}
-              />
-              <StatField
-                label="Type"
-                value={fmt(product.type, "—")}
-              />
-            </div>
-          </SectionCard>
-        </div>
-      </div>
-
-      {isVariable && (
-        <div className="mt-4">
-          <SectionCard
-            title="Variations"
-            icon={Layers3}
-            hint="All generated combinations for this variable product."
-            right={
-              extraLoading ? (
-                <span className="text-xs font-medium text-slate-500">
-                  Loading variations...
-                </span>
-              ) : variations.length > 0 ? (
-                <div className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">
-                  {variations.length} variation{variations.length > 1 ? "s" : ""}
-                </div>
-              ) : null
-            }
-          >
-            {variations.length > 0 ? (
-              <>
-                <div className="space-y-3 md:hidden">
-                  {variations.map((v) => (
-                    <div
-                      key={v.id}
-                      className="border-b border-[#E8EBF2] bg-white px-0 py-3 last:border-b-0 md:rounded-2xl md:border md:border-slate-200 md:bg-slate-50/60 md:p-3"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-slate-200 bg-white">
-                          {getImageSrcSafe(v.image) ? (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img
-                              src={getImageSrcSafe(v.image)!}
-                              alt={variationLabel(v.attributes)}
-                              className="h-full w-full object-cover"
-                            />
-                          ) : (
-                            <ImageIcon className="h-5 w-5 text-slate-300" />
-                          )}
-                        </div>
-                        <div className="min-w-0 text-sm font-semibold text-slate-900">
-                          {variationLabel(v.attributes)}
-                        </div>
-                      </div>
-                      <div className="mt-2 grid gap-2 sm:grid-cols-2">
-                        <StatField label="SKU" value={fmt(v.sku, "—")} />
-                        <StatField
-                          label="Price"
-                          value={
-                            <div className="flex flex-wrap items-center gap-2">
-                              <span>{formatPrice(v.price || v.regular_price)}</span>
-                              {v.sale_price &&
-                                String(v.sale_price) !== String(v.price) && (
-                                  <span className="text-xs text-emerald-600">
-                                    Sale: {formatPrice(v.sale_price)}
-                                  </span>
-                                )}
-                            </div>
-                          }
-                        />
-                        <StatField label="Stock" value={stockBadge(v.stock_status)} />
-                        <StatField
-                          label="Qty"
-                          value={
-                            v.manage_stock && typeof v.stock_quantity === "number"
-                              ? v.stock_quantity
-                              : "—"
-                          }
-                        />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
-                <div className="hidden overflow-x-auto rounded-2xl border border-slate-200 md:block">
-                  <table className="min-w-full text-sm">
-                    <thead className="bg-slate-50 text-left text-[11px] uppercase tracking-[0.08em] text-slate-500">
-                      <tr>
-                        <th className="px-4 py-3">Image</th>
-                        <th className="px-4 py-3">Variation</th>
-                        <th className="px-4 py-3">SKU</th>
-                        <th className="px-4 py-3">Price</th>
-                        <th className="px-4 py-3">Stock</th>
-                        <th className="px-4 py-3">Qty</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {variations.map((v) => (
-                        <tr key={v.id} className="border-t border-slate-100 bg-white">
-                          <td className="px-4 py-3">
-                            <div className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
-                              {getImageSrcSafe(v.image) ? (
-                                // eslint-disable-next-line @next/next/no-img-element
-                                <img
-                                  src={getImageSrcSafe(v.image)!}
-                                  alt={variationLabel(v.attributes)}
-                                  className="h-full w-full object-cover"
-                                />
-                              ) : (
-                                <ImageIcon className="h-4 w-4 text-slate-300" />
-                              )}
-                            </div>
-                          </td>
-                          <td className="px-4 py-3 text-slate-700">
-                            {variationLabel(v.attributes)}
-                          </td>
-                          <td className="px-4 py-3 text-slate-700">
-                            {fmt(v.sku, "—")}
-                          </td>
-                          <td className="px-4 py-3 text-slate-700">
-                            {formatPrice(v.price || v.regular_price)}
-                            {v.sale_price &&
-                              String(v.sale_price) !== String(v.price) && (
-                                <span className="ml-2 text-xs text-emerald-600">
-                                  Sale: {formatPrice(v.sale_price)}
-                                </span>
-                              )}
-                          </td>
-                          <td className="px-4 py-3">{stockBadge(v.stock_status)}</td>
-                          <td className="px-4 py-3 text-slate-700">
-                            {v.manage_stock && typeof v.stock_quantity === "number"
-                              ? v.stock_quantity
-                              : "—"}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </>
-            ) : (
-              <div className="border-y border-[#E8EBF2] bg-[#F8F9FC] px-3 py-5 text-sm text-slate-500 md:rounded-2xl md:border-0">
-                No variations found for this product.
-              </div>
-            )}
-          </SectionCard>
-        </div>
-      )}
-
-      {isGrouped && (
-        <div className="mt-4">
-          <SectionCard
-            title="Grouped products"
-            icon={Boxes}
-            hint="Products included inside this grouped product."
-            right={
-              extraLoading ? (
-                <span className="text-xs font-medium text-slate-500">
-                  Loading grouped items...
-                </span>
-              ) : groupedChildren.length > 0 ? (
-                <div className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">
-                  {groupedChildren.length} item{groupedChildren.length > 1 ? "s" : ""}
-                </div>
-              ) : null
-            }
-          >
-            {groupedChildren.length > 0 ? (
-              <>
-                <div className="space-y-3 md:hidden">
-                  {groupedChildren.map((child) => (
-                    <div
-                      key={child.id}
-                      className="border-b border-[#E8EBF2] bg-white px-0 py-3 last:border-b-0 md:rounded-2xl md:border md:border-slate-200 md:bg-slate-50/60 md:p-3"
-                    >
-                      <div className="text-sm font-semibold text-slate-900">
-                        {child.name}
-                      </div>
-                      <div className="mt-2 grid gap-2 sm:grid-cols-2">
-                        <StatField label="SKU" value={fmt(child.sku, "—")} />
-                        <StatField label="Price" value={formatPrice(child.price)} />
-                        <StatField label="Stock" value={stockBadge(child.stock_status)} />
-                        <div className="rounded-[20px] border border-slate-200/80 bg-white p-3">
-                          <Link
-                            href={`/products/${child.id}`}
-                            className="inline-flex items-center gap-2 text-sm font-bold text-[#2E3F7D] hover:underline"
-                          >
-                            Open product
-                          </Link>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
-                <div className="hidden overflow-x-auto rounded-2xl border border-slate-200 md:block">
-                  <table className="min-w-full text-sm">
-                    <thead className="bg-slate-50 text-left text-[11px] uppercase tracking-[0.08em] text-slate-500">
-                      <tr>
-                        <th className="px-4 py-3">Product</th>
-                        <th className="px-4 py-3">SKU</th>
-                        <th className="px-4 py-3">Price</th>
-                        <th className="px-4 py-3">Stock</th>
-                        <th className="px-4 py-3">View</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {groupedChildren.map((child) => (
-                        <tr
-                          key={child.id}
-                          className="border-t border-slate-100 bg-white"
-                        >
-                          <td className="px-4 py-3 text-slate-700">{child.name}</td>
-                          <td className="px-4 py-3 text-slate-700">
-                            {fmt(child.sku, "—")}
-                          </td>
-                          <td className="px-4 py-3 text-slate-700">
-                            {formatPrice(child.price)}
-                          </td>
-                          <td className="px-4 py-3">
-                            {stockBadge(child.stock_status)}
-                          </td>
-                          <td className="px-4 py-3">
-                            <Link
-                              href={`/products/${child.id}`}
-                              className="font-bold text-[#2E3F7D] hover:underline"
-                            >
-                              Open
-                            </Link>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </>
-            ) : (
-              <div className="border-y border-[#E8EBF2] bg-[#F8F9FC] px-3 py-5 text-sm text-slate-500 md:rounded-2xl md:border-0">
-                No grouped child products found.
-              </div>
-            )}
-          </SectionCard>
-        </div>
-      )}
-
-      <div className="mt-2 grid gap-2 md:mt-4 md:gap-4 lg:grid-cols-2">
-        <SectionCard
-          title="Short description"
-          icon={Package2}
-          hint="Compact summary shown in key storefront areas."
-        >
-          <div className="prose prose-sm max-w-none text-slate-700">
-            {shortDesc ? (
-              <div dangerouslySetInnerHTML={{ __html: shortDesc }} />
-            ) : (
-              <span className="text-slate-400">No short description added.</span>
-            )}
+            ) : null}
           </div>
-        </SectionCard>
 
-        <SectionCard
-          title="Full description"
-          icon={Box}
-          hint="Detailed product content and long-form information."
-        >
-          <div className="prose prose-sm max-w-none text-slate-700">
-            {product.description ? (
-              <div dangerouslySetInnerHTML={{ __html: product.description }} />
+          <div className="flex flex-col p-4 sm:p-5 md:p-7">
+            <div className="flex flex-wrap items-center gap-2">
+              <span
+                className={[
+                  "inline-flex rounded-full px-2.5 py-1 text-[10px] font-extrabold",
+                  product.status ===
+                  "publish"
+                    ? "bg-emerald-50 text-emerald-700"
+                    : "bg-amber-50 text-amber-700",
+                ].join(" ")}
+              >
+                {statusLabel}
+              </span>
+
+              <span className="inline-flex rounded-full bg-[#EEF5FF] px-2.5 py-1 text-[10px] font-extrabold text-[#1F63D8]">
+                {isVariable
+                  ? variationKind ===
+                    "colour"
+                    ? "Colour Variation"
+                    : variationKind ===
+                        "size"
+                      ? "Size Variation"
+                      : "Variable Product"
+                  : product.type ===
+                      "simple"
+                    ? "Simple Product"
+                    : fmt(
+                        product.type,
+                        "Product"
+                      )}
+              </span>
+            </div>
+
+            <h1 className="mt-3 break-words text-[25px] font-extrabold tracking-tight text-[#17233C] md:text-[31px]">
+              {product.name ||
+                "Untitled product"}
+            </h1>
+
+            <div className="mt-1 text-xs font-semibold text-[#7A8497]">
+              SKU: {fmt(product.sku, "—")}
+            </div>
+
+            <div className="mt-5 flex items-end justify-between gap-3 border-y border-[#E8EDF3] py-4">
+              <div>
+                <div className="text-[11px] font-bold uppercase tracking-[0.08em] text-[#7A8497]">
+                  Price
+                </div>
+                <div className="mt-1 text-2xl font-extrabold text-[#17233C]">
+                  {productPriceLabel}
+                </div>
+              </div>
+
+              <div className="text-right">
+                <div className="text-[11px] font-bold uppercase tracking-[0.08em] text-[#7A8497]">
+                  Stock
+                </div>
+                <div
+                  className={[
+                    "mt-1 text-sm font-extrabold",
+                    (
+                      isVariable
+                        ? variableQuantity > 0
+                        : product.stock_status !==
+                          "outofstock"
+                    )
+                      ? "text-emerald-700"
+                      : "text-rose-600",
+                  ].join(" ")}
+                >
+                  {productQuantityLabel}
+                </div>
+              </div>
+            </div>
+
+            {product.categories &&
+            product.categories.length >
+              0 ? (
+              <div className="mt-4">
+                <div className="mb-2 text-[11px] font-bold uppercase tracking-[0.08em] text-[#7A8497]">
+                  Category
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {product.categories.map(
+                    (category, index) => (
+                      <span
+                        key={`${category.id ?? "category"}-${index}`}
+                        className="rounded-full bg-[#F1F4F8] px-3 py-1.5 text-xs font-bold text-[#475569]"
+                      >
+                        {category.name}
+                      </span>
+                    )
+                  )}
+                </div>
+              </div>
+            ) : null}
+
+            {shortDesc ? (
+              <p className="mt-4 line-clamp-4 whitespace-pre-line text-sm leading-6 text-[#5F6B7D]">
+                {shortDesc}
+              </p>
+            ) : null}
+
+            <div className="mt-auto grid grid-cols-2 gap-2 pt-5 md:hidden">
+              {product.permalink ? (
+                <a
+                  href={product.permalink}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="ls-focus-ring inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-[#C8D4E2] bg-white px-3 text-xs font-extrabold text-[#475569]"
+                >
+                  <Eye className="h-4 w-4" />
+                  Storefront
+                </a>
+              ) : (
+                <span />
+              )}
+
+              <Link
+                href={`/products/${product.id}/edit`}
+                className="ls-focus-ring inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-[#1F63D8] px-3 text-xs font-extrabold text-white"
+              >
+                <Pencil className="h-4 w-4" />
+                Edit Product
+              </Link>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      {isVariable ? (
+        <section className="mt-3 overflow-hidden rounded-2xl border border-[#D7E0EA] bg-white md:mt-5">
+          <div className="flex items-center justify-between gap-3 border-b border-[#E8EDF3] px-4 py-3.5 md:px-5">
+            <div>
+              <h2 className="text-base font-extrabold text-[#17233C]">
+                {variationKind ===
+                "colour"
+                  ? "Available Colours"
+                  : variationKind ===
+                      "size"
+                    ? "Available Sizes"
+                    : "Product Variations"}
+              </h2>
+              <p className="mt-0.5 text-xs text-[#7A8497]">
+                Price and available quantity for each option.
+              </p>
+            </div>
+
+            {extraLoading ? (
+              <Loader2 className="h-4 w-4 animate-spin text-[#1F63D8]" />
             ) : (
-              <span className="text-slate-400">
-                No detailed description added.
+              <span className="rounded-full bg-[#EEF5FF] px-2.5 py-1 text-[10px] font-extrabold text-[#1F63D8]">
+                {variations.length}
               </span>
             )}
           </div>
-        </SectionCard>
-      </div>
 
-      <div className="mt-4">
-        <SectionCard
-          title="Product details"
-          icon={Ruler}
-          hint="Internal metadata and timestamps."
-        >
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            <StatField label="Product ID" value={product.id} />
-            <StatField
-              label="Created"
-              value={
-                product.date_created
-                  ? new Date(product.date_created).toLocaleString()
-                  : "—"
-              }
-            />
-            <StatField
-              label="Last updated"
-              value={
-                product.date_modified
-                  ? new Date(product.date_modified).toLocaleString()
-                  : "—"
-              }
-            />
-            <StatField label="Manage stock" value={product.manage_stock ? "Yes" : "No"} />
+          {variations.length > 0 ? (
+            <>
+              <div className="flex gap-2 overflow-x-auto px-4 py-3 md:px-5">
+                {variations.map(
+                  (variation) => {
+                    const selected =
+                      selectedVariationId ===
+                      variation.id;
+                    const option =
+                      variationOption(
+                        variation
+                      );
+
+                    return (
+                      <button
+                        key={variation.id}
+                        type="button"
+                        onClick={() =>
+                          setSelectedVariationId(
+                            variation.id
+                          )
+                        }
+                        className={[
+                          "min-h-10 shrink-0 rounded-xl border px-3 text-xs font-extrabold transition",
+                          selected
+                            ? "border-[#1F63D8] bg-[#EEF5FF] text-[#1F63D8]"
+                            : "border-[#D7E0EA] bg-white text-[#475569]",
+                        ].join(" ")}
+                      >
+                        {option}
+                      </button>
+                    );
+                  }
+                )}
+              </div>
+
+              <div className="divide-y divide-[#EEF2F6]">
+                {variations.map(
+                  (variation) => {
+                    const option =
+                      variationOption(
+                        variation
+                      );
+                    const image =
+                      getImageSrcSafe(
+                        variation.image
+                      );
+
+                    return (
+                      <button
+                        key={variation.id}
+                        type="button"
+                        onClick={() =>
+                          setSelectedVariationId(
+                            variation.id
+                          )
+                        }
+                        className="flex min-h-[72px] w-full items-center gap-3 px-4 py-3 text-left transition hover:bg-[#F8FAFC] md:px-5"
+                      >
+                        {variationKind ===
+                        "colour" ? (
+                          <span className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-[#D7E0EA] bg-[#F8FAFC]">
+                            {image ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img
+                                src={image}
+                                alt=""
+                                className="h-full w-full object-cover"
+                              />
+                            ) : (
+                              <Palette className="h-5 w-5 text-[#94A3B8]" />
+                            )}
+                          </span>
+                        ) : (
+                          <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-[#EEF5FF] text-sm font-extrabold text-[#1F63D8]">
+                            {option}
+                          </span>
+                        )}
+
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-sm font-extrabold text-[#17233C]">
+                            {option}
+                          </span>
+                          <span className="mt-0.5 block truncate text-[11px] font-semibold text-[#7A8497]">
+                            SKU:{" "}
+                            {fmt(
+                              variation.sku,
+                              "—"
+                            )}
+                          </span>
+                        </span>
+
+                        <span className="shrink-0 text-right">
+                          <span className="block text-sm font-extrabold text-[#17233C]">
+                            {formatPrice(
+                              variation.price ||
+                                variation.regular_price
+                            )}
+                          </span>
+                          <span
+                            className={[
+                              "mt-1 block text-[11px] font-bold",
+                              (
+                                typeof variation.stock_quantity ===
+                                  "number"
+                                  ? variation.stock_quantity >
+                                    0
+                                  : variation.stock_status !==
+                                    "outofstock"
+                              )
+                                ? "text-emerald-700"
+                                : "text-rose-600",
+                            ].join(" ")}
+                          >
+                            Qty{" "}
+                            {typeof variation.stock_quantity ===
+                            "number"
+                              ? variation.stock_quantity
+                              : "—"}
+                          </span>
+                        </span>
+                      </button>
+                    );
+                  }
+                )}
+              </div>
+            </>
+          ) : (
+            <div className="px-4 py-8 text-center text-sm font-semibold text-[#7A8497]">
+              No variations found.
+            </div>
+          )}
+        </section>
+      ) : null}
+
+      <section className="mt-3 overflow-hidden rounded-2xl border border-[#D7E0EA] bg-white md:mt-5">
+        <div className="border-b border-[#E8EDF3] px-4 py-3.5 md:px-5">
+          <h2 className="text-base font-extrabold text-[#17233C]">
+            Product Description
+          </h2>
+        </div>
+
+        <div className="space-y-5 px-4 py-4 md:px-5 md:py-5">
+          <div>
+            <div className="text-[11px] font-bold uppercase tracking-[0.08em] text-[#7A8497]">
+              Summary
+            </div>
+            <p className="mt-2 whitespace-pre-line text-sm leading-6 text-[#475569]">
+              {shortDesc ||
+                "No short description added."}
+            </p>
           </div>
-        </SectionCard>
-      </div>
 
+          {fullDesc ? (
+            <div className="border-t border-[#EEF2F6] pt-4">
+              <div className="text-[11px] font-bold uppercase tracking-[0.08em] text-[#7A8497]">
+                More Details
+              </div>
+              <p className="mt-2 whitespace-pre-line text-sm leading-6 text-[#475569]">
+                {fullDesc}
+              </p>
+            </div>
+          ) : null}
+        </div>
+      </section>
+
+      {isGrouped ? (
+        <section className="mt-3 overflow-hidden rounded-2xl border border-[#D7E0EA] bg-white md:mt-5">
+          <div className="border-b border-[#E8EDF3] px-4 py-3.5 md:px-5">
+            <h2 className="text-base font-extrabold text-[#17233C]">
+              Grouped Products
+            </h2>
+          </div>
+          <div className="divide-y divide-[#EEF2F6]">
+            {groupedChildren.map(
+              (child) => (
+                <Link
+                  key={child.id}
+                  href={`/products/${child.id}`}
+                  className="flex min-h-14 items-center justify-between gap-3 px-4 py-3 text-sm md:px-5"
+                >
+                  <span className="min-w-0">
+                    <span className="block truncate font-extrabold text-[#17233C]">
+                      {child.name}
+                    </span>
+                    <span className="mt-0.5 block text-xs text-[#7A8497]">
+                      {fmt(
+                        child.sku,
+                        "No SKU"
+                      )}
+                    </span>
+                  </span>
+                  <span className="shrink-0 font-extrabold text-[#17233C]">
+                    {formatPrice(
+                      child.price
+                    )}
+                  </span>
+                </Link>
+              )
+            )}
+          </div>
+        </section>
+      ) : null}
+
+      <details className="group mt-3 overflow-hidden rounded-2xl border border-[#D7E0EA] bg-white md:mt-5">
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-4 md:px-5">
+          <div>
+            <div className="text-base font-extrabold text-[#17233C]">
+              Additional Details
+            </div>
+            <div className="mt-0.5 text-xs text-[#7A8497]">
+              Product metadata and optional information
+            </div>
+          </div>
+          <span className="text-xs font-extrabold text-[#1F63D8] group-open:hidden">
+            Show
+          </span>
+          <span className="hidden text-xs font-extrabold text-[#1F63D8] group-open:inline">
+            Hide
+          </span>
+        </summary>
+
+        <div className="grid gap-3 border-t border-[#E8EDF3] px-4 py-4 sm:grid-cols-2 md:px-5 lg:grid-cols-3">
+          <StatField
+            label="Weight"
+            value={
+              product.weight
+                ? `${product.weight} kg`
+                : "Not set"
+            }
+          />
+          <StatField
+            label="Dimensions"
+            value={dimensionLabel}
+          />
+          <StatField
+            label="Product ID"
+            value={product.id}
+          />
+          <StatField
+            label="Created"
+            value={
+              product.date_created
+                ? new Date(
+                    product.date_created
+                  ).toLocaleString()
+                : "—"
+            }
+          />
+          <StatField
+            label="Last Updated"
+            value={
+              product.date_modified
+                ? new Date(
+                    product.date_modified
+                  ).toLocaleString()
+                : "—"
+            }
+          />
+          <StatField
+            label="Visibility"
+            value={fmt(
+              product.catalog_visibility,
+              "visible"
+            )}
+          />
+
+          {product.tags &&
+          product.tags.length > 0 ? (
+            <div className="sm:col-span-2 lg:col-span-3">
+              <div className="mb-2 text-[10px] font-bold uppercase tracking-wide text-[#7A8497]">
+                Tags
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {product.tags.map(
+                  (tag, index) => (
+                    <span
+                      key={`${tag.id ?? "tag"}-${index}`}
+                      className="rounded-full bg-[#EEF5FF] px-3 py-1.5 text-xs font-bold text-[#1F63D8]"
+                    >
+                      {tag.name}
+                    </span>
+                  )
+                )}
+              </div>
+            </div>
+          ) : null}
+        </div>
+      </details>
     </main>
   );
 }

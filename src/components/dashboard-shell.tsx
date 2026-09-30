@@ -17,6 +17,9 @@ import Sidebar from "@/components/Sidebar";
 import Topbar from "@/components/Topbar";
 import Footer from "@/components/layout/Footer";
 import SubscriptionAccessNotice from "@/components/subscription/SubscriptionAccessNotice";
+import {
+  LETZSHOPY_NATIVE_BACK_EVENT,
+} from "@/lib/nativeNavigation";
 
 export default function DashboardShell({
   children,
@@ -71,6 +74,30 @@ export default function DashboardShell({
     };
   }, [sidebarOpen]);
 
+  useEffect(() => {
+    if (!sidebarOpen) {
+      return;
+    }
+
+    function closeOnNativeBack(
+      event: Event
+    ) {
+      event.preventDefault();
+      setSidebarOpen(false);
+    }
+
+    window.addEventListener(
+      LETZSHOPY_NATIVE_BACK_EVENT,
+      closeOnNativeBack
+    );
+
+    return () =>
+      window.removeEventListener(
+        LETZSHOPY_NATIVE_BACK_EVENT,
+        closeOnNativeBack
+      );
+  }, [sidebarOpen]);
+
   return (
     <UnsavedChangesProvider>
       <div className="dashboard-app-shell min-h-screen min-w-0 bg-background text-foreground">
@@ -94,6 +121,15 @@ export default function DashboardShell({
         }
       />
 
+      <div
+        aria-hidden="true"
+        className="md:hidden"
+        style={{
+          height:
+            "calc(60px + var(--ls-safe-area-top))",
+        }}
+      />
+
       {locked && (
         <div className="sticky top-16 z-30 border-b border-amber-200 bg-amber-50/95 px-3 py-3 text-sm text-amber-800 backdrop-blur md:top-[68px] md:px-5">
           <div className="w-full">
@@ -115,8 +151,8 @@ export default function DashboardShell({
         />
 
         <div className="flex min-w-0 flex-1 flex-col">
-          <main className="min-w-0 flex-1 overflow-x-clip bg-[#F4F6FB]">
-            <div className="dashboard-app-content flex w-full min-w-0 max-w-none flex-col gap-3 bg-[#F4F6FB] px-3 py-3 pb-28 sm:px-4 md:gap-5 md:px-5 md:py-5 md:pb-10 xl:px-6">
+          <main className="min-w-0 flex-1 overflow-x-clip bg-[#EEF2F6]">
+            <div className="dashboard-app-content flex w-full min-w-0 max-w-none flex-col gap-3 bg-[#EEF2F6] px-3 py-3 pb-28 sm:px-4 md:gap-5 md:px-5 md:py-5 md:pb-10 xl:px-6">
               <SubscriptionAccessNotice />
               {pathAllowed ? (
                 children

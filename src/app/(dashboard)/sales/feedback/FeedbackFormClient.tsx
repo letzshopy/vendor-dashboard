@@ -975,7 +975,7 @@ export default function FeedbackFormClient({
                 id="feedback-image-upload"
                 type="file"
                 name="image"
-                accept="image/jpeg,image/png,image/webp,image/gif"
+                accept="image/*"
                 onChange={
                   handleImageChange
                 }

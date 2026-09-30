@@ -12,8 +12,6 @@ import {
 
 import {
   buildCloneParent,
-  createVariationCopies,
-  getAllVariations,
 } from "@/lib/productOperationsPolicy";
 
 import {
@@ -84,13 +82,11 @@ export async function POST(
       );
     }
 
-    const sourceVariations =
-      source.type === "variable"
-        ? await getAllVariations(
-            woo,
-            sourceId
-          )
-        : [];
+    if (source.type !== "simple") {
+      throw new RangeError(
+        "Bulk Clone is available only for Simple products."
+      );
+    }
 
     const skuCursor =
       await openSkuSequence(
@@ -170,16 +166,6 @@ export async function POST(
       createdIds.push(createdId);
       createdSkus.push(allocatedSku);
 
-      if (
-        sourceVariations.length > 0
-      ) {
-        await createVariationCopies(
-          woo,
-          createdId,
-          sourceVariations,
-          false
-        );
-      }
     }
 
     return privateJson({
