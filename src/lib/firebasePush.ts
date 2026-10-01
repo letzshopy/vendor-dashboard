@@ -1,5 +1,7 @@
 import "server-only";
 
+import { getVercelOidcToken } from "@vercel/oidc";
+
 export type FirebasePushPayload = {
   type: "new_order" | "test";
   title: string;
@@ -114,14 +116,11 @@ function providerAudience(
   ].join("/");
 }
 
-function vercelOidcToken():
-  string {
-  const token =
-    String(
-      process.env
-        .VERCEL_OIDC_TOKEN ||
-        ""
-    ).trim();
+async function vercelOidcToken():
+  Promise<string> {
+  const token = String(
+    (await getVercelOidcToken()) || ""
+  ).trim();
 
   if (!token) {
     throw new Error(
@@ -172,7 +171,7 @@ async function exchangeVercelToken(
             subject_token_type:
               "urn:ietf:params:oauth:token-type:jwt",
             subject_token:
-              vercelOidcToken(),
+              await vercelOidcToken(),
           }),
         cache: "no-store",
       }
