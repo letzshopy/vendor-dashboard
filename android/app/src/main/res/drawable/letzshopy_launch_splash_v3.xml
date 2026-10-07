@@ -5,9 +5,13 @@
             <solid android:color="#F8FAFC" />
         </shape>
     </item>
+
     <item
         android:width="78dp"
-        android:height="78dp"
-        android:gravity="center"
-        android:drawable="@drawable/letzshopy_bag_mark_v3" />
+        android:height="85dp"
+        android:gravity="center">
+        <bitmap
+            android:src="@drawable/letzshopy_app_icon_bag"
+            android:gravity="fill" />
+    </item>
 </layer-list>
