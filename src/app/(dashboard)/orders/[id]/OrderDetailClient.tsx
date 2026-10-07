@@ -479,13 +479,18 @@ export default function OrderDetailClient({ initialOrder }: Props) {
 
     try {
       const mod = await import("../ui/InvoicePdfClient");
-      await mod.default.generateForOrders([order.id]);
+      const fileResult =
+        await mod.default.generateForOrders([
+          order.id,
+        ]);
 
       actionFeedback.success({
         id: feedbackId,
         title: "Invoice ready",
-        message: "PDF download started.",
-        durationMs: 2600,
+        message:
+          fileResult?.message ||
+          "PDF ready.",
+        durationMs: 3200,
       });
     } catch (error) {
       console.error(error);
