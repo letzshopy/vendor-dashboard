@@ -1,134 +1,143 @@
 "use client";
 
-import type { SessionStoreType } from "@/lib/session";
-import { isStandaloneV1SettingsTabAllowed } from "@/lib/storeCapabilities";
-
 import type React from "react";
-import { useMemo, useState } from "react";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
 import {
-  User,
+  useMemo,
+  useState,
+} from "react";
+import {
+  Check,
+  ChevronDown,
+  CreditCard,
   IdCard,
   LayoutTemplate,
+  Percent,
   Settings2,
   Truck,
-  Percent,
-  CreditCard,
-  Building2,
-  PackageSearch,
-  PanelLeftClose,
-  X,
-  ChevronRight,
+  User,
 } from "lucide-react";
+import {
+  useSearchParams,
+} from "next/navigation";
 
-import ProfileTab from "./tabs/ProfileTab";
+import {
+  BottomSheet,
+} from "@/components/ui/bottom-sheet";
+import type {
+  SessionStoreType,
+} from "@/lib/session";
+import {
+  isStandaloneV1SettingsTabAllowed,
+} from "@/lib/storeCapabilities";
+
+import ProfileAccountTab from "./tabs/ProfileAccountTab";
+import StoreSettingsTab from "./tabs/StoreSettingsTab";
 import KycTab from "./tabs/KycTab";
-import SetupSiteTab from "./tabs/SetupSiteTab";
-import GeneralTab from "./tabs/GeneralTab";
-import ShippingTab from "./tabs/ShippingTab";
-import TaxTab from "./tabs/TaxTab";
 import PaymentsTab from "./tabs/PaymentsTab";
-import AccountTab from "./tabs/AccountTab";
-import ShipmentFulfillmentTab from "./tabs/ShipmentFulfillmentTab";
+import SetupSiteTab from "./tabs/SetupSiteTab";
+import ShippingDeliveryTab from "./tabs/ShippingDeliveryTab";
 
 type TabId =
-  | "profile"
-  | "kyc"
-  | "setupSite"
-  | "general"
-  | "shipping"
-  | "tax"
+  | "profileAccount"
+  | "storeSettings"
+  | "shippingDelivery"
   | "payments"
-  | "account"
-  | "shipmentFulfillment";
+  | "setupSite"
+  | "kyc";
 
 type TabDef = {
   id: TabId;
   label: string;
-  shortLabel?: string;
+  mobileLabel?: string;
   description: string;
-  icon: React.ComponentType<{ className?: string }>;
-};
-
-const TAB_COMPONENTS: Record<TabId, React.ReactNode> = {
-  profile: <ProfileTab />,
-  kyc: <KycTab />,
-  setupSite: <SetupSiteTab />,
-  general: <GeneralTab />,
-  shipping: <ShippingTab />,
-  tax: <TaxTab />,
-  payments: <PaymentsTab />,
-  account: <AccountTab />,
-  shipmentFulfillment: <ShipmentFulfillmentTab />,
+  icon: React.ComponentType<{
+    className?: string;
+  }>;
 };
 
 const TABS: TabDef[] = [
   {
-    id: "profile",
-    label: "Profile",
-    description: "Personal info, business details, logo and social links.",
+    id: "profileAccount",
+    label: "Profile & Account",
+    mobileLabel: "Profile",
+    description:
+      "Business profile, account details and dashboard security.",
     icon: User,
   },
   {
-    id: "kyc",
-    label: "KYC",
-    description: "Upload and manage verification documents.",
-    icon: IdCard,
-  },
-  {
-    id: "setupSite",
-    label: "Setup Site",
-    shortLabel: "Setup Site",
-    description: "Branding, banner, contact info, about and policy inputs.",
-    icon: LayoutTemplate,
-  },
-  {
-    id: "general",
-    label: "General",
-    description: "Currency, measurements and basic Woo settings.",
+    id: "storeSettings",
+    label: "Store Settings",
+    mobileLabel: "Store",
+    description:
+      "Store display, product rules, stock and tax settings.",
     icon: Settings2,
   },
   {
-    id: "shipping",
-    label: "Shipping Charge",
-    shortLabel: "Shipping",
-    description: "Zones, methods and weight-based shipping rules.",
+    id: "shippingDelivery",
+    label: "Shipping Delivery",
+    mobileLabel: "Shipping",
+    description:
+      "Shipping charges, courier mode and delivery setup.",
     icon: Truck,
-  },
-  {
-    id: "tax",
-    label: "Tax",
-    description: "GST slabs, display options and invoice tax.",
-    icon: Percent,
   },
   {
     id: "payments",
     label: "Payments",
-    description: "UPI, Easebuzz, bank transfer and COD options.",
+    description:
+      "PayGlocal, UPI, bank transfer and COD.",
     icon: CreditCard,
   },
   {
-    id: "account",
-    label: "Account",
-    description: "Account details, plan info and login security.",
-    icon: Building2,
+    id: "setupSite",
+    label: "Website Setup",
+    mobileLabel: "Website",
+    description:
+      "Branding, banners, pages and policies.",
+    icon: LayoutTemplate,
   },
   {
-    id: "shipmentFulfillment",
-    label: "Shipment Fulfillment",
-    shortLabel: "Fulfillment",
-    description: "Courier details, tracking updates and order completion.",
-    icon: PackageSearch,
+    id: "kyc",
+    label: "KYC",
+    description:
+      "Business verification documents.",
+    icon: IdCard,
   },
 ];
 
 function normalizeTab(
   rawTab: string | null,
-  availableTabs: TabDef[]
+  availableTabs:
+    TabDef[]
 ): TabId {
-  const normalizedRaw = rawTab === "pages" ? "setupSite" : rawTab;
-  const matched = availableTabs.find((tab) => tab.id === normalizedRaw);
-  return matched?.id || availableTabs[0]?.id || "tax";
+  const normalizedRaw =
+    rawTab === "pages"
+      ? "setupSite"
+      : rawTab === "profile" ||
+          rawTab === "account"
+        ? "profileAccount"
+        : rawTab === "general" ||
+            rawTab === "tax"
+          ? "storeSettings"
+          : rawTab === "shipping" ||
+              rawTab ===
+                "shipmentFulfillment"
+            ? "shippingDelivery"
+            : rawTab;
+
+  const matched =
+    availableTabs.find(
+      (tab) =>
+        tab.id ===
+        normalizedRaw
+    );
+
+  return (
+    matched?.id ||
+    availableTabs[0]
+      ?.id ||
+    "profileAccount"
+  );
 }
 
 export default function SettingsTabsClient({
@@ -136,267 +145,231 @@ export default function SettingsTabsClient({
 }: {
   storeType?: SessionStoreType;
 }) {
-  const sp = useSearchParams();
-  const router = useRouter();
-  const pathname = usePathname();
+  const sp =
+    useSearchParams();
 
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [
+    pickerOpen,
+    setPickerOpen,
+  ] =
+    useState(false);
 
-  const visibleTabs = useMemo(
-    () =>
-      TABS.filter((tab) =>
-        isStandaloneV1SettingsTabAllowed(
-          storeType,
-          tab.id
-        )
-      ),
-    [storeType]
-  );
+  const visibleTabs =
+    useMemo(
+      () =>
+        TABS.filter(
+          (tab) =>
+            isStandaloneV1SettingsTabAllowed(
+              storeType,
+              tab.id
+            )
+        ),
+      [storeType]
+    );
 
-  const activeId = normalizeTab(sp.get("tab"), visibleTabs);
-  const activeTab = useMemo(
-    () =>
-      visibleTabs.find((tab) => tab.id === activeId) ??
-      visibleTabs[0] ??
-      TABS[0],
-    [activeId, visibleTabs]
-  );
+  const activeId =
+    normalizeTab(
+      sp.get("tab"),
+      visibleTabs
+    );
 
-  function setTab(id: TabId) {
-    const q = new URLSearchParams(sp.toString());
-    q.set("tab", id);
-    router.replace(`${pathname}?${q.toString()}`, { scroll: false });
-    setMobileMenuOpen(false);
+  const activeTab =
+    useMemo(
+      () =>
+        visibleTabs.find(
+          (tab) =>
+            tab.id ===
+            activeId
+        ) ||
+        visibleTabs[0] ||
+        TABS[0],
+      [
+        activeId,
+        visibleTabs,
+      ]
+    );
+
+  const ActiveIcon =
+    activeTab.icon;
+
+  function renderActiveTab() {
+    switch (activeTab.id) {
+      case "profileAccount":
+        return (
+          <ProfileAccountTab />
+        );
+      case "storeSettings":
+        return (
+          <StoreSettingsTab
+            storeType={
+              storeType
+            }
+          />
+        );
+      case "shippingDelivery":
+        return (
+          <ShippingDeliveryTab
+            storeType={
+              storeType
+            }
+          />
+        );
+      case "payments":
+        return (
+          <PaymentsTab />
+        );
+      case "setupSite":
+        return (
+          <SetupSiteTab />
+        );
+      case "kyc":
+        return (
+          <KycTab />
+        );
+      default:
+        return (
+          <ProfileAccountTab />
+        );
+    }
   }
 
   return (
     <>
-      <div className="space-y-4 md:space-y-5">
-        <div className="space-y-1">
-          <h1 className="text-[28px] font-semibold tracking-tight text-slate-900">
-            Settings
-          </h1>
-         </div>
+      <div className="md:hidden">
+        <button
+          type="button"
+          onClick={() =>
+            setPickerOpen(
+              true
+            )
+          }
+          className="ls-focus-ring flex min-h-12 w-full items-center gap-2.5 rounded-xl border border-border bg-card px-3 text-left shadow-[0_3px_12px_rgba(38,51,95,0.04)]"
+        >
+          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-secondary text-secondary-foreground">
+            <ActiveIcon className="h-4 w-4" />
+          </span>
 
-        {/* Mobile section switcher */}
-        <div className="md:hidden">
-          <button
-            type="button"
-            onClick={() => setMobileMenuOpen(true)}
-            className="flex w-full items-center justify-between rounded-[22px] border border-slate-200 bg-white px-4 py-3 shadow-sm"
-          >
-            <span className="flex min-w-0 items-center gap-3">
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-600 via-sky-500 to-violet-500 text-white shadow-sm">
-                <activeTab.icon className="h-4 w-4" />
-              </span>
-              <span className="min-w-0 text-left">
-                <span className="block truncate text-sm font-semibold text-slate-900">
-                  {activeTab.shortLabel || activeTab.label}
-                </span>
-                <span className="block truncate text-xs text-slate-500">
-                  Tap to change section
-                </span>
-              </span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-[10px] font-bold uppercase tracking-[0.08em] text-muted-foreground">
+              Settings
             </span>
 
-            <ChevronRight className="h-4 w-4 shrink-0 text-slate-400" />
-          </button>
-        </div>
+            <span className="block truncate text-sm font-extrabold text-heading">
+              {activeTab.label}
+            </span>
+          </span>
 
-        <div className="grid gap-4 md:grid-cols-[280px_minmax(0,1fr)] xl:grid-cols-[300px_minmax(0,1fr)]">
-          {/* Desktop sidebar */}
-          <aside className="hidden md:block">
-            <div className="sticky top-[92px] overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-sm">
-              <div className="border-b border-slate-100 bg-gradient-to-r from-slate-50 via-indigo-50/60 to-sky-50/60 px-5 py-4">
-                <div className="text-sm font-semibold text-slate-900">
-                  Settings Sections
-                </div>
-                <div className="mt-1 text-xs leading-5 text-slate-500">
-                  Choose a section to edit store details and configuration.
-                </div>
-              </div>
+          <span className="text-[11px] font-bold text-primary">
+            Change
+          </span>
 
-              <nav className="space-y-1 p-3">
-                {visibleTabs.map((tab) => {
-                  const isActive = tab.id === activeTab.id;
-                  const Icon = tab.icon;
-
-                  return (
-                    <button
-                      key={tab.id}
-                      type="button"
-                      onClick={() => setTab(tab.id)}
-                      className={[
-                        "group flex w-full items-start gap-3 rounded-2xl border px-3 py-3 text-left transition-all",
-                        isActive
-                          ? "border-transparent bg-gradient-to-r from-indigo-600 via-sky-500 to-violet-500 text-white shadow-md"
-                          : "border-transparent bg-white text-slate-700 hover:bg-slate-50",
-                      ].join(" ")}
-                    >
-                      <span
-                        className={[
-                          "mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl transition",
-                          isActive
-                            ? "bg-white/15 text-white"
-                            : "bg-slate-100 text-slate-600 group-hover:bg-white",
-                        ].join(" ")}
-                      >
-                        <Icon className="h-4 w-4" />
-                      </span>
-
-                      <span className="min-w-0 flex-1">
-                        <span
-                          className={[
-                            "block text-sm font-semibold",
-                            isActive ? "text-white" : "text-slate-900",
-                          ].join(" ")}
-                        >
-                          {tab.label}
-                        </span>
-                        <span
-                          className={[
-                            "mt-0.5 block text-xs leading-5",
-                            isActive ? "text-white/80" : "text-slate-500",
-                          ].join(" ")}
-                        >
-                          {tab.description}
-                        </span>
-                      </span>
-                    </button>
-                  );
-                })}
-              </nav>
-            </div>
-          </aside>
-
-          {/* Right content */}
-          <section className="min-w-0">
-            <div className="overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-sm">
-              <div className="border-b border-slate-100 bg-gradient-to-r from-slate-50 via-indigo-50/50 to-sky-50/50 px-4 py-4 md:px-6 md:py-5">
-                <div className="flex items-start gap-3">
-                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-600 via-sky-500 to-violet-500 text-white shadow-sm">
-                    <activeTab.icon className="h-5 w-5" />
-                  </div>
-
-                  <div className="min-w-0">
-                    <h2 className="text-lg font-semibold text-slate-900 md:text-xl">
-                      {activeTab.label}
-                    </h2>
-                    <p className="mt-1 text-xs leading-5 text-slate-500 md:text-sm">
-                      {activeTab.description}
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-white p-3 md:p-5">
-                <div className="overflow-hidden rounded-[24px] border border-slate-200 bg-white">
-                  {TAB_COMPONENTS[activeTab.id]}
-                </div>
-              </div>
-            </div>
-          </section>
-        </div>
+          <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
+        </button>
       </div>
 
-      {/* Mobile drawer */}
-      <div
-        className={`fixed inset-0 z-[80] md:hidden ${
-          mobileMenuOpen ? "pointer-events-auto" : "pointer-events-none"
-        }`}
-        aria-hidden={!mobileMenuOpen}
+      <section className="min-w-0">
+        <div className="hidden border-b border-border pb-4 md:block">
+          <div className="text-[11px] font-bold uppercase tracking-[0.08em] text-accent">
+            Settings
+          </div>
+
+          <div className="mt-1 flex items-start gap-3">
+            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-secondary text-secondary-foreground">
+              <ActiveIcon className="h-4.5 w-4.5" />
+            </span>
+
+            <div className="min-w-0">
+              <h1 className="text-[26px] font-extrabold tracking-tight text-heading">
+                {
+                  activeTab.label
+                }
+              </h1>
+
+              <p className="mt-0.5 text-sm text-muted-foreground">
+                {
+                  activeTab.description
+                }
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-3 min-w-0 md:mt-5">
+          {renderActiveTab()}
+        </div>
+      </section>
+
+      <BottomSheet
+        open={
+          pickerOpen
+        }
+        onOpenChange={
+          setPickerOpen
+        }
+        title="Settings"
+        description="Choose a settings section."
+        popupClassName="md:mx-auto md:max-w-xl"
       >
-        <div
-          className={`absolute inset-0 bg-slate-950/55 backdrop-blur-[2px] transition-opacity duration-200 ${
-            mobileMenuOpen ? "opacity-100" : "opacity-0"
-          }`}
-          onClick={() => setMobileMenuOpen(false)}
-        />
+        <div className="space-y-1">
+          {visibleTabs.map(
+            (
+              tab
+            ) => {
+              const active =
+                tab.id ===
+                activeId;
 
-        <div
-          className={`absolute inset-x-0 bottom-0 max-h-[84vh] overflow-hidden rounded-t-[28px] bg-white shadow-2xl transition-transform duration-200 ${
-            mobileMenuOpen ? "translate-y-0" : "translate-y-full"
-          }`}
-        >
-          <div className="flex items-center justify-between border-b border-slate-100 px-4 py-4">
-            <div>
-              <div className="text-base font-semibold text-slate-900">
-                Settings
-              </div>
-              <div className="mt-0.5 text-xs text-slate-500">
-                Choose a section
-              </div>
-            </div>
+              const Icon =
+                tab.icon;
 
-            <button
-              type="button"
-              onClick={() => setMobileMenuOpen(false)}
-              className="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-100 text-slate-700"
-            >
-              <X className="h-5 w-5" />
-            </button>
-          </div>
+              return (
+                <Link
+                  key={
+                    tab.id
+                  }
+                  href={
+                    `/settings?tab=${tab.id}`
+                  }
+                  onClick={() =>
+                    setPickerOpen(
+                      false
+                    )
+                  }
+                  className={[
+                    "ls-focus-ring flex min-h-12 items-center gap-3 rounded-xl border px-3 py-2.5",
+                    active
+                      ? "border-primary bg-secondary"
+                      : "border-transparent bg-card hover:bg-muted",
+                  ].join(
+                    " "
+                  )}
+                >
+                  <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-secondary text-secondary-foreground">
+                    <Icon className="h-4 w-4" />
+                  </span>
 
-          <div className="max-h-[calc(84vh-80px)] overflow-y-auto p-3">
-            <div className="space-y-2">
-              {visibleTabs.map((tab) => {
-                const isActive = tab.id === activeTab.id;
-                const Icon = tab.icon;
-
-                return (
-                  <button
-                    key={tab.id}
-                    type="button"
-                    onClick={() => setTab(tab.id)}
-                    className={[
-                      "flex w-full items-start gap-3 rounded-2xl border px-3 py-3 text-left transition",
-                      isActive
-                        ? "border-transparent bg-gradient-to-r from-indigo-600 via-sky-500 to-violet-500 text-white shadow-md"
-                        : "border-slate-200 bg-white text-slate-700",
-                    ].join(" ")}
-                  >
-                    <span
-                      className={[
-                        "mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl",
-                        isActive
-                          ? "bg-white/15 text-white"
-                          : "bg-slate-100 text-slate-600",
-                      ].join(" ")}
-                    >
-                      <Icon className="h-4 w-4" />
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-sm font-bold text-heading">
+                      {
+                        tab.mobileLabel ||
+                        tab.label
+                      }
                     </span>
 
-                    <span className="min-w-0 flex-1">
-                      <span
-                        className={[
-                          "block text-sm font-semibold",
-                          isActive ? "text-white" : "text-slate-900",
-                        ].join(" ")}
-                      >
-                        {tab.shortLabel || tab.label}
-                      </span>
-                      <span
-                        className={[
-                          "mt-0.5 block text-xs leading-5",
-                          isActive ? "text-white/80" : "text-slate-500",
-                        ].join(" ")}
-                      >
-                        {tab.description}
-                      </span>
+                    <span className="mt-0.5 hidden truncate text-xs text-muted-foreground min-[380px]:block">
+                      {tab.description}
                     </span>
+                  </span>
 
-                    {isActive ? (
-                      <span className="mt-1 rounded-full bg-white/15 px-2 py-0.5 text-[10px] font-semibold text-white">
-                        Open
-                      </span>
-                    ) : null}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
+                  {active ? (
+                    <Check className="h-4 w-4 shrink-0 text-primary" />
+                  ) : null}
+                </Link>
+              );
+            }
+          )}
         </div>
-      </div>
+      </BottomSheet>
     </>
   );
 }

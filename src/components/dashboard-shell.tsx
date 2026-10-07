@@ -10,6 +10,8 @@ import {
 import { usePathname } from "next/navigation";
 
 import MobileBottomNav from "@/components/MobileBottomNav";
+import NavigationProgress from "@/components/navigation/NavigationProgress";
+import { UnsavedChangesProvider } from "@/components/navigation/UnsavedChangesGuard";
 import MobilePageHeader from "@/components/MobilePageHeader";
 import Sidebar from "@/components/Sidebar";
 import Topbar from "@/components/Topbar";
@@ -70,7 +72,10 @@ export default function DashboardShell({
   }, [sidebarOpen]);
 
   return (
-    <div className="dashboard-app-shell min-h-screen min-w-0 bg-[#F8F9FC] text-[#202A48]">
+    <UnsavedChangesProvider>
+      <div className="dashboard-app-shell min-h-screen min-w-0 bg-background text-foreground">
+      <NavigationProgress />
+
       <Topbar
         verifiedStoreUrl={storeUrl}
         onToggleSidebar={() =>
@@ -90,7 +95,7 @@ export default function DashboardShell({
       />
 
       {locked && (
-        <div className="sticky top-16 z-30 border-b border-amber-200 bg-amber-50/95 px-3 py-3 text-sm text-amber-800 backdrop-blur md:top-[72px] md:px-5">
+        <div className="sticky top-16 z-30 border-b border-amber-200 bg-amber-50/95 px-3 py-3 text-sm text-amber-800 backdrop-blur md:top-[68px] md:px-5">
           <div className="w-full">
             Your dashboard access is restricted.
             Use Settings, Subscription or Support
@@ -110,8 +115,8 @@ export default function DashboardShell({
         />
 
         <div className="flex min-w-0 flex-1 flex-col">
-          <main className="min-w-0 flex-1 overflow-x-clip">
-            <div className="dashboard-app-content flex w-full min-w-0 max-w-none flex-col gap-3 px-3 py-3 pb-28 sm:px-4 md:gap-5 md:px-5 md:py-5 md:pb-10 xl:px-6">
+          <main className="min-w-0 flex-1 overflow-x-clip bg-[#F4F6FB]">
+            <div className="dashboard-app-content flex w-full min-w-0 max-w-none flex-col gap-3 bg-[#F4F6FB] px-3 py-3 pb-28 sm:px-4 md:gap-5 md:px-5 md:py-5 md:pb-10 xl:px-6">
               <SubscriptionAccessNotice />
               {pathAllowed ? (
                 children
@@ -136,6 +141,7 @@ export default function DashboardShell({
         locked={locked}
         storeType={storeType}
       />
-    </div>
+      </div>
+    </UnsavedChangesProvider>
   );
 }

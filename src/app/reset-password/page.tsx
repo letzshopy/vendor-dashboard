@@ -6,12 +6,20 @@ import {
   useMemo,
   useState,
 } from "react";
+import Link from "next/link";
 import {
   usePathname,
   useRouter,
   useSearchParams,
 } from "next/navigation";
-import { Eye, EyeOff } from "lucide-react";
+import {
+  ArrowLeft,
+  CheckCircle2,
+  Eye,
+  EyeOff,
+  LockKeyhole,
+  ShieldCheck,
+} from "lucide-react";
 
 const BRAND_LOGO_URL =
   process.env.NEXT_PUBLIC_BRAND_LOGO_URL ||
@@ -197,178 +205,249 @@ export default function ResetPasswordPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[radial-gradient(circle_at_top,#eef2ff_0%,#f8fafc_45%,#f8fafc_100%)] px-4 py-10">
-      <div className="mx-auto flex min-h-[80vh] max-w-6xl items-center justify-center">
-        <div className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-8 shadow-[0_20px_80px_rgba(15,23,42,0.08)]">
-          <div className="mb-8 text-center">
-            <img
-              src={BRAND_LOGO_URL}
-              alt="LetzShopy"
-              className="mx-auto h-12 w-auto object-contain"
-            />
+    <main className="min-h-dvh bg-[#F3F5FA] text-[#182451]">
+      <div className="mx-auto flex min-h-dvh w-full max-w-[1180px] items-stretch md:px-6 md:py-8 lg:px-8">
+        <div className="grid w-full overflow-hidden bg-white md:rounded-[28px] md:border md:border-[#DEE4EF] md:shadow-[0_24px_70px_rgba(24,36,81,0.12)] lg:grid-cols-[0.82fr_1.18fr]">
+          <aside className="relative hidden bg-[#182451] p-8 text-white lg:flex lg:flex-col lg:justify-between xl:p-10">
+            <div>
+              <div className="inline-flex rounded-2xl bg-white px-4 py-3 shadow-[0_8px_24px_rgba(6,13,40,0.24)]">
+                <img
+                  src={BRAND_LOGO_URL}
+                  alt="LetzShopy"
+                  className="h-12 w-auto object-contain"
+                />
+              </div>
 
-            <h1 className="mt-5 text-2xl font-semibold text-slate-900">
-              Reset your password
-            </h1>
+              <div className="mt-10 h-1 w-12 rounded-full bg-[#18A6C9]" />
 
-            <p className="mt-2 text-sm leading-6 text-slate-500">
-              Create a new password for your LetzShopy vendor
-              account.
-            </p>
-          </div>
+              <h1 className="mt-5 max-w-md text-[34px] font-extrabold leading-[1.12] tracking-tight">
+                Set a new password.
+                <br />
+                Continue securely.
+              </h1>
 
-          {invalidLink ? (
-            <div
-              role="alert"
-              className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700"
-            >
-              Invalid or expired reset link.
+              <p className="mt-4 max-w-sm text-sm leading-6 text-indigo-100/70">
+                Choose a new password for your LetzShopy vendor account.
+              </p>
             </div>
-          ) : done ? (
-            <div
-              role="status"
-              aria-live="polite"
-              className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700"
-            >
-              Password reset successful. Redirecting to sign in...
-            </div>
-          ) : (
-            <form className="space-y-4" onSubmit={handleSubmit}>
-              <div className="space-y-1.5">
-                <label
-                  htmlFor="new-password"
-                  className="block text-sm font-medium text-slate-700"
-                >
-                  New password
-                </label>
 
-                <div className="relative">
-                  <input
-                    id="new-password"
-                    name="new-password"
-                    type={showNewPassword ? "text" : "password"}
-                    value={newPassword}
-                    onChange={(event) =>
-                      setNewPassword(event.target.value)
-                    }
-                    minLength={MIN_PASSWORD_LENGTH}
-                    maxLength={MAX_PASSWORD_LENGTH}
-                    autoComplete="new-password"
-                    required
-                    disabled={loading}
-                    aria-describedby="password-requirements"
-                    className="block w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 pr-12 text-sm text-slate-900 shadow-sm transition focus:border-indigo-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 disabled:cursor-not-allowed disabled:opacity-60"
-                    placeholder="Enter a new password"
+            <div className="flex items-center gap-2 text-xs font-semibold text-indigo-100/72">
+              <ShieldCheck className="h-4 w-4 text-[#20B486]" />
+              Secure vendor access
+            </div>
+          </aside>
+
+          <section className="relative flex min-h-dvh items-center justify-center px-4 pb-[calc(var(--ls-safe-area-bottom)+1.5rem)] pt-[calc(var(--ls-safe-area-top)+1rem)] md:min-h-0 md:px-8 md:py-10 lg:px-14 xl:px-20">
+            <div className="w-full max-w-[420px]">
+              <div className="mb-8 flex justify-center lg:hidden">
+                <div className="rounded-2xl border border-[#DDE3EE] bg-white px-4 py-3 shadow-sm">
+                  <img
+                    src={BRAND_LOGO_URL}
+                    alt="LetzShopy"
+                    className="h-11 w-auto object-contain"
                   />
+                </div>
+              </div>
 
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setShowNewPassword((previous) => !previous)
-                    }
-                    disabled={loading}
-                    aria-label={
-                      showNewPassword
-                        ? "Hide new password"
-                        : "Show new password"
-                    }
-                    aria-pressed={showNewPassword}
-                    className="absolute inset-y-0 right-0 flex items-center px-4 text-slate-500 hover:text-slate-700 disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    {showNewPassword ? (
-                      <EyeOff size={18} aria-hidden="true" />
-                    ) : (
-                      <Eye size={18} aria-hidden="true" />
-                    )}
-                  </button>
+              <Link
+                href="/signin"
+                className="ls-focus-ring -ml-2 inline-flex min-h-10 items-center gap-2 rounded-xl px-2 text-sm font-bold text-[#4059A7] hover:bg-[#EEF1FA]"
+              >
+                <ArrowLeft className="h-4 w-4" />
+                Back to sign in
+              </Link>
+
+              <div className="mt-4">
+                <div className="text-[11px] font-extrabold uppercase tracking-[0.12em] text-[#18A6C9]">
+                  Password reset
                 </div>
 
-                <p
-                  id="password-requirements"
-                  className="text-xs text-slate-500"
-                >
-                  Use between 8 and 256 characters.
+                <h2 className="mt-2 text-[30px] font-extrabold tracking-tight text-[#182451] md:text-[34px]">
+                  Create new password
+                </h2>
+
+                <p className="mt-1.5 text-sm leading-6 text-slate-500">
+                  Use at least 8 characters and confirm the same password below.
                 </p>
               </div>
 
-              <div className="space-y-1.5">
-                <label
-                  htmlFor="confirm-password"
-                  className="block text-sm font-medium text-slate-700"
-                >
-                  Confirm new password
-                </label>
+              {invalidLink ? (
+                <div className="mt-7 space-y-3">
+                  <div
+                    role="alert"
+                    className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-3 text-sm font-semibold text-rose-700"
+                  >
+                    Invalid or expired reset link.
+                  </div>
 
-                <div className="relative">
-                  <input
-                    id="confirm-password"
-                    name="confirm-password"
-                    type={
-                      showConfirmPassword ? "text" : "password"
-                    }
-                    value={confirmPassword}
-                    onChange={(event) =>
-                      setConfirmPassword(event.target.value)
-                    }
-                    minLength={MIN_PASSWORD_LENGTH}
-                    maxLength={MAX_PASSWORD_LENGTH}
-                    autoComplete="new-password"
-                    required
-                    disabled={loading}
-                    className="block w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 pr-12 text-sm text-slate-900 shadow-sm transition focus:border-indigo-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 disabled:cursor-not-allowed disabled:opacity-60"
-                    placeholder="Confirm the new password"
-                  />
+                  <Link
+                    href="/forgot-password"
+                    className="ls-focus-ring inline-flex min-h-11 w-full items-center justify-center rounded-xl bg-[#182451] px-4 text-sm font-extrabold text-white hover:bg-[#26366E]"
+                  >
+                    Request a new reset link
+                  </Link>
+                </div>
+              ) : done ? (
+                <div
+                  role="status"
+                  aria-live="polite"
+                  className="mt-7 rounded-2xl border border-emerald-200 bg-emerald-50 p-4"
+                >
+                  <div className="flex items-start gap-3">
+                    <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#20B486] text-white">
+                      <CheckCircle2 className="h-5 w-5" />
+                    </span>
+
+                    <div>
+                      <div className="text-sm font-extrabold text-emerald-800">
+                        Password updated
+                      </div>
+                      <p className="mt-1 text-xs leading-5 text-emerald-700">
+                        Redirecting you to sign in…
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <form className="mt-7 space-y-4" onSubmit={handleSubmit}>
+                  <label className="block">
+                    <span className="mb-1.5 block text-[11px] font-extrabold uppercase tracking-wide text-slate-600">
+                      New password
+                    </span>
+
+                    <div className="relative">
+                      <LockKeyhole className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+
+                      <input
+                        id="new-password"
+                        name="new-password"
+                        type={showNewPassword ? "text" : "password"}
+                        value={newPassword}
+                        onChange={(event) =>
+                          setNewPassword(event.target.value)
+                        }
+                        minLength={MIN_PASSWORD_LENGTH}
+                        maxLength={MAX_PASSWORD_LENGTH}
+                        autoComplete="new-password"
+                        required
+                        disabled={loading}
+                        aria-describedby="password-requirements"
+                        className="ls-focus-ring h-12 w-full rounded-xl border border-[#CBD3E3] bg-white pl-10 pr-12 text-sm font-semibold text-[#182451] placeholder:text-slate-400 focus:border-[#5366B7] focus:ring-2 focus:ring-[#5366B7]/10 disabled:bg-[#F8FAFD] disabled:opacity-70"
+                        placeholder="Enter new password"
+                      />
+
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setShowNewPassword((previous) => !previous)
+                        }
+                        disabled={loading}
+                        aria-label={
+                          showNewPassword
+                            ? "Hide new password"
+                            : "Show new password"
+                        }
+                        aria-pressed={showNewPassword}
+                        className="ls-focus-ring absolute inset-y-0 right-1 flex w-11 items-center justify-center rounded-xl text-slate-500 hover:text-[#26366E]"
+                      >
+                        {showNewPassword ? (
+                          <EyeOff className="h-[18px] w-[18px]" />
+                        ) : (
+                          <Eye className="h-[18px] w-[18px]" />
+                        )}
+                      </button>
+                    </div>
+
+                    <p
+                      id="password-requirements"
+                      className="mt-1.5 text-[11px] text-slate-400"
+                    >
+                      8–256 characters
+                    </p>
+                  </label>
+
+                  <label className="block">
+                    <span className="mb-1.5 block text-[11px] font-extrabold uppercase tracking-wide text-slate-600">
+                      Confirm password
+                    </span>
+
+                    <div className="relative">
+                      <LockKeyhole className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+
+                      <input
+                        id="confirm-password"
+                        name="confirm-password"
+                        type={showConfirmPassword ? "text" : "password"}
+                        value={confirmPassword}
+                        onChange={(event) =>
+                          setConfirmPassword(event.target.value)
+                        }
+                        minLength={MIN_PASSWORD_LENGTH}
+                        maxLength={MAX_PASSWORD_LENGTH}
+                        autoComplete="new-password"
+                        required
+                        disabled={loading}
+                        className="ls-focus-ring h-12 w-full rounded-xl border border-[#CBD3E3] bg-white pl-10 pr-12 text-sm font-semibold text-[#182451] placeholder:text-slate-400 focus:border-[#5366B7] focus:ring-2 focus:ring-[#5366B7]/10 disabled:bg-[#F8FAFD] disabled:opacity-70"
+                        placeholder="Confirm new password"
+                      />
+
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setShowConfirmPassword(
+                            (previous) => !previous
+                          )
+                        }
+                        disabled={loading}
+                        aria-label={
+                          showConfirmPassword
+                            ? "Hide confirmed password"
+                            : "Show confirmed password"
+                        }
+                        aria-pressed={showConfirmPassword}
+                        className="ls-focus-ring absolute inset-y-0 right-1 flex w-11 items-center justify-center rounded-xl text-slate-500 hover:text-[#26366E]"
+                      >
+                        {showConfirmPassword ? (
+                          <EyeOff className="h-[18px] w-[18px]" />
+                        ) : (
+                          <Eye className="h-[18px] w-[18px]" />
+                        )}
+                      </button>
+                    </div>
+                  </label>
+
+                  {error ? (
+                    <div
+                      role="alert"
+                      className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-3 text-sm font-semibold text-rose-700"
+                    >
+                      {error}
+                    </div>
+                  ) : null}
 
                   <button
-                    type="button"
-                    onClick={() =>
-                      setShowConfirmPassword(
-                        (previous) => !previous
-                      )
+                    type="submit"
+                    disabled={
+                      loading ||
+                      done ||
+                      !newPassword ||
+                      !confirmPassword
                     }
-                    disabled={loading}
-                    aria-label={
-                      showConfirmPassword
-                        ? "Hide confirmed password"
-                        : "Show confirmed password"
-                    }
-                    aria-pressed={showConfirmPassword}
-                    className="absolute inset-y-0 right-0 flex items-center px-4 text-slate-500 hover:text-slate-700 disabled:cursor-not-allowed disabled:opacity-60"
+                    className="ls-focus-ring inline-flex min-h-12 w-full items-center justify-center rounded-xl bg-[#182451] px-4 text-sm font-extrabold text-white shadow-[0_8px_18px_rgba(24,36,81,0.16)] transition hover:bg-[#26366E] disabled:cursor-not-allowed disabled:opacity-60"
                   >
-                    {showConfirmPassword ? (
-                      <EyeOff size={18} aria-hidden="true" />
-                    ) : (
-                      <Eye size={18} aria-hidden="true" />
-                    )}
+                    {loading ? "Saving…" : "Reset password"}
                   </button>
-                </div>
-              </div>
-
-              {error && (
-                <div
-                  role="alert"
-                  className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700"
-                >
-                  {error}
-                </div>
+                </form>
               )}
 
-              <button
-                type="submit"
-                disabled={
-                  loading ||
-                  done ||
-                  !newPassword ||
-                  !confirmPassword
-                }
-                className="inline-flex w-full items-center justify-center rounded-xl bg-gradient-to-r from-[#6d28d9] to-[#7c3aed] px-4 py-3 text-sm font-medium text-white shadow-sm transition hover:from-[#5b21b6] hover:to-[#6d28d9] disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {loading ? "Saving..." : "Reset password"}
-              </button>
-            </form>
-          )}
+              <div className="mt-5 flex items-center gap-2 text-[11px] font-semibold text-slate-400">
+                <ShieldCheck className="h-4 w-4 text-[#20B486]" />
+                Reset details are removed from the browser address after opening.
+              </div>
+            </div>
+          </section>
         </div>
       </div>
-    </div>
+    </main>
   );
 }

@@ -26,6 +26,9 @@ const READABLE_STATUSES = new Set([
   "trash",
 ]);
 
+const TRASH_PREVIOUS_STATUS_META =
+  "_letzshopy_trash_previous_status";
+
 const STATUS_ALIASES: Record<string, string> = {
   "wc-pending": "pending",
   "wc-processing": "processing",
@@ -279,14 +282,57 @@ export async function PATCH(request: NextRequest) {
 
     if (action === "trash") {
       for (const id of ids) {
-        const response = await woo.delete(`/orders/${id}`);
-        const value: unknown = response.data;
+        const currentResponse =
+          await woo.get(
+            `/orders/${id}`
+          );
+
+        const currentValue: unknown =
+          currentResponse.data;
+
+        const currentStatus =
+          isRecord(currentValue) &&
+          typeof currentValue.status === "string"
+            ? canonicalStatus(
+                currentValue.status
+              )
+            : "";
+
+        if (
+          currentStatus &&
+          currentStatus !== "trash"
+        ) {
+          await woo.put(
+            `/orders/${id}`,
+            {
+              meta_data: [
+                {
+                  key:
+                    TRASH_PREVIOUS_STATUS_META,
+                  value:
+                    currentStatus,
+                },
+              ],
+            }
+          );
+        }
+
+        const response =
+          await woo.delete(
+            `/orders/${id}`
+          );
+
+        const value: unknown =
+          response.data;
+
         results.push({
           id,
           status:
-            isRecord(value) && typeof value.status === "string"
+            isRecord(value) &&
+            typeof value.status ===
+              "string"
               ? value.status
-              : undefined,
+              : "trash",
         });
       }
     } else if (action === "status") {

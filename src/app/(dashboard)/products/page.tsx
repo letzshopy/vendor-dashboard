@@ -1,10 +1,12 @@
 import Link from "next/link";
-import { Plus } from "lucide-react";
+import { Package2, Plus } from "lucide-react";
 import { getWooClient } from "@/lib/woo";
 import ProductsClientTable from "@/components/ProductsClientTable";
 import ProductsFilters from "@/components/ProductsFilters";
 import ProductsImportExportBar from "./ui/ProductsImportExportBar";
 import ProductCreatedNotice from "@/components/ProductCreatedNotice";
+import { buttonClassName } from "@/components/ui/button";
+import { PageHeader } from "@/components/ui/page-header";
 
 type Product = {
   id: number;
@@ -279,36 +281,33 @@ export default async function ProductsPage({
       : "";
 
   return (
-    <main className="dashboard-mobile-page dashboard-products-page mx-auto w-full min-w-0 max-w-[1540px] overflow-x-hidden pb-28 pt-1 md:pb-8 md:pt-1">
-      {showCreatedNotice && (
+    <main className="mx-auto w-full min-w-0 max-w-7xl pb-28 md:pb-8">
+      {showCreatedNotice ? (
         <ProductCreatedNotice
           productName={createdName}
         />
-      )}
-      <header className="hidden items-end justify-between gap-6 pb-2 md:flex">
-        <div className="min-w-0">
-          <div className="text-[10px] font-bold uppercase tracking-[0.1em] text-[#5366B7]">
-            Catalog
-          </div>
+      ) : null}
 
-          <h1 className="mt-1 text-[26px] font-extrabold tracking-tight text-[#26335F]">
-            Products
-          </h1>
+      <PageHeader
+        className="hidden md:flex"
+        eyebrow="Catalog"
+        icon={Package2}
+        title="Products"
+        description="Search, filter and manage your store catalogue."
+        actions={
+          <Link
+            href="/products/add"
+            className={buttonClassName({
+              variant: "primary",
+            })}
+          >
+            <Plus className="h-4 w-4" />
+            Add Product
+          </Link>
+        }
+      />
 
-          <p className="mt-0.5 text-xs text-slate-500">
-            Search, update and manage products in your store.
-          </p>
-        </div>
-
-        <Link
-          href="/products/add"
-          className="inline-flex min-h-10 shrink-0 items-center justify-center gap-2 rounded-xl bg-[#E85D4A] px-4 text-sm font-bold text-white shadow-[0_8px_18px_rgba(232,93,74,0.2)] transition active:scale-[0.98]"
-        >
-          <Plus className="h-4 w-4" />
-          Add Product
-        </Link>
-      </header>
-      <section className="mt-1 min-w-0 overflow-hidden border-y border-[#E2E7F1] bg-white md:mt-1 md:rounded-2xl md:border md:shadow-[0_10px_30px_rgba(38,51,95,0.05)]">
+      <section className="mt-0 min-w-0 overflow-hidden rounded-xl border border-border bg-card md:mt-5 md:rounded-2xl">
         <ProductsFilters
           categories={categories}
           initialCategory={category}
@@ -322,7 +321,10 @@ export default async function ProductsPage({
           }
         />
 
-        <ProductsClientTable products={products} categories={categories} />
+        <ProductsClientTable
+          products={products}
+          categories={categories}
+        />
       </section>
     </main>
   );

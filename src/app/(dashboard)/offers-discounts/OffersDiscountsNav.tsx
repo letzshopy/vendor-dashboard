@@ -11,17 +11,20 @@ import {
 const ITEMS = [
   {
     href: "/offers-discounts/sale-events",
-    label: "Sale Events",
+    label: "Offer Sale",
+    shortLabel: "Offer Sale",
     icon: CalendarRange,
   },
   {
     href: "/offers-discounts/coupons",
-    label: "Coupon Codes",
+    label: "Coupons",
+    shortLabel: "Coupons",
     icon: TicketPercent,
   },
   {
     href: "/offers-discounts/welcome-offer",
-    label: "Welcome Offer",
+    label: "Welcome",
+    shortLabel: "Welcome",
     icon: Gift,
   },
 ];
@@ -32,12 +35,16 @@ export default function OffersDiscountsNav() {
   return (
     <nav
       aria-label="Offers and discounts"
-      className="overflow-x-auto rounded-[22px] border border-slate-200 bg-white p-2 shadow-sm"
+      className="-mx-1 overflow-x-auto px-1 pb-1"
     >
       <div className="flex min-w-max gap-2">
         {ITEMS.map((item) => {
           const active =
-            pathname === item.href || pathname.startsWith(`${item.href}/`);
+            pathname === item.href ||
+            pathname.startsWith(
+              `${item.href}/`
+            );
+
           const Icon = item.icon;
 
           return (
@@ -45,14 +52,19 @@ export default function OffersDiscountsNav() {
               key={item.href}
               href={item.href}
               className={[
-                "inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl px-4 text-sm font-semibold transition",
+                "ls-focus-ring inline-flex min-h-10 items-center justify-center gap-2 rounded-full px-3 text-xs font-bold transition",
                 active
-                  ? "bg-gradient-to-r from-indigo-600 via-sky-500 to-violet-500 text-white shadow-sm"
-                  : "bg-slate-50 text-slate-600 hover:bg-indigo-50 hover:text-indigo-700",
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : "bg-secondary text-secondary-foreground hover:brightness-95",
               ].join(" ")}
             >
-              <Icon className="h-4 w-4" />
-              <span>{item.label}</span>
+              <Icon className="h-3.5 w-3.5" />
+              <span className="sm:hidden">
+                {item.shortLabel}
+              </span>
+              <span className="hidden sm:inline">
+                {item.label}
+              </span>
             </Link>
           );
         })}

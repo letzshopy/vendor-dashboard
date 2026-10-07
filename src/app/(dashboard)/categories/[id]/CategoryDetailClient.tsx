@@ -1,8 +1,33 @@
 "use client";
 
+import {
+  ArrowLeft,
+  Package,
+  X,
+} from "lucide-react";
 import Link from "next/link";
-import { useState } from "react";
-import { ArrowLeft, Package, X } from "lucide-react";
+import {
+  useState,
+} from "react";
+
+import {
+  ConfirmDialog,
+} from "@/components/ui/confirm-dialog";
+import {
+  EmptyState,
+} from "@/components/ui/empty-state";
+import {
+  PageHeader,
+} from "@/components/ui/page-header";
+import {
+  Section,
+} from "@/components/ui/section";
+import {
+  StatusBadge,
+} from "@/components/ui/status-badge";
+import {
+  actionFeedback,
+} from "@/lib/actionFeedback";
 
 export type CategoryDetail = {
   id: number;
@@ -10,7 +35,10 @@ export type CategoryDetail = {
   slug: string;
   description: string;
   count: number;
-  image?: { id: number; src: string } | null;
+  image?: {
+    id: number;
+    src: string;
+  } | null;
 };
 
 export type CategoryProduct = {
@@ -22,10 +50,33 @@ export type CategoryProduct = {
   image: string;
 };
 
-type JsonRecord = Record<string, unknown>;
+type JsonRecord =
+  Record<string, unknown>;
 
-function isRecord(value: unknown): value is JsonRecord {
-  return Boolean(value && typeof value === "object" && !Array.isArray(value));
+function isRecord(
+  value: unknown
+): value is JsonRecord {
+  return Boolean(
+    value &&
+      typeof value ===
+        "object" &&
+      !Array.isArray(value)
+  );
+}
+
+function readableStatus(
+  value: string
+) {
+  return value
+    .replace(
+      /[-_]+/g,
+      " "
+    )
+    .replace(
+      /\b\w/g,
+      (character) =>
+        character.toUpperCase()
+    );
 }
 
 export default function CategoryDetailClient({
@@ -33,136 +84,373 @@ export default function CategoryDetailClient({
   initialProducts,
 }: {
   category: CategoryDetail;
-  initialProducts: CategoryProduct[];
+  initialProducts:
+    CategoryProduct[];
 }) {
-  const [products, setProducts] = useState(initialProducts);
-  const [removingId, setRemovingId] = useState<number | null>(null);
+  const [
+    products,
+    setProducts,
+  ] =
+    useState(
+      initialProducts
+    );
 
-  async function removeProduct(product: CategoryProduct) {
-    if (!confirm(`Remove “${product.name}” from this category?`)) return;
+  const [
+    removeTarget,
+    setRemoveTarget,
+  ] =
+    useState<CategoryProduct | null>(
+      null
+    );
 
-    setRemovingId(product.id);
+  const [
+    removingId,
+    setRemovingId,
+  ] =
+    useState<number | null>(
+      null
+    );
+
+  async function removeProduct() {
+    const product =
+      removeTarget;
+
+    if (
+      !product ||
+      removingId !== null
+    ) {
+      return;
+    }
+
+    const feedbackId =
+      `category-product-remove-${product.id}`;
+
+    setRemovingId(
+      product.id
+    );
+
+    actionFeedback.loading({
+      id: feedbackId,
+      title:
+        "Removing product…",
+      message:
+        product.name,
+    });
 
     try {
-      const response = await fetch(
-        `/api/categories/${category.id}/products/${product.id}`,
-        { method: "DELETE" },
-      );
-      const payload: unknown = await response.json().catch(() => null);
+      const response =
+        await fetch(
+          `/api/categories/${category.id}/products/${product.id}`,
+          {
+            method:
+              "DELETE",
+          }
+        );
 
-      if (!response.ok) {
-        const message = isRecord(payload) && typeof payload.error === "string"
-          ? payload.error
-          : "Could not remove product from category.";
-        throw new Error(message);
+      const payload: unknown =
+        await response
+          .json()
+          .catch(
+            () => null
+          );
+
+      if (
+        !response.ok
+      ) {
+        const message =
+          isRecord(
+            payload
+          ) &&
+          typeof payload.error ===
+            "string"
+            ? payload.error
+            : "Could not remove product from category.";
+
+        throw new Error(
+          message
+        );
       }
 
-      setProducts((current) => current.filter((item) => item.id !== product.id));
-    } catch (error: unknown) {
-      alert(error instanceof Error ? error.message : "Could not remove product.");
+      setProducts(
+        (
+          current
+        ) =>
+          current.filter(
+            (item) =>
+              item.id !==
+              product.id
+          )
+      );
+
+      setRemoveTarget(
+        null
+      );
+
+      actionFeedback.success({
+        id: feedbackId,
+        title:
+          "Product removed",
+        message:
+          product.name,
+        durationMs: 2200,
+      });
+    } catch (
+      error: unknown
+    ) {
+      actionFeedback.error({
+        id: feedbackId,
+        title:
+          "Could not remove product",
+        message:
+          error instanceof
+            Error
+            ? error.message
+            : "Could not remove product.",
+        durationMs: 4200,
+      });
     } finally {
-      setRemovingId(null);
+      setRemovingId(
+        null
+      );
     }
   }
 
   return (
-    <main className="mx-auto max-w-6xl px-3 py-4 md:px-5 md:py-6">
-      <Link
-        href="/categories"
-        className="mb-4 inline-flex items-center gap-2 text-sm font-medium text-violet-700"
-      >
-        <ArrowLeft className="h-4 w-4" />
-        Categories
-      </Link>
+    <main className="ls-page mx-auto max-w-[1440px] pb-28 md:pb-8">
+      <div className="hidden md:block">
+        <PageHeader
+          eyebrow="Category"
+          title={
+            category.name
+          }
+          description="Category details and assigned products."
+          actions={
+            <Link
+              href="/categories"
+              className="ls-focus-ring inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-border bg-card px-4 text-sm font-semibold text-foreground hover:bg-muted"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Categories
+            </Link>
+          }
+        />
+      </div>
 
-      <section className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm md:p-6">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
+      <section className="md:mt-5 overflow-hidden rounded-2xl border border-border bg-card">
+        <div className="flex min-w-0 items-center gap-3 px-4 py-4 md:px-5">
           {category.image?.src ? (
             // Remote WordPress category media URL.
             // eslint-disable-next-line @next/next/no-img-element
             <img
-              src={category.image.src}
+              src={
+                category.image
+                  .src
+              }
               alt=""
-              className="h-24 w-24 rounded-2xl border border-slate-200 object-cover"
+              className="h-14 w-14 shrink-0 rounded-xl border border-border object-cover"
             />
           ) : (
-            <div className="grid h-24 w-24 place-items-center rounded-2xl bg-violet-50 text-violet-700">
-              <Package className="h-8 w-8" />
+            <div className="grid h-14 w-14 shrink-0 place-items-center rounded-xl bg-secondary text-secondary-foreground">
+              <Package className="h-5 w-5" />
             </div>
           )}
 
           <div className="min-w-0 flex-1">
-            <h1 className="text-2xl font-semibold text-slate-900">{category.name}</h1>
-            <div className="mt-3 grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-3">
-              <div className="rounded-xl bg-slate-50 px-3 py-2">
-                <span className="block text-xs text-slate-500">Slug</span>
-                <span className="font-medium text-slate-800">{category.slug}</span>
-              </div>
-              <div className="rounded-xl bg-slate-50 px-3 py-2">
-                <span className="block text-xs text-slate-500">Product count</span>
-                <span className="font-medium text-slate-800">{products.length}</span>
-              </div>
-              <div className="rounded-xl bg-slate-50 px-3 py-2 sm:col-span-2 lg:col-span-1">
-                <span className="block text-xs text-slate-500">Category ID</span>
-                <span className="font-medium text-slate-800">{category.id}</span>
-              </div>
+            <h1 className="truncate text-lg font-extrabold text-heading md:text-xl">
+              {
+                category.name
+              }
+            </h1>
+
+            <p className="mt-0.5 truncate text-sm text-muted-foreground">
+              {
+                category.slug
+              }
+            </p>
+          </div>
+
+          <div className="shrink-0 text-right">
+            <div className="text-xl font-extrabold text-heading">
+              {
+                products.length
+              }
             </div>
-            <div className="mt-4">
-              <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Description</h2>
-              <p className="mt-1 whitespace-pre-wrap text-sm leading-6 text-slate-700">
-                {category.description || "No description added."}
-              </p>
+
+            <div className="text-[10px] font-bold uppercase tracking-[0.08em] text-muted-foreground">
+              Products
             </div>
           </div>
         </div>
+
+        {category.description ? (
+          <div className="border-t border-border px-4 py-3 text-sm leading-6 text-muted-foreground md:px-5">
+            {
+              category.description
+            }
+          </div>
+        ) : null}
       </section>
 
-      <section className="mt-4 overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
-        <div className="flex items-center justify-between border-b border-slate-100 px-4 py-4 md:px-6">
-          <h2 className="font-semibold text-slate-900">Products in this category</h2>
-          <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">
-            {products.length}
-          </span>
-        </div>
+      <Section
+        title="Products"
+        description="Products assigned to this category."
+        surface="card"
+        className="mt-5 overflow-hidden !p-0"
+        contentClassName="min-w-0"
+        action={
+          products.length >
+          0 ? (
+            <span className="text-xs font-semibold text-muted-foreground">
+              {
+                products.length
+              }
+            </span>
+          ) : null
+        }
+      >
+        {products.length ===
+        0 ? (
+          <EmptyState
+            icon={Package}
+            title="No products assigned"
+            description="Products added to this category will appear here."
+          />
+        ) : (
+          <div className="divide-y divide-border">
+            {products.map(
+              (
+                product
+              ) => (
+                <div
+                  key={
+                    product.id
+                  }
+                  className="flex min-h-[76px] items-center gap-3 px-4 py-3 md:px-5"
+                >
+                  {product.image ? (
+                    // Remote WooCommerce product image.
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={
+                        product.image
+                      }
+                      alt=""
+                      className="h-12 w-12 shrink-0 rounded-xl border border-border object-cover"
+                    />
+                  ) : (
+                    <div className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-muted text-[10px] font-semibold text-muted-foreground">
+                      No image
+                    </div>
+                  )}
 
-        <div className="divide-y divide-slate-100">
-          {products.map((product) => (
-            <div key={product.id} className="flex items-center gap-3 px-4 py-3 md:px-6">
-              {product.image ? (
-                // Remote WooCommerce product image.
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={product.image} alt="" className="h-14 w-14 rounded-xl border object-cover" />
-              ) : (
-                <div className="grid h-14 w-14 place-items-center rounded-xl bg-slate-100 text-xs text-slate-400">No image</div>
-              )}
-              <div className="min-w-0 flex-1">
-                <Link href={`/products/${product.id}/edit`} className="block truncate font-semibold text-slate-900 hover:text-violet-700">
-                  {product.name}
-                </Link>
-                <p className="truncate text-xs text-slate-500">
-                  {product.sku || "No SKU"} · {product.status} · {product.stockStatus}
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => void removeProduct(product)}
-                disabled={removingId === product.id}
-                aria-label={`Remove ${product.name} from category`}
-                title="Remove from category"
-                className="grid h-10 w-10 place-items-center rounded-xl border border-rose-200 text-rose-600 disabled:opacity-50"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-          ))}
+                  <Link
+                    href={
+                      `/products/${product.id}/edit`
+                    }
+                    className="min-w-0 flex-1"
+                  >
+                    <span className="block truncate text-sm font-bold text-heading hover:text-primary">
+                      {
+                        product.name
+                      }
+                    </span>
 
-          {products.length === 0 && (
-            <div className="px-5 py-12 text-center text-sm text-slate-500">
-              No products are assigned to this category.
-            </div>
-          )}
-        </div>
-      </section>
+                    <span className="mt-1 flex min-w-0 flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                      <span className="truncate">
+                        {product.sku ||
+                          "No SKU"}
+                      </span>
+
+                      <StatusBadge
+                        status={
+                          product.status
+                        }
+                        label={readableStatus(
+                          product.status
+                        )}
+                      />
+
+                      <StatusBadge
+                        status={
+                          product.stockStatus
+                        }
+                        label={readableStatus(
+                          product.stockStatus
+                        )}
+                        tone={
+                          product.stockStatus ===
+                          "instock"
+                            ? "success"
+                            : product.stockStatus ===
+                                "outofstock"
+                              ? "danger"
+                              : "warning"
+                        }
+                      />
+                    </span>
+                  </Link>
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setRemoveTarget(
+                        product
+                      )
+                    }
+                    disabled={
+                      removingId ===
+                      product.id
+                    }
+                    aria-label={
+                      `Remove ${product.name} from category`
+                    }
+                    title="Remove from category"
+                    className="ls-focus-ring grid h-11 w-11 shrink-0 place-items-center rounded-xl text-muted-foreground hover:bg-rose-50 hover:text-destructive disabled:opacity-50"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+              )
+            )}
+          </div>
+        )}
+      </Section>
+
+      <ConfirmDialog
+        open={
+          removeTarget !==
+          null
+        }
+        onOpenChange={(
+          open
+        ) => {
+          if (
+            !open &&
+            removingId ===
+              null
+          ) {
+            setRemoveTarget(
+              null
+            );
+          }
+        }}
+        title="Remove product?"
+        description={
+          removeTarget
+            ? `Remove “${removeTarget.name}” from this category? The product itself will not be deleted.`
+            : undefined
+        }
+        confirmLabel="Remove product"
+        loading={
+          removingId !==
+          null
+        }
+        loadingLabel="Removing…"
+        destructive
+        onConfirm={
+          removeProduct
+        }
+      />
     </main>
   );
 }
