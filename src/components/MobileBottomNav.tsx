@@ -1,10 +1,16 @@
 "use client";
 
-import type { SessionStoreType } from "@/lib/session";
-import { isStandaloneV1NavigationHrefAllowed } from "@/lib/storeCapabilities";
+import type {
+  SessionStoreType,
+} from "@/lib/session";
+import {
+  isStandaloneV1NavigationHrefAllowed,
+} from "@/lib/storeCapabilities";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import {
+  usePathname,
+} from "next/navigation";
 import {
   BarChart3,
   FolderTree,
@@ -15,9 +21,11 @@ import {
   MoreHorizontal,
   Package,
   Plus,
+  Printer,
   ReceiptIndianRupee,
   Settings2,
   ShoppingBag,
+  Trash2,
   Users,
   WalletCards,
   X,
@@ -39,6 +47,8 @@ type NavItem = {
   icon: ComponentType<{
     className?: string;
   }>;
+  tileClass?: string;
+  wide?: boolean;
 };
 
 const moreItems: NavItem[] = [
@@ -46,46 +56,78 @@ const moreItems: NavItem[] = [
     href: "/categories",
     label: "Categories",
     icon: FolderTree,
+    tileClass:
+      "bg-[#18A6C9]",
   },
   {
     href: "/customers",
     label: "Customers",
     icon: Users,
+    tileClass:
+      "bg-[#20B486]",
   },
   {
     href: "/sales/payments",
     label: "Payments",
     icon: WalletCards,
+    tileClass:
+      "bg-[#4059A7]",
+  },
+  {
+    href: "/orders/packslips",
+    label: "Packing Slips",
+    icon: Printer,
+    tileClass:
+      "bg-[#D88A16]",
   },
   {
     href: "/media",
     label: "Media",
     icon: ImageIcon,
+    tileClass:
+      "bg-[#D88A16]",
   },
   {
     href: "/menu",
     label: "Menu Layout",
     icon: Menu,
+    tileClass:
+      "bg-[#26366E]",
   },
   {
     href: "/reports",
     label: "Reports",
     icon: BarChart3,
+    tileClass:
+      "bg-[#5E4FB3]",
   },
   {
     href: "/billing/subscription",
     label: "Subscription",
     icon: ReceiptIndianRupee,
+    tileClass:
+      "bg-[#4059A7]",
   },
   {
     href: "/settings",
     label: "Settings",
     icon: Settings2,
+    tileClass:
+      "bg-[#18A6C9]",
   },
   {
     href: "/support/tickets",
     label: "Support",
     icon: LifeBuoy,
+    tileClass:
+      "bg-[#20B486]",
+  },
+  {
+    href: "/trash",
+    label: "Trash Bin",
+    icon: Trash2,
+    tileClass:
+      "bg-[#1283A1]",
   },
 ];
 
@@ -111,13 +153,21 @@ function pathIsActive(
   pathname: string,
   href: string
 ): boolean {
-  if (href === "/dashboard") {
-    return pathname === "/dashboard";
+  if (
+    href ===
+    "/dashboard"
+  ) {
+    return (
+      pathname ===
+      "/dashboard"
+    );
   }
 
   return (
     pathname === href ||
-    pathname.startsWith(`${href}/`)
+    pathname.startsWith(
+      `${href}/`
+    )
   );
 }
 
@@ -129,25 +179,28 @@ function BottomNavLink({
   pathname: string;
 }) {
   const Icon = item.icon;
-  const active = pathIsActive(
-    pathname,
-    item.href
-  );
+  const active =
+    pathIsActive(
+      pathname,
+      item.href
+    );
 
   return (
     <Link
       href={item.href}
       aria-current={
-        active ? "page" : undefined
+        active
+          ? "page"
+          : undefined
       }
-      className="flex min-h-14 min-w-0 flex-1 flex-col items-center justify-center gap-1 px-1 text-[10px] font-semibold"
+      className="ls-focus-ring flex min-h-14 min-w-0 flex-1 flex-col items-center justify-center gap-1 px-1 text-[10px] font-semibold"
     >
       <span
         className={[
-          "flex h-7 w-7 items-center justify-center rounded-lg transition",
+          "flex h-8 w-8 items-center justify-center rounded-xl transition",
           active
-            ? "bg-[#2E3F7D] text-white"
-            : "bg-[#EEF1FA] text-[#2E3F7D]",
+            ? "bg-white text-[#182451] shadow-[0_5px_14px_rgba(0,0,0,0.16)]"
+            : "bg-[#26366E] text-indigo-100",
         ].join(" ")}
       >
         <Icon className="h-[18px] w-[18px] stroke-[2.6]" />
@@ -157,8 +210,8 @@ function BottomNavLink({
         className={[
           "max-w-full truncate",
           active
-            ? "font-bold text-[#2E3F7D]"
-            : "text-[#6F7891]",
+            ? "font-extrabold text-white"
+            : "text-indigo-100/70",
         ].join(" ")}
       >
         {item.label}
@@ -171,26 +224,37 @@ export default function MobileBottomNav({
   locked = false,
   storeType = "multisite",
 }: MobileBottomNavProps) {
-  const pathname = usePathname() || "/";
+  const pathname =
+    usePathname() || "/";
+
   const visibleMoreItems =
-    storeType === "standalone"
-      ? moreItems.filter((item) =>
-          isStandaloneV1NavigationHrefAllowed(
-            storeType,
-            item.href
-          )
+    storeType ===
+    "standalone"
+      ? moreItems.filter(
+          (item) =>
+            isStandaloneV1NavigationHrefAllowed(
+              storeType,
+              item.href
+            )
         )
       : moreItems;
+
   const visibleLockedItems =
-    storeType === "standalone"
-      ? lockedItems.filter((item) =>
-          isStandaloneV1NavigationHrefAllowed(
-            storeType,
-            item.href
-          )
+    storeType ===
+    "standalone"
+      ? lockedItems.filter(
+          (item) =>
+            isStandaloneV1NavigationHrefAllowed(
+              storeType,
+              item.href
+            )
         )
       : lockedItems;
-  const [moreOpen, setMoreOpen] =
+
+  const [
+    moreOpen,
+    setMoreOpen,
+  ] =
     useState(false);
 
   useEffect(() => {
@@ -198,10 +262,13 @@ export default function MobileBottomNav({
   }, [pathname]);
 
   useEffect(() => {
-    if (!moreOpen) return;
+    if (!moreOpen) {
+      return;
+    }
 
     const previousOverflow =
-      document.body.style.overflow;
+      document.body.style
+        .overflow;
 
     document.body.style.overflow =
       "hidden";
@@ -216,46 +283,63 @@ export default function MobileBottomNav({
     return (
       <nav
         aria-label="Restricted dashboard navigation"
-        className="dashboard-mobile-bottom-nav fixed inset-x-0 bottom-0 z-[60] flex items-start justify-around border-t border-[#D9DEEC] bg-white/95 px-3 backdrop-blur-xl md:hidden"
+        className="dashboard-mobile-bottom-nav fixed inset-x-0 bottom-0 z-[60] flex items-start justify-around rounded-t-[24px] border-t border-[#26366E] bg-[#182451] px-3 shadow-[0_-14px_34px_rgba(17,27,63,0.24)] md:hidden"
       >
-        {visibleLockedItems.map((item) => (
-          <BottomNavLink
-            key={item.href}
-            item={item}
-            pathname={pathname}
-          />
-        ))}
+        {visibleLockedItems.map(
+          (item) => (
+            <BottomNavLink
+              key={
+                item.href
+              }
+              item={
+                item
+              }
+              pathname={
+                pathname
+              }
+            />
+          )
+        )}
       </nav>
     );
   }
 
   const addActive =
-    pathname === "/products/add" ||
-    pathname.startsWith("/products/add/");
+    pathname ===
+      "/products/add" ||
+    pathname.startsWith(
+      "/products/add/"
+    );
 
   const productsActive =
     !addActive &&
     (
-      pathname === "/products" ||
-      pathname.startsWith("/products/")
+      pathname ===
+        "/products" ||
+      pathname.startsWith(
+        "/products/"
+      )
     );
 
   const moreActive =
-    visibleMoreItems.some((item) =>
-      pathIsActive(
-        pathname,
-        item.href
-      )
+    visibleMoreItems.some(
+      (item) =>
+        pathIsActive(
+          pathname,
+          item.href
+        )
     );
 
   return (
     <>
       <nav
         aria-label="Dashboard navigation"
-        className="dashboard-mobile-bottom-nav fixed inset-x-0 bottom-0 z-[60] grid grid-cols-5 items-start border-t border-[#D9DEEC] bg-white/95 px-1 backdrop-blur-xl md:hidden"
+        className="dashboard-mobile-bottom-nav fixed inset-x-0 bottom-0 z-[60] grid grid-cols-5 items-start rounded-t-[24px] border-t border-[#26366E] bg-[#182451] px-1 shadow-[0_-14px_34px_rgba(17,27,63,0.24)] md:hidden"
       >
         <BottomNavLink
-          pathname={pathname}
+          pathname={
+            pathname
+          }
           item={{
             href: "/dashboard",
             label: "Home",
@@ -264,7 +348,9 @@ export default function MobileBottomNav({
         />
 
         <BottomNavLink
-          pathname={pathname}
+          pathname={
+            pathname
+          }
           item={{
             href: "/orders",
             label: "Orders",
@@ -275,28 +361,24 @@ export default function MobileBottomNav({
         <Link
           href="/products/add"
           aria-current={
-            addActive ? "page" : undefined
+            addActive
+              ? "page"
+              : undefined
           }
-          className="flex min-h-14 min-w-0 flex-col items-center justify-center gap-1 px-1 text-[10px] font-semibold"
+          className="ls-focus-ring flex min-h-14 min-w-0 flex-col items-center justify-center gap-0.5 px-1 text-[10px] font-semibold"
         >
           <span
             className={[
-              "flex h-7 w-7 items-center justify-center rounded-lg transition",
+              "flex h-11 w-11 -translate-y-1 items-center justify-center rounded-2xl bg-[#18A6C9] text-white ring-4 ring-[#182451] transition",
               addActive
-                ? "bg-[#2E3F7D] text-white"
-                : "bg-[#EEF1FA] text-[#2E3F7D]",
+                ? "shadow-[0_8px_20px_rgba(241,94,74,0.38)]"
+                : "shadow-[0_6px_16px_rgba(241,94,74,0.28)]",
             ].join(" ")}
           >
-            <Plus className="h-[18px] w-[18px] stroke-[2.8]" />
+            <Plus className="h-5 w-5 stroke-[3]" />
           </span>
 
-          <span
-            className={
-              addActive
-                ? "truncate font-bold text-[#2E3F7D]"
-                : "truncate text-[#6F7891]"
-            }
-          >
+          <span className="truncate font-extrabold text-white">
             Add
           </span>
         </Link>
@@ -308,14 +390,14 @@ export default function MobileBottomNav({
               ? "page"
               : undefined
           }
-          className="flex min-h-14 min-w-0 flex-col items-center justify-center gap-1 px-1 text-[10px] font-semibold"
+          className="ls-focus-ring flex min-h-14 min-w-0 flex-col items-center justify-center gap-1 px-1 text-[10px] font-semibold"
         >
           <span
             className={[
-              "flex h-7 w-7 items-center justify-center rounded-lg transition",
+              "flex h-8 w-8 items-center justify-center rounded-xl transition",
               productsActive
-                ? "bg-[#2E3F7D] text-white"
-                : "bg-[#EEF1FA] text-[#2E3F7D]",
+                ? "bg-white text-[#182451] shadow-[0_5px_14px_rgba(0,0,0,0.16)]"
+                : "bg-[#26366E] text-indigo-100",
             ].join(" ")}
           >
             <ShoppingBag className="h-[18px] w-[18px] stroke-[2.6]" />
@@ -325,8 +407,8 @@ export default function MobileBottomNav({
             className={[
               "max-w-full truncate",
               productsActive
-                ? "font-bold text-[#2E3F7D]"
-                : "text-[#6F7891]",
+                ? "font-extrabold text-white"
+                : "text-indigo-100/70",
             ].join(" ")}
           >
             Products
@@ -336,34 +418,41 @@ export default function MobileBottomNav({
         <button
           type="button"
           onClick={() =>
-            setMoreOpen(true)
+            setMoreOpen(
+              true
+            )
           }
-          aria-expanded={moreOpen}
-          className="flex min-h-14 min-w-0 flex-col items-center justify-center gap-1 px-1 text-[10px] font-semibold"
+          aria-expanded={
+            moreOpen
+          }
+          className="ls-focus-ring flex min-h-14 min-w-0 flex-col items-center justify-center gap-1 px-1 text-[10px] font-semibold"
         >
           <span
             className={[
-              "flex h-7 w-7 items-center justify-center rounded-lg transition",
-              moreActive
-                ? "bg-[#2E3F7D] text-white"
-                : "bg-[#EEF1FA] text-[#2E3F7D]",
+              "flex h-8 w-8 items-center justify-center rounded-xl transition",
+              moreActive ||
+              moreOpen
+                ? "bg-white text-[#182451] shadow-[0_5px_14px_rgba(0,0,0,0.16)]"
+                : "bg-[#26366E] text-indigo-100",
             ].join(" ")}
           >
             <MoreHorizontal className="h-[18px] w-[18px] stroke-[2.8]" />
           </span>
+
           <span
-            className={
-              moreActive
-                ? "font-bold text-[#2E3F7D]"
-                : "text-[#6F7891]"
-            }
+            className={[
+              moreActive ||
+              moreOpen
+                ? "font-extrabold text-white"
+                : "text-indigo-100/70",
+            ].join(" ")}
           >
             More
           </span>
         </button>
       </nav>
 
-      {moreOpen && (
+      {moreOpen ? (
         <div
           className="fixed inset-0 z-[70] md:hidden"
           role="dialog"
@@ -374,72 +463,91 @@ export default function MobileBottomNav({
             type="button"
             aria-label="Close navigation"
             onClick={() =>
-              setMoreOpen(false)
+              setMoreOpen(
+                false
+              )
             }
-            className="absolute inset-0 h-full w-full bg-[#12182E]/55 backdrop-blur-[2px]"
+            className="absolute inset-0 h-full w-full bg-[#10172F]/75 backdrop-blur-[3px]"
           />
 
-          <section className="dashboard-mobile-more-sheet absolute inset-x-0 bottom-0 max-h-[78dvh] overflow-y-auto rounded-t-[28px] border-t border-[#D9DEEC] bg-white px-4 pt-3 shadow-[0_-18px_45px_rgba(25,35,75,0.2)]">
-            <div className="mx-auto mb-3 h-1.5 w-12 rounded-full bg-[#D9DEEC]" />
+          <section className="dashboard-mobile-more-sheet absolute inset-x-0 bottom-0 max-h-[82dvh] overflow-y-auto rounded-t-[30px] bg-[#F4F6FB] shadow-[0_-24px_60px_rgba(17,27,63,0.34)]">
+            <div className="sticky top-0 z-10 rounded-t-[30px] bg-[#182451] px-4 pb-4 pt-3 text-white">
+              <div className="mx-auto mb-3 h-1.5 w-12 rounded-full bg-white/25" />
 
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-bold text-[#26335F]">
-                More
-              </h2>
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <h2 className="text-lg font-extrabold">
+                    More
+                  </h2>
+                  <p className="mt-0.5 text-xs text-indigo-100/70">
+                    Manage your store
+                  </p>
+                </div>
 
-              <button
-                type="button"
-                aria-label="Close"
-                onClick={() =>
-                  setMoreOpen(false)
-                }
-                className="flex h-11 w-11 items-center justify-center rounded-full bg-[#F1F3F8] text-[#536079]"
-              >
-                <X className="h-5 w-5" />
-              </button>
+                <button
+                  type="button"
+                  aria-label="Close"
+                  onClick={() =>
+                    setMoreOpen(
+                      false
+                    )
+                  }
+                  className="ls-focus-ring flex h-10 w-10 items-center justify-center rounded-xl bg-[#26366E] text-white"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
             </div>
 
-            <div className="mt-4 grid grid-cols-2 gap-3">
-              {visibleMoreItems.map((item) => {
-                const Icon = item.icon;
-                const active =
-                  pathIsActive(
-                    pathname,
-                    item.href
-                  );
+            <div className="grid grid-cols-2 gap-3 p-4">
+              {visibleMoreItems.map(
+                (item) => {
+                  const Icon =
+                    item.icon;
 
-                return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    className={[
-                      "flex min-w-0 items-center gap-3 rounded-2xl border px-3 py-3.5",
-                      active
-                        ? "border-[#A9B2E5] bg-[#EEF1FF] text-[#33458B]"
-                        : "border-[#E1E5EF] bg-[#F8F9FC] text-[#34405F]",
-                    ].join(" ")}
-                  >
-                    <span
+                  const active =
+                    pathIsActive(
+                      pathname,
+                      item.href
+                    );
+
+                  return (
+                    <Link
+                      key={
+                        item.href
+                      }
+                      href={
+                        item.href
+                      }
                       className={[
-                        "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl",
+                        "flex min-h-[92px] min-w-0 flex-col justify-between rounded-2xl p-3 text-white shadow-[0_8px_20px_rgba(25,35,75,0.12)] transition active:scale-[0.98]",
+                        item.tileClass ||
+                          "bg-[#26366E]",
+                        item.wide
+                          ? "col-span-2"
+                          : "",
                         active
-                          ? "bg-[#5366B7] text-white"
-                          : "bg-white text-[#5366B7]",
+                          ? "ring-[3px] ring-white/80 ring-offset-2 ring-offset-[#F4F6FB]"
+                          : "",
                       ].join(" ")}
                     >
-                      <Icon className="h-5 w-5" />
-                    </span>
+                      <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/15">
+                        <Icon className="h-5 w-5" />
+                      </span>
 
-                    <span className="min-w-0 truncate text-sm font-semibold">
-                      {item.label}
-                    </span>
-                  </Link>
-                );
-              })}
+                      <span className="mt-3 truncate text-sm font-extrabold">
+                        {
+                          item.label
+                        }
+                      </span>
+                    </Link>
+                  );
+                }
+              )}
             </div>
           </section>
         </div>
-      )}
+      ) : null}
     </>
   );
 }

@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
+import { actionFeedback } from "@/lib/actionFeedback";
 import type { ProductCsvColumn } from "@/types/import";
 import { PRODUCT_CSV_COLUMNS } from "@/types/import";
 
@@ -28,6 +29,7 @@ export default function ExportProductsModal({
   const [cols, setCols] = useState<ProductCsvColumn[]>([
     ...PRODUCT_CSV_COLUMNS,
   ]);
+  const [downloading, setDownloading] = useState(false);
 
   // ensure we only portal on the client
   const [mounted, setMounted] = useState(false);
@@ -61,18 +63,71 @@ export default function ExportProductsModal({
     );
   }
 
-  function download() {
+  async function download() {
+    if (downloading) return;
+
     const q = new URLSearchParams();
     if (category) q.set("category", category);
     if (stock) q.set("stock", stock);
     if (ptype) q.set("ptype", ptype);
     q.set("columns", cols.join(","));
-    window.location.href = `/api/export/products?${q.toString()}`;
+
+    const feedbackId = "products-export";
+    setDownloading(true);
+
+    actionFeedback.loading({
+      id: feedbackId,
+      title: "Preparing product export…",
+      message: "Building your CSV file.",
+    });
+
+    try {
+      const response = await fetch(
+        `/api/export/products?${q.toString()}`,
+        { cache: "no-store" }
+      );
+
+      if (!response.ok) {
+        throw new Error("Product export failed.");
+      }
+
+      const blob = await response.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+
+      anchor.href = objectUrl;
+      anchor.download = "products.csv";
+      anchor.rel = "noopener";
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+
+      window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+
+      actionFeedback.success({
+        id: feedbackId,
+        title: "Product export ready",
+        message: "CSV download started.",
+        durationMs: 2600,
+      });
+
+      onClose();
+    } catch (error) {
+      actionFeedback.error({
+        id: feedbackId,
+        title: "Export failed",
+        message:
+          error instanceof Error ? error.message : "Please try again.",
+        durationMs: 4200,
+      });
+    } finally {
+      setDownloading(false);
+    }
   }
 
   return createPortal(
-    <div className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-900/40 backdrop-blur-sm">
-      <div className="w-full max-w-3xl rounded-2xl bg-white shadow-xl ring-1 ring-slate-900/5">
+    <div className="fixed inset-0 z-[120] flex items-end justify-center bg-slate-900/45 backdrop-blur-sm md:items-center md:p-4">
+      <div className="max-h-[88dvh] w-full max-w-2xl overflow-y-auto rounded-t-[28px] bg-white shadow-2xl ring-1 ring-slate-900/5 md:rounded-2xl">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-slate-100 px-5 py-3">
           <div>
@@ -100,7 +155,7 @@ export default function ExportProductsModal({
                 Product category
               </div>
               <select
-                className="h-9 w-full rounded-full border border-slate-200 bg-white px-3 text-xs text-slate-800 outline-none transition focus:border-violet-400 focus:ring-2 focus:ring-violet-100"
+                className="ls-focus-ring h-11 w-full rounded-xl border border-input bg-card px-3 text-sm font-semibold text-foreground"
                 value={category}
                 onChange={(e) => setCategory(e.target.value)}
               >
@@ -121,7 +176,7 @@ export default function ExportProductsModal({
                 Product type
               </div>
               <select
-                className="h-9 w-full rounded-full border border-slate-200 bg-white px-3 text-xs text-slate-800 outline-none transition focus:border-violet-400 focus:ring-2 focus:ring-violet-100"
+                className="ls-focus-ring h-11 w-full rounded-xl border border-input bg-card px-3 text-sm font-semibold text-foreground"
                 value={ptype}
                 onChange={(e) => setPtype(e.target.value)}
               >
@@ -135,7 +190,7 @@ export default function ExportProductsModal({
             <div>
               <div className="mb-1 font-medium text-slate-800">Stock status</div>
               <select
-                className="h-9 w-full rounded-full border border-slate-200 bg-white px-3 text-xs text-slate-800 outline-none transition focus:border-violet-400 focus:ring-2 focus:ring-violet-100"
+                className="ls-focus-ring h-11 w-full rounded-xl border border-input bg-card px-3 text-sm font-semibold text-foreground"
                 value={stock}
                 onChange={(e) => setStock(e.target.value)}
               >
@@ -183,9 +238,10 @@ export default function ExportProductsModal({
           </button>
           <button
             onClick={download}
-            className="inline-flex items-center rounded-full bg-slate-900 px-4 py-1.5 text-xs font-medium text-white shadow-sm transition hover:bg-slate-800"
+            disabled={downloading}
+            className="ls-focus-ring inline-flex min-h-11 items-center rounded-xl bg-primary px-4 text-sm font-bold text-primary-foreground disabled:cursor-not-allowed disabled:opacity-60"
           >
-            Download CSV
+            {downloading ? "Preparing…" : "Download CSV"}
           </button>
         </div>
       </div>

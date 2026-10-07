@@ -2,7 +2,15 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import {
+  useFormStatus,
+} from "react-dom";
 import {
   ArrowLeft,
   BadgePercent,
@@ -11,11 +19,32 @@ import {
   IndianRupee,
   PackageSearch,
   RefreshCw,
+  Search,
   Sparkles,
   Truck,
   Tag,
-  X,
 } from "lucide-react";
+import {
+  useUnsavedChanges,
+} from "@/components/navigation/UnsavedChangesGuard";
+import {
+  AsyncButton,
+} from "@/components/ui/async-button";
+import {
+  BottomSheet,
+} from "@/components/ui/bottom-sheet";
+import {
+  ButtonLink,
+} from "@/components/ui/button-link";
+import {
+  Button,
+} from "@/components/ui/button";
+import {
+  Input,
+} from "@/components/ui/input";
+import {
+  Switch,
+} from "@/components/ui/switch";
 import type {
   SaleEvent,
   SaleEventCategoryOption,
@@ -102,6 +131,32 @@ function promotionalOfferLabel(
   return "special sale prices";
 }
 
+
+function SaleEventSubmitButton({
+  mode,
+}: {
+  mode: "create" | "edit";
+}) {
+  const { pending } =
+    useFormStatus();
+
+  return (
+    <AsyncButton
+      type="submit"
+      loading={pending}
+      loadingLabel={
+        mode === "create"
+          ? "Creating…"
+          : "Saving…"
+      }
+    >
+      {mode === "create"
+        ? "Create Offer"
+        : "Save Changes"}
+    </AsyncButton>
+  );
+}
+
 function buildPromotionalCopy({
   templateIndex,
   title,
@@ -152,6 +207,34 @@ export default function SaleEventFormClient({
   products,
   action,
 }: Props) {
+  const initialPromotionalCopy =
+    event?.promotional_copy ||
+    buildPromotionalCopy({
+      templateIndex: 0,
+      title: event?.title || "",
+      categoryNames: (event?.category_ids || [])
+        .map(
+          (id) =>
+            categories.find(
+              (category) =>
+                category.id === id
+            )?.name || ""
+        )
+        .filter(Boolean),
+      pricingType:
+        event?.pricing_type ||
+        "percentage",
+      discountValue:
+        String(
+          event?.discount_value ||
+            ""
+        ),
+      startDate:
+        event?.start_date || "",
+      endDate:
+        event?.end_date || "",
+    });
+
   const [selectedCategories, setSelectedCategories] = useState<number[]>(
     event?.category_ids || []
   );
@@ -176,7 +259,32 @@ export default function SaleEventFormClient({
   const [promoTemplateIndex, setPromoTemplateIndex] = useState(0);
   const [promoEdited, setPromoEdited] = useState(Boolean(event?.promotional_copy));
   const [promotionalCopy, setPromotionalCopy] = useState(
-    event?.promotional_copy || ""
+    initialPromotionalCopy
+  );
+  const [homepageVisible, setHomepageVisible] = useState(
+    event ? event.homepage_visible : true
+  );
+  const [submitting, setSubmitting] = useState(false);
+  const formRef = useRef<HTMLFormElement | null>(null);
+  const [categoryPickerOpen, setCategoryPickerOpen] = useState(false);
+  const [productPickerOpen, setProductPickerOpen] = useState(false);
+  const [categoryQuery, setCategoryQuery] = useState("");
+  const [productQuery, setProductQuery] = useState("");
+
+  const initialSnapshotRef = useRef(
+    JSON.stringify({
+      selectedCategories: event?.category_ids || [],
+      explicitProducts: event?.explicit_product_ids || [],
+      excludedProducts: event?.excluded_product_ids || [],
+      pricingType: event?.pricing_type || "percentage",
+      discountValue: String(event?.discount_value || ""),
+      manualPrices: event?.manual_prices || {},
+      title: event?.title || "",
+      startDate: event?.start_date || "",
+      endDate: event?.end_date || "",
+      promotionalCopy: initialPromotionalCopy,
+      homepageVisible: event ? event.homepage_visible : true,
+    })
   );
 
   const selectedCategoryTree = useMemo(
@@ -214,6 +322,22 @@ export default function SaleEventFormClient({
     [selectedCategories, categories]
   );
 
+  const filteredCategories = useMemo(() => {
+    const query = categoryQuery.trim().toLowerCase();
+    if (!query) return categories;
+    return categories.filter((category) =>
+      category.name.toLowerCase().includes(query)
+    );
+  }, [categories, categoryQuery]);
+
+  const filteredProducts = useMemo(() => {
+    const query = productQuery.trim().toLowerCase();
+    if (!query) return products;
+    return products.filter((product) =>
+      product.name.toLowerCase().includes(query)
+    );
+  }, [products, productQuery]);
+
   const generatedPromotionalCopy = useMemo(
     () =>
       buildPromotionalCopy({
@@ -242,12 +366,6 @@ export default function SaleEventFormClient({
     }
   }, [generatedPromotionalCopy, promoEdited]);
 
-  useEffect(() => {
-    if (mode === "create") {
-      setPromoTemplateIndex(Math.floor(Math.random() * 3));
-    }
-  }, [mode]);
-
   function toggleCategory(id: number) {
     setSelectedCategories((prev) =>
       prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
@@ -255,15 +373,33 @@ export default function SaleEventFormClient({
   }
 
 
-  function excludeProduct(id: number) {
-    setExcludedProducts((prev) =>
-      prev.includes(id) ? prev : [...prev, id]
-    );
-    setExplicitProducts((prev) => prev.filter((item) => item !== id));
-  }
+  function toggleProductSelection(id: number) {
+    const selected = effectiveProductIds.has(id);
+    const includedByCategory = categoryProductIds.has(id);
 
-  function restoreProduct(id: number) {
-    setExcludedProducts((prev) => prev.filter((item) => item !== id));
+    if (selected) {
+      setExplicitProducts((prev) =>
+        prev.filter((item) => item !== id)
+      );
+
+      if (includedByCategory) {
+        setExcludedProducts((prev) =>
+          prev.includes(id) ? prev : [...prev, id]
+        );
+      }
+
+      return;
+    }
+
+    setExcludedProducts((prev) =>
+      prev.filter((item) => item !== id)
+    );
+
+    if (!includedByCategory) {
+      setExplicitProducts((prev) =>
+        prev.includes(id) ? prev : [...prev, id]
+      );
+    }
   }
 
   function previewSale(product: SaleEventProductOption) {
@@ -281,34 +417,97 @@ export default function SaleEventFormClient({
     return manual > 0 ? formatMoney(Math.ceil(manual)) : "Enter price";
   }
 
-  const homepageVisible = event ? event.homepage_visible : true;
+  const currentSnapshot = JSON.stringify({
+    selectedCategories,
+    explicitProducts,
+    excludedProducts,
+    pricingType,
+    discountValue,
+    manualPrices,
+    title,
+    startDate,
+    endDate,
+    promotionalCopy,
+    homepageVisible,
+  });
+
+  const dirty =
+    !submitting &&
+    currentSnapshot !==
+      initialSnapshotRef.current;
+
+  async function saveFromGuard(): Promise<boolean> {
+    if (!formRef.current || submitting) {
+      return false;
+    }
+
+    setSubmitting(true);
+
+    try {
+      const data =
+        new FormData(
+          formRef.current
+        );
+
+      await action(data);
+      return true;
+    } catch {
+      setSubmitting(false);
+      return false;
+    }
+  }
+
+  useUnsavedChanges({
+    id:
+      `sale-event-${mode}-${event?.id || "new"}`,
+    dirty,
+    label:
+      "sale event changes",
+    save: saveFromGuard,
+  });
 
   return (
     <main className="mx-auto max-w-7xl px-3 pb-28 pt-3 md:px-4 md:pb-8 md:pt-5">
       <Link
         href="/offers-discounts/sale-events"
-        className="inline-flex items-center gap-2 text-sm font-medium text-slate-500 hover:text-slate-900"
+        className="inline-flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-heading"
       >
         <ArrowLeft className="h-4 w-4" />
-        Back to Sale Events
+        Back to Offer Sale
       </Link>
 
-      <div className="mt-4 rounded-[30px] border border-white/80 bg-gradient-to-br from-white via-[#faf6ff] to-[#eef7ff] p-4 shadow-[0_14px_40px_rgba(15,23,42,0.06)] md:p-5">
-        <div className="inline-flex items-center gap-2 rounded-full bg-indigo-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-indigo-700">
-          <Tag className="h-3.5 w-3.5" />
-          Catalog · Sale Events
+      <div className="mt-3 md:hidden">
+        <h1 className="text-[20px] font-extrabold tracking-tight text-heading">
+          {mode === "create"
+            ? "Create Offer"
+            : "Edit Offer"}
+        </h1>
+      </div>
+
+      <div className="mt-4 hidden md:block">
+        <div className="text-[11px] font-bold uppercase tracking-[0.08em] text-accent">
+          Offers & Discounts
         </div>
 
-        <h1 className="mt-3 text-[24px] font-semibold tracking-tight text-slate-900 md:text-[30px]">
-          {mode === "create" ? "Create Sale Event" : "Edit Sale Event"}
+        <h1 className="mt-1 text-[30px] font-extrabold tracking-tight text-heading">
+          {mode === "create"
+            ? "Create Offer"
+            : "Edit Offer"}
         </h1>
 
-        <p className="mt-2 max-w-2xl text-sm text-slate-500">
-          Select categories first, remove any products you do not want, choose the pricing method, and schedule the event.
+        <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
+          Choose products, set the offer and schedule the offer.
         </p>
       </div>
 
-      <form action={action} className="mt-5 space-y-5">
+      <form
+        ref={formRef}
+        action={action}
+        onSubmit={() =>
+          setSubmitting(true)
+        }
+        className="mt-4 space-y-4 md:mt-5"
+      >
         {event?.id ? <input type="hidden" name="id" value={event.id} /> : null}
 
         <input
@@ -332,163 +531,145 @@ export default function SaleEventFormClient({
           value={JSON.stringify(manualPrices)}
         />
 
-        <section className="rounded-[28px] border border-slate-200 bg-white p-4 shadow-sm md:p-5">
+        <section className="rounded-2xl border border-border bg-card p-4 md:p-5">
           <div className="flex items-center gap-2">
-            <CalendarRange className="h-5 w-5 text-indigo-600" />
-            <h2 className="text-lg font-semibold text-slate-900">Event Details</h2>
+            <CalendarRange className="h-5 w-5 text-primary" />
+            <h2 className="text-lg font-semibold text-heading">Offer Details</h2>
           </div>
 
           <div className="mt-4 grid gap-4 md:grid-cols-3">
             <div className="md:col-span-1">
-              <label className="text-sm font-semibold text-slate-800">Event Title</label>
+              <label className="text-sm font-semibold text-foreground">Offer Title</label>
               <input
                 name="title"
                 required
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 placeholder="Example: New Year Sale"
-                className="mt-2 h-11 w-full rounded-2xl border border-slate-200 bg-slate-50 px-3 text-sm text-slate-900 outline-none focus:border-indigo-400 focus:bg-white"
+                className="mt-2 h-11 w-full rounded-xl border border-input bg-card px-3 text-sm text-foreground outline-none focus:border-ring"
               />
             </div>
 
             <div>
-              <label className="text-sm font-semibold text-slate-800">Start Date</label>
+              <label className="text-sm font-semibold text-foreground">Start Date</label>
               <input
                 type="date"
                 name="start_date"
                 required
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
-                className="mt-2 h-11 w-full rounded-2xl border border-slate-200 bg-slate-50 px-3 text-sm text-slate-900 outline-none focus:border-indigo-400 focus:bg-white"
+                className="mt-2 h-11 w-full rounded-2xl border border-border bg-surface-soft px-3 text-sm text-heading outline-none focus:border-ring focus:bg-white"
               />
             </div>
 
             <div>
-              <label className="text-sm font-semibold text-slate-800">End Date</label>
+              <label className="text-sm font-semibold text-foreground">End Date</label>
               <input
                 type="date"
                 name="end_date"
                 required
                 value={endDate}
                 onChange={(e) => setEndDate(e.target.value)}
-                className="mt-2 h-11 w-full rounded-2xl border border-slate-200 bg-slate-50 px-3 text-sm text-slate-900 outline-none focus:border-indigo-400 focus:bg-white"
+                className="mt-2 h-11 w-full rounded-2xl border border-border bg-surface-soft px-3 text-sm text-heading outline-none focus:border-ring focus:bg-white"
               />
             </div>
           </div>
 
-          <p className="mt-3 text-xs text-slate-500">
-            Event status is automatic: Scheduled, Live, or Closed based on these dates.
+          <p className="mt-3 text-xs text-muted-foreground">
+            Offer status is automatic: Scheduled, Live, or Ended based on these dates.
           </p>
         </section>
 
-        <section className="rounded-[28px] border border-slate-200 bg-white p-4 shadow-sm md:p-5">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <div className="flex items-center gap-2">
-                <PackageSearch className="h-5 w-5 text-indigo-600" />
-                <h2 className="text-lg font-semibold text-slate-900">Choose Products</h2>
-              </div>
-              <p className="mt-1 text-sm text-slate-500">
-                Select full categories first. Products are included automatically, and you can remove exceptions below.
-              </p>
-            </div>
-
-            <span className="shrink-0 rounded-full bg-indigo-50 px-3 py-1 text-xs font-semibold text-indigo-700">
-              {effectiveProducts.length} selected
-            </span>
+        <section className="rounded-2xl border border-border bg-card p-4 md:p-5">
+          <div className="flex items-center gap-2">
+            <PackageSearch className="h-5 w-5 text-primary" />
+            <h2 className="text-lg font-semibold text-heading">
+              Choose Products
+            </h2>
           </div>
 
-          <div className="mt-4">
-            <p className="text-sm font-semibold text-slate-800">1. Select Categories</p>
-            <div className="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-              {categories.map((category) => {
-                const active = selectedCategories.includes(category.id);
-                return (
-                  <button
-                    key={category.id}
-                    type="button"
-                    onClick={() => toggleCategory(category.id)}
-                    className={`flex items-center justify-between gap-2 rounded-2xl border px-3 py-3 text-left text-sm transition ${
-                      active
-                        ? "border-indigo-300 bg-indigo-50 text-indigo-800"
-                        : "border-slate-200 bg-slate-50 text-slate-700 hover:border-indigo-200 hover:bg-indigo-50/40"
-                    }`}
-                  >
-                    <span className="min-w-0 truncate font-semibold">{category.name}</span>
-                    <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full ${active ? "bg-indigo-600 text-white" : "bg-white text-slate-300"}`}>
-                      {active ? <Check className="h-3.5 w-3.5" /> : null}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Pick categories or individual products. Use the popups instead of scrolling through long lists.
+          </p>
+
+          <div className="mt-4 grid gap-3 md:grid-cols-2">
+            <button
+              type="button"
+              onClick={() => {
+                setCategoryQuery("");
+                setCategoryPickerOpen(true);
+              }}
+              className="ls-focus-ring flex min-h-[76px] items-center justify-between gap-3 rounded-2xl border border-border bg-surface-soft px-4 text-left hover:border-primary/30 hover:bg-secondary/40"
+            >
+              <span className="min-w-0">
+                <span className="block text-sm font-extrabold text-heading">
+                  Categories
+                </span>
+                <span className="mt-1 block truncate text-xs text-muted-foreground">
+                  {selectedCategoryNames.length > 0
+                    ? selectedCategoryNames.join(", ")
+                    : "Choose categories"}
+                </span>
+              </span>
+
+              <span className="shrink-0 rounded-full bg-card px-2.5 py-1 text-xs font-bold text-primary shadow-sm">
+                {selectedCategories.length}
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setProductQuery("");
+                setProductPickerOpen(true);
+              }}
+              className="ls-focus-ring flex min-h-[76px] items-center justify-between gap-3 rounded-2xl border border-border bg-surface-soft px-4 text-left hover:border-primary/30 hover:bg-secondary/40"
+            >
+              <span className="min-w-0">
+                <span className="block text-sm font-extrabold text-heading">
+                  Products
+                </span>
+                <span className="mt-1 block text-xs text-muted-foreground">
+                  Select or remove individual products
+                </span>
+              </span>
+
+              <span className="shrink-0 rounded-full bg-card px-2.5 py-1 text-xs font-bold text-primary shadow-sm">
+                {effectiveProducts.length}
+              </span>
+            </button>
           </div>
 
-          <div className="mt-5">
-            <p className="text-sm font-semibold text-slate-800">2. Review Included Products</p>
+          {selectedCategoryNames.length > 0 ? (
+            <div className="mt-3 flex flex-wrap gap-2">
+              {selectedCategoryNames.slice(0, 5).map((name) => (
+                <span
+                  key={name}
+                  className="rounded-full bg-secondary px-2.5 py-1 text-[11px] font-bold text-secondary-foreground"
+                >
+                  {name}
+                </span>
+              ))}
 
-            {effectiveProducts.length > 0 ? (
-              <div className="mt-2 grid max-h-[430px] gap-2 overflow-y-auto rounded-2xl border border-slate-100 bg-slate-50 p-2 sm:grid-cols-2 lg:grid-cols-3">
-                {effectiveProducts.map((product) => (
-                  <div key={product.id} className="flex items-center gap-3 rounded-2xl bg-white p-2.5 shadow-sm">
-                    <div className="h-12 w-12 shrink-0 overflow-hidden rounded-xl bg-slate-100">
-                      {product.image_url ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={product.image_url} alt="" className="h-full w-full object-cover" />
-                      ) : null}
-                    </div>
-
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-xs font-semibold text-slate-800">{product.name}</p>
-                      <p className="mt-0.5 text-[11px] text-slate-500">
-                        {productBasePrice(product) ? formatMoney(productBasePrice(product)) : "No regular price"}
-                      </p>
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={() => excludeProduct(product.id)}
-                      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-rose-50 text-rose-600 hover:bg-rose-100"
-                      aria-label={`Remove ${product.name}`}
-                    >
-                      <X className="h-4 w-4" />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="mt-2 rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-8 text-center text-sm text-slate-500">
-                Choose one or more categories to include products in this event.
-              </div>
-            )}
-          </div>
-
-          {excludedProducts.length > 0 ? (
-            <div className="mt-4 rounded-2xl border border-amber-100 bg-amber-50/70 p-3">
-              <p className="text-xs font-semibold text-amber-800">Excluded products</p>
-              <div className="mt-2 flex flex-wrap gap-2">
-                {products
-                  .filter((product) => excludedProducts.includes(product.id))
-                  .map((product) => (
-                    <button
-                      key={product.id}
-                      type="button"
-                      onClick={() => restoreProduct(product.id)}
-                      className="rounded-full border border-amber-200 bg-white px-3 py-1 text-[11px] font-semibold text-amber-700 hover:bg-amber-100"
-                    >
-                      + Restore {product.name}
-                    </button>
-                  ))}
-              </div>
+              {selectedCategoryNames.length > 5 ? (
+                <span className="rounded-full bg-muted px-2.5 py-1 text-[11px] font-bold text-muted-foreground">
+                  +{selectedCategoryNames.length - 5} more
+                </span>
+              ) : null}
             </div>
           ) : null}
 
+          <div className="mt-3 text-xs text-muted-foreground">
+            {effectiveProducts.length > 0
+              ? `${effectiveProducts.length} product${effectiveProducts.length === 1 ? "" : "s"} selected for this offer.`
+              : "No products selected yet."}
+          </div>
         </section>
 
-        <section className="rounded-[28px] border border-slate-200 bg-white p-4 shadow-sm md:p-5">
+        <section className="rounded-2xl border border-border bg-card p-4 md:p-5">
           <div className="flex items-center gap-2">
-            <BadgePercent className="h-5 w-5 text-indigo-600" />
-            <h2 className="text-lg font-semibold text-slate-900">Sale Pricing</h2>
+            <BadgePercent className="h-5 w-5 text-primary" />
+            <h2 className="text-lg font-semibold text-heading">Offer Pricing</h2>
           </div>
 
           <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -507,16 +688,16 @@ export default function SaleEventFormClient({
                   className={`rounded-[22px] border p-4 text-left transition ${
                     active
                       ? "border-indigo-300 bg-indigo-50 shadow-sm"
-                      : "border-slate-200 bg-slate-50 hover:border-indigo-200"
+                      : "border-border bg-surface-soft hover:border-indigo-200"
                   }`}
                 >
                   <div className="flex items-center justify-between gap-2">
-                    <span className="font-semibold text-slate-900">{label}</span>
-                    <span className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold ${active ? "bg-indigo-600 text-white" : "bg-white text-slate-500"}`}>
+                    <span className="font-semibold text-heading">{label}</span>
+                    <span className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold ${active ? "bg-indigo-600 text-white" : "bg-white text-muted-foreground"}`}>
                       {icon}
                     </span>
                   </div>
-                  <p className="mt-2 text-xs text-slate-500">{help}</p>
+                  <p className="mt-2 text-xs text-muted-foreground">{help}</p>
                 </button>
               );
             })}
@@ -526,7 +707,7 @@ export default function SaleEventFormClient({
 
           {pricingType === "percentage" || pricingType === "fixed_amount" ? (
             <div className="mt-4 max-w-sm">
-              <label className="text-sm font-semibold text-slate-800">
+              <label className="text-sm font-semibold text-foreground">
                 {pricingType === "percentage" ? "Discount Percentage" : "Discount Amount"}
               </label>
               <div className="relative mt-2">
@@ -543,7 +724,7 @@ export default function SaleEventFormClient({
                   value={discountValue}
                   onChange={(e) => setDiscountValue(e.target.value)}
                   placeholder={pricingType === "percentage" ? "20" : "200"}
-                  className={`h-11 w-full rounded-2xl border border-slate-200 bg-slate-50 pr-3 text-sm text-slate-900 outline-none focus:border-indigo-400 focus:bg-white ${pricingType === "fixed_amount" ? "pl-10" : "px-3"}`}
+                  className={`h-11 w-full rounded-2xl border border-border bg-surface-soft pr-3 text-sm text-heading outline-none focus:border-ring focus:bg-white ${pricingType === "fixed_amount" ? "pl-10" : "px-3"}`}
                 />
               </div>
             </div>
@@ -557,19 +738,19 @@ export default function SaleEventFormClient({
                 <Truck className="h-5 w-5" />
               </div>
               <div>
-                <p className="text-sm font-semibold text-slate-900">
+                <p className="text-sm font-semibold text-heading">
                   Free Shipping Offer
                 </p>
                 <p className="mt-1 text-xs leading-5 text-slate-600">
-                  Selected event products keep their regular prices and receive free shipping while this event is Live.
+                  Selected event products keep their regular prices and receive free shipping while this offer is Live.
                 </p>
               </div>
             </div>
           ) : null}
 
           {effectiveProducts.length > 0 && pricingType !== "free_shipping" ? (
-            <div className="mt-5 overflow-hidden rounded-2xl border border-slate-200">
-              <div className="grid grid-cols-[1fr_auto_auto] gap-3 bg-slate-50 px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+            <div className="mt-5 overflow-hidden rounded-2xl border border-border">
+              <div className="grid grid-cols-[1fr_auto_auto] gap-3 bg-surface-soft px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                 <span>Product</span>
                 <span>Regular</span>
                 <span>Sale</span>
@@ -580,8 +761,8 @@ export default function SaleEventFormClient({
                   const regular = productBasePrice(product);
                   return (
                     <div key={product.id} className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-3 border-t border-slate-100 px-3 py-3 text-xs first:border-t-0">
-                      <span className="min-w-0 truncate font-semibold text-slate-800">{product.name}</span>
-                      <span className="text-slate-500">{regular ? formatMoney(regular) : "—"}</span>
+                      <span className="min-w-0 truncate font-semibold text-foreground">{product.name}</span>
+                      <span className="text-muted-foreground">{regular ? formatMoney(regular) : "—"}</span>
 
                       {pricingType === "manual" ? (
                         <input
@@ -599,7 +780,7 @@ export default function SaleEventFormClient({
                             });
                           }}
                           placeholder="Sale price"
-                          className="h-9 w-28 rounded-xl border border-slate-200 bg-white px-2 text-right text-xs font-semibold text-slate-900 outline-none focus:border-indigo-400"
+                          className="h-9 w-28 rounded-xl border border-border bg-white px-2 text-right text-xs font-semibold text-heading outline-none focus:border-ring"
                         />
                       ) : (
                         <span className="font-semibold text-emerald-700">{previewSale(product)}</span>
@@ -613,43 +794,52 @@ export default function SaleEventFormClient({
         </section>
 
         <section>
-          <label className="block cursor-pointer rounded-[26px] border border-slate-200 bg-white p-4 shadow-sm transition hover:border-violet-200">
-            <div className="flex items-start gap-3">
-              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-violet-50 text-violet-700">
-                <Tag className="h-5 w-5" />
+          <div className="flex items-center justify-between gap-4 rounded-2xl border border-border bg-card p-4">
+            <div className="min-w-0">
+              <div className="text-sm font-bold text-heading">
+                Homepage visibility
               </div>
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center justify-between gap-3">
-                  <span className="font-semibold text-slate-900">Homepage Visibility</span>
-                  <input
-                    type="checkbox"
-                    name="homepage_visible"
-                    defaultChecked={homepageVisible}
-                    className="h-5 w-5 rounded border-slate-300 text-indigo-600"
-                  />
-                </div>
-                <p className="mt-1 text-xs leading-5 text-slate-500">
-                  Visible by default when the event becomes Live.
-                </p>
+
+              <div className="mt-0.5 text-xs leading-5 text-muted-foreground">
+                Show this offer in Current Offers while it is live.
               </div>
             </div>
-          </label>
+
+            <Switch
+              checked={homepageVisible}
+              onCheckedChange={(checked) =>
+                setHomepageVisible(
+                  Boolean(checked)
+                )
+              }
+            />
+
+            <input
+              type="hidden"
+              name="homepage_visible"
+              value={
+                homepageVisible
+                  ? "1"
+                  : "0"
+              }
+            />
+          </div>
         </section>
 
-        <section className="rounded-[28px] border border-slate-200 bg-white p-4 shadow-sm md:p-5">
+        <section className="rounded-2xl border border-border bg-card p-4 md:p-5">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <div className="flex items-center gap-2">
-                <Sparkles className="h-5 w-5 text-indigo-600" />
-                <h2 className="text-lg font-semibold text-slate-900">
+                <Sparkles className="h-5 w-5 text-primary" />
+                <h2 className="text-lg font-semibold text-heading">
                   Promotional Copy
                 </h2>
                 <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-emerald-700">
                   Editable
                 </span>
               </div>
-              <p className="mt-1 text-sm text-slate-500">
-                Auto-generated from the event name, selected categories, offer, and dates.
+              <p className="mt-1 text-sm text-muted-foreground">
+                Auto-generated from the offer name, selected categories, offer, and dates.
               </p>
             </div>
 
@@ -674,25 +864,186 @@ export default function SaleEventFormClient({
               setPromoEdited(true);
             }}
             rows={4}
-            className="mt-4 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm leading-6 text-slate-800 outline-none focus:border-indigo-400 focus:bg-white"
+            className="mt-4 w-full rounded-2xl border border-border bg-surface-soft px-4 py-3 text-sm leading-6 text-foreground outline-none focus:border-ring focus:bg-white"
           />
         </section>
 
-        <div className="sticky bottom-3 z-20 flex items-center justify-between gap-3 rounded-[24px] border border-white/80 bg-white/95 p-3 shadow-[0_18px_50px_rgba(15,23,42,0.16)] backdrop-blur md:static md:justify-end md:bg-transparent md:p-0 md:shadow-none">
-          <Link
+        <div className="sticky bottom-[calc(5.1rem+var(--ls-safe-area-bottom))] z-20 flex items-center justify-end gap-2 rounded-2xl border border-border bg-card/95 p-2.5 shadow-[0_14px_36px_rgba(38,51,95,0.16)] backdrop-blur md:static md:border-0 md:bg-transparent md:p-0 md:shadow-none">
+          <ButtonLink
             href="/offers-discounts/sale-events"
-            className="inline-flex h-11 items-center justify-center rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+            variant="outline"
           >
             Cancel
-          </Link>
-          <button
-            type="submit"
-            className="inline-flex h-11 items-center justify-center rounded-2xl bg-gradient-to-r from-[#8b5cff] to-[#ff7ac3] px-5 text-sm font-semibold text-white shadow-sm transition hover:brightness-105"
-          >
-            {mode === "create" ? "Create Sale Event" : "Save Changes"}
-          </button>
+          </ButtonLink>
+          <SaleEventSubmitButton
+            mode={mode}
+          />
         </div>
       </form>
+
+      <BottomSheet
+        open={categoryPickerOpen}
+        onOpenChange={setCategoryPickerOpen}
+        title="Choose Categories"
+        description="Select one or more categories for this offer."
+        popupClassName="md:mx-auto md:max-w-2xl"
+      >
+        <div className="relative">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            value={categoryQuery}
+            onChange={(event) =>
+              setCategoryQuery(event.target.value)
+            }
+            placeholder="Search categories"
+            className="pl-10"
+          />
+        </div>
+
+        <div className="mt-3 max-h-[50dvh] overflow-y-auto rounded-xl border border-border">
+          {filteredCategories.length === 0 ? (
+            <div className="px-4 py-8 text-center text-sm text-muted-foreground">
+              No categories found.
+            </div>
+          ) : (
+            filteredCategories.map((category) => {
+              const active = selectedCategories.includes(category.id);
+
+              return (
+                <button
+                  key={category.id}
+                  type="button"
+                  onClick={() => toggleCategory(category.id)}
+                  className={[
+                    "ls-focus-ring flex min-h-12 w-full items-center justify-between gap-3 border-b border-border px-3 text-left last:border-b-0",
+                    active
+                      ? "bg-secondary"
+                      : "bg-card hover:bg-muted",
+                  ].join(" ")}
+                >
+                  <span className="truncate text-sm font-semibold text-foreground">
+                    {category.name}
+                  </span>
+
+                  <span
+                    className={[
+                      "grid h-6 w-6 shrink-0 place-items-center rounded-full border",
+                      active
+                        ? "border-primary bg-primary text-primary-foreground"
+                        : "border-border bg-card text-transparent",
+                    ].join(" ")}
+                  >
+                    <Check className="h-3.5 w-3.5" />
+                  </span>
+                </button>
+              );
+            })
+          )}
+        </div>
+
+        <div className="mt-4 flex justify-end">
+          <Button
+            type="button"
+            onClick={() => setCategoryPickerOpen(false)}
+          >
+            Done
+          </Button>
+        </div>
+      </BottomSheet>
+
+      <BottomSheet
+        open={productPickerOpen}
+        onOpenChange={setProductPickerOpen}
+        title="Choose Products"
+        description="Select individual products or remove products included through a category."
+        popupClassName="md:mx-auto md:max-w-2xl"
+      >
+        <div className="relative">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            value={productQuery}
+            onChange={(event) =>
+              setProductQuery(event.target.value)
+            }
+            placeholder="Search products"
+            className="pl-10"
+          />
+        </div>
+
+        <div className="mt-3 max-h-[52dvh] overflow-y-auto rounded-xl border border-border">
+          {filteredProducts.length === 0 ? (
+            <div className="px-4 py-8 text-center text-sm text-muted-foreground">
+              No products found.
+            </div>
+          ) : (
+            filteredProducts.map((product) => {
+              const active = effectiveProductIds.has(product.id);
+              const fromCategory = categoryProductIds.has(product.id);
+
+              return (
+                <button
+                  key={product.id}
+                  type="button"
+                  onClick={() => toggleProductSelection(product.id)}
+                  className={[
+                    "ls-focus-ring flex min-h-14 w-full items-center gap-3 border-b border-border px-3 py-2 text-left last:border-b-0",
+                    active
+                      ? "bg-secondary/70"
+                      : "bg-card hover:bg-muted",
+                  ].join(" ")}
+                >
+                  <span className="h-10 w-10 shrink-0 overflow-hidden rounded-xl bg-muted">
+                    {product.image_url ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={product.image_url}
+                        alt=""
+                        className="h-full w-full object-cover"
+                      />
+                    ) : null}
+                  </span>
+
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm font-semibold text-foreground">
+                      {product.name}
+                    </span>
+                    <span className="mt-0.5 block text-[11px] text-muted-foreground">
+                      {productBasePrice(product)
+                        ? formatMoney(productBasePrice(product))
+                        : "No regular price"}
+                      {fromCategory ? " · from category" : ""}
+                    </span>
+                  </span>
+
+                  <span
+                    className={[
+                      "grid h-6 w-6 shrink-0 place-items-center rounded-full border",
+                      active
+                        ? "border-primary bg-primary text-primary-foreground"
+                        : "border-border bg-card text-transparent",
+                    ].join(" ")}
+                  >
+                    <Check className="h-3.5 w-3.5" />
+                  </span>
+                </button>
+              );
+            })
+          )}
+        </div>
+
+        <div className="mt-4 flex items-center justify-between gap-3">
+          <span className="text-xs font-semibold text-muted-foreground">
+            {effectiveProducts.length} selected
+          </span>
+
+          <Button
+            type="button"
+            onClick={() => setProductPickerOpen(false)}
+          >
+            Done
+          </Button>
+        </div>
+      </BottomSheet>
     </main>
   );
 }

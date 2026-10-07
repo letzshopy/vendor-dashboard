@@ -9,20 +9,22 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@base-ui/react": "^1.8.0",
     "@capacitor/core": "^8.0.0",
     "@capacitor/push-notifications": "^8.1.2",
     "@google-analytics/data": "^6.1.0",
+    "@vercel/oidc": "^3.8.9",
     "axios": "^1.12.2",
     "jspdf": "^3.0.4",
     "jspdf-autotable": "^5.0.2",
     "lucide-react": "^0.546.0",
+    "motion": "^13.4.2",
     "next": "^16.1.6",
     "react": "19.1.2",
     "react-dom": "19.1.2",
     "react-hook-form": "^7.66.1",
     "recharts": "^3.4.1",
-    "zod": "^4.1.11",
-    "@vercel/oidc": "^3.8.9"
+    "zod": "^4.1.11"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",

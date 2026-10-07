@@ -154,7 +154,13 @@ export default function ImageUploader({
     };
   }, []);
 
-  async function handleFile(originalFile: File) {
+  async function handleFile(
+    originalFile: File,
+    batch?: {
+      current: number;
+      total: number;
+    }
+  ) {
     clearPreview();
     const localPreview = URL.createObjectURL(originalFile);
     previewRef.current = localPreview;
@@ -167,7 +173,11 @@ export default function ImageUploader({
       let uploadFile = originalFile;
 
       if (OPTIMIZED_PURPOSES.has(purpose)) {
-        setStatusText("Optimizing image…");
+        setStatusText(
+          batch && batch.total > 1
+            ? `Optimizing ${batch.current} of ${batch.total}…`
+            : "Optimizing image…"
+        );
         const optimized = await optimizeContentImageForUpload(originalFile);
         uploadFile = optimized.file;
 
@@ -180,7 +190,11 @@ export default function ImageUploader({
         }
       }
 
-      setStatusText("Uploading image…");
+      setStatusText(
+        batch && batch.total > 1
+          ? `Uploading ${batch.current} of ${batch.total}…`
+          : "Uploading image…"
+      );
 
       const body = new FormData();
       body.append("file", uploadFile, uploadFile.name);
@@ -212,8 +226,18 @@ export default function ImageUploader({
 
     const selected = multiple ? Array.from(files) : [files[0]];
 
-    for (const file of selected) {
-      await handleFile(file);
+    for (
+      let index = 0;
+      index < selected.length;
+      index += 1
+    ) {
+      await handleFile(
+        selected[index],
+        {
+          current: index + 1,
+          total: selected.length,
+        }
+      );
     }
   }
 
@@ -245,11 +269,16 @@ export default function ImageUploader({
     </span>
   ) : (
     <div
-      className={`inline-flex cursor-pointer items-center gap-2 rounded-xl border px-3 py-2 text-xs font-medium shadow-sm transition ${
+      className={`ls-focus-ring inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-xl border px-3 py-2 text-sm font-semibold transition ${
         isDragging
-          ? "border-violet-500 bg-violet-50 text-violet-800"
-          : "border-slate-200 bg-white/80 text-slate-700 hover:border-violet-400 hover:bg-violet-50/70"
+          ? "border-primary bg-secondary text-secondary-foreground"
+          : "border-border bg-card text-foreground hover:bg-muted"
+      } ${
+        loading
+          ? "pointer-events-none opacity-80"
+          : ""
       }`}
+      aria-busy={loading || undefined}
       onClick={() => !loading && inputRef.current?.click()}
       onDrop={onDrop}
       onDragOver={(event) => {
@@ -261,10 +290,10 @@ export default function ImageUploader({
         setIsDragging(false);
       }}
     >
-      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-violet-600 text-[11px] text-white">
+      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-[15px] font-semibold text-primary-foreground">
         +
       </span>
-      <span className="text-sm">
+      <span>
         {loading ? statusText : label}
       </span>
     </div>
@@ -283,8 +312,17 @@ export default function ImageUploader({
         onChange={onInputChange}
       />
 
+      {loading && (
+        <div
+          className="ls-upload-progress"
+          aria-hidden="true"
+        >
+          <span />
+        </div>
+      )}
+
       {previewUrl && (
-        <div className="relative mt-2 h-24 w-24 overflow-hidden rounded-xl border border-violet-200 bg-slate-100">
+        <div className="relative mt-2 h-24 w-24 overflow-hidden rounded-xl border border-border bg-muted">
           {/* Local object URL: intentionally not passed to next/image. */}
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img

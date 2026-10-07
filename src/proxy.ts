@@ -31,6 +31,7 @@ const VENDOR_SESSION_MAX_AGE_SECONDS =
 const PUBLIC_PAGE_PATHS = new Set([
   "/",
   "/signin",
+  "/forgot-password",
   "/reset-password",
   "/vendor-agreement",
 ]);
