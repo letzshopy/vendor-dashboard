@@ -309,99 +309,28 @@ public class MainActivity extends BridgeActivity {
                 glowParams
         );
 
-        LinearLayout lockup =
-                new LinearLayout(this);
-
-        lockup.setOrientation(
-                LinearLayout.HORIZONTAL
-        );
-        lockup.setGravity(
-                Gravity.CENTER_VERTICAL
-        );
-
-        ImageView bag =
+        ImageView lockup =
                 new ImageView(this);
 
-        bag.setImageResource(
-                R.drawable.letzshopy_bag_mark_v3
+        lockup.setImageResource(
+                R.drawable.letzshopy_brand_logo
         );
-        bag.setScaleType(
+        lockup.setScaleType(
                 ImageView.ScaleType.FIT_CENTER
         );
-
-        lockup.addView(
-                bag,
-                new LinearLayout.LayoutParams(
-                        dp(82),
-                        dp(92)
-                )
-        );
-
-        View spacer =
-                new View(this);
-
-        lockup.addView(
-                spacer,
-                new LinearLayout.LayoutParams(
-                        dp(14),
-                        1
-                )
-        );
-
-        LinearLayout copy =
-                new LinearLayout(this);
-
-        copy.setOrientation(
-                LinearLayout.VERTICAL
-        );
-        copy.setGravity(
-                Gravity.START
-        );
-
-        copy.addView(
-                makeWordmark(),
-                new LinearLayout.LayoutParams(
-                        ViewGroup.LayoutParams.WRAP_CONTENT,
-                        ViewGroup.LayoutParams.WRAP_CONTENT
-                )
-        );
-
-        TextView tagline =
-                makeTagline();
-
-        LinearLayout.LayoutParams taglineParams =
-                new LinearLayout.LayoutParams(
-                        ViewGroup.LayoutParams.WRAP_CONTENT,
-                        ViewGroup.LayoutParams.WRAP_CONTENT
-                );
-
-        taglineParams.topMargin =
-                dp(7);
-
-        copy.addView(
-                tagline,
-                taglineParams
-        );
-
-        lockup.addView(
-                copy,
-                new LinearLayout.LayoutParams(
-                        ViewGroup.LayoutParams.WRAP_CONTENT,
-                        ViewGroup.LayoutParams.WRAP_CONTENT
-                )
-        );
+        lockup.setAdjustViewBounds(true);
 
         FrameLayout.LayoutParams lockupParams =
                 new FrameLayout.LayoutParams(
-                        ViewGroup.LayoutParams.WRAP_CONTENT,
-                        ViewGroup.LayoutParams.WRAP_CONTENT,
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        dp(105),
                         Gravity.CENTER
                 );
 
         lockupParams.leftMargin =
-                dp(18);
+                dp(24);
         lockupParams.rightMargin =
-                dp(18);
+                dp(24);
 
         overlay.addView(
                 lockup,
