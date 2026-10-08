@@ -308,6 +308,65 @@ async function parseUploadInput(
   request: NextRequest,
 ): Promise<UploadInput> {
   const contentType = request.headers.get("content-type") || "";
+  const uploadMode =
+    request.headers.get("x-letzshopy-upload-mode") || "";
+
+  if (uploadMode.toLowerCase() === "raw") {
+    const declaredLength = Number(
+      request.headers.get("content-length") || 0,
+    );
+
+    if (
+      Number.isFinite(declaredLength) &&
+      declaredLength > MAX_UPLOAD_BYTES
+    ) {
+      throw new Error("Images must be 15 MB or smaller.");
+    }
+
+    const raw = await request.arrayBuffer();
+
+    if (
+      raw.byteLength <= 0 ||
+      raw.byteLength > MAX_UPLOAD_BYTES
+    ) {
+      throw new Error("Images must be 15 MB or smaller.");
+    }
+
+    const mime = contentType
+      .split(";")[0]
+      .trim()
+      .toLowerCase();
+
+    let filename = "product-image";
+
+    try {
+      filename = decodeURIComponent(
+        request.headers.get(
+          "x-letzshopy-filename",
+        ) || filename,
+      );
+    } catch {
+      filename = "product-image";
+    }
+
+    const bytes = new Uint8Array(raw);
+
+    return {
+      file: new File(
+        [bytes],
+        filename.slice(0, 180),
+        {
+          type: mime,
+        },
+      ),
+      purpose: resolvePurpose(
+        request,
+        request.headers.get(
+          "x-letzshopy-purpose",
+        ),
+      ),
+    };
+  }
 
   if (contentType.includes("application/json")) {
     const parsed: unknown = await request.json().catch(() => null);

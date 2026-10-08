@@ -2,6 +2,10 @@
 
 import jsPDF from "jspdf";
 
+import {
+  saveClientFile,
+} from "@/lib/clientFileSave";
+
 type Address = {
   first_name?: string;
   last_name?: string;
@@ -1116,29 +1120,16 @@ async function savePdf(
   const blob =
     doc.output("blob");
 
-  const url =
-    URL.createObjectURL(blob);
-
-  const anchor =
-    document.createElement("a");
-
-  anchor.href = url;
-  anchor.download = fileName;
-  anchor.rel = "noopener";
-  anchor.style.display = "none";
-
-  document.body.appendChild(
-    anchor
-  );
-
-  anchor.click();
-  anchor.remove();
-
-  window.setTimeout(
-    () => {
-      URL.revokeObjectURL(url);
-    },
-    1500
+  return saveClientFile(
+    blob,
+    fileName,
+    {
+      shareNative: true,
+      shareTitle:
+        "LetzShopy Packing Slip",
+      shareDialogTitle:
+        "Open, print or share packing slip",
+    }
   );
 }
 
@@ -1217,7 +1208,7 @@ async function buildPdf(
         )}.pdf`
       : `packing-slips-${ids.length}-orders.pdf`;
 
-  await savePdf(
+  return savePdf(
     doc,
     fileName
   );
@@ -1235,7 +1226,7 @@ const PackingSlipPdfClient = {
       return;
     }
 
-    await buildPdf(
+    return buildPdf(
       ids,
       fallbackStoreName
     );

@@ -23,6 +23,9 @@ import {
 import {
   actionFeedback,
 } from "@/lib/actionFeedback";
+import {
+  saveClientFile,
+} from "@/lib/clientFileSave";
 
 type Category = {
   id: number;
@@ -329,46 +332,27 @@ export default function OrdersExportButton({
 
       const blob =
         await response.blob();
-      const objectUrl =
-        URL.createObjectURL(
-          blob
-        );
-      const anchor =
-        document.createElement(
-          "a"
-        );
-
-      anchor.href =
-        objectUrl;
-      anchor.download =
-        filenameFromDisposition(
-          response.headers.get(
-            "content-disposition"
-          )
-        );
-      anchor.rel =
-        "noopener";
-      document.body.appendChild(
-        anchor
-      );
-      anchor.click();
-      anchor.remove();
-
-      window.setTimeout(
-        () =>
-          URL.revokeObjectURL(
-            objectUrl
+      const fileResult =
+        await saveClientFile(
+          blob,
+          filenameFromDisposition(
+            response.headers.get(
+              "content-disposition"
+            )
           ),
-        1000
-      );
+          {
+            shareTitle:
+              "LetzShopy Order Export",
+          }
+        );
 
       actionFeedback.success({
         id: feedbackId,
         title:
           "Order export ready",
         message:
-          "CSV download started.",
-        durationMs: 2600,
+          fileResult.message,
+        durationMs: 3200,
       });
 
       setOpen(false);

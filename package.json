@@ -6,12 +6,28 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "cap:doctor": "cap doctor",
+    "cap:sync": "cap sync android",
+    "cap:open": "cap open android",
+    "cap:run": "cap run android",
+    "android:sync": "cap sync android",
+    "android:open": "cap open android",
+    "android:run": "cap run android"
   },
   "dependencies": {
     "@base-ui/react": "^1.8.0",
+    "@capacitor/app": "^8.0.0",
+    "@capacitor/browser": "^8.0.0",
     "@capacitor/core": "^8.0.0",
+    "@capacitor/filesystem": "^8.0.0",
+    "@capacitor/haptics": "^8.0.0",
+    "@capacitor/keyboard": "^8.0.0",
+    "@capacitor/network": "^8.0.0",
     "@capacitor/push-notifications": "^8.1.2",
+    "@capacitor/share": "^8.0.0",
+    "@capacitor/splash-screen": "^8.0.0",
+    "@capacitor/status-bar": "^8.0.0",
     "@google-analytics/data": "^6.1.0",
     "@vercel/oidc": "^3.8.9",
     "axios": "^1.12.2",
@@ -27,6 +43,8 @@
     "zod": "^4.1.11"
   },
   "devDependencies": {
+    "@capacitor/android": "^8.0.0",
+    "@capacitor/cli": "^8.0.0",
     "@eslint/eslintrc": "^3",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
@@ -36,5 +54,8 @@
     "eslint-config-next": "15.5.5",
     "tailwindcss": "^4",
     "typescript": "^5"
+  },
+  "engines": {
+    "node": ">=22.0.0"
   }
 }

@@ -2,11 +2,15 @@
 
 import { Drawer } from "@base-ui/react/drawer";
 import { X } from "lucide-react";
-import type {
-  ReactNode,
+import {
+  useEffect,
+  type ReactNode,
 } from "react";
 
 import { cn } from "@/lib/utils";
+import {
+  LETZSHOPY_NATIVE_BACK_EVENT,
+} from "@/lib/nativeNavigation";
 
 type BottomSheetProps = {
   open: boolean;
@@ -25,6 +29,33 @@ export function BottomSheet({
   children,
   popupClassName,
 }: BottomSheetProps) {
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+
+    function closeOnNativeBack(
+      event: Event
+    ) {
+      event.preventDefault();
+      onOpenChange(false);
+    }
+
+    window.addEventListener(
+      LETZSHOPY_NATIVE_BACK_EVENT,
+      closeOnNativeBack
+    );
+
+    return () =>
+      window.removeEventListener(
+        LETZSHOPY_NATIVE_BACK_EVENT,
+        closeOnNativeBack
+      );
+  }, [
+    open,
+    onOpenChange,
+  ]);
+
   return (
     <Drawer.Root
       open={open}

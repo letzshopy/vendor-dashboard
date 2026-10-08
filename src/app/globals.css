@@ -2,18 +2,18 @@
 
 :root {
   /* LetzShopy Dashboard Design System v1 */
-  --background: #f8f9fc;
-  --foreground: #202a48;
+  --background: #f7f9fc;
+  --foreground: #17233c;
   --card: #ffffff;
-  --card-foreground: #202a48;
+  --card-foreground: #17233c;
   --popover: #ffffff;
-  --popover-foreground: #202a48;
-  --primary: #2e3f7d;
+  --popover-foreground: #17233c;
+  --primary: #1f63d8;
   --primary-foreground: #ffffff;
-  --secondary: #eef1fa;
-  --secondary-foreground: #2e3f7d;
-  --muted: #f3f5f9;
-  --muted-foreground: #6f7891;
+  --secondary: #eef5ff;
+  --secondary-foreground: #1f63d8;
+  --muted: #f4f7fb;
+  --muted-foreground: #6b748a;
   --accent: #18a6c9;
   --accent-foreground: #ffffff;
   --destructive: #b42318;
@@ -22,11 +22,11 @@
   --success-foreground: #ffffff;
   --warning: #a15c00;
   --warning-foreground: #ffffff;
-  --border: #d9deec;
-  --input: #cbd3e3;
-  --ring: #5366b7;
-  --heading: #26335f;
-  --surface-soft: #f7f8fc;
+  --border: #e3e9f2;
+  --input: #d7deea;
+  --ring: #1f63d8;
+  --heading: #17233c;
+  --surface-soft: #f7f9fc;
   --radius: 0.875rem;
 }
 
@@ -104,7 +104,7 @@ img {
 }
 
 ::selection {
-  background: rgba(123, 62, 243, 0.18);
+  background: rgba(31, 99, 216, 0.16);
 }
 
 @media (max-width: 767px) {
@@ -335,22 +335,24 @@ select:active {
 /* LetzShopy Capacitor dashboard shell */
 :root {
   --ls-safe-area-top: env(safe-area-inset-top, 0px);
+  --ls-visual-viewport-height: 100dvh;
+  --ls-keyboard-inset: 0px;
   --ls-safe-area-right: env(safe-area-inset-right, 0px);
   --ls-safe-area-bottom: env(safe-area-inset-bottom, 0px);
   --ls-safe-area-left: env(safe-area-inset-left, 0px);
-  --ls-app-navy: #2e3f7d;
+  --ls-app-navy: #1f63d8;
   --ls-app-coral: #18a6c9;
-  --ls-app-indigo: #5366b7;
-  --ls-app-background: #f8f9fc;
-  --ls-app-border: #d9deec;
-  --ls-app-heading: #26335f;
+  --ls-app-indigo: #1f63d8;
+  --ls-app-background: #f7f9fc;
+  --ls-app-border: #e3e9f2;
+  --ls-app-heading: #17233c;
 }
 
 .dashboard-app-shell {
   width: 100%;
   min-width: 0;
   max-width: 100%;
-  overflow-x: hidden;
+  overflow-x: clip;
   background: var(--ls-app-background);
 }
 
@@ -376,6 +378,12 @@ select:active {
     max(0.25rem, var(--ls-safe-area-left));
   box-shadow:
     0 -8px 28px rgba(38, 51, 95, 0.1);
+}
+
+.dashboard-mobile-sticky-actions {
+  bottom:
+    calc(4.5rem + var(--ls-safe-area-bottom));
+  padding-bottom: 0.75rem;
 }
 
 .dashboard-mobile-more-sheet {
@@ -417,6 +425,35 @@ select:active {
   right: 0;
   bottom: 4.5rem;
   margin-top: 0;
+}
+
+/* Android IME: keep form controls visible and remove fixed chrome while typing. */
+@media (max-width: 767px) {
+  body.ls-keyboard-open .dashboard-mobile-bottom-nav,
+  body.ls-keyboard-open .dashboard-whatsapp-fab {
+    pointer-events: none;
+    opacity: 0;
+    transform: translateY(120%);
+  }
+
+  body.ls-keyboard-open .dashboard-mobile-sticky-actions {
+    bottom: 0;
+  }
+
+  body.ls-keyboard-open input:focus,
+  body.ls-keyboard-open textarea:focus,
+  body.ls-keyboard-open select:focus,
+  body.ls-keyboard-open [contenteditable="true"]:focus {
+    scroll-margin-bottom: 8rem;
+  }
+
+  body.ls-keyboard-open .ls-drawer-popup {
+    max-height:
+      min(
+        86dvh,
+        calc(var(--ls-visual-viewport-height) - 0.5rem)
+      );
+  }
 }
 
 
@@ -658,5 +695,324 @@ select:active {
   .ls-upload-progress > span {
     width: 70%;
     animation-duration: 1.8s;
+  }
+}
+
+
+/* LetzShopy native launch branding: shown only inside Capacitor. */
+.ls-native-brand-splash {
+  position: fixed;
+  inset: 0;
+  z-index: 500;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  background:
+    radial-gradient(
+      circle at 50% 43%,
+      rgba(31, 111, 229, 0.085),
+      transparent 28%
+    ),
+    linear-gradient(
+      180deg,
+      #fbfdff 0%,
+      #f5f9ff 100%
+    );
+  opacity: 1;
+  pointer-events: none;
+  transition:
+    opacity 240ms ease,
+    filter 240ms ease;
+}
+
+.ls-native-brand-splash.is-leaving {
+  opacity: 0;
+  filter: blur(1.5px);
+}
+
+.ls-native-brand-orb {
+  position: absolute;
+  border-radius: 999px;
+  background:
+    radial-gradient(
+      circle at 36% 30%,
+      rgba(255, 255, 255, 0.88),
+      rgba(95, 171, 255, 0.15) 58%,
+      rgba(31, 99, 216, 0.02) 74%,
+      transparent 76%
+    );
+  opacity: 0;
+  animation:
+    ls-native-brand-orb-in
+    850ms
+    ease-out
+    forwards;
+}
+
+.ls-native-brand-orb-a {
+  width: min(48vw, 13rem);
+  aspect-ratio: 1;
+  right: -10vw;
+  top: 5.5rem;
+  animation-delay: 100ms;
+}
+
+.ls-native-brand-orb-b {
+  width: min(58vw, 16rem);
+  aspect-ratio: 1;
+  left: -18vw;
+  bottom: 3.5rem;
+  animation-delay: 180ms;
+}
+
+.ls-native-brand-stage {
+  position: relative;
+  display: flex;
+  width: min(88vw, 22.5rem);
+  min-height: 7.2rem;
+  align-items: center;
+  justify-content: center;
+}
+
+.ls-native-brand-mark-shell {
+  position: absolute;
+  left: 50%;
+  display: grid;
+  width: clamp(4.8rem, 22vw, 5.8rem);
+  aspect-ratio: 1 / 1.08;
+  place-items: center;
+  transform:
+    translateX(-50%)
+    scale(0.78);
+  opacity: 0;
+  animation:
+    ls-native-brand-mark-reveal
+      430ms
+      cubic-bezier(0.16, 1, 0.3, 1)
+      60ms
+      forwards,
+    ls-native-brand-mark-shift
+      520ms
+      cubic-bezier(0.2, 0.8, 0.2, 1)
+      470ms
+      forwards;
+}
+
+.ls-native-brand-mark-shell::before {
+  content: "";
+  position: absolute;
+  inset: -18%;
+  z-index: -1;
+  border-radius: 999px;
+  background:
+    radial-gradient(
+      circle,
+      rgba(31, 99, 216, 0.13),
+      rgba(31, 99, 216, 0.03) 52%,
+      transparent 72%
+    );
+  opacity: 0;
+  transform: scale(0.7);
+  animation:
+    ls-native-brand-glow
+    620ms
+    ease-out
+    80ms
+    forwards;
+}
+
+.ls-native-brand-mark {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.ls-native-brand-copy {
+  position: absolute;
+  left: clamp(6.4rem, 27vw, 7.35rem);
+  right: 0;
+  top: 50%;
+  min-width: 0;
+  transform: translateY(-47%);
+}
+
+.ls-native-brand-wordmark {
+  color: #1469df;
+  font-family:
+    var(--font-geist-sans),
+    Arial,
+    Helvetica,
+    sans-serif;
+  font-size: clamp(2rem, 10vw, 2.8rem);
+  font-weight: 720;
+  line-height: 0.95;
+  letter-spacing: -0.058em;
+  opacity: 0;
+  clip-path: inset(0 100% 0 0);
+  transform: translateY(0.45rem);
+  animation:
+    ls-native-brand-wordmark-in
+    530ms
+    cubic-bezier(0.16, 1, 0.3, 1)
+    540ms
+    forwards;
+}
+
+.ls-native-brand-tagline {
+  margin-top: 0.58rem;
+  color: #596579;
+  font-family:
+    var(--font-geist-sans),
+    Arial,
+    Helvetica,
+    sans-serif;
+  font-size: clamp(0.43rem, 1.95vw, 0.58rem);
+  font-weight: 560;
+  line-height: 1;
+  letter-spacing: 0.19em;
+  white-space: nowrap;
+  opacity: 0;
+  transform:
+    translateY(0.35rem)
+    scale(0.985);
+  animation:
+    ls-native-brand-tagline-in
+    430ms
+    ease
+    920ms
+    forwards;
+}
+
+@keyframes ls-native-brand-mark-reveal {
+  0% {
+    opacity: 0;
+    transform:
+      translateX(-50%)
+      translateY(0.45rem)
+      scale(0.78);
+  }
+
+  68% {
+    opacity: 1;
+    transform:
+      translateX(-50%)
+      translateY(-0.05rem)
+      scale(1.035);
+  }
+
+  100% {
+    opacity: 1;
+    transform:
+      translateX(-50%)
+      translateY(0)
+      scale(1);
+  }
+}
+
+@keyframes ls-native-brand-mark-shift {
+  from {
+    left: 50%;
+    transform:
+      translateX(-50%)
+      scale(1);
+  }
+
+  to {
+    left: 0;
+    transform:
+      translateX(0)
+      scale(0.94);
+  }
+}
+
+@keyframes ls-native-brand-glow {
+  0% {
+    opacity: 0;
+    transform: scale(0.7);
+  }
+
+  45% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 0.42;
+    transform: scale(1.08);
+  }
+}
+
+@keyframes ls-native-brand-wordmark-in {
+  from {
+    opacity: 0;
+    clip-path: inset(0 100% 0 0);
+    transform: translateY(0.45rem);
+  }
+
+  to {
+    opacity: 1;
+    clip-path: inset(0 0 0 0);
+    transform: translateY(0);
+  }
+}
+
+@keyframes ls-native-brand-tagline-in {
+  from {
+    opacity: 0;
+    transform:
+      translateY(0.35rem)
+      scale(0.985);
+  }
+
+  to {
+    opacity: 1;
+    transform:
+      translateY(0)
+      scale(1);
+  }
+}
+
+@keyframes ls-native-brand-orb-in {
+  from {
+    opacity: 0;
+    transform: scale(0.88);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@media (max-width: 359px) {
+  .ls-native-brand-stage {
+    width: min(90vw, 20rem);
+  }
+
+  .ls-native-brand-copy {
+    left: 5.8rem;
+  }
+
+  .ls-native-brand-wordmark {
+    font-size: 2rem;
+  }
+
+  .ls-native-brand-tagline {
+    font-size: 0.4rem;
+    letter-spacing: 0.15em;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ls-native-brand-mark-shell,
+  .ls-native-brand-mark-shell::before,
+  .ls-native-brand-wordmark,
+  .ls-native-brand-tagline,
+  .ls-native-brand-orb {
+    animation-duration: 0.01ms !important;
+    animation-delay: 0ms !important;
+  }
+
+  .ls-native-brand-splash {
+    transition-duration: 0.01ms !important;
   }
 }
