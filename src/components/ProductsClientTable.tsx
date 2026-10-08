@@ -179,20 +179,33 @@ function ActionMenu({
             <span>Edit</span>
           </Link>
 
-          <button
-            type="button"
-            onClick={() => {
-              setOpen(false);
-              onBulkClone(product.id);
-            }}
-            className={`${itemClass} text-slate-700 hover:bg-slate-50`}
-          >
-            <Layers
-              className="h-4 w-4 shrink-0 text-[#5366B7]"
-              aria-hidden="true"
-            />
-            <span>Bulk clone</span>
-          </button>
+          {product.type === "simple" ? (
+            <button
+              type="button"
+              onClick={() => {
+                setOpen(false);
+                onBulkClone(product.id);
+              }}
+              className={`${itemClass} text-slate-700 hover:bg-slate-50`}
+            >
+              <Layers
+                className="h-4 w-4 shrink-0 text-[#5366B7]"
+                aria-hidden="true"
+              />
+              <span>Bulk clone</span>
+            </button>
+          ) : (
+            <div
+              className={`${itemClass} cursor-not-allowed text-slate-400`}
+              title="Bulk Clone is available only for Simple products."
+            >
+              <Layers
+                className="h-4 w-4 shrink-0 text-slate-300"
+                aria-hidden="true"
+              />
+              <span>Bulk clone · Simple only</span>
+            </div>
+          )}
 
           <button
             type="button"
@@ -649,6 +662,18 @@ export default function ProductsClientTable({
   }
 
   function rowBulkClone(id: number) {
+    const product = products.find((item) => item.id === id);
+
+    if (!product || product.type !== "simple") {
+      actionFeedback.info({
+        id: "products-bulk-clone-simple-only",
+        title: "Simple products only",
+        message: "Bulk Clone is available only for Simple products.",
+        durationMs: 3200,
+      });
+      return;
+    }
+
     setCloneProductId(id);
     setCloneCount("1");
     setShowCloneModal(true);
@@ -920,7 +945,7 @@ export default function ProductsClientTable({
 
       <div className="md:hidden">
         {pageProducts.length > 0 ? (
-          <div className="divide-y divide-[#E8EBF2] sm:grid sm:grid-cols-2 sm:gap-3 sm:divide-y-0 sm:p-3">
+          <div className="space-y-3 p-2.5">
             {pageProducts.map((product) => {
               const image = product.images?.[0]?.src;
               const categoryNames = (product.categories || [])
@@ -930,113 +955,102 @@ export default function ProductsClientTable({
               return (
                 <article
                   key={product.id}
-                  className="min-w-0 bg-white px-3 py-4 sm:rounded-2xl sm:border sm:border-[#E5E9F2] sm:p-3"
+                  className="min-w-0 overflow-hidden rounded-2xl border border-[#E2E6EF] bg-white shadow-[0_8px_24px_rgba(38,51,95,0.07)]"
                 >
-                  <div className="flex min-w-0 items-start gap-3">
+                  <header className="flex min-w-0 items-start gap-2.5 border-b border-[#ECEFF5] bg-[#F8F9FC] px-3 py-3">
                     <input
                       type="checkbox"
                       checked={checked.includes(product.id)}
                       onChange={() => toggle(product.id)}
-                      className="mt-2 shrink-0"
+                      aria-label={`Select ${product.name || "product"}`}
+                      className="mt-1 h-4 w-4 shrink-0 accent-[#18A6C9]"
                     />
 
-                    {image ? (
-                      <img
-                        src={image}
-                        alt={product.name}
-                        className="h-16 w-16 shrink-0 rounded-xl border border-slate-100 object-cover"
-                      />
-                    ) : (
-                      <div className="grid h-16 w-16 shrink-0 place-items-center rounded-xl border border-dashed border-slate-200 bg-slate-50 text-[10px] text-slate-400">
-                        No image
-                      </div>
-                    )}
-
-                    <div className="min-w-0 flex-1">
-                      <div className="flex min-w-0 items-start gap-2">
-                        <Link
-                          href={`/products/${product.id}`}
-                          title={product.name}
-                          className="min-w-0 flex-1 line-clamp-2 text-sm font-extrabold leading-5 text-[#26335F]"
-                        >
-                          {product.name || "(no title)"}
-                        </Link>
-
-                        <ActionMenu
-                          product={product}
-                          onBulkClone={rowBulkClone}
-                          onDuplicate={rowDuplicate}
-                          onTrash={rowTrash}
-                          onView={rowView}
-                        />
-                      </div>
-
-                      <div className="mt-2 flex flex-wrap items-center gap-2">
-                        <span className="text-base font-extrabold text-[#26335F]">
-                          {formatDashboardPrice(product)}
-                        </span>
-
-                        <StockBadge
-                          status={product.stock_status}
-                          qty={
-                            typeof product.stock_quantity === "number"
-                              ? product.stock_quantity
-                              : undefined
-                          }
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="mt-3 grid grid-cols-2 gap-x-3 gap-y-2 border-t border-[#EEF0F5] pt-3 text-xs">
-                    <div className="min-w-0">
-                      <div className="text-[10px] font-bold uppercase tracking-[0.06em] text-slate-400">
-                        SKU
-                      </div>
-                      <div className="mt-0.5 truncate font-semibold text-slate-700">
-                        {product.sku || "-"}
-                      </div>
-                    </div>
-
-                    <div className="min-w-0">
-                      <div className="text-[10px] font-bold uppercase tracking-[0.06em] text-slate-400">
-                        Type
-                      </div>
-                      <div className="mt-0.5 truncate font-semibold capitalize text-slate-700">
-                        {product.type || "-"}
-                      </div>
-                    </div>
-
-                    <div className="min-w-0">
-                      <div className="text-[10px] font-bold uppercase tracking-[0.06em] text-slate-400">
-                        Category
-                      </div>
-                      <div className="mt-0.5 truncate font-semibold text-slate-700">
-                        {categoryNames || "-"}
-                      </div>
-                    </div>
-
-                    <div className="min-w-0">
-                      <div className="text-[10px] font-bold uppercase tracking-[0.06em] text-slate-400">
-                        Visibility
-                      </div>
-                      <div className="mt-0.5 truncate font-semibold capitalize text-slate-700">
-                        {product.catalog_visibility || "visible"}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="mt-3 flex items-center justify-between border-t border-[#EEF0F5] pt-3">
-                    <span className="text-[11px] text-slate-400">
-                      Added {fmtDate(product.date_created)}
-                    </span>
-
                     <Link
-                      href={`/products/${product.id}/edit`}
-                      className="inline-flex min-h-9 items-center justify-center rounded-xl bg-[#EEF1FA] px-3 text-xs font-bold text-[#2E3F7D]"
+                      href={`/products/${product.id}`}
+                      title={product.name}
+                      className="min-w-0 flex-1 line-clamp-2 text-sm font-extrabold leading-5 text-[#26335F]"
                     >
-                      Edit product
+                      {product.name || "(no title)"}
                     </Link>
+
+                    <ActionMenu
+                      product={product}
+                      onBulkClone={rowBulkClone}
+                      onDuplicate={rowDuplicate}
+                      onTrash={rowTrash}
+                      onView={rowView}
+                    />
+                  </header>
+
+                  <div className="p-3">
+                    <div className="flex min-w-0 gap-3">
+                      {image ? (
+                        <img
+                          src={image}
+                          alt={product.name}
+                          className="h-[72px] w-[72px] shrink-0 rounded-xl border border-slate-100 object-cover"
+                        />
+                      ) : (
+                        <div className="grid h-[72px] w-[72px] shrink-0 place-items-center rounded-xl border border-dashed border-slate-200 bg-slate-50 text-[10px] text-slate-400">
+                          No image
+                        </div>
+                      )}
+
+                      <div className="min-w-0 flex-1">
+                        <div className="text-lg font-extrabold text-[#26335F]">
+                          {formatDashboardPrice(product)}
+                        </div>
+
+                        <div className="mt-2">
+                          <StockBadge
+                            status={product.stock_status}
+                            qty={
+                              typeof product.stock_quantity === "number"
+                                ? product.stock_quantity
+                                : undefined
+                            }
+                          />
+                        </div>
+
+                        <div className="mt-2 inline-flex rounded-full bg-[#EEF1FA] px-2.5 py-1 text-[10px] font-bold capitalize text-[#5366B7]">
+                          {product.type || "product"}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="mt-3 divide-y divide-[#E7EAF1] rounded-xl bg-[#F7F8FC] px-3">
+                      <div className="flex min-w-0 items-center justify-between gap-3 py-2.5 text-xs">
+                        <span className="shrink-0 font-bold text-slate-400">
+                          SKU
+                        </span>
+                        <span className="min-w-0 truncate text-right font-semibold text-slate-700">
+                          {product.sku || "—"}
+                        </span>
+                      </div>
+
+                      <div className="flex min-w-0 items-start justify-between gap-3 py-2.5 text-xs">
+                        <span className="shrink-0 font-bold text-slate-400">
+                          Category
+                        </span>
+                        <span className="min-w-0 line-clamp-2 text-right font-semibold leading-4 text-slate-700">
+                          {categoryNames || "—"}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="mt-3 flex items-center justify-between gap-3">
+                      <span className="min-w-0 truncate text-[11px] text-slate-400">
+                        Added {fmtDate(product.date_created)}
+                      </span>
+
+                      <Link
+                        href={`/products/${product.id}/edit`}
+                        className="inline-flex min-h-9 shrink-0 items-center justify-center rounded-xl bg-[#EEF1FA] px-3 text-xs font-extrabold text-[#2E3F7D]"
+                      >
+                        Edit
+                      </Link>
+                    </div>
                   </div>
                 </article>
               );

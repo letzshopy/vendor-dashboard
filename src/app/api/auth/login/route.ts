@@ -302,29 +302,42 @@ async function readBody(
   };
 }
 
-function createSigninErrorUrl(
-  requestUrl: string,
+function createSigninErrorPath(
   message: string,
   nextPath: string
-): URL {
-  const signinUrl = new URL(
-    "/signin",
-    requestUrl
-  );
+): string {
+  const params =
+    new URLSearchParams();
 
-  signinUrl.searchParams.set(
+  params.set(
     "error",
     message
   );
 
   if (nextPath) {
-    signinUrl.searchParams.set(
+    params.set(
       "next",
       nextPath
     );
   }
 
-  return signinUrl;
+  return `/signin?${params.toString()}`;
+}
+
+function relativeRedirect(
+  location: string,
+  status: 302 | 303
+): NextResponse {
+  return new NextResponse(
+    null,
+    {
+      status,
+      headers: {
+        Location:
+          location,
+      },
+    }
+  );
 }
 
 function clearCookie(
@@ -434,9 +447,8 @@ function loginErrorResponse(
   status: number
 ): NextResponse {
   if (mode === "form") {
-    return NextResponse.redirect(
-      createSigninErrorUrl(
-        request.url,
+    return relativeRedirect(
+      createSigninErrorPath(
         message,
         nextPath
       ),
@@ -647,11 +659,8 @@ export async function POST(
     }
 
     const response =
-      NextResponse.redirect(
-        new URL(
-          redirectPath,
-          request.url
-        ),
+      relativeRedirect(
+        redirectPath,
         303
       );
 

@@ -226,6 +226,133 @@ async function getAllParentSkus(
   );
 }
 
+async function getVariableParentIds(
+  woo: AxiosInstance
+): Promise<number[]> {
+  const ids: number[] = [];
+
+  for (
+    let page = 1;
+    page <= MAX_PRODUCT_PAGES;
+    page += 1
+  ) {
+    const response = await woo.get(
+      "/products",
+      {
+        params: {
+          per_page: PRODUCT_PAGE_SIZE,
+          page,
+          status: "any",
+          type: "variable",
+          _fields: "id",
+        },
+      }
+    );
+
+    const products = Array.isArray(
+      response.data
+    )
+      ? response.data
+      : [];
+
+    for (const product of products) {
+      if (!isRecord(product)) continue;
+
+      const id = Number(product.id);
+
+      if (
+        Number.isSafeInteger(id) &&
+        id > 0
+      ) {
+        ids.push(id);
+      }
+    }
+
+    const totalPagesHeader = Number(
+      response.headers[
+        "x-wp-totalpages"
+      ] ?? 0
+    );
+
+    const reachedReportedEnd =
+      Number.isFinite(totalPagesHeader) &&
+      totalPagesHeader > 0 &&
+      page >= totalPagesHeader;
+
+    if (
+      reachedReportedEnd ||
+      products.length < PRODUCT_PAGE_SIZE
+    ) {
+      return ids;
+    }
+  }
+
+  throw new RangeError(
+    "Too many product pages to verify variation SKUs safely"
+  );
+}
+
+async function variationSkuExists(
+  woo: AxiosInstance,
+  parentIds: number[],
+  sku: string
+): Promise<boolean> {
+  let nextIndex = 0;
+  let found = false;
+
+  async function worker() {
+    while (!found) {
+      const index = nextIndex;
+      nextIndex += 1;
+
+      if (index >= parentIds.length) {
+        return;
+      }
+
+      const productId =
+        parentIds[index];
+
+      const response = await woo.get(
+        `/products/${productId}/variations`,
+        {
+          params: {
+            per_page: 1,
+            sku,
+            status: "any",
+            _fields: "id",
+          },
+        }
+      );
+
+      if (
+        Array.isArray(response.data) &&
+        response.data.some(
+          (item: unknown) =>
+            isRecord(item) &&
+            Number(item.id) > 0
+        )
+      ) {
+        found = true;
+        return;
+      }
+    }
+  }
+
+  const workerCount = Math.min(
+    6,
+    parentIds.length
+  );
+
+  await Promise.all(
+    Array.from(
+      { length: workerCount },
+      () => worker()
+    )
+  );
+
+  return found;
+}
+
 export async function skuExists(
   woo: AxiosInstance,
   rawSku: unknown
@@ -248,13 +375,29 @@ export async function skuExists(
     }
   );
 
-  return (
+  const parentExists =
     Array.isArray(response.data) &&
     response.data.some(
       (item: unknown) =>
         isRecord(item) &&
         Number(item.id) > 0
-    )
+    );
+
+  if (parentExists) {
+    return true;
+  }
+
+  const variableParentIds =
+    await getVariableParentIds(woo);
+
+  if (variableParentIds.length === 0) {
+    return false;
+  }
+
+  return variationSkuExists(
+    woo,
+    variableParentIds,
+    sku
   );
 }
 

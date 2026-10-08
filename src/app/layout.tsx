@@ -1,9 +1,11 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { Suspense } from "react";
 
 import PwaRegister from "@/components/pwa/PwaRegister";
+import MobileViewportBridge from "@/components/navigation/MobileViewportBridge";
+import CapacitorNativeBridge from "@/components/native/CapacitorNativeBridge";
 
 export const metadata: Metadata = {
   title: "LetzShopy Vendor Dashboard",
@@ -29,6 +31,13 @@ export const metadata: Metadata = {
   },
 };
 
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+  themeColor: "#F8FAFC",
+};
+
 export const dynamic = "force-dynamic";
 
 const geistSans = Geist({
@@ -47,12 +56,13 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <body
         className={`${geistSans.variable} ${geistMono.variable} bg-background text-foreground antialiased`}
       >
         <PwaRegister />
-
+        <MobileViewportBridge />
+        <CapacitorNativeBridge />
 
         <Suspense
           fallback={

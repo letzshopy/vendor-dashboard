@@ -2,9 +2,15 @@
 
 import { Dialog } from "@base-ui/react/dialog";
 import { AlertTriangle } from "lucide-react";
+import {
+  useEffect,
+} from "react";
 
 import { AsyncButton } from "@/components/ui/async-button";
 import { Button } from "@/components/ui/button";
+import {
+  LETZSHOPY_NATIVE_BACK_EVENT,
+} from "@/lib/nativeNavigation";
 
 type ConfirmDialogProps = {
   open: boolean;
@@ -31,6 +37,37 @@ export function ConfirmDialog({
   destructive = false,
   onConfirm,
 }: ConfirmDialogProps) {
+  useEffect(() => {
+    if (
+      !open ||
+      loading
+    ) {
+      return;
+    }
+
+    function closeOnNativeBack(
+      event: Event
+    ) {
+      event.preventDefault();
+      onOpenChange(false);
+    }
+
+    window.addEventListener(
+      LETZSHOPY_NATIVE_BACK_EVENT,
+      closeOnNativeBack
+    );
+
+    return () =>
+      window.removeEventListener(
+        LETZSHOPY_NATIVE_BACK_EVENT,
+        closeOnNativeBack
+      );
+  }, [
+    loading,
+    onOpenChange,
+    open,
+  ]);
+
   return (
     <Dialog.Root
       open={open}

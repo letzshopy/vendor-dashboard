@@ -4,7 +4,15 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 
+import ImageUploader, {
+  type MediaUploadResult,
+} from "@/components/ImageUploader";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { optimizeContentImageForUpload } from "@/lib/clientImageOptimizer";
+import {
+  LETZSHOPY_NATIVE_BACK_EVENT,
+} from "@/lib/nativeNavigation";
+import { productContentText } from "@/lib/productContentText";
 import { actionFeedback } from "@/lib/actionFeedback";
 import {
   ArrowLeft,
@@ -85,6 +93,56 @@ type UploadedColourGallery = {
   option: string;
   imageIds: number[];
 };
+
+type GuidedSection =
+  | "type"
+  | "info"
+  | "variations"
+  | "photos"
+  | "pricing"
+  | "description"
+  | "extra"
+  | "review";
+
+type ProductSuccess = {
+  kind: "created" | "updated";
+  productId: number;
+  productName: string;
+  status: "draft" | "publish";
+};
+
+function guidedOrder(
+  productType: ProductType | null
+): GuidedSection[] {
+  if (productType === "simple") {
+    return [
+      "type",
+      "info",
+      "photos",
+      "pricing",
+      "description",
+      "extra",
+      "review",
+    ];
+  }
+
+  if (
+    productType === "variable-size" ||
+    productType === "variable-colour"
+  ) {
+    return [
+      "type",
+      "info",
+      "variations",
+      "photos",
+      "description",
+      "extra",
+      "review",
+    ];
+  }
+
+  return ["type", "info"];
+}
 
 const SIMPLE_FLOW: WizardScreen[] = [
   "category",
@@ -380,6 +438,10 @@ export default function ProductCreationWizard({
   const [originalSku, setOriginalSku] = useState("");
   const [shortDescription, setShortDescription] = useState("");
   const [description, setDescription] = useState("");
+  const [originalShortDescription, setOriginalShortDescription] = useState("");
+  const [originalDescription, setOriginalDescription] = useState("");
+  const [shortDescriptionEdited, setShortDescriptionEdited] = useState(false);
+  const [descriptionEdited, setDescriptionEdited] = useState(false);
 
   const [regularPrice, setRegularPrice] = useState("");
   const [stockQuantity, setStockQuantity] = useState("");
@@ -428,8 +490,36 @@ export default function ProductCreationWizard({
 
   const [query, setQuery] = useState("");
   const [newCategoryName, setNewCategoryName] = useState("");
+  const [newCategoryParentId, setNewCategoryParentId] =
+    useState(0);
+  const [newCategoryImage, setNewCategoryImage] =
+    useState<MediaUploadResult | null>(null);
   const [categoryCreateOpen, setCategoryCreateOpen] =
     useState(false);
+
+  const [openSection, setOpenSection] =
+    useState<GuidedSection>(editMode ? "info" : "type");
+  const [unlockedSections, setUnlockedSections] =
+    useState<GuidedSection[]>(editMode ? ["type", "info"] : ["type"]);
+  const [sharedVariationPrice, setSharedVariationPrice] =
+    useState("");
+  const [activeColourPhotoRowId, setActiveColourPhotoRowId] =
+    useState<string | null>(null);
+  const [discardOpen, setDiscardOpen] = useState(false);
+  const [successResult, setSuccessResult] =
+    useState<ProductSuccess | null>(null);
+  const pendingLeaveRef = useRef<
+    | { kind: "back" }
+    | { kind: "href"; href: string }
+    | null
+  >(null);
+  const bypassLeaveRef = useRef(false);
+  const baselineRef = useRef("");
+  const [baselineReady, setBaselineReady] =
+    useState(false);
+  const requestedStatusRef = useRef<
+    "draft" | "publish" | null
+  >(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] =
     useState<string | null>(null);
@@ -645,16 +735,21 @@ export default function ProductCreationWizard({
         setSku(loadedSku);
         setOriginalSku(loadedSku);
 
-        setShortDescription(
+        const loadedShortDescription =
           typeof productJson.short_description === "string"
             ? productJson.short_description
-            : ""
-        );
-        setDescription(
+            : "";
+        const loadedDescription =
           typeof productJson.description === "string"
             ? productJson.description
-            : ""
-        );
+            : "";
+
+        setOriginalShortDescription(loadedShortDescription);
+        setOriginalDescription(loadedDescription);
+        setShortDescription(productContentText(loadedShortDescription));
+        setDescription(productContentText(loadedDescription));
+        setShortDescriptionEdited(false);
+        setDescriptionEdited(false);
         setRegularPrice(
           typeof productJson.regular_price === "string"
             ? productJson.regular_price
@@ -773,7 +868,7 @@ export default function ProductCreationWizard({
                     existing: true,
                   }];
                 }
-              )
+              ).slice(0, 5)
             : [];
 
         setLocalPhotos(existingProductPhotos);
@@ -901,7 +996,7 @@ export default function ProductCreationWizard({
                                   existing: true,
                                 }];
                               }
-                            )
+                            ).slice(0, 3)
                           : [];
 
                       return [[variationId, photos] as const];
@@ -1302,6 +1397,361 @@ export default function ProductCreationWizard({
     }
   })();
 
+  const guidedFingerprint = useMemo(
+    () =>
+      JSON.stringify({
+        selectedCategoryId,
+        selectedProductType,
+        productName,
+        sku,
+        shortDescription,
+        description,
+        regularPrice,
+        stockQuantity,
+        weight,
+        dimensionsEnabled,
+        length,
+        width,
+        height,
+        color,
+        tags,
+        localPhotos: localPhotos.map((photo) => ({
+          id: photo.id,
+          mediaId: photo.mediaId || null,
+          name: photo.name,
+        })),
+        sizeRows: sizeRows.map((row) => ({
+          id: row.id,
+          option: row.option,
+          price: row.price,
+          quantity: row.quantity,
+          variationId: row.variationId || null,
+        })),
+        colourRows: colourRows.map((row) => ({
+          id: row.id,
+          option: row.option,
+          price: row.price,
+          quantity: row.quantity,
+          variationId: row.variationId || null,
+          photos: row.photos.map((photo) => ({
+            id: photo.id,
+            mediaId: photo.mediaId || null,
+            name: photo.name,
+          })),
+        })),
+        status,
+        visibility,
+      }),
+    [
+      selectedCategoryId,
+      selectedProductType,
+      productName,
+      sku,
+      shortDescription,
+      description,
+      regularPrice,
+      stockQuantity,
+      weight,
+      dimensionsEnabled,
+      length,
+      width,
+      height,
+      color,
+      tags,
+      localPhotos,
+      sizeRows,
+      colourRows,
+      status,
+      visibility,
+    ]
+  );
+
+  useEffect(() => {
+    if (editLoading || baselineReady) {
+      return;
+    }
+
+    baselineRef.current = guidedFingerprint;
+    setBaselineReady(true);
+  }, [
+    editLoading,
+    baselineReady,
+    guidedFingerprint,
+  ]);
+
+  const hasUnsavedProductChanges =
+    baselineReady &&
+    guidedFingerprint !== baselineRef.current &&
+    successResult === null;
+
+  useEffect(() => {
+    function onBeforeUnload(
+      event: BeforeUnloadEvent
+    ) {
+      if (!hasUnsavedProductChanges) return;
+
+      event.preventDefault();
+      event.returnValue = "";
+    }
+
+    function onNativeBack(event: Event) {
+      if (
+        !hasUnsavedProductChanges ||
+        bypassLeaveRef.current
+      ) {
+        return;
+      }
+
+      event.preventDefault();
+      pendingLeaveRef.current = {
+        kind: "back",
+      };
+      setDiscardOpen(true);
+    }
+
+    function onLinkClick(event: MouseEvent) {
+      if (
+        !hasUnsavedProductChanges ||
+        bypassLeaveRef.current ||
+        event.defaultPrevented ||
+        event.button !== 0
+      ) {
+        return;
+      }
+
+      const target =
+        event.target as HTMLElement | null;
+      const anchor =
+        target?.closest("a[href]") as
+          | HTMLAnchorElement
+          | null;
+
+      if (
+        !anchor ||
+        (anchor.target &&
+          anchor.target !== "_self")
+      ) {
+        return;
+      }
+
+      let url: URL;
+
+      try {
+        url = new URL(
+          anchor.href,
+          window.location.href
+        );
+      } catch {
+        return;
+      }
+
+      if (
+        url.origin !== window.location.origin
+      ) {
+        return;
+      }
+
+      const current =
+        new URL(window.location.href);
+
+      if (
+        url.pathname === current.pathname &&
+        url.search === current.search &&
+        url.hash === current.hash
+      ) {
+        return;
+      }
+
+      event.preventDefault();
+      event.stopPropagation();
+
+      pendingLeaveRef.current = {
+        kind: "href",
+        href:
+          url.pathname +
+          url.search +
+          url.hash,
+      };
+      setDiscardOpen(true);
+    }
+
+    window.addEventListener(
+      "beforeunload",
+      onBeforeUnload
+    );
+    window.addEventListener(
+      LETZSHOPY_NATIVE_BACK_EVENT,
+      onNativeBack
+    );
+    window.addEventListener(
+      "click",
+      onLinkClick,
+      true
+    );
+
+    return () => {
+      window.removeEventListener(
+        "beforeunload",
+        onBeforeUnload
+      );
+      window.removeEventListener(
+        LETZSHOPY_NATIVE_BACK_EVENT,
+        onNativeBack
+      );
+      window.removeEventListener(
+        "click",
+        onLinkClick,
+        true
+      );
+    };
+  }, [hasUnsavedProductChanges]);
+
+  useEffect(() => {
+    if (
+      editMode &&
+      !editLoading &&
+      selectedProductType
+    ) {
+      const order =
+        guidedOrder(selectedProductType);
+      setUnlockedSections(order);
+      setOpenSection("info");
+    }
+  }, [
+    editMode,
+    editLoading,
+    selectedProductType,
+  ]);
+
+  useEffect(() => {
+    if (
+      selectedProductType ===
+        "variable-colour" &&
+      colourRows.length > 0 &&
+      !activeColourPhotoRowId
+    ) {
+      setActiveColourPhotoRowId(
+        colourRows[0].id
+      );
+    }
+  }, [
+    selectedProductType,
+    colourRows,
+    activeColourPhotoRowId,
+  ]);
+
+  function scrollToGuidedSection(
+    section: GuidedSection
+  ) {
+    window.setTimeout(() => {
+      document
+        .getElementById(
+          `product-section-${section}`
+        )
+        ?.scrollIntoView({
+          behavior: "smooth",
+          block: "start",
+        });
+    }, 80);
+  }
+
+  function unlockAndOpen(
+    section: GuidedSection
+  ) {
+    setUnlockedSections((current) =>
+      current.includes(section)
+        ? current
+        : [...current, section]
+    );
+    setOpenSection(section);
+    scrollToGuidedSection(section);
+  }
+
+  function chooseGuidedProductType(
+    productType: ProductType
+  ) {
+    if (
+      editMode &&
+      selectedProductType &&
+      selectedProductType !== productType
+    ) {
+      actionFeedback.info({
+        id: "product-type-locked",
+        title: "Product type is locked",
+        message:
+          "Create a new product if you need a different product type.",
+        durationMs: 3200,
+      });
+      return;
+    }
+
+    if (
+      selectedProductType !== productType
+    ) {
+      chooseProductType(productType);
+    }
+
+    setUnlockedSections([
+      "type",
+      "info",
+    ]);
+    setOpenSection("info");
+    scrollToGuidedSection("info");
+  }
+
+  function requestProductLeave(
+    href?: string
+  ) {
+    if (
+      !hasUnsavedProductChanges
+    ) {
+      if (href) {
+        router.push(href);
+      } else {
+        window.history.back();
+      }
+      return;
+    }
+
+    pendingLeaveRef.current = href
+      ? {
+          kind: "href",
+          href,
+        }
+      : {
+          kind: "back",
+        };
+    setDiscardOpen(true);
+  }
+
+  function discardProductChanges() {
+    const pending =
+      pendingLeaveRef.current;
+
+    pendingLeaveRef.current = null;
+    bypassLeaveRef.current = true;
+    baselineRef.current =
+      guidedFingerprint;
+    setDiscardOpen(false);
+
+    window.setTimeout(() => {
+      if (!pending) {
+        bypassLeaveRef.current = false;
+        return;
+      }
+
+      if (pending.kind === "href") {
+        router.push(pending.href);
+      } else {
+        window.history.back();
+      }
+
+      window.setTimeout(() => {
+        bypassLeaveRef.current = false;
+      }, 300);
+    }, 0);
+  }
+
   function selectCategory(category: Category) {
     setSelectedCategoryId((currentId) =>
       currentId === category.id ? null : category.id
@@ -1345,6 +1795,9 @@ export default function ProductCreationWizard({
           },
           body: JSON.stringify({
             name,
+            parent: newCategoryParentId,
+            image_id:
+              newCategoryImage?.id || undefined,
           }),
         }
       );
@@ -1389,6 +1842,8 @@ export default function ProductCreationWizard({
         createdCategory.id
       );
       setNewCategoryName("");
+      setNewCategoryParentId(0);
+      setNewCategoryImage(null);
       setCategoryCreateOpen(false);
       setConfirmation(null);
 
@@ -2009,31 +2464,65 @@ export default function ProductCreationWizard({
       );
     }
 
-    const form = new FormData();
+    const rawBytes =
+      await preparedFile.arrayBuffer();
 
-    form.append(
-      "file",
-      preparedFile,
-      preparedFile.name
-    );
-    form.append(
-      "purpose",
-      "product_image"
-    );
+    let response: Response | null = null;
+    let lastNetworkError: unknown = null;
 
-    let response: Response;
+    for (
+      let attempt = 0;
+      attempt < 2;
+      attempt += 1
+    ) {
+      try {
+        response = await fetch(
+          "/api/media/upload",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type":
+                preparedFile.type ||
+                "application/octet-stream",
+              "X-LetzShopy-Upload-Mode":
+                "raw",
+              "X-LetzShopy-Filename":
+                encodeURIComponent(
+                  preparedFile.name
+                ),
+              "X-LetzShopy-Purpose":
+                "product_image",
+            },
+            body: rawBytes.slice(0),
+            cache: "no-store",
+            credentials: "same-origin",
+          }
+        );
 
-    try {
-      response = await fetch(
-        "/api/media/upload",
-        {
-          method: "POST",
-          body: form,
+        break;
+      } catch (error: unknown) {
+        lastNetworkError = error;
+
+        if (attempt === 0) {
+          await new Promise<void>(
+            (resolve) =>
+              window.setTimeout(
+                resolve,
+                350
+              )
+          );
         }
+      }
+    }
+
+    if (!response) {
+      console.error(
+        "Product image upload network failure",
+        lastNetworkError
       );
-    } catch {
+
       throw new Error(
-        `"${photo.name}" could not be uploaded because the connection was interrupted.`
+        `"${photo.name}" could not be uploaded after reconnecting. Please check the app connection and try again.`
       );
     }
 
@@ -2091,7 +2580,7 @@ export default function ProductCreationWizard({
     }
 
     const workerCount = Math.min(
-      4,
+      1,
       photos.length
     );
 
@@ -2761,31 +3250,24 @@ export default function ProductCreationWizard({
 
   async function completeProductUpdate() {
     const productId = Number(editProductId);
+    const effectiveStatus =
+      requestedStatusRef.current ?? status;
 
-    actionFeedback.success({
-      id: "product-update",
-      title: "Product updated",
-      message: `${productName.trim() || "Product"} · Opening product details…`,
-      durationMs: 3000,
-    });
-
+    baselineRef.current =
+      guidedFingerprint;
     setOriginalSku(sku.trim());
+    requestedStatusRef.current = null;
 
-    router.prefetch(
-      `/products/${productId}`
-    );
-
-    await new Promise<void>((resolve) => {
-      window.setTimeout(resolve, 350);
+    setSuccessResult({
+      kind: "updated",
+      productId,
+      productName:
+        productName.trim() || "Product",
+      status: effectiveStatus,
     });
 
-    window.dispatchEvent(
-      new Event("letzshopy:navigation-start")
-    );
+    // Success is shown only in the modal.
 
-    router.replace(
-      `/products/${productId}`
-    );
   }
 
   async function updateExistingProduct() {
@@ -2801,6 +3283,8 @@ export default function ProductCreationWizard({
 
     const productId = Number(editProductId);
     const feedbackId = "product-update";
+    const effectiveStatus =
+      requestedStatusRef.current ?? status;
 
     try {
       setSubmitting(true);
@@ -2813,10 +3297,16 @@ export default function ProductCreationWizard({
       const commonPayload: JsonRecord = {
         name: productName.trim(),
         sku: sku.trim(),
-        status,
+        status: effectiveStatus,
         catalog_visibility: visibility,
-        short_description: shortDescription.trim(),
-        description: description.trim(),
+        short_description:
+          editMode && !shortDescriptionEdited
+            ? originalShortDescription.trim()
+            : shortDescription.trim(),
+        description:
+          editMode && !descriptionEdited
+            ? originalDescription.trim()
+            : description.trim(),
         weight: weight.trim(),
         categories: [
           {
@@ -3203,34 +3693,66 @@ export default function ProductCreationWizard({
     }
   }
 
-  async function completeProductCreate() {
+  async function completeProductCreate(
+    productId: number
+  ) {
     const createdName =
       productName.trim() ||
       "Product";
+    const effectiveStatus =
+      requestedStatusRef.current ?? status;
 
-    actionFeedback.success({
-      id: "product-create",
-      title:
-        status === "publish"
-          ? "Product created"
-          : "Draft created",
-      message:
-        `${createdName} · Opening Products…`,
-      durationMs: 3200,
+    baselineRef.current =
+      guidedFingerprint;
+    requestedStatusRef.current = null;
+
+    setSuccessResult({
+      kind: "created",
+      productId,
+      productName: createdName,
+      status: effectiveStatus,
     });
 
-    router.prefetch("/products");
+    // Success is shown only in the modal.
 
-    await new Promise<void>(
-      (resolve) => {
-        window.setTimeout(
-          resolve,
-          450
-        );
-      }
+  }
+
+  function isDuplicateSkuMessage(
+    message: string
+  ) {
+    const normalized =
+      message.toLowerCase();
+
+    return (
+      normalized.includes("sku") &&
+      (
+        normalized.includes(
+          "already present"
+        ) ||
+        normalized.includes(
+          "already taken"
+        ) ||
+        normalized.includes(
+          "already exists"
+        ) ||
+        normalized.includes(
+          "duplicate"
+        ) ||
+        normalized.includes(
+          "lookup table"
+        )
+      )
     );
+  }
 
-    router.replace("/products");
+  function cleanProductErrorMessage(
+    message: string
+  ) {
+    return isDuplicateSkuMessage(
+      message
+    )
+      ? "SKU already in use. Choose a different SKU."
+      : message;
   }
 
   function notifyProductCreateError(
@@ -3244,6 +3766,9 @@ export default function ProductCreationWizard({
   }
 
   async function createSizeProduct() {
+    const effectiveStatus =
+      requestedStatusRef.current ?? status;
+
     if (
       submitting ||
       selectedProductType !== "variable-size"
@@ -3307,7 +3832,7 @@ export default function ProductCreationWizard({
         type: "variable",
         name: productName.trim(),
         sku: sku.trim(),
-        status,
+        status: effectiveStatus,
         catalog_visibility: visibility,
         short_description:
           shortDescription.trim(),
@@ -3456,7 +3981,7 @@ export default function ProductCreationWizard({
         );
       }
 
-      await completeProductCreate();
+      await completeProductCreate(productId);
     } catch (error: unknown) {
       const partialIds =
         error instanceof Error &&
@@ -3490,21 +4015,29 @@ export default function ProductCreationWizard({
         error instanceof Error
           ? error.message
           : "Size product creation failed.";
+      const duplicateSku =
+        isDuplicateSkuMessage(
+          rawMessage
+        );
+      const cleanedMessage =
+        cleanProductErrorMessage(
+          rawMessage
+        );
 
       const message =
-        productId > 0
-          ? `${rawMessage} Product #${productId} was created, but its size variations were not completed.`
-          : rawMessage;
+        productId > 0 &&
+        !duplicateSku
+          ? `${cleanedMessage} Product #${productId} was created, but its size variations were not completed.`
+          : cleanedMessage;
 
       setSubmitError(message);
       notifyProductCreateError(
         message
       );
 
-      if (
-        rawMessage === "SKU already taken"
-      ) {
+      if (duplicateSku) {
         setSkuTaken(true);
+        unlockAndOpen("info");
       }
     } finally {
       setSubmitStage(null);
@@ -3513,6 +4046,9 @@ export default function ProductCreationWizard({
   }
 
   async function createColourProduct() {
+    const effectiveStatus =
+      requestedStatusRef.current ?? status;
+
     if (
       submitting ||
       selectedProductType !== "variable-colour"
@@ -3613,7 +4149,7 @@ export default function ProductCreationWizard({
         type: "variable",
         name: productName.trim(),
         sku: sku.trim(),
-        status,
+        status: effectiveStatus,
         catalog_visibility: visibility,
         short_description:
           shortDescription.trim(),
@@ -3878,7 +4414,7 @@ export default function ProductCreationWizard({
         );
       }
 
-      await completeProductCreate();
+      await completeProductCreate(productId);
     } catch (error: unknown) {
       const partialIds =
         error instanceof Error &&
@@ -3912,21 +4448,29 @@ export default function ProductCreationWizard({
         error instanceof Error
           ? error.message
           : "Colour product creation failed.";
+      const duplicateSku =
+        isDuplicateSkuMessage(
+          rawMessage
+        );
+      const cleanedMessage =
+        cleanProductErrorMessage(
+          rawMessage
+        );
 
       const message =
-        productId > 0
-          ? `${rawMessage} Product #${productId} was created, but its colour setup was not completed.`
-          : rawMessage;
+        productId > 0 &&
+        !duplicateSku
+          ? `${cleanedMessage} Product #${productId} was created, but its colour setup was not completed.`
+          : cleanedMessage;
 
       setSubmitError(message);
       notifyProductCreateError(
         message
       );
 
-      if (
-        rawMessage === "SKU already taken"
-      ) {
+      if (duplicateSku) {
         setSkuTaken(true);
+        unlockAndOpen("info");
       }
     } finally {
       setSubmitStage(null);
@@ -3935,6 +4479,9 @@ export default function ProductCreationWizard({
   }
 
   async function createSimpleProduct() {
+    const effectiveStatus =
+      requestedStatusRef.current ?? status;
+
     if (
       submitting ||
       selectedProductType !== "simple"
@@ -3986,7 +4533,7 @@ export default function ProductCreationWizard({
       const payload: JsonRecord = {
         type: "simple",
         name: productName.trim(),
-        status,
+        status: effectiveStatus,
         catalog_visibility: visibility,
         short_description:
           shortDescription.trim(),
@@ -4069,7 +4616,7 @@ export default function ProductCreationWizard({
         );
       }
 
-      await completeProductCreate();
+      await completeProductCreate(productId);
     } catch (error: unknown) {
       const partialIds =
         error instanceof Error &&
@@ -4097,24 +4644,152 @@ export default function ProductCreationWizard({
         cleanupIds
       );
 
-      const message =
+      const rawMessage =
         error instanceof Error
           ? error.message
           : "Product creation failed.";
+      const duplicateSku =
+        isDuplicateSkuMessage(
+          rawMessage
+        );
+      const message =
+        cleanProductErrorMessage(
+          rawMessage
+        );
 
       setSubmitError(message);
       notifyProductCreateError(
         message
       );
 
-      if (
-        message === "SKU already taken"
-      ) {
+      if (duplicateSku) {
         setSkuTaken(true);
+        unlockAndOpen("info");
       }
     } finally {
       setSubmitStage(null);
       setSubmitting(false);
+    }
+  }
+
+  const guidedInfoValid =
+    selectedCategory !== null &&
+    identityIsValid;
+
+  const guidedDescriptionValid =
+    shortDescription.trim().length >= 5;
+
+  const guidedPhotosValid =
+    selectedProductType ===
+      "variable-colour"
+      ? colourImagesAreValid
+      : localPhotos.length > 0;
+
+  const guidedVariationsValid =
+    selectedProductType ===
+      "variable-size"
+      ? sizeVariationsAreValid
+      : selectedProductType ===
+          "variable-colour"
+        ? colourVariationsAreValid
+        : true;
+
+  const guidedPricingValid =
+    selectedProductType !== "simple" ||
+    (
+      priceIsValid(regularPrice) &&
+      quantityIsValid(stockQuantity)
+    );
+
+  const guidedReadyToSubmit =
+    selectedProductType !== null &&
+    guidedInfoValid &&
+    guidedDescriptionValid &&
+    guidedPhotosValid &&
+    guidedVariationsValid &&
+    guidedPricingValid;
+
+  function firstIncompleteGuidedSection():
+    GuidedSection {
+    if (!selectedProductType) {
+      return "type";
+    }
+
+    if (!guidedInfoValid) {
+      return "info";
+    }
+
+    if (
+      selectedProductType !== "simple" &&
+      !guidedVariationsValid
+    ) {
+      return "variations";
+    }
+
+    if (!guidedPhotosValid) {
+      return "photos";
+    }
+
+    if (
+      selectedProductType === "simple" &&
+      !guidedPricingValid
+    ) {
+      return "pricing";
+    }
+
+    if (!guidedDescriptionValid) {
+      return "description";
+    }
+
+    return "review";
+  }
+
+  async function submitGuidedProduct(
+    requestedStatus:
+      | "draft"
+      | "publish"
+  ) {
+    setSubmitError(null);
+
+    if (!guidedReadyToSubmit) {
+      const target =
+        firstIncompleteGuidedSection();
+
+      setSubmitError(
+        "Complete all required fields before saving the product."
+      );
+      unlockAndOpen(target);
+      return;
+    }
+
+    requestedStatusRef.current =
+      requestedStatus;
+
+    if (editMode) {
+      await updateExistingProduct();
+      return;
+    }
+
+    if (
+      selectedProductType === "simple"
+    ) {
+      await createSimpleProduct();
+      return;
+    }
+
+    if (
+      selectedProductType ===
+      "variable-size"
+    ) {
+      await createSizeProduct();
+      return;
+    }
+
+    if (
+      selectedProductType ===
+      "variable-colour"
+    ) {
+      await createColourProduct();
     }
   }
 
@@ -4238,2231 +4913,2221 @@ export default function ProductCreationWizard({
     );
   }
 
+  if (successResult) {
+    const successTitle =
+      successResult.kind === "updated"
+        ? "Product updated"
+        : successResult.status === "publish"
+          ? "Product created"
+          : "Draft saved";
+
+    const successMessage =
+      successResult.kind === "updated"
+        ? "Your product changes are live."
+        : successResult.status === "publish"
+          ? "Your product was created successfully."
+          : "Your product is saved and ready to finish later.";
+
+    return (
+      <div className="fixed inset-0 z-[100] flex items-center justify-center bg-[#17233C]/28 px-5 py-6 backdrop-blur-[2px]">
+        <section
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="product-success-title"
+          className="w-full max-w-[390px] overflow-hidden rounded-[28px] border border-white/80 bg-white shadow-[0_24px_80px_rgba(23,35,60,0.28)]"
+        >
+          <div className="px-6 pb-3 pt-7 text-center">
+            <span className="mx-auto grid h-16 w-16 place-items-center rounded-full bg-emerald-50 text-emerald-600 ring-8 ring-emerald-50/55">
+              <CheckCircle2 className="h-8 w-8" />
+            </span>
+
+            <h1
+              id="product-success-title"
+              className="mt-5 text-[22px] font-extrabold tracking-tight text-[#17233C]"
+            >
+              {successTitle}
+            </h1>
+
+            <p className="mt-1.5 truncate text-sm font-extrabold text-[#34405F]">
+              {successResult.productName}
+            </p>
+
+            <p className="mx-auto mt-2 max-w-[280px] text-[13px] leading-5 text-[#6B748A]">
+              {successMessage}
+            </p>
+          </div>
+
+          <div className="space-y-2.5 px-5 pb-5 pt-3">
+            <button
+              type="button"
+              onClick={() =>
+                router.push(
+                  `/products/${successResult.productId}`
+                )
+              }
+              className="ls-focus-ring flex min-h-12 w-full items-center justify-center rounded-2xl bg-[#1F63D8] px-4 text-sm font-extrabold text-white shadow-[0_8px_18px_rgba(31,99,216,0.22)]"
+            >
+              View Product
+            </button>
+
+            {successResult.kind === "created" ? (
+              <button
+                type="button"
+                onClick={() => {
+                  bypassLeaveRef.current = true;
+                  window.location.assign(
+                    "/products/add"
+                  );
+                }}
+                className="ls-focus-ring flex min-h-12 w-full items-center justify-center rounded-2xl border border-[#C8D4E2] bg-white px-4 text-sm font-extrabold text-[#1F63D8]"
+              >
+                Add Another Product
+              </button>
+            ) : null}
+
+            <button
+              type="button"
+              onClick={() =>
+                router.push("/products")
+              }
+              className="ls-focus-ring flex min-h-10 w-full items-center justify-center rounded-xl px-4 text-sm font-bold text-[#64748B]"
+            >
+              Back to Products
+            </button>
+          </div>
+        </section>
+      </div>
+    );
+  }
+
+  const sectionSummary = (
+    section: GuidedSection
+  ) => {
+    switch (section) {
+      case "type":
+        return (
+          selectedTypeDetails?.title ||
+          "Choose product type"
+        );
+      case "info":
+        return [
+          productName.trim(),
+          selectedCategory?.name,
+        ]
+          .filter(Boolean)
+          .join(" · ");
+      case "variations":
+        return selectedProductType ===
+          "variable-size"
+          ? `${sizeRows.length} size${sizeRows.length === 1 ? "" : "s"} configured`
+          : `${colourRows.length} colour${colourRows.length === 1 ? "" : "s"} configured`;
+      case "photos":
+        return selectedProductType ===
+          "variable-colour"
+          ? `${colourRows.filter((row) => row.photos.length > 0).length}/${colourRows.length} colours completed`
+          : `${localPhotos.length}/5 photos`;
+      case "pricing":
+        return regularPrice
+          ? `₹${regularPrice} · Qty ${stockQuantity || "0"}`
+          : "Price and quantity";
+      case "description":
+        return shortDescription.trim()
+          ? shortDescription.trim().slice(0, 60)
+          : "Product description";
+      case "extra":
+        return "Optional product details";
+      case "review":
+        return editMode
+          ? "Ready to update"
+          : "Ready to create";
+    }
+  };
+
+  const optionalDetailsFilled =
+    Boolean(weight.trim()) ||
+    tags.length > 0 ||
+    (
+      dimensionsEnabled &&
+      Boolean(
+        length.trim() ||
+        width.trim() ||
+        height.trim()
+      )
+    );
+
+  const isSectionComplete = (
+    section: GuidedSection
+  ) => {
+    switch (section) {
+      case "type":
+        return selectedProductType !== null;
+      case "info":
+        return guidedInfoValid;
+      case "variations":
+        return guidedVariationsValid;
+      case "photos":
+        return guidedPhotosValid;
+      case "pricing":
+        return guidedPricingValid;
+      case "description":
+        return guidedDescriptionValid;
+      case "extra":
+        return true;
+      case "review":
+        return guidedReadyToSubmit;
+    }
+  };
+
+  const sectionCardClass = (
+    section: GuidedSection
+  ) =>
+    [
+      "scroll-mt-24 overflow-hidden rounded-2xl border bg-white transition-all duration-200",
+      openSection === section
+        ? "border-[#9CB8D8] shadow-[0_10px_28px_rgba(23,35,60,0.08)]"
+        : "border-[#D7E0EA] shadow-[0_4px_14px_rgba(23,35,60,0.04)]",
+    ].join(" ");
+
+  const sectionHead = (
+    section: GuidedSection,
+    title: string,
+    requirement:
+      | "Required"
+      | "Optional",
+    icon: React.ReactNode
+  ) => {
+    const complete =
+      isSectionComplete(section);
+    const expanded =
+      openSection === section;
+
+    return (
+      <button
+        type="button"
+        onClick={() =>
+          setOpenSection(
+            expanded ? section : section
+          )
+        }
+        className="flex w-full items-center gap-3 px-4 py-3.5 text-left"
+      >
+        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#E8EFF8] text-[#1F63D8]">
+          {icon}
+        </span>
+
+        <span className="min-w-0 flex-1">
+          <span className="flex items-center gap-2">
+            <span className="truncate text-sm font-extrabold text-[#17233C]">
+              {title}
+            </span>
+            {complete &&
+            !expanded &&
+            (
+              section !== "extra" ||
+              optionalDetailsFilled
+            ) ? (
+              <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-emerald-50 px-2 py-1 text-[10px] font-extrabold text-emerald-700">
+                <Check className="h-3 w-3" />
+                Completed
+              </span>
+            ) : (
+              <span
+                className={[
+                  "shrink-0 rounded-full px-2 py-1 text-[10px] font-bold",
+                  requirement === "Required"
+                    ? "bg-[#EEF5FF] text-[#1F63D8]"
+                    : "bg-slate-100 text-slate-500",
+                ].join(" ")}
+              >
+                {requirement}
+              </span>
+            )}
+          </span>
+
+          {!expanded ? (
+            <span className="mt-1 block truncate text-xs text-[#6B748A]">
+              {sectionSummary(section)}
+            </span>
+          ) : null}
+        </span>
+
+        {expanded ? (
+          <ChevronDown className="h-4 w-4 shrink-0 text-[#718096]" />
+        ) : (
+          <ChevronRight className="h-4 w-4 shrink-0 text-[#718096]" />
+        )}
+      </button>
+    );
+  };
+
+  const nextAfter = (
+    section: GuidedSection
+  ) => {
+    const order =
+      guidedOrder(selectedProductType);
+    const index = order.indexOf(section);
+    return index >= 0
+      ? order[index + 1] || null
+      : null;
+  };
+
+  const advanceFrom = (
+    section: GuidedSection
+  ) => {
+    const next =
+      nextAfter(section);
+
+    if (next) {
+      unlockAndOpen(next);
+    }
+  };
+
+  const activeColourRow =
+    colourRows.find(
+      (row) =>
+        row.id === activeColourPhotoRowId
+    ) || colourRows[0] || null;
+
   return (
-    <main
-      className={[
-        "mx-auto flex h-[calc(100dvh-8.75rem)] min-h-0 w-full max-w-6xl flex-col overflow-hidden bg-white md:min-h-[560px] md:max-h-[740px] md:rounded-2xl md:border md:border-[#D9DEEC] md:shadow-[0_10px_32px_rgba(35,50,102,0.08)]",
-        desktopExpandedScreen
-          ? "lg:h-auto lg:max-h-none lg:overflow-visible"
-          : "",
-      ].join(" ")}
-    >
-      <header className="sticky top-0 z-30 bg-[#2E3F7D] px-3 py-3 text-white md:static md:rounded-t-2xl md:px-5">
-        <div className="flex items-center gap-3">
+    <>
+      <main className="mx-auto w-full max-w-5xl pb-28 md:pb-8">
+        <div className="mb-3 hidden items-center justify-between gap-4 md:flex">
+          <div>
+            <div className="text-xs font-extrabold uppercase tracking-[0.12em] text-[#1F63D8]">
+              {editMode
+                ? "Product editor"
+                : "New product"}
+            </div>
+            <h1 className="mt-1 text-2xl font-extrabold tracking-tight text-[#17233C]">
+              {editMode
+                ? "Edit Product"
+                : "Add Product"}
+            </h1>
+          </div>
+
           <button
             type="button"
-            aria-label="Go back"
-            onClick={goBack}
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white/10 transition active:scale-95 md:h-10 md:w-10 md:rounded-xl"
+            onClick={() =>
+              requestProductLeave(
+                editMode && editProductId
+                  ? `/products/${editProductId}`
+                  : "/products"
+              )
+            }
+            className="ls-focus-ring inline-flex min-h-10 items-center gap-2 rounded-xl border border-[#D7E0EA] bg-white px-4 text-sm font-bold text-[#334155]"
           >
-            <ArrowLeft className="h-5 w-5" />
+            <ArrowLeft className="h-4 w-4" />
+            Back
           </button>
-
-          <div className="flex min-w-0 flex-1 items-center gap-3">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#18A6C9] md:h-10 md:w-10 md:rounded-xl">
-              <HeaderIcon className="h-5 w-5" />
-            </div>
-
-            <div className="min-w-0">
-              <h1 className="truncate text-base font-bold tracking-tight md:text-lg">
-                {editMode && currentScreen === "publish"
-                  ? "Review and update"
-                  : meta.title}
-              </h1>
-              <p className="hidden truncate text-xs text-white/65 sm:block">
-                {editMode && currentScreen === "type"
-                  ? "Product type is locked while editing"
-                  : meta.subtitle}
-              </p>
-            </div>
-          </div>
-
-          <span className="shrink-0 rounded-full bg-white/10 px-2.5 py-1 text-[10px] font-bold tracking-wide md:px-3 md:py-1.5 md:text-[11px]">
-            {step} OF {totalSteps}
-          </span>
         </div>
 
-        <div className="mt-2.5 flex gap-1 md:mt-3">
-          {Array.from({ length: totalSteps }).map(
-            (_, index) => (
-              <span
-                key={index}
-                className={[
-                  "h-1 flex-1 rounded-full",
-                  index < step
-                    ? "bg-[#FF7867]"
-                    : "bg-white/20",
-                ].join(" ")}
-              />
-            )
-          )}
+        <div className="mb-4 rounded-2xl border border-[#D7E0EA] bg-[#E8EFF8] px-4 py-3">
+          <div className="text-sm font-extrabold text-[#17233C]">
+            {editMode
+              ? "Update only what you need."
+              : "The app will guide you section by section."}
+          </div>
+          <p className="mt-1 text-xs leading-5 text-[#5E6A7F]">
+            Completed sections collapse automatically into a clean summary. Tap any completed section to change it again.
+          </p>
         </div>
-      </header>
 
-      <section
-        className={[
-          "flex min-h-0 flex-1 flex-col overflow-y-auto px-3 py-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:overflow-hidden md:px-5 md:py-4",
-          desktopExpandedScreen
-            ? "lg:overflow-visible"
-            : "",
-        ].join(" ")}
-      >
-        {currentScreen === "category" && (
-          <div className="grid flex-1 content-start gap-4 lg:grid-cols-[1.12fr_0.88fr]">
-            <div className="border-b border-[#E7EAF2] bg-white px-1 pb-5 pt-1 md:rounded-2xl md:border md:border-[#E1E5EF] md:bg-[#F8F9FC] md:p-4">
-              <div className="mb-3">
-                <h2 className="text-sm font-bold text-[#26335F]">
-                  Find an existing category
-                </h2>
-                <p className="mt-0.5 text-xs text-[#737C96]">
-                  Start typing to see matching categories.
-                </p>
-              </div>
+        <div className="space-y-3">
+          <section
+            id="product-section-type"
+            className={sectionCardClass(
+              "type"
+            )}
+          >
+            {sectionHead(
+              "type",
+              "Product Type",
+              "Required",
+              <Layers3 className="h-5 w-5" />
+            )}
 
-              <div className="relative">
-                <Search className="pointer-events-none absolute left-3.5 top-1/2 h-5 w-5 -translate-y-1/2 text-[#7C849B]" />
-
-                <input
-                  value={query}
-                  onFocus={() => setSearchFocused(true)}
-                  onBlur={() => {
-                    window.setTimeout(
-                      () => setSearchFocused(false),
-                      120
-                    );
-                  }}
-                  onChange={(event) => {
-                    setQuery(event.target.value);
-                    setSearchFocused(true);
-                    setConfirmation(null);
-                  }}
-                  placeholder="Search categories"
-                  className="h-12 w-full rounded-xl border border-[#CDD3E2] bg-white pl-11 pr-11 text-sm font-semibold text-[#222B49] outline-none transition placeholder:font-normal placeholder:text-[#9299AA] focus:border-[#5366B7] focus:ring-4 focus:ring-[#5366B7]/10"
-                />
-
-                {query && (
-                  <button
-                    type="button"
-                    aria-label="Clear search"
-                    onClick={() => setQuery("")}
-                    className="absolute right-2 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-lg text-[#737B90] hover:bg-[#EEF0F6]"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
-                )}
-
-                {searchFocused && query.trim() && (
-                  <div className="absolute inset-x-0 top-[calc(100%+0.4rem)] z-40 overflow-hidden rounded-xl border border-[#D9DEEA] bg-white shadow-[0_14px_36px_rgba(35,50,102,0.16)]">
-                    {loading && (
-                      <div className="flex items-center gap-2 px-4 py-3 text-sm font-semibold text-[#68718A]">
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        Loading categories
-                      </div>
-                    )}
-
-                    {!loading && loadError && (
-                      <div className="px-4 py-3 text-sm font-medium text-[#A24438]">
-                        {loadError}
-                      </div>
-                    )}
-
-                    {!loading &&
-                      !loadError &&
-                      suggestions.length === 0 && (
-                        <div className="px-4 py-3 text-sm text-[#727A90]">
-                          No matching category
-                        </div>
-                      )}
-
-                    {!loading &&
-                      !loadError &&
-                      suggestions.map((category) => {
-                        const selected =
-                          category.id === selectedCategoryId;
-
-                        return (
-                          <button
-                            key={category.id}
-                            type="button"
-                            onPointerDown={(event) => {
-                              event.preventDefault();
-                              selectCategory(category);
-                            }}
-                            className={[
-                              "flex w-full items-center gap-3 border-b border-[#EEF0F5] px-3 py-2.5 text-left last:border-b-0",
-                              selected
-                                ? "bg-[#EEF1FF]"
-                                : "bg-white hover:bg-[#F7F8FC]",
-                            ].join(" ")}
-                          >
-                            <div
-                              className={[
-                                "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg",
-                                selected
-                                  ? "bg-[#5366B7] text-white"
-                                  : "bg-[#E9ECF6] text-[#4B5C9E]",
-                              ].join(" ")}
-                            >
-                              {selected ? (
-                                <Check className="h-4 w-4" />
-                              ) : (
-                                <FolderTree className="h-4 w-4" />
-                              )}
-                            </div>
-
-                            <span className="min-w-0 flex-1 truncate text-sm font-bold text-[#252D49]">
-                              {category.name}
-                            </span>
-
-                            <span className="text-[11px] font-semibold text-[#8991A4]">
-                              {selected ? "Selected" : "Choose"}
-                            </span>
-                          </button>
-                        );
-                      })}
-                  </div>
-                )}
-              </div>
-
-              <div className="mt-4">
-                <div className="mb-2 text-[11px] font-bold uppercase tracking-[0.12em] text-[#858DA2]">
-                  Selected category
-                </div>
-
-                {selectedCategory ? (
-                  <div className="flex min-h-14 items-center gap-3 rounded-xl border border-[#9FAAE0] bg-[#EEF1FF] px-3 py-2.5">
-                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#5366B7] text-white">
-                      <Check className="h-4 w-4" />
-                    </div>
-
-                    <div className="min-w-0 flex-1">
-                      <div className="truncate text-sm font-bold text-[#27335F]">
-                        {selectedCategory.name}
-                      </div>
-                      <div className="text-[11px] font-medium text-[#69759D]">
-                        Product category selected
-                      </div>
-                    </div>
-
-                    <button
-                      type="button"
-                      aria-label="Remove selected category"
-                      onClick={clearSelectedCategory}
-                      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-[#5F6881] shadow-sm transition hover:text-[#D54C3B]"
-                    >
-                      <X className="h-4 w-4" />
-                    </button>
-                  </div>
-                ) : (
-                  <div className="flex min-h-14 items-center rounded-xl border border-dashed border-[#C9CFDC] bg-white px-4 text-sm font-medium text-[#8A91A3]">
-                    No category selected
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <div className="border-b border-[#F1D5CE] bg-[#FFF9F7] px-1 pb-5 pt-4 md:rounded-2xl md:border md:bg-[#FFF8F6] md:p-4">
-              <button
-                type="button"
-                aria-expanded={categoryCreateOpen}
-                onClick={() =>
-                  setCategoryCreateOpen(
-                    (current) => !current
-                  )
-                }
-                className="mb-0 flex w-full items-start gap-3 text-left md:mb-3 md:pointer-events-none"
-              >
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#18A6C9] text-white">
-                  <Plus className="h-5 w-5" />
-                </div>
-
-                <div>
-                  <h2 className="text-sm font-bold text-[#633229]">
-                    Create a new category
-                  </h2>
-                  <p className="mt-0.5 text-xs text-[#93675F]">
-                    Add it and use it for this product.
-                  </p>
-                </div>
-
-                <ChevronDown
-                  className={[
-                    "ml-auto mt-2 h-5 w-5 shrink-0 text-[#93675F] transition-transform md:hidden",
-                    categoryCreateOpen
-                      ? "rotate-180"
-                      : "",
-                  ].join(" ")}
-                />
-              </button>
-
-              <div
-                className={
-                  categoryCreateOpen
-                    ? "mt-3 block md:mt-0"
-                    : "hidden md:block"
-                }
-              >
-              <label
-                htmlFor="new-category-name"
-                className="mb-1.5 block text-[11px] font-bold uppercase tracking-[0.12em] text-[#9A6D65]"
-              >
-                Category name
-              </label>
-
-              <input
-                id="new-category-name"
-                value={newCategoryName}
-                onChange={(event) => {
-                  setNewCategoryName(event.target.value);
-                  setCategoryCreateError(null);
-                  setConfirmation(null);
-                }}
-                placeholder="Example: Handbags"
-                className="h-12 w-full rounded-xl border border-[#B8DDE8] bg-white px-3.5 text-sm font-semibold text-[#174A5A] outline-none transition placeholder:font-normal placeholder:text-[#7A9DA7] focus:border-[#18A6C9] focus:ring-4 focus:ring-[#18A6C9]/10"
-              />
-
-              <button
-                type="button"
-                disabled={
-                  categoryCreating ||
-                  newCategoryName.trim().length < 2
-                }
-                onClick={() =>
-                  void createAndSelectCategory()
-                }
-                className="mt-3 flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#18A6C9] px-4 text-sm font-bold text-white shadow-[0_8px_18px_rgba(24,166,201,0.22)] transition active:scale-[0.985] disabled:cursor-not-allowed disabled:bg-[#D8C8C4] disabled:shadow-none"
-              >
-                {categoryCreating ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    Creating category
-                  </>
-                ) : (
-                  <>
-                    <Plus className="h-4 w-4" />
-                    Create & select
-                  </>
-                )}
-              </button>
-
-              <p
-                aria-live="polite"
-                className={[
-                  "mt-2 text-center text-[11px] font-medium",
-                  categoryCreateError
-                    ? "text-[#C74636]"
-                    : "text-[#A1766E]",
-                ].join(" ")}
-              >
-                {categoryCreateError ??
-                  "Existing categories are checked only when you press Create & select."}
-              </p>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {currentScreen === "type" && (
-          <div className="flex flex-1 flex-col">
-            <div className="mb-3 flex items-center justify-between gap-3 rounded-xl bg-[#F1F3FA] px-3 py-2.5">
-              <div className="min-w-0">
-                <div className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#858EA6]">
-                  Category
-                </div>
-                <div className="truncate text-sm font-bold text-[#2C3868]">
-                  {selectedCategory?.name}
-                </div>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => goToScreen("category")}
-                className="shrink-0 rounded-lg bg-white px-3 py-2 text-xs font-bold text-[#5366B7] shadow-sm"
-              >
-                Change
-              </button>
-            </div>
-
-            <div className="grid flex-1 grid-cols-1 content-center gap-3 sm:grid-cols-3">
-              {productTypes.map((productType) => {
-                const Icon = productType.icon;
-                const selected =
-                  selectedProductType === productType.id;
-
-                return (
-                  <button
-                    key={productType.id}
-                    type="button"
-                    disabled={editMode}
-                    onClick={() => {
-                      if (!editMode) {
-                        chooseProductType(productType.id);
-                      }
-                    }}
-                    className={[
-                      "relative flex min-h-[76px] flex-row items-center gap-3 rounded-2xl border p-3 pr-12 text-left transition active:scale-[0.985] sm:min-h-40 sm:flex-col sm:items-start sm:gap-0 sm:p-4 sm:pr-4",
-                      selected
-                        ? `${productType.selectedClass} shadow-[0_10px_24px_rgba(44,56,104,0.10)]`
-                        : "border-[#DFE3ED] bg-white hover:border-[#BFC6D8]",
-                      editMode
-                        ? "cursor-default disabled:opacity-65"
-                        : "",
-                    ].join(" ")}
-                  >
-                    <div
-                      className={[
-                        "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl sm:h-11 sm:w-11",
-                        productType.iconClass,
-                      ].join(" ")}
-                    >
-                      <Icon className="h-5 w-5" />
-                    </div>
-
-                    <div className="min-w-0 flex-1 sm:mt-3 sm:flex-none">
-                      <div className="truncate text-sm font-bold text-[#262F52] sm:text-base">
-                        {productType.title}
-                      </div>
-                      <div className="mt-0.5 truncate text-[11px] font-medium text-[#7B8397] sm:mt-1 sm:text-xs">
-                        {productType.label}
-                      </div>
-                    </div>
-
-                    <div
-                      className={[
-                        "absolute right-3 top-3 flex h-7 w-7 items-center justify-center rounded-full border",
-                        selected
-                          ? "border-[#5366B7] bg-[#5366B7] text-white"
-                          : "border-[#CCD1DE] bg-white text-transparent",
-                      ].join(" ")}
-                    >
-                      <Check className="h-4 w-4" />
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        {currentScreen === "identity" && (
-          <div className="grid flex-1 content-start gap-4 lg:grid-cols-[1.12fr_0.88fr]">
-            <div className="border-b border-[#E7EAF2] bg-white px-1 pb-5 pt-1 md:rounded-2xl md:border md:border-[#E1E5EF] md:bg-[#F8F9FC] md:p-4">
-              <div className="mb-4 flex items-start gap-3">
-                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#DDE8FF] text-[#315DA8]">
-                  <Package2 className="h-5 w-5" />
-                </div>
-                <div>
-                  <h2 className="text-sm font-bold text-[#26335F]">
-                    Product identity
-                  </h2>
-                  <p className="mt-0.5 text-xs text-[#737C96]">
-                    Enter the name customers will see.
-                  </p>
-                </div>
-              </div>
-
-              <label
-                htmlFor="product-name"
-                className="mb-1.5 block text-[11px] font-bold uppercase tracking-[0.12em] text-[#66708C]"
-              >
-                Product name
-                <span className="ml-1 text-[#18A6C9]">*</span>
-              </label>
-
-              <input
-                id="product-name"
-                autoFocus
-                value={productName}
-                onChange={(event) => {
-                  setProductName(event.target.value);
-                  setConfirmation(null);
-                }}
-                placeholder="Example: Premium Cotton Handbag"
-                className="h-12 w-full rounded-xl border border-[#CDD3E2] bg-white px-3.5 text-sm font-semibold text-[#222B49] outline-none transition placeholder:font-normal placeholder:text-[#9299AA] focus:border-[#5366B7] focus:ring-4 focus:ring-[#5366B7]/10"
-              />
-
-              <div className="mt-4 flex items-center justify-between gap-3">
-                <label
-                  htmlFor="product-sku"
-                  className="block text-[11px] font-bold uppercase tracking-[0.12em] text-[#66708C]"
-                >
-                  SKU / Product code
-                  {variableProduct && (
-                    <span className="ml-1 text-[#18A6C9]">
-                      *
-                    </span>
-                  )}
-                </label>
-
-                {!variableProduct && (
-                  <span className="text-[10px] font-semibold text-[#9399AA]">
-                    Optional
-                  </span>
-                )}
-              </div>
-
-              <div className="relative mt-1.5">
-                <Hash className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[#7C849B]" />
-                <input
-                  id="product-sku"
-                  value={sku}
-                  onChange={(event) => {
-                    setSku(event.target.value);
-                    setConfirmation(null);
-                  }}
-                  placeholder="Example: BAG-001"
-                  className="h-12 w-full rounded-xl border border-[#CDD3E2] bg-white pl-10 pr-3.5 text-sm font-semibold uppercase text-[#222B49] outline-none transition placeholder:font-normal placeholder:normal-case placeholder:text-[#9299AA] focus:border-[#5366B7] focus:ring-4 focus:ring-[#5366B7]/10"
-                />
-              </div>
-
-              <div
-                aria-live="polite"
-                className="mt-2 min-h-4 text-[11px] font-semibold"
-              >
-                {skuChecking ? (
-                  <span className="inline-flex items-center gap-1.5 text-[#66708C]">
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    Checking SKU
-                  </span>
-                ) : skuTaken ? (
-                  <span className="text-[#C74636]">
-                    SKU already taken
-                  </span>
-                ) : skuCheckError ? (
-                  <span className="text-[#C74636]">
-                    {skuCheckError}
-                  </span>
-                ) : sku.trim() ? (
-                  <span className="inline-flex items-center gap-1.5 text-[#257052]">
-                    <CheckCircle2 className="h-3.5 w-3.5" />
-                    SKU available
-                  </span>
-                ) : (
-                  <span className="text-[#858DA2]">
-                    {variableProduct
-                      ? "Variation SKUs will be generated automatically from this code."
-                      : "Use your own stock code when needed."}
-                  </span>
-                )}
-              </div>
-            </div>
-
-            <div className="hidden lg:flex flex-col rounded-2xl bg-[#26356F] p-4 text-white shadow-[0_12px_28px_rgba(38,53,111,0.18)]">
-              <div className="flex items-center gap-3">
-                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#18A6C9]">
-                  <Package2 className="h-5 w-5" />
-                </div>
-                <div className="min-w-0">
-                  <div className="text-[10px] font-bold uppercase tracking-[0.13em] text-white/55">
-                    Product preview
-                  </div>
-                  <div className="mt-0.5 truncate text-base font-bold">
-                    {productName.trim() || "Your product name"}
-                  </div>
-                </div>
-              </div>
-
-              {sku.trim() && (
-                <div className="mt-3 inline-flex w-fit items-center gap-1.5 rounded-lg bg-white/10 px-2.5 py-1.5 text-[11px] font-semibold uppercase text-white/75">
-                  <Hash className="h-3.5 w-3.5" />
-                  {sku.trim()}
-                </div>
-              )}
-
-              <div className="mt-4 space-y-2.5">
-                <div className="flex items-center gap-3 rounded-xl bg-white/10 px-3 py-2.5">
-                  <FolderTree className="h-4 w-4 shrink-0 text-[#FF9588]" />
-                  <div className="min-w-0 flex-1">
-                    <div className="text-[10px] font-bold uppercase tracking-[0.1em] text-white/45">
-                      Category
-                    </div>
-                    <div className="truncate text-xs font-bold">
-                      {selectedCategory?.name}
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => goToScreen("category")}
-                    className="rounded-lg bg-white/10 px-2.5 py-1.5 text-[11px] font-bold text-white/80"
-                  >
-                    Change
-                  </button>
-                </div>
-
-                <div className="flex items-center gap-3 rounded-xl bg-white/10 px-3 py-2.5">
-                  <Layers3 className="h-4 w-4 shrink-0 text-[#FF9588]" />
-                  <div className="min-w-0 flex-1">
-                    <div className="text-[10px] font-bold uppercase tracking-[0.1em] text-white/45">
-                      Product type
-                    </div>
-                    <div className="truncate text-xs font-bold">
-                      {selectedTypeDetails?.title}
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => goToScreen("type")}
-                    className="rounded-lg bg-white/10 px-2.5 py-1.5 text-[11px] font-bold text-white/80"
-                  >
-                    Change
-                  </button>
-                </div>
-              </div>
-
-              <div className="mt-auto pt-4">
-                <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-[11px] font-medium leading-4 text-white/55">
-                  Preview only — product data has not been saved.
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {currentScreen === "description" && (
-          <div className="grid min-h-0 min-w-0 flex-1 content-start gap-4 lg:grid-cols-[1.12fr_0.88fr]">
-            <div className="min-w-0 border-b border-[#E7EAF2] bg-white px-1 pb-5 pt-1 md:rounded-2xl md:border md:border-[#E1E5EF] md:bg-[#F8F9FC] md:p-4">
-              <div className="mb-3 flex items-start gap-3">
-                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#E1E7FF] text-[#4A5FAE]">
-                  <FileText className="h-5 w-5" />
-                </div>
-                <div>
-                  <h2 className="text-sm font-bold text-[#26335F]">
-                    Product description
-                  </h2>
-                  <p className="mt-0.5 text-xs text-[#737C96]">
-                    Keep the main message clear and useful.
-                  </p>
-                </div>
-              </div>
-
-              <label
-                htmlFor="short-description"
-                className="mb-1.5 block text-[11px] font-bold uppercase tracking-[0.12em] text-[#66708C]"
-              >
-                Short selling summary
-                <span className="ml-1 text-[#18A6C9]">*</span>
-              </label>
-              <textarea
-                id="short-description"
-                value={shortDescription}
-                rows={3}
-                onChange={(event) => {
-                  setShortDescription(event.target.value);
-                  setConfirmation(null);
-                }}
-                placeholder="Example: Premium cotton handbag with spacious compartments and a comfortable shoulder strap."
-                className="h-24 w-full resize-none rounded-xl border border-[#CDD3E2] bg-white px-3.5 py-3 text-sm font-medium leading-5 text-[#222B49] outline-none transition placeholder:font-normal placeholder:text-[#9299AA] focus:border-[#5366B7] focus:ring-4 focus:ring-[#5366B7]/10"
-              />
-
-              <div className="mt-3">
-                <div className="mb-1.5 flex items-center justify-between gap-3">
-                  <label
-                    htmlFor="product-description"
-                    className="text-[11px] font-bold uppercase tracking-[0.12em] text-[#66708C]"
-                  >
-                    Detailed information
-                  </label>
-                  <span className="text-[10px] font-semibold text-[#9198AA]">
-                    Optional
-                  </span>
-                </div>
-                <textarea
-                  id="product-description"
-                  value={description}
-                  rows={5}
-                  onChange={(event) => {
-                    setDescription(event.target.value);
-                    setConfirmation(null);
-                  }}
-                  placeholder="Add material, design, size, usage, care instructions or other important product details."
-                  className="h-32 w-full resize-none rounded-xl border border-[#CDD3E2] bg-white px-3.5 py-3 text-sm font-medium leading-5 text-[#222B49] outline-none transition placeholder:font-normal placeholder:text-[#9299AA] focus:border-[#5366B7] focus:ring-4 focus:ring-[#5366B7]/10"
-                />
-              </div>
-            </div>
-
-            <div className="hidden lg:flex min-w-0 flex-col rounded-2xl bg-[#26356F] p-4 text-white shadow-[0_12px_28px_rgba(38,53,111,0.18)]">
-              <div className="flex items-start gap-3">
-                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#18A6C9]">
-                  <FileText className="h-5 w-5" />
-                </div>
-                <div className="min-w-0">
-                  <div className="text-[10px] font-bold uppercase tracking-[0.13em] text-white/50">
-                    Content preview
-                  </div>
-                  <div className="mt-0.5 truncate text-base font-bold">
-                    {productName.trim()}
-                  </div>
-                  <div className="mt-1 truncate text-xs text-white/55">
-                    {selectedCategory?.name} ·{" "}
-                    {selectedTypeDetails?.title}
-                  </div>
-                </div>
-              </div>
-
-              <div className="mt-4 rounded-xl bg-white p-4 text-[#26335F]">
-                <div className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#8991A4]">
-                  Summary
-                </div>
-                <p className="mt-2 line-clamp-5 min-h-12 text-sm font-semibold leading-5">
-                  {shortDescription.trim() ||
-                    "Your short product summary will appear here."}
+            {openSection === "type" ? (
+              <div className="border-t border-[#E3E9F2] p-4">
+                <p className="mb-3 text-xs font-semibold text-[#6B748A]">
+                  {editMode
+                    ? "Product type is locked while editing. You can update the product details below."
+                    : "Choose how this product will be sold."}
                 </p>
 
-                <div className="my-3 h-px bg-[#E6E9F0]" />
+                <div className="grid gap-2 sm:grid-cols-3">
+                  {productTypes.map(
+                    (productType) => {
+                      const Icon =
+                        productType.icon;
+                      const selected =
+                        selectedProductType ===
+                        productType.id;
 
-                <div className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#8991A4]">
-                  Product details
-                </div>
-                <p className="mt-2 line-clamp-5 min-h-16 whitespace-pre-line text-xs leading-5 text-[#677087]">
-                  {description.trim() ||
-                    "Detailed information is optional and can be added whenever the product needs more explanation."}
-                </p>
-              </div>
-
-              <div className="mt-auto pt-3">
-                <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-[11px] font-medium leading-4 text-white/55">
-                  Preview only — description has not been saved.
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {currentScreen === "shared-images" && (
-          <div className="grid min-h-0 min-w-0 flex-1 content-start gap-4 lg:grid-cols-[1.15fr_0.85fr]">
-            <div className="min-w-0 overflow-hidden border-b border-[#E7EAF2] bg-white px-1 pb-5 pt-1 md:rounded-2xl md:border md:border-[#E1E5EF] md:bg-[#F8F9FC] md:p-4">
-              <div className="mb-3 flex items-center justify-between gap-3">
-                <div className="min-w-0">
-                  <h2 className="text-sm font-bold text-[#26335F]">
-                    {selectedProductType === "variable-size"
-                      ? "Shared size photos"
-                      : "Product photos"}
-                  </h2>
-                  <p className="mt-0.5 text-xs text-[#737C96]">
-                    Drag thumbnails to reorder. The first is the
-                    main image.
-                  </p>
-                </div>
-                <span className="shrink-0 rounded-full bg-[#E9ECF6] px-3 py-1.5 text-[11px] font-bold text-[#5366B7]">
-                  {localPhotos.length} / 5
-                </span>
-              </div>
-
-              {localPhotos.length === 0 ? (
-                <button
-                  type="button"
-                  onClick={() =>
-                    photoInputRef.current?.click()
-                  }
-                  className="flex h-52 w-full flex-col items-center justify-center rounded-2xl border-2 border-dashed border-[#BCC4D8] bg-white text-center transition hover:border-[#5366B7] hover:bg-[#F7F8FF]"
-                >
-                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#E9EDFF] text-[#5366B7]">
-                    <UploadCloud className="h-7 w-7" />
-                  </div>
-                  <div className="mt-3 text-sm font-bold text-[#29345F]">
-                    Choose product photos
-                  </div>
-                  <div className="mt-1 text-xs text-[#7C849A]">
-                    Select up to five images
-                  </div>
-                </button>
-              ) : (
-                <>
-                  <div className="relative h-44 w-full overflow-hidden rounded-2xl border border-[#DDE1EA] bg-white">
-                    <Image
-                      unoptimized
-                      fill
-                      src={localPhotos[0].url}
-                      alt={localPhotos[0].name}
-                      className="object-contain p-2"
-                    />
-                    <span className="absolute left-2.5 top-2.5 rounded-lg bg-[#18A6C9] px-2.5 py-1.5 text-[9px] font-bold uppercase tracking-wide text-white">
-                      Main photo
-                    </span>
-                  </div>
-
-                  <div className="mt-2.5 grid min-w-0 grid-cols-5 gap-2">
-                    {localPhotos.map((photo, index) => (
-                      <div
-                        key={photo.id}
-                        data-photo-id={photo.id}
-                        className={[
-                          "relative aspect-square min-w-0 rounded-xl",
-                          draggedPhotoId === photo.id
-                            ? "opacity-60"
-                            : "",
-                        ].join(" ")}
-                      >
+                      return (
                         <button
+                          key={productType.id}
                           type="button"
-                          draggable
-                          aria-label={
-                            index === 0
-                              ? "Main photo. Drag to reorder."
-                              : "Drag photo to reorder."
-                          }
-                          onDragStart={(event) => {
-                            event.dataTransfer.effectAllowed =
-                              "move";
-                            event.dataTransfer.setData(
-                              "text/plain",
-                              photo.id
-                            );
-                            beginPhotoDrag(photo.id);
-                          }}
-                          onDragOver={(event) => {
-                            event.preventDefault();
-                            event.dataTransfer.dropEffect = "move";
-                          }}
-                          onDrop={(event) => {
-                            event.preventDefault();
-                            const sourcePhotoId =
-                              event.dataTransfer.getData(
-                                "text/plain"
-                              ) ||
-                              draggedPhotoIdRef.current;
-
-                            if (sourcePhotoId) {
-                              movePhoto(
-                                sourcePhotoId,
-                                photo.id
-                              );
-                            }
-                            finishPhotoDrag();
-                          }}
-                          onDragEnd={finishPhotoDrag}
-                          onTouchStart={() =>
-                            beginPhotoDrag(photo.id)
-                          }
-                          onTouchMove={(event) => {
-                            event.preventDefault();
-                            const touch = event.touches[0];
-
-                            if (touch) {
-                              moveDraggedPhotoAtPoint(
-                                touch.clientX,
-                                touch.clientY
-                              );
-                            }
-                          }}
-                          onTouchEnd={finishPhotoDrag}
-                          onTouchCancel={finishPhotoDrag}
-                          className={[
-                            "relative h-full w-full cursor-grab touch-none overflow-hidden rounded-xl border-2 bg-white active:cursor-grabbing",
-                            index === 0
-                              ? "border-[#18A6C9]"
-                              : "border-[#DDE1EA]",
-                          ].join(" ")}
-                        >
-                          <Image
-                            unoptimized
-                            fill
-                            src={photo.url}
-                            alt={photo.name}
-                            className="pointer-events-none object-cover"
-                          />
-                          <span className="pointer-events-none absolute bottom-1 left-1 flex h-5 w-5 items-center justify-center rounded-md bg-black/55 text-white">
-                            <GripVertical className="h-3.5 w-3.5" />
-                          </span>
-                          {index === 0 && (
-                            <span className="pointer-events-none absolute right-1 top-1 rounded-md bg-[#18A6C9] px-1.5 py-0.5 text-[7px] font-bold uppercase text-white">
-                              Main
-                            </span>
-                          )}
-                        </button>
-
-                        <button
-                          type="button"
-                          aria-label="Remove photo"
-                          onPointerDown={(event) =>
-                            event.stopPropagation()
-                          }
-                          onClick={() => removePhoto(photo.id)}
-                          className="absolute -right-1.5 -top-1.5 z-10 flex h-6 w-6 items-center justify-center rounded-full border border-[#E3E6EE] bg-white text-[#C94A3B] shadow-sm"
-                        >
-                          <X className="h-3.5 w-3.5" />
-                        </button>
-                      </div>
-                    ))}
-
-                    {localPhotos.length < 5 && (
-                      <button
-                        type="button"
-                        aria-label="Add another photo"
-                        onClick={() =>
-                          photoInputRef.current?.click()
-                        }
-                        className="flex aspect-square min-w-0 items-center justify-center rounded-xl border-2 border-dashed border-[#BCC4D8] bg-white text-[#5366B7]"
-                      >
-                        <Plus className="h-5 w-5" />
-                      </button>
-                    )}
-                  </div>
-                </>
-              )}
-
-              <input
-                ref={photoInputRef}
-                type="file"
-                accept="image/*"
-                multiple
-                className="hidden"
-                onChange={(event) => {
-                  addPhotos(event.target.files);
-                  event.currentTarget.value = "";
-                }}
-              />
-            </div>
-
-            <div className="hidden lg:flex min-w-0 flex-col rounded-2xl bg-[#26356F] p-4 text-white shadow-[0_12px_28px_rgba(38,53,111,0.18)]">
-              <div className="flex items-start gap-3">
-                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#18A6C9]">
-                  <ImagePlus className="h-5 w-5" />
-                </div>
-                <div className="min-w-0">
-                  <div className="text-[10px] font-bold uppercase tracking-[0.13em] text-white/50">
-                    Product
-                  </div>
-                  <div className="mt-0.5 truncate text-base font-bold">
-                    {productName.trim()}
-                  </div>
-                  <div className="mt-1 truncate text-xs text-white/55">
-                    {selectedCategory?.name}
-                  </div>
-                </div>
-              </div>
-
-              <div className="mt-4 space-y-2">
-                <div className="flex items-center gap-2.5 rounded-xl bg-white/10 px-3 py-2.5">
-                  <GripVertical className="h-4 w-4 shrink-0 text-[#8FE0B8]" />
-                  <span className="text-xs font-semibold text-white/75">
-                    Drag thumbnails to change the order
-                  </span>
-                </div>
-                <div className="flex items-center gap-2.5 rounded-xl bg-white/10 px-3 py-2.5">
-                  <CheckCircle2 className="h-4 w-4 shrink-0 text-[#8FE0B8]" />
-                  <span className="text-xs font-semibold text-white/75">
-                    The first thumbnail becomes the main image
-                  </span>
-                </div>
-                {selectedProductType === "variable-size" && (
-                  <div className="flex items-center gap-2.5 rounded-xl bg-white/10 px-3 py-2.5">
-                    <Ruler className="h-4 w-4 shrink-0 text-[#8FE0B8]" />
-                    <span className="text-xs font-semibold text-white/75">
-                      One shared gallery is used for every size
-                    </span>
-                  </div>
-                )}
-              </div>
-
-              <div className="mt-auto pt-3">
-                <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-[11px] font-medium text-white/55">
-                  Local preview only — images are not uploaded.
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {currentScreen === "simple-price-stock" && (
-          <div className="grid min-h-0 min-w-0 flex-1 content-start gap-4 lg:grid-cols-[1.08fr_0.92fr]">
-            <div className="border-b border-[#E7EAF2] bg-white px-1 pb-5 pt-1 md:rounded-2xl md:border md:border-[#E1E5EF] md:bg-[#F8F9FC] md:p-4">
-              <div className="mb-4 flex items-start gap-3">
-                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#DDF2E8] text-[#257052]">
-                  <IndianRupee className="h-5 w-5" />
-                </div>
-                <div>
-                  <h2 className="text-sm font-bold text-[#26335F]">
-                    Price and quantity
-                  </h2>
-                  <p className="mt-0.5 text-xs text-[#737C96]">
-                    Sale pricing is handled separately in Sale
-                    Events.
-                  </p>
-                </div>
-              </div>
-
-              <label
-                htmlFor="regular-price"
-                className="mb-1.5 block text-[11px] font-bold uppercase tracking-[0.12em] text-[#66708C]"
-              >
-                Regular price
-                <span className="ml-1 text-[#18A6C9]">*</span>
-              </label>
-              <div className="relative">
-                <IndianRupee className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[#7C849B]" />
-                <input
-                  id="regular-price"
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  inputMode="decimal"
-                  value={regularPrice}
-                  onChange={(event) => {
-                    setRegularPrice(event.target.value);
-                    setConfirmation(null);
-                  }}
-                  placeholder="0.00"
-                  className="h-12 w-full rounded-xl border border-[#CDD3E2] bg-white pl-10 pr-3.5 text-sm font-bold text-[#222B49] outline-none transition placeholder:font-normal placeholder:text-[#9299AA] focus:border-[#5366B7] focus:ring-4 focus:ring-[#5366B7]/10"
-                />
-              </div>
-
-              <label
-                htmlFor="stock-quantity"
-                className="mb-1.5 mt-4 block text-[11px] font-bold uppercase tracking-[0.12em] text-[#66708C]"
-              >
-                Stock quantity
-                <span className="ml-1 text-[#18A6C9]">*</span>
-              </label>
-              <input
-                id="stock-quantity"
-                type="number"
-                min="0"
-                step="1"
-                inputMode="numeric"
-                value={stockQuantity}
-                onChange={(event) => {
-                  setStockQuantity(event.target.value);
-                  setConfirmation(null);
-                }}
-                placeholder="Example: 10"
-                className="h-12 w-full rounded-xl border border-[#CDD3E2] bg-white px-3.5 text-sm font-bold text-[#222B49] outline-none transition placeholder:font-normal placeholder:text-[#9299AA] focus:border-[#5366B7] focus:ring-4 focus:ring-[#5366B7]/10"
-              />
-              <p className="mt-2 text-[11px] font-medium text-[#858DA2]">
-                Enter 0 when the product is currently out of
-                stock.
-              </p>
-            </div>
-
-            <div className="hidden lg:flex min-w-0 flex-col rounded-2xl bg-[#26356F] p-4 text-white shadow-[0_12px_28px_rgba(38,53,111,0.18)]">
-              <div className="flex items-start gap-3">
-                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#18A6C9]">
-                  <IndianRupee className="h-5 w-5" />
-                </div>
-                <div className="min-w-0">
-                  <div className="text-[10px] font-bold uppercase tracking-[0.13em] text-white/50">
-                    Selling preview
-                  </div>
-                  <div className="mt-0.5 truncate text-base font-bold">
-                    {productName.trim()}
-                  </div>
-                </div>
-              </div>
-
-              <div className="mt-4 rounded-2xl bg-white p-4 text-[#26335F]">
-                <div className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#8991A4]">
-                  Customer price
-                </div>
-                <div className="mt-1 text-2xl font-bold">
-                  {priceIsValid(regularPrice)
-                    ? formatPrice(regularPrice)
-                    : "₹0"}
-                </div>
-
-                <div className="my-4 h-px bg-[#E6E9F0]" />
-
-                <div className="flex items-center justify-between gap-3">
-                  <span className="text-xs font-semibold text-[#737C96]">
-                    Available quantity
-                  </span>
-                  <span className="text-sm font-bold">
-                    {quantityIsValid(stockQuantity)
-                      ? stockQuantity
-                      : "—"}
-                  </span>
-                </div>
-              </div>
-
-              <div className="mt-auto pt-3">
-                <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-[11px] font-medium text-white/55">
-                  No sale-price field is included here.
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {(currentScreen === "size-variations" ||
-          currentScreen === "colour-variations") && (
-          <div className="grid min-w-0 content-start gap-4 lg:grid-cols-[1.25fr_0.75fr]">
-            <div className="flex min-h-0 min-w-0 flex-col border-b border-[#E7EAF2] bg-white px-1 pb-5 pt-1 md:rounded-2xl md:border md:border-[#E1E5EF] md:bg-[#F8F9FC] md:p-4">
-              <div className="flex items-start gap-3">
-                <div
-                  className={[
-                    "flex h-11 w-11 shrink-0 items-center justify-center rounded-xl",
-                    currentScreen === "size-variations"
-                      ? "bg-[#E5DCF8] text-[#6949A5]"
-                      : "bg-[#FFE0D9] text-[#B24737]",
-                  ].join(" ")}
-                >
-                  {currentScreen === "size-variations" ? (
-                    <Ruler className="h-5 w-5" />
-                  ) : (
-                    <Palette className="h-5 w-5" />
-                  )}
-                </div>
-                <div>
-                  <h2 className="text-sm font-bold text-[#26335F]">
-                    {currentScreen === "size-variations"
-                      ? "Size options"
-                      : "Colour options"}
-                  </h2>
-                  <p className="mt-0.5 text-xs text-[#737C96]">
-                    Enter price and quantity in the first option.
-                    Matching values fill the remaining options and
-                    can still be edited individually.
-                  </p>
-                </div>
-              </div>
-
-              {currentScreen === "size-variations" && (
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {commonSizes.map((size) => {
-                    const selected = sizeRows.some(
-                      (row) =>
-                        row.option.toLowerCase() ===
-                        size.toLowerCase()
-                    );
-
-                    return (
-                      <button
-                        key={size}
-                        type="button"
-                        onClick={() =>
-                          selected
-                            ? removeVariation(
-                                "size",
-                                sizeRows.find(
-                                  (row) =>
-                                    row.option.toLowerCase() ===
-                                    size.toLowerCase()
-                                )?.id ?? ""
-                              )
-                            : addVariation("size", size)
-                        }
-                        className={[
-                          "rounded-lg border px-3 py-2 text-xs font-bold",
-                          selected
-                            ? "border-[#7A62B7] bg-[#F0EAFF] text-[#60469A]"
-                            : "border-[#D9DDE8] bg-white text-[#697187]",
-                        ].join(" ")}
-                      >
-                        {selected && (
-                          <Check className="mr-1 inline h-3.5 w-3.5" />
-                        )}
-                        {size}
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-
-              <div className="mt-3 flex gap-2">
-                <input
-                  value={
-                    currentScreen === "size-variations"
-                      ? sizeInput
-                      : colourInput
-                  }
-                  onChange={(event) => {
-                    if (currentScreen === "size-variations") {
-                      setSizeInput(event.target.value);
-                    } else {
-                      setColourInput(event.target.value);
-                    }
-                  }}
-                  onKeyDown={(event) => {
-                    if (
-                      event.key === "Enter" ||
-                      event.key === ","
-                    ) {
-                      event.preventDefault();
-                      addVariation(
-                        currentScreen === "size-variations"
-                          ? "size"
-                          : "colour",
-                        currentScreen === "size-variations"
-                          ? sizeInput
-                          : colourInput
-                      );
-                    }
-                  }}
-                  placeholder={
-                    currentScreen === "size-variations"
-                      ? "Add another size"
-                      : "Add a colour"
-                  }
-                  className="h-11 min-w-0 flex-1 rounded-xl border border-[#CDD3E2] bg-white px-3.5 text-sm font-semibold text-[#222B49] outline-none placeholder:font-normal placeholder:text-[#9299AA] focus:border-[#5366B7] focus:ring-4 focus:ring-[#5366B7]/10"
-                />
-                <button
-                  type="button"
-                  onClick={() =>
-                    addVariation(
-                      currentScreen === "size-variations"
-                        ? "size"
-                        : "colour",
-                      currentScreen === "size-variations"
-                        ? sizeInput
-                        : colourInput
-                    )
-                  }
-                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#5366B7] text-white"
-                >
-                  <Plus className="h-4 w-4" />
-                </button>
-              </div>
-
-              <div className="mt-3 pb-4 lg:pb-0">
-                {(currentScreen === "size-variations"
-                  ? sizeRows
-                  : colourRows
-                ).length === 0 ? (
-                  <div className="flex min-h-28 items-center justify-center rounded-xl border border-dashed border-[#C9CFDC] bg-white px-4 text-center text-sm font-medium text-[#8A91A3]">
-                    Add at least one{" "}
-                    {currentScreen === "size-variations"
-                      ? "size"
-                      : "colour"}{" "}
-                    option.
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    {(currentScreen === "size-variations"
-                      ? sizeRows
-                      : colourRows
-                    ).map((row) => (
-                      <div
-                        key={row.id}
-                        className="grid grid-cols-[minmax(88px,1fr)_minmax(92px,1fr)_minmax(82px,0.8fr)_36px] items-end gap-2 rounded-xl border border-[#E0E4ED] bg-white p-2.5"
-                      >
-                        <div className="min-w-0">
-                          <div className="truncate text-sm font-bold text-[#27335F]">
-                            {row.option}
-                          </div>
-                          <div className="mt-1 truncate text-[10px] font-semibold uppercase text-[#858DA2]">
-                            {variationSku(sku, row.option)}
-                          </div>
-                        </div>
-
-                        <div>
-                          <label className="mb-1 block text-[9px] font-bold uppercase tracking-wide text-[#858DA2]">
-                            Price
-                          </label>
-                          <input
-                            type="number"
-                            min="0"
-                            step="0.01"
-                            inputMode="decimal"
-                            value={row.price}
-                            onChange={(event) =>
-                              updateVariation(
-                                currentScreen ===
-                                  "size-variations"
-                                  ? "size"
-                                  : "colour",
-                                row.id,
-                                { price: event.target.value }
-                              )
-                            }
-                            placeholder="0"
-                            className="h-9 w-full rounded-lg border border-[#CDD3E2] px-2.5 text-xs font-bold outline-none focus:border-[#5366B7]"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="mb-1 block text-[9px] font-bold uppercase tracking-wide text-[#858DA2]">
-                            Qty
-                          </label>
-                          <input
-                            type="number"
-                            min="0"
-                            step="1"
-                            inputMode="numeric"
-                            value={row.quantity}
-                            onChange={(event) =>
-                              updateVariation(
-                                currentScreen ===
-                                  "size-variations"
-                                  ? "size"
-                                  : "colour",
-                                row.id,
-                                {
-                                  quantity: event.target.value,
-                                }
-                              )
-                            }
-                            placeholder="0"
-                            className="h-9 w-full rounded-lg border border-[#CDD3E2] px-2.5 text-xs font-bold outline-none focus:border-[#5366B7]"
-                          />
-                        </div>
-
-                        <button
-                          type="button"
-                          aria-label={`Remove ${row.option}`}
                           onClick={() =>
-                            removeVariation(
-                              currentScreen ===
-                                "size-variations"
-                                ? "size"
-                                : "colour",
-                              row.id
+                            chooseGuidedProductType(
+                              productType.id
                             )
                           }
-                          className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#FFF0ED] text-[#C94A3B]"
+                          className={[
+                            "ls-focus-ring flex min-h-20 items-center gap-3 rounded-2xl border px-3 py-3 text-left transition",
+                            selected
+                              ? "border-[#1F63D8] bg-[#EEF5FF] shadow-sm"
+                              : editMode
+                                ? "cursor-not-allowed border-[#E2E8F0] bg-[#F8FAFC] opacity-45"
+                                : "border-[#D7E0EA] bg-white hover:bg-[#F8FAFC]",
+                          ].join(" ")}
                         >
-                          <Trash2 className="h-4 w-4" />
+                          <span
+                            className={[
+                              "grid h-10 w-10 shrink-0 place-items-center rounded-xl",
+                              productType.iconClass,
+                            ].join(" ")}
+                          >
+                            <Icon className="h-5 w-5" />
+                          </span>
+                          <span className="min-w-0">
+                            <span className="block text-sm font-extrabold text-[#17233C]">
+                              {productType.id ===
+                              "variable-size"
+                                ? "Size Variation"
+                                : productType.id ===
+                                    "variable-colour"
+                                  ? "Colour Variation"
+                                  : "Simple Product"}
+                            </span>
+                            <span className="mt-0.5 block text-xs text-[#6B748A]">
+                              {productType.label}
+                            </span>
+                          </span>
                         </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <div className="hidden lg:flex min-h-0 min-w-0 flex-col rounded-2xl bg-[#26356F] p-4 text-white">
-              <div className="flex items-start gap-3">
-                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#18A6C9]">
-                  {currentScreen === "size-variations" ? (
-                    <Ruler className="h-5 w-5" />
-                  ) : (
-                    <Palette className="h-5 w-5" />
+                      );
+                    }
                   )}
                 </div>
-                <div>
-                  <div className="text-[10px] font-bold uppercase tracking-[0.13em] text-white/50">
-                    Variation summary
-                  </div>
-                  <div className="mt-0.5 text-base font-bold">
-                    {(currentScreen === "size-variations"
-                      ? sizeRows
-                      : colourRows
-                    ).length}{" "}
-                    options
-                  </div>
-                </div>
               </div>
+            ) : null}
+          </section>
 
-              <div className="mt-4 min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-contain pb-12 pr-1 lg:overflow-visible lg:pb-0 lg:pr-0">
-                {(currentScreen === "size-variations"
-                  ? sizeRows
-                  : colourRows
-                ).map((row) => (
-                  <div
-                    key={row.id}
-                    className="rounded-xl bg-white/10 px-3 py-2.5"
-                  >
-                    <div className="flex items-center justify-between gap-3">
-                      <span className="truncate text-xs font-bold">
-                        {row.option}
-                      </span>
-                      <span className="text-xs font-bold text-[#8FE0B8]">
-                        {priceIsValid(row.price)
-                          ? formatPrice(row.price)
-                          : "Price needed"}
+          {unlockedSections.includes(
+            "info"
+          ) ? (
+            <section
+              id="product-section-info"
+              className={sectionCardClass(
+                "info"
+              )}
+            >
+              {sectionHead(
+                "info",
+                "Product Information",
+                "Required",
+                <Package2 className="h-5 w-5" />
+              )}
+
+              {openSection === "info" ? (
+                <div className="space-y-4 border-t border-[#E3E9F2] p-4">
+                  <div>
+                    <div className="mb-1.5 flex items-center justify-between gap-2">
+                      <label className="text-xs font-extrabold text-[#34405F]">
+                        Product Name
+                      </label>
+                      <span className="text-[10px] font-bold text-[#1F63D8]">
+                        Required
                       </span>
                     </div>
-                    <div className="mt-1 text-[10px] text-white/50">
-                      {variationSku(sku, row.option)} · Qty{" "}
-                      {quantityIsValid(row.quantity)
-                        ? row.quantity
-                        : "—"}
-                    </div>
+                    <input
+                      value={productName}
+                      onChange={(event) => {
+                        setProductName(
+                          event.target.value
+                        );
+                        setConfirmation(null);
+                      }}
+                      placeholder="Example: Premium Cotton Handbag"
+                      className="ls-focus-ring min-h-11 w-full rounded-xl border border-[#C8D4E2] bg-white px-3 text-sm font-semibold text-[#17233C]"
+                    />
                   </div>
-                ))}
-              </div>
 
-              <div className="mt-auto pt-3">
-                <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-[11px] font-medium leading-4 text-white/55">
-                  Sale pricing remains in Sale Events.
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
+                  <div>
+                    <div className="mb-1.5 flex items-center justify-between gap-2">
+                      <label className="text-xs font-extrabold text-[#34405F]">
+                        Category
+                      </label>
+                      <span className="text-[10px] font-bold text-[#1F63D8]">
+                        Required
+                      </span>
+                    </div>
 
-        {currentScreen === "colour-images" && (
-          <div className="grid min-w-0 content-start gap-4 lg:grid-cols-[1.2fr_0.8fr]">
-            <div className="flex min-h-0 flex-col border-b border-[#E7EAF2] bg-white px-1 pb-5 pt-1 md:rounded-2xl md:border md:border-[#E1E5EF] md:bg-[#F8F9FC] md:p-4">
-              <div className="mb-3 flex items-start gap-3">
-                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#FFE0D9] text-[#B24737]">
-                  <ImagePlus className="h-5 w-5" />
-                </div>
-                <div>
-                  <h2 className="text-sm font-bold text-[#26335F]">
-                    Colour images
-                  </h2>
-                  <p className="mt-0.5 text-xs text-[#737C96]">
-                    Add images, then drag them to set the order.
-                  </p>
-                </div>
-              </div>
+                    {selectedCategory ? (
+                      <div className="flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2.5">
+                        <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" />
+                        <span className="min-w-0 flex-1 truncate text-sm font-extrabold text-emerald-800">
+                          {selectedCategory.name}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={
+                            clearSelectedCategory
+                          }
+                          className="text-xs font-bold text-emerald-700"
+                        >
+                          Change
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="relative">
+                        <Search className="pointer-events-none absolute left-3 top-3.5 h-4 w-4 text-[#94A3B8]" />
+                        <input
+                          value={query}
+                          onFocus={() =>
+                            setSearchFocused(
+                              true
+                            )
+                          }
+                          onChange={(event) => {
+                            setQuery(
+                              event.target.value
+                            );
+                            setSearchFocused(
+                              true
+                            );
+                          }}
+                          placeholder="Search existing category"
+                          className="ls-focus-ring min-h-11 w-full rounded-xl border border-[#C8D4E2] bg-white pl-10 pr-3 text-sm"
+                        />
 
-              <div className="min-h-0 flex-1 pr-0">
-                <div className="space-y-3">
-                  {colourRows.map((row) => (
-                    <div
-                      key={row.id}
-                      className="rounded-xl border border-[#E0E4ED] bg-white p-3"
-                    >
-                      <div className="flex items-center justify-between gap-3">
-                        <div className="min-w-0">
-                          <div className="truncate text-sm font-bold text-[#27335F]">
-                            {row.option}
+                        {searchFocused &&
+                        query.trim() ? (
+                          <div className="absolute inset-x-0 top-[calc(100%+0.35rem)] z-30 overflow-hidden rounded-xl border border-[#D7E0EA] bg-white shadow-xl">
+                            {suggestions.length >
+                            0 ? (
+                              suggestions.map(
+                                (category) => (
+                                  <button
+                                    key={
+                                      category.id
+                                    }
+                                    type="button"
+                                    onClick={() =>
+                                      selectCategory(
+                                        category
+                                      )
+                                    }
+                                    className="flex min-h-11 w-full items-center justify-between border-b border-[#EEF2F6] px-3 text-left text-sm font-semibold text-[#34405F] last:border-0"
+                                  >
+                                    <span className="truncate">
+                                      {
+                                        category.name
+                                      }
+                                    </span>
+                                    <ChevronRight className="h-4 w-4 text-[#94A3B8]" />
+                                  </button>
+                                )
+                              )
+                            ) : (
+                              <div className="px-3 py-3 text-xs text-[#64748B]">
+                                No matching category.
+                              </div>
+                            )}
                           </div>
-                          <div className="mt-1 truncate text-[10px] font-semibold uppercase text-[#858DA2]">
-                            {variationSku(sku, row.option)}
-                          </div>
+                        ) : null}
+                      </div>
+                    )}
+
+                    {!selectedCategory ? (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setCategoryCreateOpen(
+                            (current) =>
+                              !current
+                          )
+                        }
+                        className="mt-2 inline-flex min-h-10 items-center gap-2 rounded-xl text-sm font-extrabold text-[#1F63D8]"
+                      >
+                        <Plus className="h-4 w-4" />
+                        Create New Category
+                      </button>
+                    ) : null}
+
+                    {categoryCreateOpen &&
+                    !selectedCategory ? (
+                      <div className="mt-2 space-y-3 rounded-2xl border border-[#C8D4E2] bg-[#F8FAFC] p-3">
+                        <div className="text-sm font-extrabold text-[#17233C]">
+                          Create Category
                         </div>
 
-                        <span className="shrink-0 rounded-full bg-[#EEF1FF] px-2.5 py-1 text-[10px] font-bold text-[#5366B7]">
-                          {row.photos.length}{" "}
-                          {row.photos.length === 1
-                            ? "image"
-                            : "images"}
+                        <div>
+                          <div className="mb-1 flex items-center justify-between">
+                            <label className="text-xs font-bold text-[#34405F]">
+                              Category Name
+                            </label>
+                            <span className="text-[10px] font-bold text-[#1F63D8]">
+                              Required
+                            </span>
+                          </div>
+                          <input
+                            value={
+                              newCategoryName
+                            }
+                            onChange={(
+                              event
+                            ) =>
+                              setNewCategoryName(
+                                event.target
+                                  .value
+                              )
+                            }
+                            className="min-h-11 w-full rounded-xl border border-[#C8D4E2] bg-white px-3 text-sm"
+                            placeholder="Example: Travel Bags"
+                          />
+                        </div>
+
+                        <div>
+                          <div className="mb-1 flex items-center justify-between">
+                            <label className="text-xs font-bold text-[#34405F]">
+                              Parent Category
+                            </label>
+                            <span className="text-[10px] font-bold text-slate-500">
+                              Optional
+                            </span>
+                          </div>
+                          <select
+                            value={
+                              newCategoryParentId
+                            }
+                            onChange={(
+                              event
+                            ) =>
+                              setNewCategoryParentId(
+                                Number(
+                                  event.target
+                                    .value
+                                )
+                              )
+                            }
+                            className="min-h-11 w-full rounded-xl border border-[#C8D4E2] bg-white px-3 text-sm"
+                          >
+                            <option value={0}>
+                              No parent category
+                            </option>
+                            {allCategories.map(
+                              (category) => (
+                                <option
+                                  key={
+                                    category.id
+                                  }
+                                  value={
+                                    category.id
+                                  }
+                                >
+                                  {
+                                    category.name
+                                  }
+                                </option>
+                              )
+                            )}
+                          </select>
+                        </div>
+
+                        <div>
+                          <div className="mb-1 flex items-center justify-between">
+                            <label className="text-xs font-bold text-[#34405F]">
+                              Category Image
+                            </label>
+                            <span className="text-[10px] font-bold text-slate-500">
+                              Optional
+                            </span>
+                          </div>
+                          <ImageUploader
+                            purpose="category_image"
+                            accept="image/*"
+                            label={
+                              newCategoryImage
+                                ? "Replace image"
+                                : "Upload image"
+                            }
+                            onUploaded={(
+                              _url,
+                              media
+                            ) =>
+                              setNewCategoryImage(
+                                media ||
+                                  null
+                              )
+                            }
+                          />
+                        </div>
+
+                        {categoryCreateError ? (
+                          <p className="text-xs font-semibold text-rose-600">
+                            {
+                              categoryCreateError
+                            }
+                          </p>
+                        ) : null}
+
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setCategoryCreateOpen(
+                                false
+                              );
+                              setCategoryCreateError(
+                                null
+                              );
+                            }}
+                            className="min-h-10 flex-1 rounded-xl border border-[#D7E0EA] bg-white text-sm font-bold text-[#475569]"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            type="button"
+                            disabled={
+                              newCategoryName.trim()
+                                .length < 2 ||
+                              categoryCreating
+                            }
+                            onClick={() =>
+                              void createAndSelectCategory()
+                            }
+                            className="min-h-10 flex-1 rounded-xl bg-[#1F63D8] text-sm font-extrabold text-white disabled:opacity-50"
+                          >
+                            {categoryCreating
+                              ? "Creating…"
+                              : "Create Category"}
+                          </button>
+                        </div>
+                      </div>
+                    ) : null}
+                  </div>
+
+                  <div>
+                    <div className="mb-1.5 flex items-center justify-between gap-2">
+                      <label className="text-xs font-extrabold text-[#34405F]">
+                        SKU
+                      </label>
+                      <span
+                        className={[
+                          "text-[10px] font-bold",
+                          variableProduct
+                            ? "text-[#1F63D8]"
+                            : "text-slate-500",
+                        ].join(" ")}
+                      >
+                        {variableProduct
+                          ? "Required"
+                          : "Optional"}
+                      </span>
+                    </div>
+                    <input
+                      value={sku}
+                      onChange={(event) => {
+                        setSku(
+                          event.target.value
+                        );
+                        setSkuTaken(false);
+                        setSkuCheckError(
+                          null
+                        );
+                        setConfirmation(null);
+                      }}
+                      placeholder={
+                        variableProduct
+                          ? "Base SKU for variations"
+                          : "Optional product SKU"
+                      }
+                      className="ls-focus-ring min-h-11 w-full rounded-xl border border-[#C8D4E2] bg-white px-3 text-sm"
+                    />
+                    {skuChecking ? (
+                      <p className="mt-1 text-[11px] font-semibold text-[#64748B]">
+                        Checking SKU…
+                      </p>
+                    ) : skuTaken ? (
+                      <p className="mt-1 text-[11px] font-semibold text-rose-600">
+                        SKU already in use. Choose a different SKU.
+                      </p>
+                    ) : skuCheckError ? (
+                      <p className="mt-1 text-[11px] font-semibold text-amber-700">
+                        {skuCheckError}
+                      </p>
+                    ) : null}
+                  </div>
+
+                  <button
+                    type="button"
+                    disabled={!guidedInfoValid}
+                    onClick={() =>
+                      advanceFrom("info")
+                    }
+                    className="ls-focus-ring flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#1F63D8] px-4 text-sm font-extrabold text-white disabled:opacity-40"
+                  >
+                    Continue
+                    <ChevronDown className="h-4 w-4" />
+                  </button>
+                </div>
+              ) : null}
+            </section>
+          ) : null}
+
+          {unlockedSections.includes(
+            "variations"
+          ) &&
+          selectedProductType !==
+            "simple" ? (
+            <section
+              id="product-section-variations"
+              className={sectionCardClass(
+                "variations"
+              )}
+            >
+              {sectionHead(
+                "variations",
+                selectedProductType ===
+                  "variable-size"
+                  ? "Sizes, Price & Quantity"
+                  : "Colours, Price & Quantity",
+                "Required",
+                selectedProductType ===
+                  "variable-size" ? (
+                  <Ruler className="h-5 w-5" />
+                ) : (
+                  <Palette className="h-5 w-5" />
+                )
+              )}
+
+              {openSection ===
+              "variations" ? (
+                <div className="space-y-4 border-t border-[#E3E9F2] p-4">
+                  {selectedProductType ===
+                  "variable-size" ? (
+                    <>
+                      <div>
+                        <div className="mb-2 flex items-center justify-between">
+                          <span className="text-xs font-extrabold text-[#34405F]">
+                            Choose Sizes
+                          </span>
+                          <span className="text-[10px] font-bold text-[#1F63D8]">
+                            Required
+                          </span>
+                        </div>
+
+                        <div className="flex flex-wrap gap-2">
+                          {commonSizes.map(
+                            (size) => {
+                              const row =
+                                sizeRows.find(
+                                  (item) =>
+                                    item.option.toLowerCase() ===
+                                    size.toLowerCase()
+                                );
+
+                              return (
+                                <button
+                                  key={size}
+                                  type="button"
+                                  onClick={() =>
+                                    row
+                                      ? removeVariation(
+                                          "size",
+                                          row.id
+                                        )
+                                      : addVariation(
+                                          "size",
+                                          size
+                                        )
+                                  }
+                                  className={[
+                                    "min-h-9 rounded-xl border px-3 text-xs font-extrabold",
+                                    row
+                                      ? "border-[#1F63D8] bg-[#EEF5FF] text-[#1F63D8]"
+                                      : "border-[#D7E0EA] bg-white text-[#475569]",
+                                  ].join(
+                                    " "
+                                  )}
+                                >
+                                  {size}
+                                  {row
+                                    ? " ✓"
+                                    : ""}
+                                </button>
+                              );
+                            }
+                          )}
+                        </div>
+
+                        <div className="mt-3 flex gap-2">
+                          <input
+                            value={sizeInput}
+                            onChange={(
+                              event
+                            ) =>
+                              setSizeInput(
+                                event.target
+                                  .value
+                              )
+                            }
+                            placeholder="Custom size"
+                            className="min-h-10 min-w-0 flex-1 rounded-xl border border-[#C8D4E2] bg-white px-3 text-sm"
+                          />
+                          <button
+                            type="button"
+                            onClick={() =>
+                              addVariation(
+                                "size",
+                                sizeInput
+                              )
+                            }
+                            className="min-h-10 rounded-xl border border-[#C8D4E2] bg-white px-3 text-sm font-bold text-[#1F63D8]"
+                          >
+                            Add
+                          </button>
+                        </div>
+                      </div>
+                    </>
+                  ) : (
+                    <div>
+                      <div className="mb-2 flex items-center justify-between">
+                        <span className="text-xs font-extrabold text-[#34405F]">
+                          Add Colours
+                        </span>
+                        <span className="text-[10px] font-bold text-[#1F63D8]">
+                          Required
+                        </span>
+                      </div>
+                      <div className="flex gap-2">
+                        <input
+                          value={colourInput}
+                          onChange={(event) =>
+                            setColourInput(
+                              event.target.value
+                            )
+                          }
+                          placeholder="Example: Maroon"
+                          className="min-h-10 min-w-0 flex-1 rounded-xl border border-[#C8D4E2] bg-white px-3 text-sm"
+                        />
+                        <button
+                          type="button"
+                          onClick={() =>
+                            addVariation(
+                              "colour",
+                              colourInput
+                            )
+                          }
+                          className="min-h-10 rounded-xl bg-[#1F63D8] px-4 text-sm font-extrabold text-white"
+                        >
+                          Add Colour
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {(selectedProductType ===
+                  "variable-size"
+                    ? sizeRows
+                    : colourRows
+                  ).length > 0 ? (
+                    <>
+                      <div className="rounded-xl border border-[#D7E0EA] bg-[#F8FAFC] p-3">
+                        <div className="mb-2 text-xs font-extrabold text-[#34405F]">
+                          Same price for all
+                          <span className="ml-2 text-[10px] font-bold text-slate-500">
+                            Optional shortcut
+                          </span>
+                        </div>
+                        <div className="flex gap-2">
+                          <div className="relative min-w-0 flex-1">
+                            <IndianRupee className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-[#64748B]" />
+                            <input
+                              value={
+                                sharedVariationPrice
+                              }
+                              onChange={(
+                                event
+                              ) =>
+                                setSharedVariationPrice(
+                                  event.target
+                                    .value
+                                )
+                              }
+                              inputMode="decimal"
+                              placeholder="799"
+                              className="min-h-10 w-full rounded-xl border border-[#C8D4E2] bg-white pl-9 pr-3 text-sm"
+                            />
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const value =
+                                sharedVariationPrice.trim();
+                              if (
+                                !priceIsValid(
+                                  value
+                                )
+                              ) {
+                                return;
+                              }
+                              const setter =
+                                selectedProductType ===
+                                "variable-size"
+                                  ? setSizeRows
+                                  : setColourRows;
+                              setter(
+                                (current) =>
+                                  current.map(
+                                    (row) => ({
+                                      ...row,
+                                      price:
+                                        value,
+                                    })
+                                  )
+                              );
+                            }}
+                            className="min-h-10 rounded-xl border border-[#C8D4E2] bg-white px-3 text-xs font-extrabold text-[#1F63D8]"
+                          >
+                            Apply
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        {(selectedProductType ===
+                        "variable-size"
+                          ? sizeRows
+                          : colourRows
+                        ).map((row) => (
+                          <div
+                            key={row.id}
+                            className="rounded-xl border border-[#D7E0EA] bg-white p-3"
+                          >
+                            <div className="mb-2 flex items-center justify-between gap-3">
+                              <span className="truncate text-sm font-extrabold text-[#17233C]">
+                                {row.option}
+                              </span>
+                              <button
+                                type="button"
+                                aria-label={`Remove ${row.option}`}
+                                onClick={() =>
+                                  removeVariation(
+                                    selectedProductType ===
+                                      "variable-size"
+                                      ? "size"
+                                      : "colour",
+                                    row.id
+                                  )
+                                }
+                                className="grid h-8 w-8 place-items-center rounded-lg text-rose-500"
+                              >
+                                <X className="h-4 w-4" />
+                              </button>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-2">
+                              <div>
+                                <div className="mb-1 flex items-center justify-between">
+                                  <label className="text-[11px] font-bold text-[#64748B]">
+                                    Price
+                                  </label>
+                                  <span className="text-[9px] font-bold text-[#1F63D8]">
+                                    Required
+                                  </span>
+                                </div>
+                                <input
+                                  value={
+                                    row.price
+                                  }
+                                  onChange={(
+                                    event
+                                  ) =>
+                                    updateVariation(
+                                      selectedProductType ===
+                                        "variable-size"
+                                        ? "size"
+                                        : "colour",
+                                      row.id,
+                                      {
+                                        price:
+                                          event
+                                            .target
+                                            .value,
+                                      }
+                                    )
+                                  }
+                                  inputMode="decimal"
+                                  placeholder="₹"
+                                  className="min-h-10 w-full rounded-xl border border-[#C8D4E2] bg-white px-3 text-sm"
+                                />
+                              </div>
+                              <div>
+                                <div className="mb-1 flex items-center justify-between">
+                                  <label className="text-[11px] font-bold text-[#64748B]">
+                                    Quantity
+                                  </label>
+                                  <span className="text-[9px] font-bold text-[#1F63D8]">
+                                    Required
+                                  </span>
+                                </div>
+                                <input
+                                  value={
+                                    row.quantity
+                                  }
+                                  onChange={(
+                                    event
+                                  ) =>
+                                    updateVariation(
+                                      selectedProductType ===
+                                        "variable-size"
+                                        ? "size"
+                                        : "colour",
+                                      row.id,
+                                      {
+                                        quantity:
+                                          event
+                                            .target
+                                            .value,
+                                      }
+                                    )
+                                  }
+                                  inputMode="numeric"
+                                  placeholder="0"
+                                  className="min-h-10 w-full rounded-xl border border-[#C8D4E2] bg-white px-3 text-sm"
+                                />
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </>
+                  ) : (
+                    <div className="rounded-xl border border-dashed border-[#C8D4E2] bg-[#F8FAFC] px-4 py-6 text-center text-xs font-semibold text-[#64748B]">
+                      {selectedProductType ===
+                      "variable-size"
+                        ? "Choose at least one size."
+                        : "Add at least one colour."}
+                    </div>
+                  )}
+
+                  <button
+                    type="button"
+                    disabled={
+                      !guidedVariationsValid
+                    }
+                    onClick={() =>
+                      advanceFrom(
+                        "variations"
+                      )
+                    }
+                    className="ls-focus-ring flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#1F63D8] px-4 text-sm font-extrabold text-white disabled:opacity-40"
+                  >
+                    Continue to Photos
+                    <ChevronDown className="h-4 w-4" />
+                  </button>
+                </div>
+              ) : null}
+            </section>
+          ) : null}
+
+          {unlockedSections.includes(
+            "photos"
+          ) ? (
+            <section
+              id="product-section-photos"
+              className={sectionCardClass(
+                "photos"
+              )}
+            >
+              {sectionHead(
+                "photos",
+                selectedProductType ===
+                  "variable-colour"
+                  ? "Photos by Colour"
+                  : "Product Photos",
+                "Required",
+                <ImagePlus className="h-5 w-5" />
+              )}
+
+              {openSection === "photos" ? (
+                <div className="space-y-4 border-t border-[#E3E9F2] p-4">
+                  {selectedProductType ===
+                  "variable-colour" ? (
+                    <>
+                      <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
+                        {colourRows.map(
+                          (row) => (
+                            <button
+                              key={row.id}
+                              type="button"
+                              onClick={() =>
+                                setActiveColourPhotoRowId(
+                                  row.id
+                                )
+                              }
+                              className={[
+                                "min-h-9 shrink-0 rounded-xl border px-3 text-xs font-extrabold",
+                                activeColourRow?.id ===
+                                row.id
+                                  ? "border-[#1F63D8] bg-[#EEF5FF] text-[#1F63D8]"
+                                  : "border-[#D7E0EA] bg-white text-[#475569]",
+                              ].join(
+                                " "
+                              )}
+                            >
+                              {row.option}
+                              {row.photos.length >
+                              0
+                                ? " ✓"
+                                : ""}
+                            </button>
+                          )
+                        )}
+                      </div>
+
+                      {activeColourRow ? (
+                        <div className="rounded-2xl border border-[#D7E0EA] bg-[#F8FAFC] p-3">
+                          <div className="mb-3 flex items-center justify-between gap-2">
+                            <div>
+                              <div className="text-sm font-extrabold text-[#17233C]">
+                                {
+                                  activeColourRow.option
+                                }{" "}
+                                photos
+                              </div>
+                              <div className="mt-0.5 text-[11px] font-semibold text-[#64748B]">
+                                At least 1 · Maximum 3
+                              </div>
+                            </div>
+                            <span className="rounded-full bg-white px-2.5 py-1 text-[10px] font-extrabold text-[#1F63D8]">
+                              {
+                                activeColourRow
+                                  .photos
+                                  .length
+                              }
+                              /3
+                            </span>
+                          </div>
+
+                          {activeColourRow.photos.length > 1 ? (
+                            <div className="mb-2 flex items-center gap-1.5 text-[11px] font-semibold text-[#64748B]">
+                              <GripVertical className="h-3.5 w-3.5" />
+                              Drag to reorder. First photo is the main colour image.
+                            </div>
+                          ) : null}
+
+                          <div className="grid grid-cols-3 gap-2">
+                            {activeColourRow.photos.map(
+                              (
+                                photo,
+                                index
+                              ) => (
+                                <div
+                                  key={
+                                    photo.id
+                                  }
+                                  data-variation-row-id={
+                                    activeColourRow.id
+                                  }
+                                  data-variation-photo-id={
+                                    photo.id
+                                  }
+                                  className={[
+                                    "relative aspect-square overflow-visible rounded-xl",
+                                    draggedVariationPhoto?.rowId ===
+                                      activeColourRow.id &&
+                                    draggedVariationPhoto.photoId ===
+                                      photo.id
+                                      ? "opacity-60"
+                                      : "",
+                                  ].join(" ")}
+                                >
+                                  <button
+                                    type="button"
+                                    draggable
+                                    aria-label={`${activeColourRow.option} image ${index + 1}. Drag to reorder.`}
+                                    onDragStart={(
+                                      event
+                                    ) => {
+                                      event.dataTransfer.effectAllowed =
+                                        "move";
+                                      event.dataTransfer.setData(
+                                        "text/plain",
+                                        photo.id
+                                      );
+                                      beginVariationPhotoDrag(
+                                        activeColourRow.id,
+                                        photo.id
+                                      );
+                                    }}
+                                    onDragOver={(
+                                      event
+                                    ) => {
+                                      event.preventDefault();
+                                      event.dataTransfer.dropEffect =
+                                        "move";
+                                    }}
+                                    onDrop={(
+                                      event
+                                    ) => {
+                                      event.preventDefault();
+
+                                      const sourcePhotoId =
+                                        event.dataTransfer.getData(
+                                          "text/plain"
+                                        ) ||
+                                        draggedVariationPhotoRef.current
+                                          ?.photoId;
+
+                                      if (
+                                        sourcePhotoId
+                                      ) {
+                                        moveVariationPhoto(
+                                          activeColourRow.id,
+                                          sourcePhotoId,
+                                          photo.id
+                                        );
+                                      }
+
+                                      finishVariationPhotoDrag();
+                                    }}
+                                    onDragEnd={
+                                      finishVariationPhotoDrag
+                                    }
+                                    onTouchStart={() =>
+                                      beginVariationPhotoDrag(
+                                        activeColourRow.id,
+                                        photo.id
+                                      )
+                                    }
+                                    onTouchMove={(
+                                      event
+                                    ) => {
+                                      event.preventDefault();
+                                      const touch =
+                                        event
+                                          .touches[0];
+
+                                      if (touch) {
+                                        moveDraggedVariationPhotoAtPoint(
+                                          activeColourRow.id,
+                                          touch.clientX,
+                                          touch.clientY
+                                        );
+                                      }
+                                    }}
+                                    onTouchEnd={
+                                      finishVariationPhotoDrag
+                                    }
+                                    onTouchCancel={
+                                      finishVariationPhotoDrag
+                                    }
+                                    className={[
+                                      "relative h-full w-full cursor-grab touch-none overflow-hidden rounded-xl border-2 bg-white active:cursor-grabbing",
+                                      index === 0
+                                        ? "border-[#1F63D8]"
+                                        : "border-[#D7E0EA]",
+                                    ].join(" ")}
+                                  >
+                                    <img
+                                      src={
+                                        photo.url
+                                      }
+                                      alt={`${activeColourRow.option} image ${index + 1}`}
+                                      className="pointer-events-none h-full w-full object-cover"
+                                    />
+                                    <span className="pointer-events-none absolute bottom-1.5 left-1.5 grid h-6 w-6 place-items-center rounded-lg bg-black/55 text-white">
+                                      <GripVertical className="h-4 w-4" />
+                                    </span>
+                                    {index ===
+                                    0 ? (
+                                      <span className="pointer-events-none absolute left-1.5 top-1.5 rounded-full bg-[#17233C]/85 px-2 py-0.5 text-[9px] font-bold text-white">
+                                        Main
+                                      </span>
+                                    ) : null}
+                                  </button>
+
+                                  <button
+                                    type="button"
+                                    aria-label={`Remove ${activeColourRow.option} image ${index + 1}`}
+                                    onPointerDown={(
+                                      event
+                                    ) =>
+                                      event.stopPropagation()
+                                    }
+                                    onClick={() =>
+                                      removeVariationPhoto(
+                                        activeColourRow.id,
+                                        photo.id
+                                      )
+                                    }
+                                    className="absolute -right-1.5 -top-1.5 z-10 grid h-7 w-7 place-items-center rounded-full border border-[#E3E9F2] bg-white text-rose-600 shadow-sm"
+                                  >
+                                    <X className="h-3.5 w-3.5" />
+                                  </button>
+                                </div>
+                              )
+                            )}
+
+                            {activeColourRow
+                              .photos.length <
+                            3 ? (
+                              <label className="flex aspect-square cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-[#B8C7D9] bg-white text-center text-[#1F63D8]">
+                                <ImagePlus className="h-5 w-5" />
+                                <span className="mt-1 text-[10px] font-extrabold">
+                                  Add Photos
+                                </span>
+                                <input
+                                  type="file"
+                                  accept="image/*"
+                                  multiple
+                                  className="hidden"
+                                  onChange={(
+                                    event
+                                  ) => {
+                                    addVariationPhotos(
+                                      activeColourRow.id,
+                                      event
+                                        .target
+                                        .files
+                                    );
+                                    event.currentTarget.value =
+                                      "";
+                                  }}
+                                />
+                              </label>
+                            ) : null}
+                          </div>
+                        </div>
+                      ) : null}
+
+                      <div className="text-[11px] font-semibold text-[#64748B]">
+                        Each colour needs at least one photo. Maximum 3 photos per colour.
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="flex items-center justify-between gap-3">
+                        <div>
+                          <div className="text-sm font-extrabold text-[#17233C]">
+                            Product Gallery
+                          </div>
+                          <div className="mt-0.5 text-[11px] font-semibold text-[#64748B]">
+                            At least 1 · Maximum 5
+                          </div>
+                        </div>
+                        <span className="rounded-full bg-[#EEF5FF] px-2.5 py-1 text-[10px] font-extrabold text-[#1F63D8]">
+                          {localPhotos.length}
+                          /5
                         </span>
                       </div>
 
-                      <div className="mt-3 grid grid-cols-5 gap-2 sm:grid-cols-7">
-                        {row.photos.map((photo, photoIndex) => (
-                          <div
-                            key={photo.id}
-                            data-variation-row-id={row.id}
-                            data-variation-photo-id={photo.id}
-                            className={[
-                              "relative aspect-square min-w-0 overflow-visible rounded-lg",
-                              draggedVariationPhoto?.rowId === row.id &&
-                              draggedVariationPhoto.photoId === photo.id
-                                ? "opacity-60"
-                                : "",
-                            ].join(" ")}
-                          >
-                            <button
-                              type="button"
-                              draggable
-                              aria-label={`${row.option} image ${photoIndex + 1}. Drag to reorder.`}
-                              onDragStart={(event) => {
-                                event.dataTransfer.effectAllowed =
-                                  "move";
+                      {localPhotos.length > 1 ? (
+                        <div className="flex items-center gap-1.5 text-[11px] font-semibold text-[#64748B]">
+                          <GripVertical className="h-3.5 w-3.5" />
+                          Drag photos to reorder. The first photo is the main image.
+                        </div>
+                      ) : null}
 
-                                event.dataTransfer.setData(
-                                  "text/plain",
-                                  photo.id
-                                );
-
-                                beginVariationPhotoDrag(
-                                  row.id,
-                                  photo.id
-                                );
-                              }}
-                              onDragOver={(event) => {
-                                event.preventDefault();
-                                event.dataTransfer.dropEffect =
-                                  "move";
-                              }}
-                              onDrop={(event) => {
-                                event.preventDefault();
-
-                                const sourcePhotoId =
-                                  event.dataTransfer.getData(
-                                    "text/plain"
-                                  ) ||
-                                  draggedVariationPhotoRef.current
-                                    ?.photoId;
-
-                                if (sourcePhotoId) {
-                                  moveVariationPhoto(
-                                    row.id,
-                                    sourcePhotoId,
-                                    photo.id
-                                  );
-                                }
-
-                                finishVariationPhotoDrag();
-                              }}
-                              onDragEnd={
-                                finishVariationPhotoDrag
-                              }
-                              onTouchStart={() =>
-                                beginVariationPhotoDrag(
-                                  row.id,
-                                  photo.id
-                                )
-                              }
-                              onTouchMove={(event) => {
-                                event.preventDefault();
-
-                                const touch =
-                                  event.touches[0];
-
-                                if (touch) {
-                                  moveDraggedVariationPhotoAtPoint(
-                                    row.id,
-                                    touch.clientX,
-                                    touch.clientY
-                                  );
-                                }
-                              }}
-                              onTouchEnd={
-                                finishVariationPhotoDrag
-                              }
-                              onTouchCancel={
-                                finishVariationPhotoDrag
+                      <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
+                        {localPhotos.map(
+                          (
+                            photo,
+                            index
+                          ) => (
+                            <div
+                              key={photo.id}
+                              data-photo-id={
+                                photo.id
                               }
                               className={[
-                                "relative h-full w-full cursor-grab touch-none overflow-hidden rounded-lg border-2 bg-[#F8F9FC] active:cursor-grabbing",
-                                photoIndex === 0
-                                  ? "border-[#18A6C9]"
-                                  : "border-[#DDE1EA]",
+                                "relative aspect-square overflow-visible rounded-xl",
+                                draggedPhotoId ===
+                                photo.id
+                                  ? "opacity-60"
+                                  : "",
                               ].join(" ")}
                             >
-                              <Image
-                                unoptimized
-                                fill
-                                src={photo.url}
-                                alt={`${row.option} image ${photoIndex + 1}`}
-                                className="pointer-events-none object-cover"
-                              />
+                              <button
+                                type="button"
+                                draggable
+                                aria-label={
+                                  index === 0
+                                    ? "Main photo. Drag to reorder."
+                                    : "Drag photo to reorder."
+                                }
+                                onDragStart={(
+                                  event
+                                ) => {
+                                  event.dataTransfer.effectAllowed =
+                                    "move";
+                                  event.dataTransfer.setData(
+                                    "text/plain",
+                                    photo.id
+                                  );
+                                  beginPhotoDrag(
+                                    photo.id
+                                  );
+                                }}
+                                onDragOver={(
+                                  event
+                                ) => {
+                                  event.preventDefault();
+                                  event.dataTransfer.dropEffect =
+                                    "move";
+                                }}
+                                onDrop={(
+                                  event
+                                ) => {
+                                  event.preventDefault();
+                                  const sourcePhotoId =
+                                    event.dataTransfer.getData(
+                                      "text/plain"
+                                    ) ||
+                                    draggedPhotoIdRef.current;
 
-                              <span className="pointer-events-none absolute bottom-1 left-1 flex h-5 w-5 items-center justify-center rounded-md bg-black/55 text-white">
-                                <GripVertical className="h-3.5 w-3.5" />
-                              </span>
+                                  if (
+                                    sourcePhotoId
+                                  ) {
+                                    movePhoto(
+                                      sourcePhotoId,
+                                      photo.id
+                                    );
+                                  }
 
-                              {photoIndex === 0 && (
-                                <span className="pointer-events-none absolute right-1 top-1 rounded bg-[#18A6C9] px-1.5 py-0.5 text-[7px] font-bold uppercase text-white">
-                                  Main
+                                  finishPhotoDrag();
+                                }}
+                                onDragEnd={
+                                  finishPhotoDrag
+                                }
+                                onTouchStart={() =>
+                                  beginPhotoDrag(
+                                    photo.id
+                                  )
+                                }
+                                onTouchMove={(
+                                  event
+                                ) => {
+                                  event.preventDefault();
+                                  const touch =
+                                    event
+                                      .touches[0];
+
+                                  if (touch) {
+                                    moveDraggedPhotoAtPoint(
+                                      touch.clientX,
+                                      touch.clientY
+                                    );
+                                  }
+                                }}
+                                onTouchEnd={
+                                  finishPhotoDrag
+                                }
+                                onTouchCancel={
+                                  finishPhotoDrag
+                                }
+                                className={[
+                                  "relative h-full w-full cursor-grab touch-none overflow-hidden rounded-xl border-2 bg-white active:cursor-grabbing",
+                                  index === 0
+                                    ? "border-[#1F63D8]"
+                                    : "border-[#D7E0EA]",
+                                ].join(" ")}
+                              >
+                                <img
+                                  src={
+                                    photo.url
+                                  }
+                                  alt={
+                                    photo.name
+                                  }
+                                  className="pointer-events-none h-full w-full object-cover"
+                                />
+                                <span className="pointer-events-none absolute bottom-1.5 left-1.5 grid h-6 w-6 place-items-center rounded-lg bg-black/55 text-white">
+                                  <GripVertical className="h-4 w-4" />
                                 </span>
-                              )}
-                            </button>
+                                {index === 0 ? (
+                                  <span className="pointer-events-none absolute left-1.5 top-1.5 rounded-full bg-[#17233C]/85 px-2 py-0.5 text-[9px] font-bold text-white">
+                                    Main
+                                  </span>
+                                ) : null}
+                              </button>
 
-                            <button
-                              type="button"
-                              aria-label={`Remove ${row.option} image ${photoIndex + 1}`}
-                              onPointerDown={(event) =>
-                                event.stopPropagation()
-                              }
-                              onClick={() =>
-                                removeVariationPhoto(
-                                  row.id,
-                                  photo.id
-                                )
-                              }
-                              className="absolute -right-1.5 -top-1.5 z-10 flex h-6 w-6 items-center justify-center rounded-full border border-[#E3E6EE] bg-white text-[#C94A3B] shadow-sm"
-                            >
-                              <X className="h-3.5 w-3.5" />
-                            </button>
-                          </div>
-                        ))}
-
-                        {row.photos.length < 3 && (
-                          <label className="flex aspect-square min-w-0 cursor-pointer items-center justify-center rounded-lg border-2 border-dashed border-[#C8CEDD] bg-[#F8F9FC] text-[#6877AD] transition hover:border-[#5366B7] hover:bg-[#F1F3FF]">
-                            <Plus className="h-5 w-5" />
-                            <input
-                              type="file"
-                              accept="image/*"
-                              multiple
-                              className="hidden"
-                              onChange={(event) => {
-                                addVariationPhotos(
-                                  row.id,
-                                  event.target.files
-                                );
-                                event.currentTarget.value = "";
-                              }}
-                            />
-                          </label>
+                              <button
+                                type="button"
+                                aria-label="Remove photo"
+                                onPointerDown={(
+                                  event
+                                ) =>
+                                  event.stopPropagation()
+                                }
+                                onClick={() =>
+                                  removePhoto(
+                                    photo.id
+                                  )
+                                }
+                                className="absolute -right-1.5 -top-1.5 z-10 grid h-7 w-7 place-items-center rounded-full border border-[#E3E9F2] bg-white text-rose-600 shadow-sm"
+                              >
+                                <X className="h-3.5 w-3.5" />
+                              </button>
+                            </div>
+                          )
                         )}
+
+                        {localPhotos.length <
+                        5 ? (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              photoInputRef.current?.click()
+                            }
+                            className="flex aspect-square flex-col items-center justify-center rounded-xl border-2 border-dashed border-[#B8C7D9] bg-[#F8FAFC] text-[#1F63D8]"
+                          >
+                            <ImagePlus className="h-5 w-5" />
+                            <span className="mt-1 text-[10px] font-extrabold">
+                              Add Photos
+                            </span>
+                          </button>
+                        ) : null}
                       </div>
 
-                      {row.photos.length === 0 ? (
-                        <p className="mt-2 text-[10px] font-semibold text-[#A15A4E]">
-                          Add at least one image for this colour.
-                        </p>
-                      ) : (
-                        <p className="mt-2 text-[10px] font-semibold text-[#858DA2]">
-                          Up to 3 images per colour.
-                        </p>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
+                      <input
+                        ref={photoInputRef}
+                        type="file"
+                        accept="image/*"
+                        multiple
+                        className="hidden"
+                        onChange={(event) => {
+                          addPhotos(
+                            event.target.files
+                          );
+                          event.currentTarget.value =
+                            "";
+                        }}
+                      />
+                    </>
+                  )}
 
-            <div className="hidden lg:flex min-w-0 flex-col rounded-2xl bg-[#26356F] p-4 text-white">
-              <div className="flex items-start gap-3">
-                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#18A6C9]">
-                  <Palette className="h-5 w-5" />
-                </div>
-                <div>
-                  <div className="text-[10px] font-bold uppercase tracking-[0.13em] text-white/50">
-                    Image progress
-                  </div>
-                  <div className="mt-0.5 text-base font-bold">
-                    {
-                      colourRows.filter(
-                        (row) => row.photos.length > 0
-                      ).length
-                    }{" "}
-                    of {colourRows.length} colours ready
-                  </div>
-                </div>
-              </div>
-
-              <div className="mt-4 space-y-2 overflow-y-auto lg:overflow-visible">
-                {colourRows.map((row) => (
-                  <div
-                    key={row.id}
-                    className="flex items-center gap-3 rounded-xl bg-white/10 px-3 py-2.5"
+                  <button
+                    type="button"
+                    disabled={
+                      !guidedPhotosValid
+                    }
+                    onClick={() =>
+                      advanceFrom("photos")
+                    }
+                    className="ls-focus-ring flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#1F63D8] px-4 text-sm font-extrabold text-white disabled:opacity-40"
                   >
-                    <div
-                      className={[
-                        "flex h-8 w-8 items-center justify-center rounded-lg",
-                        row.photos.length > 0
-                          ? "bg-[#DDF4E8] text-[#246247]"
-                          : "bg-white/10 text-white/45",
-                      ].join(" ")}
-                    >
-                      {row.photos.length > 0 ? (
-                        <Check className="h-4 w-4" />
-                      ) : (
-                        <ImagePlus className="h-4 w-4" />
-                      )}
+                    Continue
+                    <ChevronDown className="h-4 w-4" />
+                  </button>
+                </div>
+              ) : null}
+            </section>
+          ) : null}
+
+          {unlockedSections.includes(
+            "pricing"
+          ) &&
+          selectedProductType ===
+            "simple" ? (
+            <section
+              id="product-section-pricing"
+              className={sectionCardClass(
+                "pricing"
+              )}
+            >
+              {sectionHead(
+                "pricing",
+                "Price & Quantity",
+                "Required",
+                <IndianRupee className="h-5 w-5" />
+              )}
+
+              {openSection === "pricing" ? (
+                <div className="space-y-4 border-t border-[#E3E9F2] p-4">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <div className="mb-1 flex items-center justify-between">
+                        <label className="text-xs font-extrabold text-[#34405F]">
+                          Selling Price
+                        </label>
+                        <span className="text-[9px] font-bold text-[#1F63D8]">
+                          Required
+                        </span>
+                      </div>
+                      <input
+                        value={regularPrice}
+                        onChange={(
+                          event
+                        ) =>
+                          setRegularPrice(
+                            event.target.value
+                          )
+                        }
+                        inputMode="decimal"
+                        placeholder="₹ 799"
+                        className="min-h-11 w-full rounded-xl border border-[#C8D4E2] bg-white px-3 text-sm"
+                      />
                     </div>
 
-                    <span className="min-w-0 flex-1 truncate text-xs font-bold">
-                      {row.option}
-                    </span>
-
-                    <span className="shrink-0 text-[10px] font-semibold text-white/55">
-                      {row.photos.length}{" "}
-                      {row.photos.length === 1
-                        ? "image"
-                        : "images"}
-                    </span>
+                    <div>
+                      <div className="mb-1 flex items-center justify-between">
+                        <label className="text-xs font-extrabold text-[#34405F]">
+                          Quantity
+                        </label>
+                        <span className="text-[9px] font-bold text-[#1F63D8]">
+                          Required
+                        </span>
+                      </div>
+                      <input
+                        value={stockQuantity}
+                        onChange={(
+                          event
+                        ) =>
+                          setStockQuantity(
+                            event.target.value
+                          )
+                        }
+                        inputMode="numeric"
+                        placeholder="0"
+                        className="min-h-11 w-full rounded-xl border border-[#C8D4E2] bg-white px-3 text-sm"
+                      />
+                    </div>
                   </div>
-                ))}
-              </div>
 
-              <div className="mt-auto pt-3">
-                <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-[11px] font-medium text-white/55">
-                  The first image under each colour becomes that
-                  variation&apos;s main image.
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
+                  <p className="text-[11px] font-semibold text-[#64748B]">
+                    LetzShopy manages stock status automatically from the quantity.
+                  </p>
 
-        {currentScreen === "shipping" && (
-          <div className="grid min-h-0 min-w-0 flex-1 gap-4 lg:grid-cols-[1.2fr_0.8fr]">
-            <div className="min-h-0 min-w-0 overflow-y-auto border-b border-[#E7EAF2] bg-white px-1 pb-5 pt-1 md:rounded-2xl md:border md:border-[#E1E5EF] md:bg-[#F8F9FC] md:p-4">
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div>
-                  <label
-                    htmlFor="shipping-weight"
-                    className="mb-1.5 block text-[11px] font-bold uppercase tracking-[0.12em] text-[#66708C]"
+                  <button
+                    type="button"
+                    disabled={
+                      !guidedPricingValid
+                    }
+                    onClick={() =>
+                      advanceFrom("pricing")
+                    }
+                    className="ls-focus-ring flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#1F63D8] px-4 text-sm font-extrabold text-white disabled:opacity-40"
                   >
-                    Shipping weight
-                    <span className="ml-1 text-[#18A6C9]">
-                      *
-                    </span>
-                  </label>
-                  <div className="relative">
-                    <input
-                      id="shipping-weight"
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      inputMode="decimal"
-                      value={weight}
-                      onChange={(event) => {
-                        setWeight(event.target.value);
-                        setConfirmation(null);
-                      }}
-                      placeholder="Example: 0.75"
-                      className="h-11 w-full rounded-xl border border-[#CDD3E2] bg-white px-3.5 pr-12 text-sm font-bold text-[#222B49] outline-none focus:border-[#5366B7] focus:ring-4 focus:ring-[#5366B7]/10"
-                    />
-                    <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-[#788198]">
-                      kg
-                    </span>
-                  </div>
+                    Continue
+                    <ChevronDown className="h-4 w-4" />
+                  </button>
                 </div>
+              ) : null}
+            </section>
+          ) : null}
 
-                {selectedProductType !==
-                  "variable-colour" && (
+          {unlockedSections.includes(
+            "description"
+          ) ? (
+            <section
+              id="product-section-description"
+              className={sectionCardClass(
+                "description"
+              )}
+            >
+              {sectionHead(
+                "description",
+                "Product Description",
+                "Required",
+                <FileText className="h-5 w-5" />
+              )}
+
+              {openSection ===
+              "description" ? (
+                <div className="space-y-4 border-t border-[#E3E9F2] p-4">
                   <div>
-                    <div className="mb-1.5 flex items-center justify-between gap-2">
-                      <label
-                        htmlFor="product-colour"
-                        className="text-[11px] font-bold uppercase tracking-[0.12em] text-[#66708C]"
-                      >
-                        Colour
+                    <div className="mb-1.5 flex items-center justify-between">
+                      <label className="text-xs font-extrabold text-[#34405F]">
+                        Short Selling Summary
                       </label>
-                      <span className="text-[10px] font-semibold text-[#9198AA]">
+                      <span className="text-[10px] font-bold text-[#1F63D8]">
+                        Required
+                      </span>
+                    </div>
+                    <textarea
+                      value={shortDescription}
+                      rows={3}
+                      onChange={(event) => {
+                        setShortDescription(
+                          event.target.value
+                        );
+                        setShortDescriptionEdited(
+                          true
+                        );
+                      }}
+                      placeholder="A short summary customers can understand quickly."
+                      className="w-full resize-none rounded-xl border border-[#C8D4E2] bg-white px-3 py-3 text-sm leading-5"
+                    />
+                  </div>
+
+                  <div>
+                    <div className="mb-1.5 flex items-center justify-between">
+                      <label className="text-xs font-extrabold text-[#34405F]">
+                        Detailed Information
+                      </label>
+                      <span className="text-[10px] font-bold text-slate-500">
+                        Optional
+                      </span>
+                    </div>
+                    <textarea
+                      value={description}
+                      rows={5}
+                      onChange={(event) => {
+                        setDescription(
+                          event.target.value
+                        );
+                        setDescriptionEdited(
+                          true
+                        );
+                      }}
+                      placeholder="Material, design, care instructions or other useful details."
+                      className="w-full resize-none rounded-xl border border-[#C8D4E2] bg-white px-3 py-3 text-sm leading-5"
+                    />
+                  </div>
+
+                  <button
+                    type="button"
+                    disabled={
+                      !guidedDescriptionValid
+                    }
+                    onClick={() =>
+                      advanceFrom(
+                        "description"
+                      )
+                    }
+                    className="ls-focus-ring flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#1F63D8] px-4 text-sm font-extrabold text-white disabled:opacity-40"
+                  >
+                    Continue
+                    <ChevronDown className="h-4 w-4" />
+                  </button>
+                </div>
+              ) : null}
+            </section>
+          ) : null}
+
+          {unlockedSections.includes(
+            "extra"
+          ) ? (
+            <section
+              id="product-section-extra"
+              className={sectionCardClass(
+                "extra"
+              )}
+            >
+              {sectionHead(
+                "extra",
+                "Additional Details",
+                "Optional",
+                <Tag className="h-5 w-5" />
+              )}
+
+              {openSection === "extra" ? (
+                <div className="space-y-4 border-t border-[#E3E9F2] p-4">
+                  <div>
+                    <div className="mb-1.5 flex items-center justify-between">
+                      <label className="text-xs font-extrabold text-[#34405F]">
+                        Weight (kg)
+                      </label>
+                      <span className="text-[10px] font-bold text-slate-500">
                         Optional
                       </span>
                     </div>
                     <input
-                      id="product-colour"
-                      value={color}
-                      onChange={(event) => {
-                        setColor(event.target.value);
-                        setConfirmation(null);
-                      }}
-                      placeholder="Example: Maroon"
-                      className="h-11 w-full rounded-xl border border-[#CDD3E2] bg-white px-3.5 text-sm font-semibold text-[#222B49] outline-none focus:border-[#5366B7] focus:ring-4 focus:ring-[#5366B7]/10"
+                      value={weight}
+                      onChange={(event) =>
+                        setWeight(
+                          event.target.value
+                        )
+                      }
+                      inputMode="decimal"
+                      placeholder="Example: 0.5"
+                      className="min-h-11 w-full rounded-xl border border-[#C8D4E2] bg-white px-3 text-sm"
                     />
                   </div>
-                )}
-              </div>
 
-              <div className="mt-3 rounded-xl border border-[#E0E4ED] bg-white p-3">
-                <div className="flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-2.5">
-                    <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#E9EDFF] text-[#5366B7]">
-                      <Ruler className="h-4 w-4" />
-                    </div>
-                    <div>
-                      <div className="text-xs font-bold text-[#27335F]">
-                        Package dimensions
+                  <div className="rounded-xl border border-[#D7E0EA] bg-[#F8FAFC] p-3">
+                    <label className="flex items-center justify-between gap-3">
+                      <span>
+                        <span className="block text-xs font-extrabold text-[#34405F]">
+                          Dimensions
+                        </span>
+                        <span className="mt-0.5 block text-[10px] font-semibold text-[#64748B]">
+                          Optional
+                        </span>
+                      </span>
+                      <input
+                        type="checkbox"
+                        checked={
+                          dimensionsEnabled
+                        }
+                        onChange={(
+                          event
+                        ) =>
+                          setDimensionsEnabled(
+                            event.target
+                              .checked
+                          )
+                        }
+                        className="h-5 w-5"
+                      />
+                    </label>
+
+                    {dimensionsEnabled ? (
+                      <div className="mt-3 grid grid-cols-3 gap-2">
+                        {[
+                          [
+                            "Length",
+                            length,
+                            setLength,
+                          ],
+                          [
+                            "Width",
+                            width,
+                            setWidth,
+                          ],
+                          [
+                            "Height",
+                            height,
+                            setHeight,
+                          ],
+                        ].map(
+                          ([
+                            label,
+                            value,
+                            setter,
+                          ]) => (
+                            <div
+                              key={
+                                label as string
+                              }
+                            >
+                              <label className="mb-1 block text-[10px] font-bold text-[#64748B]">
+                                {label as string}
+                              </label>
+                              <input
+                                value={
+                                  value as string
+                                }
+                                onChange={(
+                                  event
+                                ) =>
+                                  (
+                                    setter as (
+                                      value: string
+                                    ) => void
+                                  )(
+                                    event
+                                      .target
+                                      .value
+                                  )
+                                }
+                                inputMode="decimal"
+                                placeholder="cm"
+                                className="min-h-10 w-full rounded-xl border border-[#C8D4E2] bg-white px-2 text-sm"
+                              />
+                            </div>
+                          )
+                        )}
                       </div>
-                      <div className="text-[10px] text-[#858DA2]">
-                        Optional length, width and height
-                      </div>
+                    ) : null}
+                  </div>
+
+                  <div>
+                    <div className="mb-1.5 flex items-center justify-between">
+                      <label className="text-xs font-extrabold text-[#34405F]">
+                        Tags
+                      </label>
+                      <span className="text-[10px] font-bold text-slate-500">
+                        Optional
+                      </span>
                     </div>
+                    <div className="flex gap-2">
+                      <input
+                        value={tagInput}
+                        onChange={(event) =>
+                          setTagInput(
+                            event.target.value
+                          )
+                        }
+                        placeholder="Example: cotton"
+                        className="min-h-10 min-w-0 flex-1 rounded-xl border border-[#C8D4E2] bg-white px-3 text-sm"
+                      />
+                      <button
+                        type="button"
+                        onClick={() =>
+                          addTag(tagInput)
+                        }
+                        className="min-h-10 rounded-xl border border-[#C8D4E2] bg-white px-3 text-sm font-bold text-[#1F63D8]"
+                      >
+                        Add
+                      </button>
+                    </div>
+
+                    {tags.length > 0 ? (
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        {tags.map((tag) => (
+                          <button
+                            key={tag}
+                            type="button"
+                            onClick={() =>
+                              removeTag(tag)
+                            }
+                            className="inline-flex items-center gap-1 rounded-full bg-[#EEF5FF] px-3 py-1.5 text-xs font-bold text-[#1F63D8]"
+                          >
+                            {tag}
+                            <X className="h-3 w-3" />
+                          </button>
+                        ))}
+                      </div>
+                    ) : null}
                   </div>
 
                   <button
                     type="button"
-                    aria-pressed={dimensionsEnabled}
-                    onClick={() => {
-                      setDimensionsEnabled(
-                        (current) => !current
-                      );
-                      setConfirmation(null);
-                    }}
-                    className={[
-                      "relative h-7 w-12 rounded-full transition",
-                      dimensionsEnabled
-                        ? "bg-[#18A6C9]"
-                        : "bg-[#CCD1DE]",
-                    ].join(" ")}
+                    onClick={() =>
+                      advanceFrom("extra")
+                    }
+                    className="ls-focus-ring flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#1F63D8] px-4 text-sm font-extrabold text-white"
                   >
-                    <span
-                      className={[
-                        "absolute top-1 h-5 w-5 rounded-full bg-white shadow-sm transition",
-                        dimensionsEnabled
-                          ? "left-6"
-                          : "left-1",
-                      ].join(" ")}
-                    />
+                    Continue to Review
+                    <ChevronDown className="h-4 w-4" />
                   </button>
                 </div>
+              ) : null}
+            </section>
+          ) : null}
 
-                {dimensionsEnabled && (
-                  <div className="mt-3 grid grid-cols-3 gap-2">
-                    {[
-                      {
-                        id: "package-length",
-                        label: "Length",
-                        value: length,
-                        setter: setLength,
-                      },
-                      {
-                        id: "package-width",
-                        label: "Width",
-                        value: width,
-                        setter: setWidth,
-                      },
-                      {
-                        id: "package-height",
-                        label: "Height",
-                        value: height,
-                        setter: setHeight,
-                      },
-                    ].map((field) => (
-                      <div key={field.id}>
-                        <label
-                          htmlFor={field.id}
-                          className="mb-1 block text-[9px] font-bold uppercase tracking-wide text-[#858DA2]"
-                        >
-                          {field.label}
-                        </label>
-                        <div className="relative">
-                          <input
-                            id={field.id}
-                            type="number"
-                            min="0"
-                            step="0.01"
-                            inputMode="decimal"
-                            value={field.value}
-                            onChange={(event) => {
-                              field.setter(event.target.value);
-                              setConfirmation(null);
-                            }}
-                            placeholder="0"
-                            className="h-10 w-full rounded-lg border border-[#CDD3E2] px-2.5 pr-8 text-xs font-bold outline-none focus:border-[#5366B7]"
-                          />
-                          <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] font-bold text-[#858DA2]">
-                            cm
+          {unlockedSections.includes(
+            "review"
+          ) ? (
+            <section
+              id="product-section-review"
+              className={sectionCardClass(
+                "review"
+              )}
+            >
+              {sectionHead(
+                "review",
+                editMode
+                  ? "Review & Update"
+                  : "Review & Create",
+                "Required",
+                <CheckCircle2 className="h-5 w-5" />
+              )}
+
+              {openSection === "review" ? (
+                <div className="space-y-4 border-t border-[#E3E9F2] p-4">
+                  <div className="rounded-2xl bg-[#F8FAFC] p-4">
+                    <div className="flex items-start gap-3">
+                      {(selectedProductType ===
+                        "variable-colour"
+                        ? colourRows[0]
+                            ?.photos?.[0]?.url
+                        : localPhotos[0]
+                            ?.url) ? (
+                        <img
+                          src={
+                            selectedProductType ===
+                            "variable-colour"
+                              ? colourRows[0]
+                                  ?.photos?.[0]
+                                  ?.url
+                              : localPhotos[0]
+                                  ?.url
+                          }
+                          alt=""
+                          className="h-16 w-16 shrink-0 rounded-xl border border-[#D7E0EA] object-cover"
+                        />
+                      ) : (
+                        <div className="grid h-16 w-16 shrink-0 place-items-center rounded-xl bg-[#E8EFF8] text-[#1F63D8]">
+                          <Package2 className="h-6 w-6" />
+                        </div>
+                      )}
+
+                      <div className="min-w-0">
+                        <div className="truncate text-base font-extrabold text-[#17233C]">
+                          {productName.trim() ||
+                            "Product"}
+                        </div>
+                        <div className="mt-1 text-xs font-semibold text-[#64748B]">
+                          {selectedCategory?.name ||
+                            "No category"}
+                        </div>
+                        <div className="mt-2 flex flex-wrap gap-1.5">
+                          <span className="rounded-full bg-white px-2.5 py-1 text-[10px] font-bold text-[#475569]">
+                            {selectedTypeDetails?.title}
                           </span>
+                          {selectedProductType ===
+                          "simple" ? (
+                            <>
+                              <span className="rounded-full bg-white px-2.5 py-1 text-[10px] font-bold text-[#475569]">
+                                ₹
+                                {regularPrice ||
+                                  "—"}
+                              </span>
+                              <span className="rounded-full bg-white px-2.5 py-1 text-[10px] font-bold text-[#475569]">
+                                Qty{" "}
+                                {stockQuantity ||
+                                  "0"}
+                              </span>
+                            </>
+                          ) : (
+                            <span className="rounded-full bg-white px-2.5 py-1 text-[10px] font-bold text-[#475569]">
+                              {selectedProductType ===
+                              "variable-size"
+                                ? sizeRows.length
+                                : colourRows.length}{" "}
+                              variations
+                            </span>
+                          )}
                         </div>
                       </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              <div className="mt-3 rounded-xl border border-[#E0E4ED] bg-white p-3">
-                <div className="flex items-center gap-2.5">
-                  <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#FFF0ED] text-[#C94A3B]">
-                    <Tag className="h-4 w-4" />
-                  </div>
-                  <div>
-                    <div className="text-xs font-bold text-[#27335F]">
-                      Product tags
-                    </div>
-                    <div className="text-[10px] text-[#858DA2]">
-                      Add up to ten searchable tags
                     </div>
                   </div>
-                </div>
 
-                <div className="mt-2.5 flex gap-2">
-                  <input
-                    value={tagInput}
-                    onChange={(event) => {
-                      setTagInput(event.target.value);
-                      setConfirmation(null);
-                    }}
-                    onKeyDown={(event) => {
-                      if (
-                        event.key === "Enter" ||
-                        event.key === ","
-                      ) {
-                        event.preventDefault();
-                        addTag(tagInput);
-                      }
-                    }}
-                    placeholder="Example: cotton"
-                    className="h-10 min-w-0 flex-1 rounded-lg border border-[#CDD3E2] px-3 text-xs font-semibold outline-none focus:border-[#5366B7]"
-                  />
-                  <button
-                    type="button"
-                    disabled={
-                      !tagInput.trim() ||
-                      tags.length >= 10
-                    }
-                    onClick={() => addTag(tagInput)}
-                    className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#5366B7] text-white disabled:bg-[#C9CCD4]"
-                  >
-                    <Plus className="h-4 w-4" />
-                  </button>
-                </div>
-
-                {tags.length > 0 && (
-                  <div className="mt-2.5 flex max-h-16 flex-wrap gap-2 overflow-y-auto">
-                    {tags.map((tag) => (
-                      <span
-                        key={tag}
-                        className="inline-flex items-center gap-1 rounded-lg bg-[#EEF1FF] px-2.5 py-1.5 text-[10px] font-bold text-[#35447F]"
-                      >
-                        {tag}
+                  {editMode ? (
+                    <div>
+                      <div className="mb-2 flex items-center justify-between">
+                        <span className="text-xs font-extrabold text-[#34405F]">
+                          Product Status
+                        </span>
+                        <span className="text-[10px] font-bold text-slate-500">
+                          Optional change
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
                         <button
                           type="button"
-                          aria-label={`Remove ${tag}`}
-                          onClick={() => removeTag(tag)}
-                        >
-                          <X className="h-3 w-3" />
-                        </button>
-                      </span>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <div className="hidden lg:flex min-w-0 flex-col rounded-2xl bg-[#26356F] p-4 text-white">
-              <div className="flex items-start gap-3">
-                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#18A6C9]">
-                  <Truck className="h-5 w-5" />
-                </div>
-                <div>
-                  <div className="text-[10px] font-bold uppercase tracking-[0.13em] text-white/50">
-                    Shipping preview
-                  </div>
-                  <div className="mt-0.5 text-base font-bold">
-                    {productName.trim()}
-                  </div>
-                </div>
-              </div>
-
-              <div className="mt-4 space-y-2">
-                <div className="flex items-center justify-between rounded-xl bg-white/10 px-3 py-2.5">
-                  <span className="text-xs text-white/60">
-                    Weight
-                  </span>
-                  <span className="text-xs font-bold">
-                    {weight.trim() ? `${weight} kg` : "—"}
-                  </span>
-                </div>
-
-                {selectedProductType !==
-                  "variable-colour" && (
-                  <div className="flex items-center justify-between rounded-xl bg-white/10 px-3 py-2.5">
-                    <span className="text-xs text-white/60">
-                      Colour
-                    </span>
-                    <span className="text-xs font-bold">
-                      {color.trim() || "Not set"}
-                    </span>
-                  </div>
-                )}
-
-                <div className="flex items-center justify-between rounded-xl bg-white/10 px-3 py-2.5">
-                  <span className="text-xs text-white/60">
-                    Dimensions
-                  </span>
-                  <span className="text-xs font-bold">
-                    {dimensionsEnabled &&
-                    dimensionsAreValid
-                      ? `${length} × ${width} × ${height} cm`
-                      : "Not used"}
-                  </span>
-                </div>
-
-                <div className="flex items-center justify-between rounded-xl bg-white/10 px-3 py-2.5">
-                  <span className="text-xs text-white/60">
-                    Tags
-                  </span>
-                  <span className="text-xs font-bold">
-                    {tags.length}
-                  </span>
-                </div>
-              </div>
-
-              <div className="mt-auto pt-3">
-                <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-[11px] font-medium text-white/55">
-                  All editable shipping fields remain on the left.
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {currentScreen === "publish" && (
-          <div className="grid min-h-0 min-w-0 flex-1 gap-4 lg:grid-cols-[1.05fr_0.95fr]">
-            <div className="border-b border-[#E7EAF2] bg-white px-1 pb-5 pt-1 md:rounded-2xl md:border md:border-[#E1E5EF] md:bg-[#F8F9FC] md:p-4">
-              <div className="mb-4 flex items-start gap-3">
-                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#DDF2E8] text-[#257052]">
-                  <Send className="h-5 w-5" />
-                </div>
-                <div>
-                  <h2 className="text-sm font-bold text-[#26335F]">
-                    Product status
-                  </h2>
-                  <p className="mt-0.5 text-xs text-[#737C96]">
-                    Choose how the product should be created.
-                  </p>
-                </div>
-              </div>
-
-              <div className="grid gap-3 sm:grid-cols-2">
-                {[
-                  {
-                    id: "publish" as const,
-                    title: "Publish",
-                    label: "Make it active now",
-                    icon: Send,
-                  },
-                  {
-                    id: "draft" as const,
-                    title: "Draft",
-                    label: "Save without publishing",
-                    icon: Save,
-                  },
-                ].map((option) => {
-                  const Icon = option.icon;
-                  const selected = status === option.id;
-
-                  return (
-                    <button
-                      key={option.id}
-                      type="button"
-                      onClick={() => {
-                        setStatus(option.id);
-                        setConfirmation(null);
-                      }}
-                      className={[
-                        "flex items-center gap-3 rounded-xl border p-3 text-left",
-                        selected
-                          ? "border-[#5366B7] bg-[#EEF1FF]"
-                          : "border-[#DCE0EA] bg-white",
-                      ].join(" ")}
-                    >
-                      <div
-                        className={[
-                          "flex h-10 w-10 items-center justify-center rounded-xl",
-                          selected
-                            ? "bg-[#5366B7] text-white"
-                            : "bg-[#EEF0F5] text-[#6B748B]",
-                        ].join(" ")}
-                      >
-                        <Icon className="h-4 w-4" />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <div className="text-sm font-bold text-[#27335F]">
-                          {option.title}
-                        </div>
-                        <div className="text-[10px] text-[#858DA2]">
-                          {option.label}
-                        </div>
-                      </div>
-                      {selected && (
-                        <Check className="h-4 w-4 text-[#5366B7]" />
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-
-              <div className="mt-4">
-                <div className="mb-2 text-[11px] font-bold uppercase tracking-[0.12em] text-[#66708C]">
-                  Storefront visibility
-                </div>
-
-                <div className="grid gap-3 sm:grid-cols-2">
-                  {[
-                    {
-                      id: "visible" as const,
-                      title: "Visible",
-                      label: "Show in the store",
-                      icon: Eye,
-                    },
-                    {
-                      id: "hidden" as const,
-                      title: "Hidden",
-                      label: "Keep it out of listings",
-                      icon: EyeOff,
-                    },
-                  ].map((option) => {
-                    const Icon = option.icon;
-                    const selected =
-                      visibility === option.id;
-
-                    return (
-                      <button
-                        key={option.id}
-                        type="button"
-                        onClick={() => {
-                          setVisibility(option.id);
-                          setConfirmation(null);
-                        }}
-                        className={[
-                          "flex items-center gap-3 rounded-xl border p-3 text-left",
-                          selected
-                            ? "border-[#18A6C9] bg-[#EAF8FC]"
-                            : "border-[#DCE0EA] bg-white",
-                        ].join(" ")}
-                      >
-                        <div
+                          onClick={() =>
+                            setStatus("publish")
+                          }
                           className={[
-                            "flex h-10 w-10 items-center justify-center rounded-xl",
-                            selected
-                              ? "bg-[#18A6C9] text-white"
-                              : "bg-[#EEF0F5] text-[#6B748B]",
+                            "min-h-10 rounded-xl border text-sm font-extrabold",
+                            status ===
+                            "publish"
+                              ? "border-emerald-300 bg-emerald-50 text-emerald-700"
+                              : "border-[#D7E0EA] bg-white text-[#64748B]",
                           ].join(" ")}
                         >
-                          <Icon className="h-4 w-4" />
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <div className="text-sm font-bold text-[#27335F]">
-                            {option.title}
-                          </div>
-                          <div className="text-[10px] text-[#858DA2]">
-                            {option.label}
-                          </div>
-                        </div>
-                        {selected && (
-                          <Check className="h-4 w-4 text-[#18A6C9]" />
-                        )}
-                      </button>
-                    );
-                  })}
+                          Published
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setStatus("draft")
+                          }
+                          className={[
+                            "min-h-10 rounded-xl border text-sm font-extrabold",
+                            status === "draft"
+                              ? "border-amber-300 bg-amber-50 text-amber-700"
+                              : "border-[#D7E0EA] bg-white text-[#64748B]",
+                          ].join(" ")}
+                        >
+                          Draft
+                        </button>
+                      </div>
+                    </div>
+                  ) : null}
+
+                  {submitError ? (
+                    <div className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-3 text-sm font-semibold text-rose-700">
+                      {submitError}
+                    </div>
+                  ) : null}
+
+                  {!guidedReadyToSubmit ? (
+                    <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-3 text-xs font-semibold leading-5 text-amber-800">
+                      Some required information is still missing. Tap the incomplete section above to finish it.
+                    </div>
+                  ) : (
+                    <div className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-2 text-xs font-extrabold text-emerald-700">
+                      <CheckCircle2 className="h-4 w-4" />
+                      Ready to{" "}
+                      {editMode
+                        ? "update"
+                        : "create"}
+                    </div>
+                  )}
                 </div>
-              </div>
-            </div>
-
-            <div className="hidden lg:flex min-w-0 flex-col rounded-2xl bg-[#26356F] p-4 text-white">
-              <div className="flex items-start gap-3">
-                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#18A6C9]">
-                  <Package2 className="h-5 w-5" />
-                </div>
-                <div className="min-w-0">
-                  <div className="text-[10px] font-bold uppercase tracking-[0.13em] text-white/50">
-                    Final review
-                  </div>
-                  <div className="mt-0.5 truncate text-base font-bold">
-                    {productName.trim()}
-                  </div>
-                  <div className="mt-1 text-xs text-white/55">
-                    {selectedTypeDetails?.title}
-                  </div>
-                </div>
-              </div>
-
-              <div className="mt-4 space-y-2">
-                <div className="flex items-center justify-between rounded-xl bg-white/10 px-3 py-2.5">
-                  <span className="text-xs text-white/60">
-                    Category
-                  </span>
-                  <span className="max-w-[58%] truncate text-xs font-bold">
-                    {selectedCategory?.name}
-                  </span>
-                </div>
-
-                <div className="flex items-center justify-between rounded-xl bg-white/10 px-3 py-2.5">
-                  <span className="text-xs text-white/60">
-                    Status
-                  </span>
-                  <span className="text-xs font-bold capitalize">
-                    {status}
-                  </span>
-                </div>
-
-                <div className="flex items-center justify-between rounded-xl bg-white/10 px-3 py-2.5">
-                  <span className="text-xs text-white/60">
-                    Visibility
-                  </span>
-                  <span className="text-xs font-bold capitalize">
-                    {visibility}
-                  </span>
-                </div>
-
-                {selectedProductType === "simple" && (
-                  <div className="flex items-center justify-between rounded-xl bg-white/10 px-3 py-2.5">
-                    <span className="text-xs text-white/60">
-                      Price / Quantity
-                    </span>
-                    <span className="text-xs font-bold">
-                      {formatPrice(regularPrice)} /{" "}
-                      {stockQuantity}
-                    </span>
-                  </div>
-                )}
-
-                {selectedProductType === "variable-size" && (
-                  <div className="flex items-center justify-between rounded-xl bg-white/10 px-3 py-2.5">
-                    <span className="text-xs text-white/60">
-                      Size variations
-                    </span>
-                    <span className="text-xs font-bold">
-                      {sizeRows.length}
-                    </span>
-                  </div>
-                )}
-
-                {selectedProductType ===
-                  "variable-colour" && (
-                  <div className="flex items-center justify-between rounded-xl bg-white/10 px-3 py-2.5">
-                    <span className="text-xs text-white/60">
-                      Colour variations
-                    </span>
-                    <span className="text-xs font-bold">
-                      {colourRows.length}
-                    </span>
-                  </div>
-                )}
-
-              </div>
-
-              <div className="mt-auto pt-3">
-                {submitError ? (
-                  <div
-                    aria-live="assertive"
-                    className="flex items-start gap-2 rounded-xl bg-[#FFE3DE] px-3 py-2.5 text-[11px] font-semibold leading-4 text-[#9F3427]"
-                  >
-                    <X className="mt-0.5 h-4 w-4 shrink-0" />
-                    {submitError}
-                  </div>
-                ) : confirmation ? (
-                  <div
-                    aria-live="polite"
-                    className="flex items-start gap-2 rounded-xl bg-[#DDF4E8] px-3 py-2.5 text-[11px] font-semibold leading-4 text-[#236047]"
-                  >
-                    <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
-                    {confirmation}
-                  </div>
-                ) : (
-                  <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-[11px] font-medium leading-4 text-white/55">
-                    {selectedProductType === "simple"
-                      ? "The product and images will be saved when you press Create Product."
-                      : selectedProductType === "variable-size"
-                        ? "The product, shared images and size variations will be saved when you press Create Product."
-                        : "The product, colour variations and ordered image galleries will be saved when you press Create Product."}
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
-      </section>
-
-      {currentScreen === "publish" && submitError && (
-        <div className="px-4 pb-3 lg:hidden">
-          <div
-            role="alert"
-            className="flex items-start gap-2 rounded-xl border border-[#F1BDB5] bg-[#FFF1EE] px-3 py-2.5 text-xs font-semibold leading-5 text-[#9F3427]"
-          >
-            <X className="mt-0.5 h-4 w-4 shrink-0" />
-            <span>{submitError}</span>
-          </div>
+              ) : null}
+            </section>
+          ) : null}
         </div>
-      )}
+      </main>
 
-      <footer
-        className="sticky bottom-0 z-30 flex shrink-0 items-center gap-3 border-t border-[#E5E8F0] bg-white/95 px-3 py-3 backdrop-blur md:static md:rounded-b-2xl md:bg-[#F8F9FC] md:px-5"
-        style={{
-          paddingBottom:
-            "calc(0.75rem + env(safe-area-inset-bottom))",
+      <div className="fixed inset-x-0 bottom-0 z-[65] border-t border-[#C8D4E2] bg-white/96 px-3 pb-[calc(0.75rem+var(--ls-safe-area-bottom))] pt-2.5 shadow-[0_-10px_30px_rgba(23,35,60,0.12)] backdrop-blur md:static md:mt-2 md:border-0 md:bg-transparent md:px-0 md:pb-0 md:pt-0 md:shadow-none">
+        <div className="mx-auto flex max-w-5xl gap-2">
+          {!editMode ? (
+            <button
+              type="button"
+              disabled={
+                submitting ||
+                !guidedReadyToSubmit
+              }
+              onClick={() =>
+                void submitGuidedProduct(
+                  "draft"
+                )
+              }
+              className="ls-focus-ring min-h-12 flex-1 rounded-xl border border-[#C8D4E2] bg-white px-3 text-sm font-extrabold text-[#1F63D8] disabled:opacity-40"
+            >
+              Save Draft
+            </button>
+          ) : null}
+
+          <button
+            type="button"
+            disabled={
+              submitting ||
+              !guidedReadyToSubmit
+            }
+            onClick={() =>
+              void submitGuidedProduct(
+                editMode
+                  ? status
+                  : "publish"
+              )
+            }
+            className="ls-focus-ring min-h-12 flex-[1.35] rounded-xl bg-[#1F63D8] px-4 text-sm font-extrabold text-white shadow-[0_8px_18px_rgba(31,99,216,0.22)] disabled:opacity-40"
+          >
+            {submitting ? (
+              <span className="inline-flex items-center gap-2">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                {editMode
+                  ? "Updating Product…"
+                  : submitStage ||
+                    "Creating Product…"}
+              </span>
+            ) : editMode ? (
+              "Update Product"
+            ) : (
+              "Create Product"
+            )}
+          </button>
+        </div>
+      </div>
+
+      <ConfirmDialog
+        open={discardOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            pendingLeaveRef.current =
+              null;
+            setDiscardOpen(false);
+          }
         }}
-      >
-        <button
-          type="button"
-          onClick={goBack}
-          className="flex h-11 min-w-11 items-center justify-center rounded-xl border border-[#CDD3E1] bg-white px-3 font-bold text-[#455070] transition active:scale-95"
-        >
-          <ArrowLeft className="h-4 w-4 md:mr-2" />
-          <span className="hidden md:inline">Back</span>
-        </button>
-
-        <button
-          type="button"
-          disabled={
-            !canContinue ||
-            submitting
-          }
-          onClick={() =>
-            void continueWizard()
-          }
-          className="flex h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-[#18A6C9] px-5 text-sm font-bold text-white shadow-[0_8px_18px_rgba(24,166,201,0.22)] transition active:scale-[0.99] disabled:cursor-not-allowed disabled:bg-[#C9CCD4] disabled:shadow-none"
-        >
-          {submitting ? (
-            <>
-              <Loader2 className="h-4 w-4 animate-spin" />
-              {submitStage ?? "Creating product"}
-            </>
-          ) : (
-            <>
-              {actionLabel}
-              {currentScreen === "publish" ? (
-                <Check className="h-4 w-4" />
-              ) : (
-                <ChevronRight className="h-4 w-4" />
-              )}
-            </>
-          )}
-        </button>
-      </footer>
-    </main>
+        title="Discard changes?"
+        description="You have unsaved product information. Leaving now will discard your changes."
+        confirmLabel="Discard Changes"
+        cancelLabel="Keep Editing"
+        destructive
+        onConfirm={
+          discardProductChanges
+        }
+      />
+    </>
   );
 }

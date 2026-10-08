@@ -13,6 +13,21 @@ const TENANT_COOKIE_NAME =
 const SESSION_SIGNING_SECRET =
   process.env.DASHBOARD_SECRET || "";
 
+function relativeRedirect(
+  location: string
+): NextResponse {
+  return new NextResponse(
+    null,
+    {
+      status: 302,
+      headers: {
+        Location:
+          location,
+      },
+    }
+  );
+}
+
 function parseTenantCookie(rawValue: string | undefined) {
   if (!rawValue) {
     return null;
@@ -34,10 +49,10 @@ function parseTenantCookie(rawValue: string | undefined) {
 }
 
 export async function GET(req: NextRequest) {
-  const signinUrl = new URL("/signin", req.url);
-
   if (!SESSION_SIGNING_SECRET) {
-    return NextResponse.redirect(signinUrl, 302);
+    return relativeRedirect(
+      "/signin"
+    );
   }
 
   const rawToken =
@@ -49,20 +64,20 @@ export async function GET(req: NextRequest) {
   );
 
   if (!session) {
-    return NextResponse.redirect(signinUrl, 302);
+    return relativeRedirect(
+      "/signin"
+    );
   }
 
   if (session.saas_role === "master_admin") {
-    return NextResponse.redirect(
-      new URL("/master", req.url),
-      302
+    return relativeRedirect(
+      "/master"
     );
   }
 
   if (session.saas_role === "vendor_admin") {
-    return NextResponse.redirect(
-      new URL("/select-store", req.url),
-      302
+    return relativeRedirect(
+      "/select-store"
     );
   }
 
@@ -78,14 +93,12 @@ export async function GET(req: NextRequest) {
     : null;
 
   if (authorizedStore) {
-    return NextResponse.redirect(
-      new URL("/dashboard", req.url),
-      302
+    return relativeRedirect(
+      "/dashboard"
     );
   }
 
-  return NextResponse.redirect(
-    new URL("/select-store", req.url),
-    302
+  return relativeRedirect(
+    "/select-store"
   );
 }
