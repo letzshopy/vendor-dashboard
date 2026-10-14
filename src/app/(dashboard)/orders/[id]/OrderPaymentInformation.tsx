@@ -12,6 +12,10 @@ import {
   RefreshCw,
 } from "lucide-react";
 
+import type {
+  LivePaymentStatusResponse,
+} from "@/types/provider-payment";
+
 type MetaEntry = {
   key?: string;
   value?: unknown;
@@ -29,30 +33,6 @@ type OrderLike = {
   date_paid_gmt?: string | null;
   date_paid?: string | null;
   meta_data?: MetaEntry[];
-};
-
-type LivePayGlocalStatus = {
-  ok: true;
-  order: {
-    orderId: number;
-    orderNumber: string;
-    wooStatus: string;
-    paid: boolean;
-    amount: string;
-    currency: string;
-  };
-  payment: {
-    provider: string;
-    gid: string;
-    status: string;
-    friendlyStatus: string;
-    message: string;
-    detailedMessage: string;
-    reasonCode: string;
-    amount: string;
-    currency: string;
-    identityVerified: true;
-  };
 };
 
 function textValue(
@@ -116,6 +96,44 @@ function formatPaidDate(
   });
 }
 
+function formatProviderDate(
+  value: string
+): string {
+  const trimmed =
+    String(value || "").trim();
+
+  if (!trimmed) {
+    return "Not available";
+  }
+
+  const numeric = Number(trimmed);
+
+  const date =
+    Number.isFinite(numeric) &&
+    numeric > 0
+      ? new Date(
+          numeric > 20_000_000_000
+            ? numeric
+            : numeric * 1000
+        )
+      : new Date(trimmed);
+
+  if (Number.isNaN(date.getTime())) {
+    return "Not available";
+  }
+
+  return date.toLocaleString(
+    "en-IN",
+    {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    }
+  );
+}
+
 function formatMoney(
   amount: string | number | undefined,
   currency = "INR"
@@ -144,6 +162,15 @@ function formatMoney(
   }
 }
 
+function formatOptionalMoney(
+  amount: string,
+  currency: string
+): string {
+  return String(amount || "").trim()
+    ? formatMoney(amount, currency)
+    : "Not available";
+}
+
 function paymentStatusClass(
   label: string
 ): string {
@@ -152,6 +179,8 @@ function paymentStatusClass(
 
   if (
     normalized.includes("successful") ||
+    normalized.includes("succeeded") ||
+    normalized.includes("settled") ||
     normalized === "paid" ||
     normalized === "verified"
   ) {
@@ -162,6 +191,7 @@ function paymentStatusClass(
     normalized.includes("declined") ||
     normalized.includes("failed") ||
     normalized.includes("cancelled") ||
+    normalized.includes("canceled") ||
     normalized === "not paid"
   ) {
     return "text-rose-700";
@@ -171,8 +201,10 @@ function paymentStatusClass(
     normalized.includes("pending") ||
     normalized.includes("progress") ||
     normalized.includes("started") ||
+    normalized.includes("initiated") ||
     normalized.includes("review") ||
-    normalized.includes("authorised")
+    normalized.includes("authorised") ||
+    normalized.includes("authorization")
   ) {
     return "text-amber-700";
   }
@@ -246,9 +278,15 @@ export default function OrderPaymentInformation({
       order.payment_method || ""
     ).toLowerCase();
 
+  const isZoho =
+    method === "zpay";
+
   const isPayGlocal =
     method ===
     "payglocal_payment_gateway";
+
+  const isLiveGateway =
+    isZoho || isPayGlocal;
 
   const isManualUpi =
     method === "letz_upi";
@@ -260,7 +298,7 @@ export default function OrderPaymentInformation({
     method === "bacs";
 
   const [liveStatus, setLiveStatus] =
-    useState<LivePayGlocalStatus | null>(
+    useState<LivePaymentStatusResponse | null>(
       null
     );
 
@@ -273,7 +311,7 @@ export default function OrderPaymentInformation({
   const loadLiveStatus =
     useCallback(async () => {
       if (
-        !isPayGlocal ||
+        !isLiveGateway ||
         !Number.isInteger(order.id) ||
         order.id < 1
       ) {
@@ -327,12 +365,13 @@ export default function OrderPaymentInformation({
         }
 
         const result =
-          payload as Partial<LivePayGlocalStatus>;
+          payload as Partial<LivePaymentStatusResponse>;
 
         if (
           result.ok !== true ||
           !result.payment ||
           !result.order ||
+          !result.settlement ||
           result.payment
             .identityVerified !== true
         ) {
@@ -342,7 +381,7 @@ export default function OrderPaymentInformation({
         }
 
         setLiveStatus(
-          result as LivePayGlocalStatus
+          result as LivePaymentStatusResponse
         );
       } catch (error) {
         setLiveStatus(null);
@@ -354,10 +393,13 @@ export default function OrderPaymentInformation({
       } finally {
         setLiveLoading(false);
       }
-    }, [isPayGlocal, order.id]);
+    }, [
+      isLiveGateway,
+      order.id,
+    ]);
 
   useEffect(() => {
-    if (isPayGlocal) {
+    if (isLiveGateway) {
       void loadLiveStatus();
     } else {
       setLiveStatus(null);
@@ -365,7 +407,7 @@ export default function OrderPaymentInformation({
       setLiveLoading(false);
     }
   }, [
-    isPayGlocal,
+    isLiveGateway,
     loadLiveStatus,
   ]);
 
@@ -414,27 +456,29 @@ export default function OrderPaymentInformation({
   );
 
   const methodLabel =
-    isPayGlocal
-      ? "PayGlocal"
-      : isManualUpi
-        ? "Manual UPI"
-        : isCod
-          ? "Cash on Delivery"
-          : isBankTransfer
-            ? "Direct Bank Transfer"
-            : order.payment_method_title ||
-              method ||
-              "Not specified";
+    isZoho
+      ? "Zoho Payments"
+      : isPayGlocal
+        ? "PayGlocal (Legacy)"
+        : isManualUpi
+          ? "Manual UPI"
+          : isCod
+            ? "Cash on Delivery"
+            : isBankTransfer
+              ? "Direct Bank Transfer"
+              : order.payment_method_title ||
+                method ||
+                "Not specified";
 
   let paymentStatus =
     "Pending";
 
-  if (isPayGlocal) {
+  if (isLiveGateway) {
     paymentStatus =
       liveStatus?.payment
         .friendlyStatus ||
       (liveLoading
-        ? "Checking live statusÃ¢â‚¬Â¦"
+        ? "Checking live status…"
         : liveError
           ? "Live status unavailable"
           : "Payment status unavailable");
@@ -492,17 +536,17 @@ export default function OrderPaymentInformation({
   }
 
   const referenceLabel =
-    isPayGlocal
-      ? "PayGlocal GID"
-      : isManualUpi
-        ? "UPI Transaction ID / UTR"
-        : isBankTransfer
-          ? "Transaction reference"
+    isZoho
+      ? "Zoho Payment ID"
+      : isPayGlocal
+        ? "PayGlocal GID"
+        : isManualUpi
+          ? "UPI Transaction ID / UTR"
           : "Transaction reference";
 
   const referenceValue =
-    isPayGlocal
-      ? liveStatus?.payment.gid || ""
+    isLiveGateway
+      ? liveStatus?.payment.paymentId || ""
       : isManualUpi
         ? manualUpi.transaction
         : String(
@@ -517,7 +561,7 @@ export default function OrderPaymentInformation({
     );
 
   const displayAmount =
-    isPayGlocal &&
+    isLiveGateway &&
     liveStatus
       ? formatMoney(
           liveStatus.payment.amount,
@@ -527,6 +571,36 @@ export default function OrderPaymentInformation({
           order.total,
           order.currency
         );
+
+  const liveCurrency =
+    liveStatus?.payment.currency ||
+    order.currency ||
+    "INR";
+
+  const bankReference =
+    liveStatus?.payment
+      .transactionReference ||
+    liveStatus?.payment.reference ||
+    "";
+
+  const providerPaidOn =
+    liveStatus?.payment.paidAt
+      ? formatProviderDate(
+          liveStatus.payment.paidAt
+        )
+      : hasPaidDate
+        ? formatPaidDate(
+            order.date_paid_gmt,
+            order.date_paid
+          )
+        : "Not available";
+
+  const settlementDate =
+    liveStatus?.settlement
+      .processedAt ||
+    liveStatus?.settlement
+      .initiatedAt ||
+    "";
 
   return (
     <section className="overflow-hidden rounded-[26px] border border-slate-200/80 bg-white shadow-[0_10px_30px_rgba(15,23,42,0.05)]">
@@ -542,12 +616,12 @@ export default function OrderPaymentInformation({
                 Payment Information
               </h2>
               <p className="mt-1 text-xs leading-5 text-slate-500">
-                Payment method and transaction status
+                Payment, gateway and settlement details
               </p>
             </div>
           </div>
 
-          {isPayGlocal ? (
+          {isLiveGateway ? (
             <button
               type="button"
               onClick={() =>
@@ -592,7 +666,7 @@ export default function OrderPaymentInformation({
           />
 
           <InfoTile
-            label="Amount"
+            label="Gross amount"
             value={displayAmount}
           />
 
@@ -609,18 +683,177 @@ export default function OrderPaymentInformation({
             )}
           />
 
-          {!isPayGlocal ? (
-            <InfoTile
-              label="Paid on"
-              value={
-                hasPaidDate
+          <InfoTile
+            label="Paid on"
+            value={
+              isLiveGateway
+                ? providerPaidOn
+                : hasPaidDate
                   ? formatPaidDate(
                       order.date_paid_gmt,
                       order.date_paid
                     )
                   : "Not available"
-              }
-            />
+            }
+          />
+
+          {isZoho ? (
+            <>
+              <InfoTile
+                label="Provider status"
+                value={
+                  liveStatus?.payment
+                    .status ||
+                  (liveLoading
+                    ? "Checking…"
+                    : "Not available")
+                }
+              />
+
+              <InfoTile
+                label="Payment channel"
+                value={
+                  [
+                    liveStatus?.payment
+                      .paymentMethod,
+                    liveStatus?.payment
+                      .paymentMethodDetail,
+                  ]
+                    .filter(Boolean)
+                    .join(" · ") ||
+                  "Not available"
+                }
+              />
+
+              <InfoTile
+                label="Bank / UPI reference"
+                value={
+                  bankReference ||
+                  "Not available"
+                }
+                mono={Boolean(
+                  bankReference
+                )}
+              />
+
+              <InfoTile
+                label="Invoice number"
+                value={
+                  liveStatus?.payment
+                    .invoiceNumber ||
+                  "Not available"
+                }
+              />
+
+              <InfoTile
+                label="Platform fee"
+                value={formatOptionalMoney(
+                  liveStatus?.payment
+                    .feeAmount || "",
+                  liveCurrency
+                )}
+              />
+
+              <InfoTile
+                label="Tax on fee"
+                value={formatOptionalMoney(
+                  liveStatus?.payment
+                    .taxAmount || "",
+                  liveCurrency
+                )}
+              />
+
+              <InfoTile
+                label="Total deductions"
+                value={formatOptionalMoney(
+                  liveStatus?.payment
+                    .totalFeeAmount || "",
+                  liveCurrency
+                )}
+              />
+
+              <InfoTile
+                label="Net settlement amount"
+                value={formatOptionalMoney(
+                  liveStatus?.payment
+                    .netAmount || "",
+                  liveCurrency
+                )}
+                valueClassName="text-emerald-700"
+              />
+
+              <InfoTile
+                label="Settlement status"
+                value={
+                  liveStatus?.settlement
+                    .friendlyStatus ||
+                  (liveLoading
+                    ? "Checking…"
+                    : "Not available")
+                }
+                valueClassName={
+                  paymentStatusClass(
+                    liveStatus?.settlement
+                      .friendlyStatus || ""
+                  )
+                }
+              />
+
+              <InfoTile
+                label="Settlement date"
+                value={
+                  settlementDate
+                    ? formatProviderDate(
+                        settlementDate
+                      )
+                    : "Not available"
+                }
+              />
+
+              <InfoTile
+                label="Payout ID"
+                value={
+                  liveStatus?.settlement
+                    .payoutId ||
+                  "Not available"
+                }
+                mono={Boolean(
+                  liveStatus?.settlement
+                    .payoutId
+                )}
+              />
+
+              <InfoTile
+                label="Settlement bank reference"
+                value={
+                  liveStatus?.settlement
+                    .bankReference ||
+                  "Not available"
+                }
+                mono={Boolean(
+                  liveStatus?.settlement
+                    .bankReference
+                )}
+              />
+
+              <InfoTile
+                label="Identity check"
+                value={
+                  liveStatus?.payment
+                    .identityVerified
+                    ? "Verified"
+                    : liveLoading
+                      ? "Checking…"
+                      : "Not available"
+                }
+                valueClassName={
+                  liveStatus?.payment
+                    .identityVerified
+                    ? "text-emerald-700"
+                    : ""
+                }
+              />
+            </>
           ) : null}
 
           {isPayGlocal ? (
@@ -631,7 +864,7 @@ export default function OrderPaymentInformation({
                   liveStatus?.payment
                     .status ||
                   (liveLoading
-                    ? "CheckingÃ¢â‚¬Â¦"
+                    ? "Checking…"
                     : "Not available")
                 }
               />
@@ -652,7 +885,7 @@ export default function OrderPaymentInformation({
                     .identityVerified
                     ? "Verified"
                     : liveLoading
-                      ? "CheckingÃ¢â‚¬Â¦"
+                      ? "Checking…"
                       : "Not available"
                 }
                 valueClassName={
@@ -665,6 +898,14 @@ export default function OrderPaymentInformation({
             </>
           ) : null}
         </div>
+
+        {isZoho &&
+        liveStatus?.settlement
+          .scopeRequired ? (
+          <div className="mt-3 rounded-[18px] border border-amber-200 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-800">
+            Payment details are verified. Exact settlement tracking needs Zoho payout read authorization; no payment credential is exposed to the dashboard.
+          </div>
+        ) : null}
 
         {isPayGlocal &&
         liveStatus?.payment
@@ -682,7 +923,7 @@ export default function OrderPaymentInformation({
           </div>
         ) : null}
 
-        {isPayGlocal &&
+        {isLiveGateway &&
         liveError ? (
           <div className="mt-3 rounded-[18px] border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
             {liveError}
