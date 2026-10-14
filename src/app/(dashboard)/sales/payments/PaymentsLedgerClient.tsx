@@ -40,11 +40,15 @@ import {
 } from "@/components/ui/status-badge";
 import type {
   CurrencyTotal,
-  PayGlocalLivePayment,
   PaymentLedgerMethodFilter,
   PaymentLedgerResponse,
   PaymentLedgerRow,
 } from "@/types/payment-ledger";
+import type {
+  LivePaymentStatusResponse,
+  LiveProviderPayment,
+  LiveSettlement,
+} from "@/types/provider-payment";
 
 type Filters = {
   search: string;
@@ -58,16 +62,9 @@ type LiveState = {
   loading: boolean;
   error: string;
   payment:
-    PayGlocalLivePayment | null;
-};
-
-type LivePayload = {
-  ok: true;
-  order: {
-    orderId: number;
-  };
-  payment:
-    PayGlocalLivePayment;
+    LiveProviderPayment | null;
+  settlement:
+    LiveSettlement | null;
 };
 
 const METHOD_OPTIONS: Array<{
@@ -80,8 +77,12 @@ const METHOD_OPTIONS: Array<{
     label: "All methods",
   },
   {
+    value: "zoho",
+    label: "Zoho Payments",
+  },
+  {
     value: "payglocal",
-    label: "PayGlocal",
+    label: "PayGlocal (Legacy)",
   },
   {
     value: "manual_upi",
@@ -365,7 +366,7 @@ function FilterFields({
                 .value
             )
           }
-          placeholder="Order, customer, UTR, GID"
+          placeholder="Order, customer, payment ID, UTR"
         />
       </div>
 
@@ -741,9 +742,10 @@ export default function PaymentsLedgerClient() {
           PaymentLedgerRow
       ) => {
         if (
-          row.paymentMethod
-            .kind !==
-          "payglocal"
+          row.paymentMethod.kind !==
+            "zoho" &&
+          row.paymentMethod.kind !==
+            "payglocal"
         ) {
           return;
         }
@@ -758,6 +760,11 @@ export default function PaymentsLedgerClient() {
                 current[
                   row.orderId
                 ]?.payment ||
+                null,
+              settlement:
+                current[
+                  row.orderId
+                ]?.settlement ||
                 null,
             },
           })
@@ -799,7 +806,7 @@ export default function PaymentsLedgerClient() {
           }
 
           const result =
-            payload as unknown as LivePayload;
+            payload as unknown as LivePaymentStatusResponse;
 
           if (
             result.ok !==
@@ -825,6 +832,8 @@ export default function PaymentsLedgerClient() {
                 error: "",
                 payment:
                   result.payment,
+                settlement:
+                  result.settlement,
               },
             })
           );
@@ -847,6 +856,11 @@ export default function PaymentsLedgerClient() {
                     row.orderId
                   ]?.payment ||
                   null,
+                settlement:
+                  current[
+                    row.orderId
+                  ]?.settlement ||
+                  null,
               },
             })
           );
@@ -865,9 +879,12 @@ export default function PaymentsLedgerClient() {
     const queue =
       data.rows.filter(
         (row) =>
-          row.paymentMethod
-            .kind ===
-            "payglocal" &&
+          (
+            row.paymentMethod.kind ===
+              "zoho" ||
+            row.paymentMethod.kind ===
+              "payglocal"
+          ) &&
           !requestedLiveOrderIds.current.has(
             row.orderId
           )
@@ -982,9 +999,10 @@ export default function PaymentsLedgerClient() {
       ];
 
     if (
-      row.paymentMethod
-        .kind ===
-      "payglocal"
+      row.paymentMethod.kind ===
+        "zoho" ||
+      row.paymentMethod.kind ===
+        "payglocal"
     ) {
       if (
         live?.payment
@@ -1015,10 +1033,15 @@ export default function PaymentsLedgerClient() {
     row:
       PaymentLedgerRow
   ) {
-    return (
+    const live =
       liveByOrder[
         row.orderId
-      ]?.payment?.gid ||
+      ]?.payment;
+
+    return (
+      live?.transactionReference ||
+      live?.paymentId ||
+      live?.reference ||
       row.reference
         ?.value ||
       ""
@@ -1205,7 +1228,7 @@ export default function PaymentsLedgerClient() {
               Payment transactions
             </h2>
             <p className="mt-0.5 hidden text-xs text-muted-foreground md:block">
-              PayGlocal status refreshes automatically for visible rows.
+              Zoho Payments and legacy PayGlocal status refresh automatically for visible rows.
             </p>
           </div>
 
