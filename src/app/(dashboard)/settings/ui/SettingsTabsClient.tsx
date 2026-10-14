@@ -85,7 +85,7 @@ const TABS: TabDef[] = [
     id: "payments",
     label: "Payments",
     description:
-      "PayGlocal, UPI, bank transfer and COD.",
+      "Zoho Payments, UPI, bank transfer and COD.",
     icon: CreditCard,
   },
   {
