@@ -26,6 +26,7 @@ const MAX_WOO_PAGES = 50;
 const METHOD_FILTERS =
   new Set<PaymentLedgerMethodFilter>([
     "all",
+    "zoho",
     "payglocal",
     "manual_upi",
     "bank_transfer",
@@ -399,6 +400,7 @@ function buildSummary(
   rows: PaymentLedgerRow[]
 ): PaymentLedgerSummary {
   const methods = {
+    zoho: 0,
     payglocal: 0,
     manualUpi: 0,
     bankTransfer: 0,
@@ -413,6 +415,10 @@ function buildSummary(
     switch (
       row.paymentMethod.kind
     ) {
+      case "zoho":
+        methods.zoho += 1;
+        break;
+
       case "payglocal":
         methods.payglocal += 1;
         break;
