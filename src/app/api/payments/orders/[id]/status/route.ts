@@ -6,6 +6,10 @@ import {
   parseOrderId,
   privateJson,
 } from "@/lib/orderPolicy";
+import type {
+  LivePaymentStatusResponse,
+  PaymentProviderKey,
+} from "@/types/provider-payment";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -23,6 +27,20 @@ function boundedString(
   return typeof value === "string"
     ? value.trim().slice(0, maxLength)
     : "";
+}
+
+function providerKey(
+  value: unknown
+): PaymentProviderKey | null {
+  const normalized = boundedString(
+    value,
+    40
+  ).toLowerCase();
+
+  return normalized === "zoho" ||
+    normalized === "payglocal"
+    ? normalized
+    : null;
 }
 
 function upstreamStatus(
@@ -103,7 +121,7 @@ export async function GET(
             response.status === 404
               ? "Order not found."
               : response.status === 409
-                ? "Live PayGlocal status is not available for this order."
+                ? "Live gateway status is not available for this order."
                 : "Unable to load payment status.",
         },
         upstreamStatus(response.status)
@@ -116,15 +134,25 @@ export async function GET(
       );
     }
 
+    const key = providerKey(
+      payload.provider_key
+    );
+
     const order = isRecord(payload.order)
       ? payload.order
       : null;
 
-    const payglocal = isRecord(
-      payload.payglocal
+    const payment = isRecord(
+      payload.payment
     )
-      ? payload.payglocal
+      ? payload.payment
       : null;
+
+    const settlement = isRecord(
+      payload.settlement
+    )
+      ? payload.settlement
+      : {};
 
     const reconciliation = isRecord(
       payload.reconciliation
@@ -133,8 +161,9 @@ export async function GET(
       : null;
 
     if (
+      !key ||
       !order ||
-      !payglocal ||
+      !payment ||
       !reconciliation
     ) {
       throw new Error(
@@ -149,15 +178,17 @@ export async function GET(
     if (
       responseOrderId !== orderId ||
       reconciliation.identity_verified !==
-        true
+        true ||
+      payment.identity_verified !== true
     ) {
       throw new Error(
         "Payment status identity verification failed"
       );
     }
 
-    return privateJson({
+    const result: LivePaymentStatusResponse = {
       ok: true,
+      providerKey: key,
       order: {
         orderId: responseOrderId,
         orderNumber: boundedString(
@@ -179,45 +210,144 @@ export async function GET(
         ),
       },
       payment: {
-        provider: "PayGlocal",
-        gid: boundedString(
-          payglocal.gid,
-          200
+        provider:
+          boundedString(
+            payment.provider,
+            80
+          ) ||
+          (key === "zoho"
+            ? "Zoho Payments"
+            : "PayGlocal"),
+        providerKey: key,
+        paymentId: boundedString(
+          payment.payment_id,
+          240
         ),
-        status: boundedString(
-          payglocal.status,
-          80
+        sessionId: boundedString(
+          payment.session_id,
+          320
         ),
-        friendlyStatus: boundedString(
-          payglocal.friendly_status,
+        reference: boundedString(
+          payment.reference,
+          240
+        ),
+        transactionReference:
+          boundedString(
+            payment.transaction_reference,
+            240
+          ),
+        invoiceNumber: boundedString(
+          payment.invoice_number,
           160
         ),
+        paymentMethod: boundedString(
+          payment.payment_method,
+          120
+        ),
+        paymentMethodDetail:
+          boundedString(
+            payment.payment_method_detail,
+            160
+          ),
+        status: boundedString(
+          payment.status,
+          80
+        ),
+        friendlyStatus:
+          boundedString(
+            payment.friendly_status,
+            160
+          ),
         message: boundedString(
-          payglocal.message,
+          payment.message,
           500
         ),
-        detailedMessage: boundedString(
-          payglocal.detailed_message,
-          500
-        ),
+        detailedMessage:
+          boundedString(
+            payment.detailed_message,
+            500
+          ),
         reasonCode: boundedString(
-          payglocal.reason_code,
+          payment.reason_code,
           100
         ),
         amount: boundedString(
-          payglocal.amount,
+          payment.amount,
           40
         ),
         currency: boundedString(
-          payglocal.currency,
+          payment.currency,
           12
+        ),
+        feeAmount: boundedString(
+          payment.fee_amount,
+          40
+        ),
+        taxAmount: boundedString(
+          payment.tax_amount,
+          40
+        ),
+        totalFeeAmount:
+          boundedString(
+            payment.total_fee_amount,
+            40
+          ),
+        netAmount: boundedString(
+          payment.net_amount,
+          40
+        ),
+        paidAt: boundedString(
+          payment.paid_at,
+          80
         ),
         identityVerified: true,
       },
-    });
+      settlement: {
+        available:
+          settlement.available === true,
+        scopeRequired:
+          settlement.scope_required === true,
+        status: boundedString(
+          settlement.status,
+          80
+        ),
+        friendlyStatus:
+          boundedString(
+            settlement.friendly_status,
+            160
+          ) ||
+          "Settlement status unavailable",
+        payoutId: boundedString(
+          settlement.payout_id,
+          240
+        ),
+        amount: boundedString(
+          settlement.amount,
+          40
+        ),
+        currency: boundedString(
+          settlement.currency,
+          12
+        ),
+        initiatedAt: boundedString(
+          settlement.initiated_at,
+          80
+        ),
+        processedAt: boundedString(
+          settlement.processed_at,
+          80
+        ),
+        bankReference: boundedString(
+          settlement.bank_reference,
+          240
+        ),
+      },
+    };
+
+    return privateJson(result);
   } catch (error: unknown) {
     console.error(
-      "[payments:payglocal-status]",
+      "[payments:provider-status]",
       error instanceof Error
         ? error.message
         : "Unknown payment status error"
