@@ -20,7 +20,7 @@ import {
   Smartphone,
 } from "lucide-react";
 
-import PayGlocalPanel from "@/app/(dashboard)/settings/ui/payments/PayGlocalPanel";
+import ZohoPaymentsPanel from "@/app/(dashboard)/settings/ui/payments/ZohoPaymentsPanel";
 import UPIPanel from "@/app/(dashboard)/settings/ui/payments/UPIPanel";
 import BankTransferPanel from "@/app/(dashboard)/settings/ui/payments/BankTransferPanel";
 import CODPanel from "@/app/(dashboard)/settings/ui/payments/CODPanel";
@@ -49,6 +49,11 @@ const DEFAULT_VALUES:
     enabled: true,
     default_status:
       "processing",
+  },
+  zoho: {
+    enabled: false,
+    gateway_id:
+      "zpay",
   },
   payglocal: {
     enabled: false,
@@ -216,9 +221,9 @@ export default function PaymentsTab() {
       "general.enabled"
     );
 
-  const payglocalEnabled =
+  const zohoEnabled =
     watch(
-      "payglocal.enabled"
+      "zoho.enabled"
     );
 
   const upiEnabled =
@@ -290,6 +295,17 @@ export default function PaymentsTab() {
               data.general
                 ?.default_status ||
               "processing",
+          },
+          zoho: {
+            enabled:
+              Boolean(
+                data.zoho
+                  ?.enabled
+              ),
+            gateway_id:
+              data.zoho
+                ?.gateway_id ||
+              "zpay",
           },
           payglocal: {
             enabled:
@@ -456,7 +472,7 @@ export default function PaymentsTab() {
       let count = 0;
 
       if (
-        payglocalEnabled
+        zohoEnabled
       ) {
         count += 1;
       }
@@ -475,7 +491,7 @@ export default function PaymentsTab() {
 
       return count;
     }, [
-      payglocalEnabled,
+      zohoEnabled,
       upiEnabled,
       bankEnabled,
       codEnabled,
@@ -784,17 +800,17 @@ export default function PaymentsTab() {
                   icon={
                     <CreditCard className="h-4.5 w-4.5" />
                   }
-                  title="PayGlocal"
-                  description="Online gateway with automatic payment confirmation."
+                  title="Zoho Payments"
+                  description="Secure online gateway with automatic payment confirmation and settlement reporting."
                   enabled={
                     Boolean(
-                      payglocalEnabled
+                      zohoEnabled
                     )
                   }
                   onToggle={() =>
                     toggleField(
-                      "payglocal.enabled",
-                      !payglocalEnabled
+                      "zoho.enabled",
+                      !zohoEnabled
                     )
                   }
                   badge={
@@ -803,7 +819,7 @@ export default function PaymentsTab() {
                     </span>
                   }
                 >
-                  <PayGlocalPanel />
+                  <ZohoPaymentsPanel />
                 </MethodCard>
 
                 <MethodCard

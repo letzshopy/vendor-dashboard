@@ -4,6 +4,11 @@ export interface PaymentsFormValues {
     default_status: string;
   };
 
+  zoho: {
+    enabled: boolean;
+    gateway_id?: string;
+  };
+
   payglocal: {
     enabled: boolean;
     gateway_id?: string;

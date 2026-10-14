@@ -89,6 +89,9 @@ function paymentMethodKind(
       .trim()
       .toLowerCase()
   ) {
+    case "zpay":
+      return "zoho";
+
     case "payglocal_payment_gateway":
       return "payglocal";
 
@@ -112,8 +115,11 @@ function methodTitle(
   originalMethod: string
 ): string {
   switch (kind) {
+    case "zoho":
+      return "Zoho Payments";
+
     case "payglocal":
-      return "PayGlocal";
+      return "PayGlocal (Legacy)";
 
     case "manual_upi":
       return "Manual UPI";
@@ -139,11 +145,14 @@ function paymentStatus(
   paidRecorded: boolean,
   manualUpi: ManualUpiPaymentData | null
 ): PaymentLedgerStatus {
-  if (kind === "payglocal") {
+  if (
+    kind === "zoho" ||
+    kind === "payglocal"
+  ) {
     return {
       code: "check-live-status",
       label: "Check live status",
-      source: "payglocal-live-required",
+      source: "provider-live-required",
     };
   }
 
@@ -285,6 +294,43 @@ function paymentReference(
   order: PaymentLedgerOrderLike,
   manualUpi: ManualUpiPaymentData | null
 ): PaymentReference | null {
+  if (kind === "zoho") {
+    const paymentId = exactMeta(
+      order,
+      "payment_id"
+    );
+
+    if (paymentId) {
+      return {
+        label: "Zoho Payment ID",
+        value: paymentId,
+      };
+    }
+
+    const sessionId = exactMeta(
+      order,
+      "zpay_payment_session_id"
+    );
+
+    if (sessionId) {
+      return {
+        label: "Zoho Payment Session",
+        value: sessionId,
+      };
+    }
+
+    const transactionId = textValue(
+      order.transaction_id
+    );
+
+    return transactionId
+      ? {
+          label: "Zoho reference",
+          value: transactionId,
+        }
+      : null;
+  }
+
   if (kind === "payglocal") {
     const gid = exactMeta(
       order,
@@ -471,11 +517,13 @@ export function normalizePaymentLedgerRow(
 
     manualUpi,
 
-    payglocal:
+    gateway:
+      kind === "zoho" ||
       kind === "payglocal"
         ? {
             requiresLiveStatus: true,
             live: null,
+            settlement: null,
           }
         : null,
   };

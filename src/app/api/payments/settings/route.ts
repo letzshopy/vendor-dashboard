@@ -49,6 +49,10 @@ type PaymentSettings = {
     enabled: boolean;
     notes: string;
   };
+  zoho: {
+    enabled: boolean;
+    gateway_id: string;
+  };
   payglocal: {
     enabled: boolean;
     gateway_id: string;
@@ -140,6 +144,7 @@ function normalizeSettings(
 ): PaymentSettings {
   const root = isRecord(value) ? value : {};
   const general = section(root, "general");
+  const zoho = section(root, "zoho");
   const payglocal = section(root, "payglocal");
   const upi = section(root, "upi");
   const bank = section(root, "bank");
@@ -155,6 +160,16 @@ function normalizeSettings(
       default_status: cleanStatus(
         general.default_status
       ),
+    },
+    zoho: {
+      enabled: boolValue(
+        zoho.enabled
+      ),
+      gateway_id:
+        boundedText(
+          zoho.gateway_id,
+          160
+        ) || "zpay",
     },
     payglocal: {
       enabled: boolValue(
@@ -335,6 +350,28 @@ function asWooGateway(
   };
 }
 
+function findZohoGateway(
+  gateways: WooGateway[],
+  configuredId: string
+): WooGateway | undefined {
+  const gatewayId =
+    configuredId || "zpay";
+
+  return (
+    gateways.find(
+      (gateway) =>
+        gateway.id === gatewayId
+    ) ||
+    gateways.find((gateway) => {
+      const text =
+        `${gateway.id} ${gateway.title} ${gateway.description}`
+          .toLowerCase();
+
+      return text.includes("zoho");
+    })
+  );
+}
+
 function findPayGlocalGateway(
   gateways: WooGateway[],
   configuredId: string
@@ -395,6 +432,19 @@ export async function GET() {
           ): gateway is WooGateway =>
             gateway !== null
         );
+
+      const zohoGateway =
+        findZohoGateway(
+          gateways,
+          settings.zoho.gateway_id
+        );
+
+      if (zohoGateway) {
+        settings.zoho.enabled =
+          gatewayEnabled(
+            zohoGateway.enabled
+          );
+      }
 
       const payglocalGateway =
         findPayGlocalGateway(
@@ -511,6 +561,9 @@ async function handleSave(
       cheque:
         acceptPayments &&
         body.cheque.enabled,
+      zoho:
+        acceptPayments &&
+        body.zoho.enabled,
       payglocal:
         acceptPayments &&
         body.payglocal.enabled,
@@ -577,6 +630,19 @@ async function handleSave(
       "cheque",
       enableMap.cheque
     );
+
+    const zohoGateway =
+      findZohoGateway(
+        gateways,
+        body.zoho.gateway_id
+      );
+
+    if (zohoGateway) {
+      queueToggle(
+        zohoGateway.id,
+        enableMap.zoho
+      );
+    }
 
     const payglocalGateway =
       findPayGlocalGateway(

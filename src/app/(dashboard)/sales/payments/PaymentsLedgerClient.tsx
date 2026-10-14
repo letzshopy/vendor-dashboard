@@ -40,11 +40,15 @@ import {
 } from "@/components/ui/status-badge";
 import type {
   CurrencyTotal,
-  PayGlocalLivePayment,
   PaymentLedgerMethodFilter,
   PaymentLedgerResponse,
   PaymentLedgerRow,
 } from "@/types/payment-ledger";
+import type {
+  LivePaymentStatusResponse,
+  LiveProviderPayment,
+  LiveSettlement,
+} from "@/types/provider-payment";
 
 type Filters = {
   search: string;
@@ -58,16 +62,9 @@ type LiveState = {
   loading: boolean;
   error: string;
   payment:
-    PayGlocalLivePayment | null;
-};
-
-type LivePayload = {
-  ok: true;
-  order: {
-    orderId: number;
-  };
-  payment:
-    PayGlocalLivePayment;
+    LiveProviderPayment | null;
+  settlement:
+    LiveSettlement | null;
 };
 
 const METHOD_OPTIONS: Array<{
@@ -80,8 +77,12 @@ const METHOD_OPTIONS: Array<{
     label: "All methods",
   },
   {
+    value: "zoho",
+    label: "Zoho Payments",
+  },
+  {
     value: "payglocal",
-    label: "PayGlocal",
+    label: "PayGlocal (Legacy)",
   },
   {
     value: "manual_upi",
@@ -365,7 +366,7 @@ function FilterFields({
                 .value
             )
           }
-          placeholder="Order, customer, UTR, GID"
+          placeholder="Order, customer, payment ID, UTR"
         />
       </div>
 
@@ -741,9 +742,10 @@ export default function PaymentsLedgerClient() {
           PaymentLedgerRow
       ) => {
         if (
-          row.paymentMethod
-            .kind !==
-          "payglocal"
+          row.paymentMethod.kind !==
+            "zoho" &&
+          row.paymentMethod.kind !==
+            "payglocal"
         ) {
           return;
         }
@@ -758,6 +760,11 @@ export default function PaymentsLedgerClient() {
                 current[
                   row.orderId
                 ]?.payment ||
+                null,
+              settlement:
+                current[
+                  row.orderId
+                ]?.settlement ||
                 null,
             },
           })
@@ -799,7 +806,7 @@ export default function PaymentsLedgerClient() {
           }
 
           const result =
-            payload as unknown as LivePayload;
+            payload as unknown as LivePaymentStatusResponse;
 
           if (
             result.ok !==
@@ -825,6 +832,8 @@ export default function PaymentsLedgerClient() {
                 error: "",
                 payment:
                   result.payment,
+                settlement:
+                  result.settlement,
               },
             })
           );
@@ -847,6 +856,11 @@ export default function PaymentsLedgerClient() {
                     row.orderId
                   ]?.payment ||
                   null,
+                settlement:
+                  current[
+                    row.orderId
+                  ]?.settlement ||
+                  null,
               },
             })
           );
@@ -865,9 +879,12 @@ export default function PaymentsLedgerClient() {
     const queue =
       data.rows.filter(
         (row) =>
-          row.paymentMethod
-            .kind ===
-            "payglocal" &&
+          (
+            row.paymentMethod.kind ===
+              "zoho" ||
+            row.paymentMethod.kind ===
+              "payglocal"
+          ) &&
           !requestedLiveOrderIds.current.has(
             row.orderId
           )
@@ -982,9 +999,10 @@ export default function PaymentsLedgerClient() {
       ];
 
     if (
-      row.paymentMethod
-        .kind ===
-      "payglocal"
+      row.paymentMethod.kind ===
+        "zoho" ||
+      row.paymentMethod.kind ===
+        "payglocal"
     ) {
       if (
         live?.payment
@@ -1015,13 +1033,103 @@ export default function PaymentsLedgerClient() {
     row:
       PaymentLedgerRow
   ) {
-    return (
+    const live =
       liveByOrder[
         row.orderId
-      ]?.payment?.gid ||
+      ]?.payment;
+
+    return (
+      live?.transactionReference ||
+      live?.paymentId ||
+      live?.reference ||
       row.reference
         ?.value ||
       ""
+    );
+  }
+
+  function feeFor(
+    row:
+      PaymentLedgerRow
+  ): string {
+    const payment =
+      liveByOrder[
+        row.orderId
+      ]?.payment;
+
+    if (
+      !payment ||
+      payment.providerKey !==
+        "zoho"
+    ) {
+      return "—";
+    }
+
+    const amount =
+      payment.totalFeeAmount ||
+      payment.feeAmount;
+
+    return amount
+      ? formatMoney(
+          amount,
+          payment.currency ||
+            row.currency
+        )
+      : "—";
+  }
+
+  function netFor(
+    row:
+      PaymentLedgerRow
+  ): string {
+    const payment =
+      liveByOrder[
+        row.orderId
+      ]?.payment;
+
+    if (
+      !payment ||
+      payment.providerKey !==
+        "zoho" ||
+      !payment.netAmount
+    ) {
+      return "—";
+    }
+
+    return formatMoney(
+      payment.netAmount,
+      payment.currency ||
+        row.currency
+    );
+  }
+
+  function settlementFor(
+    row:
+      PaymentLedgerRow
+  ): string {
+    const state =
+      liveByOrder[
+        row.orderId
+      ];
+
+    if (
+      state?.payment
+        ?.providerKey !== "zoho"
+    ) {
+      return "—";
+    }
+
+    if (
+      state.settlement
+        ?.scopeRequired
+    ) {
+      return "Authorization needed";
+    }
+
+    return (
+      state.settlement
+        ?.friendlyStatus ||
+      "Pending settlement"
     );
   }
 
@@ -1205,7 +1313,7 @@ export default function PaymentsLedgerClient() {
               Payment transactions
             </h2>
             <p className="mt-0.5 hidden text-xs text-muted-foreground md:block">
-              PayGlocal status refreshes automatically for visible rows.
+              Zoho Payments and legacy PayGlocal status refresh automatically for visible rows.
             </p>
           </div>
 
@@ -1354,6 +1462,42 @@ export default function PaymentsLedgerClient() {
                         </div>
                       </div>
 
+                      {row.paymentMethod.kind ===
+                        "zoho" ? (
+                        <div className="mt-2 grid grid-cols-3 gap-2 rounded-lg bg-surface-soft px-2.5 py-2">
+                          <div>
+                            <div className="text-[9px] font-bold uppercase tracking-wide text-muted-foreground">
+                              Fee
+                            </div>
+                            <div className="mt-0.5 text-[11px] font-bold text-heading">
+                              {feeFor(
+                                row
+                              )}
+                            </div>
+                          </div>
+                          <div>
+                            <div className="text-[9px] font-bold uppercase tracking-wide text-muted-foreground">
+                              Net
+                            </div>
+                            <div className="mt-0.5 text-[11px] font-bold text-emerald-700">
+                              {netFor(
+                                row
+                              )}
+                            </div>
+                          </div>
+                          <div>
+                            <div className="text-[9px] font-bold uppercase tracking-wide text-muted-foreground">
+                              Settlement
+                            </div>
+                            <div className="mt-0.5 text-[10px] font-bold text-heading">
+                              {settlementFor(
+                                row
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      ) : null}
+
                       <div className="mt-2.5 flex flex-wrap items-center gap-2">
                         <StatusBadge
                           status={
@@ -1421,7 +1565,7 @@ export default function PaymentsLedgerClient() {
             </div>
 
             <div className="hidden overflow-x-auto md:block">
-              <table className="w-full min-w-[1000px] text-sm">
+              <table className="w-full min-w-[1320px] text-sm">
                 <thead>
                   <tr className="border-b border-border bg-surface-soft text-left text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
                     {[
@@ -1430,7 +1574,10 @@ export default function PaymentsLedgerClient() {
                       "Method",
                       "Payment",
                       "Woo status",
-                      "Amount",
+                      "Gross",
+                      "Fee",
+                      "Net",
+                      "Settlement",
                       "Reference",
                       "Date",
                     ].map(
@@ -1550,6 +1697,34 @@ export default function PaymentsLedgerClient() {
                               row.amount,
                               row.currency
                             )}
+                          </td>
+
+                          <td className="whitespace-nowrap px-4 py-3.5 text-xs font-semibold text-foreground">
+                            {feeFor(
+                              row
+                            )}
+                          </td>
+
+                          <td className="whitespace-nowrap px-4 py-3.5 text-xs font-extrabold text-emerald-700">
+                            {netFor(
+                              row
+                            )}
+                          </td>
+
+                          <td className="max-w-[190px] px-4 py-3.5">
+                            <StatusBadge
+                              status={settlementFor(
+                                row
+                              )}
+                              label={settlementFor(
+                                row
+                              )}
+                              tone={toneForPayment(
+                                settlementFor(
+                                  row
+                                )
+                              )}
+                            />
                           </td>
 
                           <td className="max-w-[220px] px-4 py-3.5">

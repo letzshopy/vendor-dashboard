@@ -1,4 +1,10 @@
+import type {
+  LiveProviderPayment,
+  LiveSettlement,
+} from "@/types/provider-payment";
+
 export type PaymentMethodKind =
+  | "zoho"
   | "payglocal"
   | "manual_upi"
   | "bank_transfer"
@@ -17,8 +23,8 @@ export type PaymentLedgerStatusCode =
   | "unknown";
 
 export type PaymentLedgerStatusSource =
-  | "payglocal-live-required"
-  | "payglocal-live"
+  | "provider-live-required"
+  | "provider-live"
   | "manual-upi"
   | "woocommerce"
   | "unavailable";
@@ -38,19 +44,6 @@ export type ManualUpiPaymentData = {
   transactionId: string;
   verifiedAt: string;
   proofAvailable: boolean;
-};
-
-export type PayGlocalLivePayment = {
-  provider: "PayGlocal";
-  gid: string;
-  status: string;
-  friendlyStatus: string;
-  message: string;
-  detailedMessage: string;
-  reasonCode: string;
-  amount: string;
-  currency: string;
-  identityVerified: true;
 };
 
 export type PaymentLedgerRow = {
@@ -87,9 +80,10 @@ export type PaymentLedgerRow = {
 
   manualUpi: ManualUpiPaymentData | null;
 
-  payglocal: {
+  gateway: {
     requiresLiveStatus: boolean;
-    live: PayGlocalLivePayment | null;
+    live: LiveProviderPayment | null;
+    settlement: LiveSettlement | null;
   } | null;
 };
 
@@ -102,6 +96,7 @@ export type PaymentLedgerSummary = {
   totalTransactions: number;
 
   methods: {
+    zoho: number;
     payglocal: number;
     manualUpi: number;
     bankTransfer: number;
